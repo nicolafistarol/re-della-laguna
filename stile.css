@@ -515,3 +515,7 @@ button .lic{margin-right:2px}
 .tv-scelta{display:flex;flex-direction:column;gap:5px;padding:10px;border-radius:12px;margin:6px 0;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04)}
 .tv-scelta b{display:flex;gap:6px;align-items:center}.tv-scelta b .lic{width:16px;height:16px}
 .tv-scelta>button{align-self:flex-start}
+/* il telefono scorre sempre: home e app */
+.home2{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.app-corpo{min-height:0;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.schermo{min-height:0}
