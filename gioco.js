@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=42";
+import { ico } from "./icone.js?v=43";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=42";
-import * as Pano from "./panorama.js?v=42";
+import * as Tre from "./tre.js?v=43";
+import * as Pano from "./panorama.js?v=43";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=42";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=43";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -185,6 +185,7 @@ async function avvio() {
   utente = session?.user || null;
   const loc = leggiLocale();
   if (!utente) return schermataNome();
+  if (codiceDalLink()) return entraConCodice(codiceDalLink());
   if (loc.partita && loc.mioId) {
     partita = loc.partita; mioId = loc.mioId;
     const { data } = await db.from("partite_pubbliche").select("*").eq("id", partita).maybeSingle();
@@ -220,9 +221,18 @@ function schermataProvaLocale(seed) {
   disegna();
 }
 function schermoIngresso(html) { $("#mondo").style.display = "none"; $("#telefonoBox").innerHTML = ""; sfondo("img/laguna.jpg"); $("#sfondo").style.filter = "none"; $("#radice").innerHTML = `<div class="ingresso">${html}</div>`; }
+// il codice d'invito puo' arrivare nel link: ?codice=PALMA-4821
+function codiceDalLink() { const m = /[?&]codice=([A-Za-z]+-\d+)/.exec(location.search); return m ? m[1].toUpperCase() : ""; }
+async function entraConCodice(codice) {
+  const r = await chiama({ comando: "entra", codice, nome: nomeMio() });
+  if (r.errore) { toast(r.errore); return schermataCasa(); }
+  history.replaceState(null, "", location.pathname);
+  partita = r.partita; mioId = r.player; salvaLocale(); sala();
+}
 function schermataNome() {
+  const cod = codiceDalLink();
   schermoIngresso(`<div class="cartaI vetro">
-    <span class="kick" style="color:var(--oro)">Benvenuto nella Laguna</span>
+    <span class="kick" style="color:var(--oro)">${cod ? "Ti hanno invitato a una partita · codice " + esc(cod) : "Benvenuto nella Laguna"}</span>
     <span class="serif" style="font-size:52px;line-height:1">Re della Laguna</span>
     <div class="campo"><label for="nome">Come ti chiami?</label><input id="nome" maxlength="24" placeholder="Il tuo nome"></div>
     <button class="oro grande" id="entra">Entra</button>
@@ -231,7 +241,7 @@ function schermataNome() {
     const nome = $("#nome").value.trim(); if (!nome) return toast("Scrivi il tuo nome.");
     const { data, error } = await sb.auth.signInAnonymously({ options: { data: { nome } } });
     if (error) return toast("Non riesco a farti entrare: " + error.message);
-    utente = data.user; schermataCasa();
+    utente = data.user; if (cod) return entraConCodice(cod); schermataCasa();
   };
 }
 function nomeMio() { return utente?.user_metadata?.nome || "Giocatore"; }
@@ -242,8 +252,12 @@ function schermataCasa() {
     schermoIngresso(`<div class="cartaI vetro" style="width:min(560px,94vw)">
       <span class="kick" style="color:var(--oro)">Ciao ${esc(nomeMio())}</span>
       <span class="serif" style="font-size:44px;line-height:1">Re della Laguna</span>
+      <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px;border:1px solid rgba(79,195,247,.6)">
+        <b>Un amico ti ha invitato? Scrivi il codice</b>
+        <div class="riga"><input id="codice" placeholder="es. PALMA-4821" style="flex:1;text-transform:uppercase"><button class="oro" id="unisciti">Entra</button></div>
+      </div>
       <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">
-        <b>Crea una partita</b>
+        <b>Oppure crea tu una partita</b>
         <div class="posto"><div class="pall" style="background:var(--oro)">${esc(nomeMio()[0] || "T")}</div><span style="flex:1">${esc(nomeMio())} (tu)</span></div>
         ${righe.map((r, i) => `<div class="posto"><div class="pall" style="background:${r.tipo === "amico" ? "#4fc3f7" : "#8a8a8a"}">${i + 2}</div>
           <select data-i="${i}" class="tipo" style="flex:1"><option value="amico" ${r.tipo === "amico" ? "selected" : ""}>Posto per un amico</option>${STR.map((s) => `<option value="${s}" ${r.tipo === "computer" && r.strat === s ? "selected" : ""}>Computer: ${s}</option>`).join("")}</select></div>`).join("")}
@@ -253,10 +267,7 @@ function schermataCasa() {
         <button class="oro grande" id="crea">Crea la partita</button>
         <a class="piccolo" href="?locale&nuova" style="align-self:center;color:var(--muted)">Oppure prova da solo contro 3 giocatori-computer (senza internet)</a>
       </div>${tastoGuida()}
-      <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">
-        <b>Hai un codice d'invito?</b>
-        <div class="riga"><input id="codice" placeholder="es. PALMA-4821" style="flex:1;text-transform:uppercase"><button class="bianco" id="unisciti">Entra</button></div>
-      </div></div>`);
+</div>`);
     document.querySelectorAll(".tipo").forEach((s) => s.onchange = () => { const r = righe[s.dataset.i]; if (s.value === "amico") { r.tipo = "amico"; r.strat = null; } else { r.tipo = "computer"; r.strat = s.value; } });
     $("#princ").onchange = (e) => { principianti = e.target.checked; try { localStorage.setItem("laguna_guidata", principianti ? "1" : "0"); } catch (er) { } };
     collegaDurata(disegnaCasa); collegaTastoGuida(); if (guidaMaiVista()) apriGuida(0);
@@ -290,7 +301,8 @@ async function sala() {
       <span class="kick" style="color:var(--oro)">Sala d'attesa</span>
       <span class="kick" style="color:var(--muted)">Codice d'invito</span>
       <div class="riga"><span class="serif" style="font-size:44px;letter-spacing:.04em">${esc(p.codice)}</span><button class="piccolo" id="copia">Copia</button></div>
-      <span class="sub">Manda il codice agli amici: aprono questa pagina, scrivono il nome e il codice.</span>
+      <span class="sub">Manda agli amici il <b>link d'invito</b>: lo aprono, scrivono il nome ed entrano da soli. Oppure dài il codice: lo scrivono nel riquadro "Un amico ti ha invitato?".</span>
+      <button class="oro" id="copiaLink">📋 Copia il link d'invito</button>
       ${(g || []).map((x) => `<div class="posto"><div class="pall" style="background:${x.bot ? "#8a8a8a" : x.user_id ? "#4fc3f7" : "transparent;border:2px dashed rgba(255,255,255,.4)"}">${x.user_id || x.bot ? esc(x.nome[0]) : ""}</div>
         <span style="flex:1"><b>${x.user_id || x.bot ? esc(x.nome) : "Posto libero"}</b>${x.player_id === mioId ? " (tu)" : ""}</span>
         <span style="font-size:12px;color:${x.user_id && !x.bot ? "var(--pulito)" : "var(--muted)"}">${x.bot ? "Computer" : x.user_id ? "Pronto" : "In attesa"}</span></div>`).join("")}
@@ -298,6 +310,7 @@ async function sala() {
       ${tastoGuida()}<button class="piccolo" id="esci" style="align-self:flex-start">Esci dalla sala</button></div>`);
     collegaTastoGuida();
     $("#copia").onclick = () => { navigator.clipboard?.writeText(p.codice).then(() => toast("Codice copiato."), () => { }); };
+    $("#copiaLink").onclick = () => { const link = location.origin + location.pathname + "?codice=" + p.codice; navigator.clipboard?.writeText(link).then(() => toast("Link copiato: incollalo in WhatsApp."), () => prompt("Copia questo link:", link)); };
     $("#esci").onclick = () => { clearInterval(timerSala); try { localStorage.removeItem("laguna_online"); } catch (e) { } partita = null; schermataCasa(); };
     if ($("#inizia")) $("#inizia").onclick = async () => {
       clearInterval(timerSala);
