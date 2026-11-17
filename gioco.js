@@ -62,7 +62,7 @@ function esciDallaPartita(msg) {
   if (canale) { sb.removeChannel(canale); canale = null; }
   clearInterval(timerVista); S = null; partita = null; mioId = null; telAperto = false; app = null;
   document.querySelectorAll(".velo").forEach((x) => x.remove());
-  if (LOCALE) { location.href = location.pathname; return; }
+  if (LOCALE) { location.href = location.pathname + "?locale&nuova"; return; } // nella prova da solo si torna alla schermata della prova
   schermataCasa(); if (msg) toast(msg);
 }
 function salvaLocale() { try { localStorage.setItem("laguna_online", JSON.stringify({ partita, mioId })); } catch (e) { } }
@@ -2105,7 +2105,7 @@ function fine() {
     <p class="kick" style="color:var(--muted);margin-top:14px">I titoli</p>${S.titoli.map((t) => `<p><b>${esc(t.titolo)}:</b> ${esc(t.a)}</p>`).join("")}
     ${S.resa && S.resa.length ? `<p class="kick" style="color:var(--sporco);margin-top:14px">La Resa dei conti</p>${S.resa.map((r) => `<p><b>${esc(r.nome)}</b>: reato ${esc(r.gravita)}, multa ${euro(r.multa)}${r.sporchi ? `, confiscati ${euro(r.sporchi)} sporchi` : ""}</p>`).join("")}` : S.resaAnnunciata ? `<p class="kick" style="color:var(--muted);margin-top:14px">La Resa dei conti</p><p>La Procura non ha condannato nessuno.</p>` : ""}
     <p class="kick" style="color:var(--muted);margin-top:14px">Le sette</p>${S.rivelazione.length ? S.rivelazione.map((r) => `<p><b style="color:var(--setta)">${esc(r.setta)}</b> — Gran Maestro ${esc(r.gm)}, membri: ${r.membri.map(esc).join(", ")}, tesoro ${euro(r.tesoro)}</p>`).join("") : "<p>Nessuna setta è nata in questa partita.</p>"}
-    <div class="pulsanti"><button class="oro" id="nuova">Nuova partita</button></div>`, (d, c) => d.querySelector("#nuova").onclick = () => { c(); try { localStorage.removeItem("laguna_online"); } catch (e) { } S = null; partita = null; schermataCasa(); });
+    <div class="pulsanti"><button class="oro" id="nuova">Nuova partita</button></div>`, (d, c) => d.querySelector("#nuova").onclick = () => { c(); if (LOCALE) { try { localStorage.removeItem("laguna_locale"); } catch (e) { } location.href = location.pathname + "?locale&nuova"; return; } try { localStorage.removeItem("laguna_online"); } catch (e) { } S = null; partita = null; schermataCasa(); });
 }
 
 for (const f of ["laguna", "marina", "mappa", ...Object.values(SCENE).map((x) => x.slice(4, -4))]) { const i = new Image(); i.src = "img/" + f + ".jpg"; }
