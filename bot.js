@@ -116,7 +116,9 @@
           })(o, i, n);
           if (r) return r;
           const a = (function (o, t, i) {
-            if ("Costruttore" === i && t.cash > 12e5 && Math.random() < 0.5) return { tipo: "piano", funzione: "appartamenti" };
+            const casinoOk = (o.licenze || []).includes(t.id) && !(t.funzioniPiani || []).includes("casino_privato");
+            if (t.piani > 0 && casinoOk && ["Costruttore", "Spavaldo", "Furbo"].includes(i) && t.cash > 15e5 && Math.random() < 0.4) return { tipo: "piano", funzione: "casino_privato" };
+            if ("Costruttore" === i && t.cash > 12e5 && Math.random() < 0.5) return { tipo: "piano", funzione: t.piani % 5 === 4 && !(t.funzioniPiani || []).includes("spa") ? "spa" : "appartamenti" };
             const r = e(o, t, !0),
               n = r ? { tipo: "costruisci", lotto: r.l.id, attivita: 0 === r.l.lvl ? r.tipo : void 0 } : null;
             return (
@@ -151,6 +153,11 @@
             (i._n && i._n.ciclo === o.ciclo) || (i._n = { ciclo: o.ciclo, visti: [], ric: !1, corr: !1, aspettato: 0 });
             const l = i._n;
             if (n.serate && n.serate[i.id]) return c >= 5 ? { tipo: "torna_a_casa" } : { tipo: "aspetta" }; // chi ospita resta a casa
+            // se una persona vera e' nello stesso posto, a volte il bot si fa avanti
+            if (s !== "palazzo" && !l.proposto && !n.chiuso[i.id] && !n.viaggio[i.id]) {
+              const umano = o.players.find((x) => !x.bot && x.id !== i.id && !o.notteFatti[x.id] && x.faro === 0 && !n.viaggio[x.id] && n.dove[x.id] === s);
+              if (umano && Math.random() < 0.35) { l.proposto = !0; return ["Spavaldo", "Furbo", "Esperto"].includes(e) && i.cash + i.sporchi > 1e6 ? { tipo: "incontro", a: umano.id, cosa: "sfida", importo: 1e5 } : { tipo: "incontro", a: umano.id, cosa: "drink" }; }
+            }
             // le serate nei casino' privati degli altri
             const osp = n.ospite && n.ospite[i.id];
             if (osp) { if (!l.giocato && i.cash > 1e6) { l.giocato = !0; return { tipo: "gioca_serata", importo: 1e5 }; } return c >= 4 ? { tipo: "torna_a_casa" } : { tipo: "aspetta" }; }

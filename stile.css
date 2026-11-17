@@ -351,3 +351,27 @@ button .lic{margin-right:2px}
 .scena .persona:hover{border-color:var(--oro)}
 .scena.con-pano .scena-testa .qui-altri{pointer-events:auto}
 .pano-punto.persona .anello{border-color:var(--oro);background:rgba(30,20,5,.6)}
+
+/* telefono di notte: piu' spazio alla scena */
+@media(max-width:700px){
+  body.di-notte .chips{display:none}
+  body.di-notte .hud-alto{top:8px;left:8px;right:8px}
+  body.di-notte .saldo{padding:6px 10px}
+  body.di-notte .saldo .tot{font-size:20px}
+  body.di-notte .saldo .ri,body.di-notte .saldo>div:last-child{font-size:11px}
+  body.di-notte .fase{font-size:13px;padding:6px 10px}
+  .scena-dentro{top:96px;bottom:10px;gap:8px}
+  .scena.con-pano .scena-dentro{gap:6px}
+  .scena-testa h1{font-size:26px;margin:2px 0}
+  .scena .sala .sub{display:none}
+  .scena.con-pano .righe{max-height:64px;font-size:12px}
+  .scena.con-pano .righe p{font-size:12px}
+  .scena.con-pano .scelta{padding:8px 10px}
+  .scena.con-pano .scelta b{font-size:14px}
+  .scena-barra button{font-size:12px;padding:6px 10px}
+  .pano-punto .etich{font-size:11px;max-width:150px}
+  .pano-punto .anello{width:38px;height:38px}
+  .pano-aiuto{font-size:13px;padding:8px 12px}
+  .scena .appunt{font-size:12px}
+}
+@media(max-width:700px){.pano-aiuto{top:30%}}
