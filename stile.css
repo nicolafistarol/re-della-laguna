@@ -169,8 +169,8 @@ table.cl{width:100%;border-collapse:collapse;font-size:14px}table.cl td,table.cl
 @media(max-width:900px){.chips{max-width:100%}.hud-alto{flex-wrap:wrap}.ticker,.racconto{display:none}.carta{bottom:92px}.tel{width:calc(100vw - 32px)}}
 @media(prefers-reduced-motion:reduce){.ped,.scia,.totale,.dadi-scena,.luce{transition:none}.ped.salto,.delta,.ped.io,.luce.viaggio,.luogo.chiamata .pin{animation:none}}
 
-.edificio{position:absolute;transform:translate(-50%,-115%);z-index:3;pointer-events:none;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6)) drop-shadow(0 0 0 var(--col));text-shadow:0 0 6px var(--col)}
-#mondo.notte .edificio{filter:drop-shadow(0 0 6px #ffd27a) brightness(1.3)}
+.edificio{position:absolute;transform:translate(-50%,-120%);z-index:3;pointer-events:none;line-height:0}
+#mondo.notte .edificio .lic{box-shadow:0 0 14px #ffd27a}
 .torre{position:absolute;transform:translate(-50%,-100%);z-index:4;pointer-events:none;display:flex;flex-direction:column;align-items:center;transform-origin:50% 100%}
 .torre .fusto{width:16px;height:var(--h);border-radius:3px 3px 0 0;border:2px solid #fff;background:repeating-linear-gradient(0deg,var(--col) 0 4px,rgba(255,255,255,.75) 4px 5px);box-shadow:0 0 14px var(--col);transition:height .8s}
 #mondo.notte .torre .fusto{background:repeating-linear-gradient(0deg,#1a1408 0 4px,#ffd27a 4px 5px);box-shadow:0 0 18px #ffb52e}
@@ -195,3 +195,24 @@ table.cl{width:100%;border-collapse:collapse;font-size:14px}table.cl td,table.cl
 .cas{cursor:pointer}
 .scheda-cas{position:fixed;z-index:45;width:250px;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:5px;font-size:13px;line-height:1.4;box-shadow:0 14px 30px rgba(0,0,0,.45)}
 .scheda-cas b{font-size:15px}
+
+.lic{width:1.1em;height:1.1em;vertical-align:-0.18em;flex-shrink:0}
+button .lic{margin-right:2px}
+.luogo .pin .lic{width:24px;height:24px;color:#2a1a05}
+.luogo.qui .pin .lic{color:#0a1730}
+.cas i .lic{width:13px;height:13px;color:#fff}
+.cas.ang i .lic{width:19px;height:19px;color:var(--oro)}
+.app .ico .lic{width:28px;height:28px;color:#fff}
+.ogg .ic .lic{width:24px;height:24px;color:#fff}
+.avatar .lic{width:20px;height:20px;color:#fff}
+.edificio{font-size:0}
+.edificio .lic{width:var(--s);height:var(--s);color:#fff;background:var(--col);border:2px solid #fff;border-radius:30%;padding:3px;box-sizing:border-box;box-shadow:0 3px 10px rgba(0,0,0,.6),0 0 10px var(--col)}
+.edificio.cant .lic{background:#f3c56b;color:#2a1a05}
+.appunt{display:flex;gap:8px;align-items:center;font-size:13px;line-height:1.4;padding:9px 12px;border-radius:12px;background:rgba(255,95,162,.14);border:1px solid rgba(255,95,162,.4)}
+.appunt span{flex:1}.appunt.ok{background:rgba(95,211,141,.14);border-color:rgba(95,211,141,.45)}.appunt.scad{opacity:.7}
+.cifre{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cifre div{border:1px solid var(--bordo);border-radius:12px;padding:9px;display:flex;flex-direction:column;background:rgba(255,255,255,.04)}
+.cifre b{font-size:16px}.cifre span{font-size:11px;color:var(--muted)}
+.liv{display:flex;gap:10px;align-items:flex-start;padding:5px 0}
+.liv-n{width:26px;height:26px;border-radius:50%;background:rgba(243,197,107,.2);color:var(--oro);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0}
+.liv.chiuso{opacity:.45}
