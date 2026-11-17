@@ -836,15 +836,15 @@
     { id: "festa", luogo: "club", sblocco: 0, legale: true, nome: "La festa privata", testo: "Al piano di sopra c'è una festa con gente che conta. L'ingresso costa caro.", costo: 50_000, fama: 4, pericoli: [] },
     { id: "giro_barca", luogo: "marina", sblocco: 0, legale: true, nome: "Il giro in barca", testo: "Un armatore offre un giro sotto le stelle a chi offre lo champagne.", costo: 80_000, fama: 5, pericoli: [] },
     { id: "vip", luogo: "club", sblocco: 1, nome: "Il VIP ubriaco", testo: "Un politico ha bevuto troppo e parla di cose che non dovrebbe. Basta stargli vicino.", costo: 20_000, prova: true, pericoli: ["fotografo"], tracce: 3, gravita: "lieve" },
-    { id: "container", luogo: "porto", sblocco: 1, nome: "Il container dimenticato", testo: "Un container senza bolla, il lucchetto già rotto. Nessuno lo reclama.", costo: 0, guadagno: [220_000, 350_000], pericoli: ["pattuglia"], tracce: 6, gravita: "media" },
-    { id: "orologi", luogo: "porto", sblocco: 1, nome: "Il carico di orologi", testo: "Un marinaio vende una cassa di orologi svizzeri. Contanti, subito.", costo: 200_000, guadagno: [610_000, 900_000], pericoli: ["pattuglia", "intercettazione"], tracce: 9, gravita: "media" },
-    { id: "mare", luogo: "marina", sblocco: 1, nome: "Il carico dal mare", testo: "Una barca senza luci aspetta al largo. Il carico va preso e portato a terra.", costo: 300_000, guadagno: [990_000, 1_440_000], pericoli: ["guardia", "pattuglia"], tracce: 12, gravita: "media" },
-    { id: "tavolo", luogo: "bisca", sblocco: 1, nome: "Il tavolo truccato", testo: "Il croupier è un amico. Stanotte le carte girano dalla tua parte, se paghi la sua parte.", costo: 100_000, guadagno: [300_000, 510_000], pericoli: ["testimone", "rissa"], tracce: 6, gravita: "lieve" },
-    { id: "refurtiva", luogo: "mercato", sblocco: 1, nome: "La merce rubata", testo: "Gioielli da un furto in villa. Il prezzo è un regalo, la provenienza no.", costo: 150_000, guadagno: [380_000, 540_000], pericoli: ["retata", "testimone"], tracce: 7, gravita: "media" },
-    { id: "quadri", luogo: "club", sblocco: 2, nome: "I quadri falsi", testo: "Un collezionista cerca chi venda due tele \"d'autore\" a un ricco turista.", costo: 200_000, guadagno: [670_000, 1_020_000], pericoli: ["testimone", "fotografo"], tracce: 10, gravita: "grave" },
-    { id: "pesce", luogo: "porto", sblocco: 2, nome: "Il peschereccio", testo: "Sotto il ghiaccio del pesce c'è altro. Va scaricato prima dell'alba.", costo: 350_000, guadagno: [1_120_000, 1_600_000], pericoli: ["pattuglia", "telecamere"], tracce: 13, gravita: "grave" },
-    { id: "colpo", luogo: "villa", sblocco: 3, nome: "Il Colpo alla villa", testo: "Il proprietario è in viaggio. In cassaforte, dicono, ci sono i gioielli di famiglia.", costo: 250_000, guadagno: [2_080_000, 3_040_000], pericoli: ["allarme", "telecamere"], tracce: 26, gravita: "grave" },
-    { id: "lingotti", luogo: "villa", sblocco: 3, nome: "I lingotti nella cantina", testo: "Il custode della villa ha debiti di gioco. Per una cifra giusta, lascia la porta aperta.", costo: 400_000, guadagno: [1_440_000, 2_080_000], pericoli: ["allarme", "testimone"], tracce: 18, gravita: "grave" },
+    { id: "container", luogo: "porto", sblocco: 1, nome: "Il container dimenticato", testo: "Un container senza bolla, il lucchetto già rotto. Nessuno lo reclama.", costo: 0, guadagno: [600_000, 960_000], pericoli: ["pattuglia"], tracce: 6, gravita: "media" },
+    { id: "orologi", luogo: "porto", sblocco: 1, nome: "Il carico di orologi", testo: "Un marinaio vende una cassa di orologi svizzeri. Contanti, subito.", costo: 200_000, guadagno: [1_680_000, 2_480_000], pericoli: ["pattuglia", "intercettazione"], tracce: 9, gravita: "media" },
+    { id: "mare", luogo: "marina", sblocco: 1, nome: "Il carico dal mare", testo: "Una barca senza luci aspetta al largo. Il carico va preso e portato a terra.", costo: 300_000, guadagno: [2_720_000, 3_960_000], pericoli: ["guardia", "pattuglia"], tracce: 12, gravita: "media" },
+    { id: "tavolo", luogo: "bisca", sblocco: 1, nome: "Il tavolo truccato", testo: "Il croupier è un amico. Stanotte le carte girano dalla tua parte, se paghi la sua parte.", costo: 100_000, guadagno: [820_000, 1_400_000], pericoli: ["testimone", "rissa"], tracce: 6, gravita: "lieve" },
+    { id: "refurtiva", luogo: "mercato", sblocco: 1, nome: "La merce rubata", testo: "Gioielli da un furto in villa. Il prezzo è un regalo, la provenienza no.", costo: 150_000, guadagno: [1_050_000, 1_490_000], pericoli: ["retata", "testimone"], tracce: 7, gravita: "media" },
+    { id: "quadri", luogo: "club", sblocco: 2, nome: "I quadri falsi", testo: "Un collezionista cerca chi venda due tele \"d'autore\" a un ricco turista.", costo: 200_000, guadagno: [1_840_000, 2_800_000], pericoli: ["testimone", "fotografo"], tracce: 10, gravita: "grave" },
+    { id: "pesce", luogo: "porto", sblocco: 2, nome: "Il peschereccio", testo: "Sotto il ghiaccio del pesce c'è altro. Va scaricato prima dell'alba.", costo: 350_000, guadagno: [3_080_000, 4_400_000], pericoli: ["pattuglia", "telecamere"], tracce: 13, gravita: "grave" },
+    { id: "colpo", luogo: "villa", sblocco: 3, nome: "Il Colpo alla villa", testo: "Il proprietario è in viaggio. In cassaforte, dicono, ci sono i gioielli di famiglia.", costo: 250_000, guadagno: [5_720_000, 8_360_000], pericoli: ["allarme", "telecamere"], tracce: 26, gravita: "grave" },
+    { id: "lingotti", luogo: "villa", sblocco: 3, nome: "I lingotti nella cantina", testo: "Il custode della villa ha debiti di gioco. Per una cifra giusta, lascia la porta aperta.", costo: 400_000, guadagno: [3_960_000, 5_720_000], pericoli: ["allarme", "testimone"], tracce: 18, gravita: "grave" },
   ];
   const INDIZI = {
     club: [["La musica è alta, la gente balla. Nessuno guarda nessuno.", "Il buttafuori ti saluta per nome. Tutto tranquillo."], ["Al bancone ci sono due uomini che non bevono.", "Un fotografo gira tra i tavoli più del solito."], ["Fuori dal club c'è un furgone con i vetri scuri, il motore acceso.", "Il barista ti fa segno di non fermarti troppo."]],
@@ -903,7 +903,7 @@
       if (!luogoAperto(s, l)) continue;
       const pool = OCCASIONI.filter((o) => o.luogo === l && o.sblocco <= lv);
       if (!pool.length) continue;
-      const quante = rng(s) < 0.55 ? 1 : 2;
+      const quante = rng(s) < 0.4 ? 1 : 2;
       for (let k = 0; k < quante && pool.length; k++) {
         const o = pool.splice(Math.floor(rng(s) * pool.length), 1)[0];
         const dalle = Math.floor(rng(s) * 3), alle = Math.min(6, dalle + 2 + Math.floor(rng(s) * 3));

@@ -309,8 +309,10 @@ function disegna() {
   </div>
   ${notte ? `<div class="racconto vetro"><span class="kick" style="color:var(--cielo)">La tua notte</span>${S.notte.racconto.map((r) => { const [o, t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t)}</p>`; }).join("")}</div>`
       : `<div class="ticker">${cron.map((r) => `<div class="${r.chi === mioId ? "mia" : ""}">${esc(r.testo)}</div>`).join("")}</div>`}
+  ${comandiVista()}
   <div class="carta vetro">${animando ? `<div class="sub">…</div>` : notte ? cartaNotte(me) : cartaGiorno(me)}</div>`;
   $("#occhio").onclick = () => { saldoNascosto = !saldoNascosto; disegna(); };
+  collegaComandiVista(me); applicaVista();
   const rc = document.querySelector(".racconto"); if (rc) rc.scrollTop = rc.scrollHeight;
   disegnaTelefono(me);
   if (animando) return;
@@ -336,7 +338,7 @@ function disegnaMappa(me, notte) {
     }).join("");
     const c = casellaDi(me);
     const [mx, my] = puntoMappa(disp[mioId] || me);
-    m.innerHTML = caselle + `<svg class="scia" viewBox="0 0 100 56.25" preserveAspectRatio="none"></svg>` + pedine +
+    m.innerHTML = caselle + edifici() + torri() + `<svg class="scia" viewBox="0 0 100 56.25" preserveAspectRatio="none"></svg>` + pedine +
       (c && !animando && S.fase === "giorno" ? `<div class="etichetta" style="left:${mx}%;top:${my}%"><b>${esc(c.nome)}</b>${c.isola ? `<span>${esc(L.NOMI_ISOLE[c.isola])}</span>` : ""}</div>` : "");
     return;
   }
@@ -356,8 +358,80 @@ function disegnaMappa(me, notte) {
     x += 2.2 + k * 1.4; y -= 2.5;
     return `<div class="luce ${N2.viaggio[p.id] ? "viaggio" : ""}" title="${esc(p.nome)}${N2.viaggio[p.id] ? " · in viaggio" : ""}" style="left:${x}%;top:${y}%;background:${p.colore};color:${p.colore};${p.id === mioId ? "width:20px;height:20px;margin:-10px 0 0 -10px" : ""}"></div>`;
   }).join("");
-  m.innerHTML = luoghi + luci;
+  m.innerHTML = edifici() + torri() + luoghi + luci;
   m.querySelectorAll(".luogo[data-luogo]").forEach((b) => b.onclick = () => chiediViaggio(me, b.dataset.luogo));
+}
+
+// gli edifici crescono: un disegno per ogni lotto costruito, e la torre del Palazzo di ognuno
+const ICO_LIV = ["", "🏠", "🏘️", "🏢", "🏨", "🏙️"];
+function edifici() {
+  return S.lotti.filter((l) => l.owner && (l.lvl > 0 || l.cantiere)).map((l) => {
+    const [x, y] = puntoMappa(l.giro === "i" ? { inner: true, ipos: l.idx } : { inner: false, pos: l.idx });
+    const own = S.players.find((p) => p.id === l.owner);
+    const lv = l.cantiere ? 0 : l.lvl, size = 15 + lv * 5;
+    return `<div class="edificio" title="${esc(l.nome)}" style="left:${x}%;top:${y}%;font-size:${size}px;--col:${own.colore}">${l.cantiere ? "🏗️" : ICO_LIV[lv]}</div>`;
+  }).join("");
+}
+function torri() {
+  const conta = {};
+  return S.players.filter((p) => p.piani > 0).map((p) => {
+    const isola = isolaCasa(p); const k = (conta[isola] = (conta[isola] || 0) + 1) - 1;
+    const [x, y] = POS_CASA[isola];
+    const h = Math.min(150, 14 + p.piani * 3);
+    return `<div class="torre" title="Il Palazzo di ${esc(p.nome)}: ${p.piani} piani" style="left:${x + k * 2.2}%;top:${y}%;--col:${p.colore};--h:${h}px"><div class="fusto"></div><span>${p.piani}</span></div>`;
+  }).join("");
+}
+
+// ------------------------------------------------------------ esplorare la mappa: zoom e spostamento
+let vista = { z: 1, x: 0, y: 0 };
+function applicaVista() {
+  const m = $("#mappa"); if (!m) return;
+  const w = m.offsetWidth, h = m.offsetHeight, W = innerWidth, H = innerHeight;
+  const maxX = Math.max(0, (w * vista.z - W) / 2), maxY = Math.max(0, (h * vista.z - H) / 2);
+  vista.x = Math.max(-maxX, Math.min(maxX, vista.x)); vista.y = Math.max(-maxY, Math.min(maxY, vista.y));
+  m.style.transform = `translate(calc(-50% + ${vista.x}px), calc(-50% + ${vista.y}px)) scale(${vista.z})`;
+  m.style.setProperty("--z", vista.z);
+}
+function zoomA(z, cx = innerWidth / 2, cy = innerHeight / 2) {
+  const nz = Math.max(1, Math.min(3.5, z));
+  const k = nz / vista.z;
+  vista.x = (vista.x - (cx - innerWidth / 2)) * k + (cx - innerWidth / 2);
+  vista.y = (vista.y - (cy - innerHeight / 2)) * k + (cy - innerHeight / 2);
+  vista.z = nz; applicaVista();
+}
+function centraSu(px, py) {
+  const m = $("#mappa"); const w = m.offsetWidth, h = m.offsetHeight;
+  if (vista.z < 1.8) vista.z = 2;
+  vista.x = -(px / 100 - 0.5) * w * vista.z; vista.y = -(py / 100 - 0.5) * h * vista.z; applicaVista();
+}
+function collegaEsplora() {
+  const mondo = $("#mondo");
+  mondo.addEventListener("wheel", (e) => { e.preventDefault(); zoomA(vista.z * Math.pow(1.0015, -e.deltaY), e.clientX, e.clientY); }, { passive: false });
+  let trascina = null; const tocchi = new Map();
+  mondo.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("button")) return;
+    tocchi.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (tocchi.size === 1) trascina = { x: e.clientX, y: e.clientY, vx: vista.x, vy: vista.y };
+    if (tocchi.size === 2) { const [a, b] = [...tocchi.values()]; trascina = { pinch: Math.hypot(a.x - b.x, a.y - b.y), z: vista.z, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 }; }
+  });
+  addEventListener("pointermove", (e) => {
+    if (!trascina || !tocchi.has(e.pointerId)) return;
+    tocchi.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (trascina.pinch && tocchi.size === 2) { const [a, b] = [...tocchi.values()]; zoomA(trascina.z * Math.hypot(a.x - b.x, a.y - b.y) / trascina.pinch, trascina.cx, trascina.cy); return; }
+    if (!trascina.pinch) { vista.x = trascina.vx + e.clientX - trascina.x; vista.y = trascina.vy + e.clientY - trascina.y; mondo.classList.add("trascino"); applicaVista(); }
+  });
+  const fine = (e) => { tocchi.delete(e.pointerId); if (!tocchi.size) { trascina = null; mondo.classList.remove("trascino"); } };
+  addEventListener("pointerup", fine); addEventListener("pointercancel", fine);
+  addEventListener("resize", applicaVista);
+}
+function comandiVista() {
+  return `<div class="comandi-vista vetro"><button id="zPiu" aria-label="Avvicina">＋</button><button id="zMeno" aria-label="Allontana">−</button><button id="zTutto" aria-label="Vista intera" title="Vista intera">⤢</button><button id="zMio" aria-label="Vai alla tua pedina" title="La tua pedina">◎</button></div>`;
+}
+function collegaComandiVista(me) {
+  $("#zPiu").onclick = () => zoomA(vista.z * 1.35);
+  $("#zMeno").onclick = () => zoomA(vista.z / 1.35);
+  $("#zTutto").onclick = () => { vista = { z: 1, x: 0, y: 0 }; applicaVista(); };
+  $("#zMio").onclick = () => { const notte = S.fase === "notte" && S.notte; const [x, y] = notte ? posLuogo(S.notte.dove[mioId], me) : puntoMappa(disp[mioId] || me); centraSu(x, y); };
 }
 
 // ------------------------------------------------------------ la carta principale (in basso)
@@ -769,4 +843,5 @@ for (const f of ["laguna", "marina", "mappa", ...Object.values(SCENE).map((x) =>
 // il telefono si chiude anche con Esc o toccando fuori
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && telAperto && !document.querySelector(".velo")) { telAperto = false; if (S) disegnaTelefono(io()); } });
 document.addEventListener("pointerdown", (e) => { if (telAperto && S && !document.querySelector(".velo") && !e.target.closest("#telefonoBox") && !e.target.closest("[data-a=\"imprese\"]")) { telAperto = false; disegnaTelefono(io()); } });
+collegaEsplora();
 avvio();
