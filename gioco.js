@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=20";
+import { ico } from "./icone.js?v=21";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=20";
-import * as Pano from "./panorama.js?v=20";
+import * as Tre from "./tre.js?v=21";
+import * as Pano from "./panorama.js?v=21";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=20";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=21";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -796,28 +796,165 @@ function fotoLivello(l, lv) { for (let k = lv; k > 0; k--) if (FOTO_LIVELLI.has(
 // fa: "scelta:<k o id>" = una delle scelte dell'ora; "punto:<nome>" = spostati; "altrove" / "negozio" / "casa"
 const PANORAMI = {
   club: {
-    pista: { img: "img/360/club-pista.jpg", yaw: 0, punti: [
+    pista: { img: "img/360/club-pista.jpg", lv: 0, punti: [
       { x: 0.50, y: 0.45, testo: "La consolle del DJ", icona: "club", fa: "scelta:fissa" },
       { x: 0.12, y: 0.58, testo: "Il bancone", icona: "gala", fa: "scelta:occ" },
-      { x: 0.64, y: 0.55, testo: "Sali al Privé", icona: "stella", fa: "punto:prive", lv: 1 },
+      { x: 0.64, y: 0.55, testo: "Sali al Privé", icona: "stella", fa: "punto:prive" },
       { x: 0.84, y: 0.55, testo: "Esci sulla spiaggia", icona: "mappa", fa: "altrove" },
     ] },
-    prive: { img: "img/360/club-prive.jpg", yaw: 0, lv: 1, punti: [
+    prive: { img: "img/360/club-prive.jpg", lv: 1, punti: [
       { x: 0.65, y: 0.72, testo: "Lo champagne con le stelline", icona: "gala", fa: "scelta:fissa" },
       { x: 0.35, y: 0.52, testo: "Il barista del privé", icona: "handshake", fa: "scelta:polizia" },
       { x: 0.50, y: 0.50, testo: "Torna sulla pista", icona: "club", fa: "punto:pista" },
       { x: 0.71, y: 0.48, testo: "La porta d'oro", icona: "stella", fa: "chiuso:Terrazza VIP" },
     ] },
   },
+  marina: {
+    pontile: { img: "img/360/marina-pontile.jpg", lv: 0, punti: [
+      { x: 0.33, y: 0.51, testo: "Gli yacht", icona: "marina", fa: "scelta:fissa" },
+      { x: 0.50, y: 0.55, testo: "In fondo al pontile", icona: "maschera", fa: "scelta:occ" },
+      { x: 0.86, y: 0.55, testo: "Il chiosco dei motoscafi", icona: "motoscafo", fa: "negozio" },
+      { x: 0.63, y: 0.55, testo: "Sali sul megayacht", icona: "stella", fa: "punto:yacht" },
+      { x: 0.08, y: 0.49, testo: "Il lungomare", icona: "mappa", fa: "altrove" },
+    ] },
+    yacht: { img: "img/360/marina-yacht.jpg", lv: 1, punti: [
+      { x: 0.50, y: 0.59, testo: "La vasca sul ponte", icona: "marina", fa: "scelta:fissa" },
+      { x: 0.78, y: 0.74, testo: "Il bar del ponte", icona: "gala", fa: "scelta:occ" },
+      { x: 0.18, y: 0.78, testo: "Scendi sul pontile", icona: "marina", fa: "punto:pontile" },
+    ] },
+  },
+  mercato: {
+    vicolo: { img: "img/360/mercato-vicolo.jpg", lv: 0, punti: [
+      { x: 0.29, y: 0.68, testo: "Il vecchio al banco", icona: "soffiata", fa: "scelta:fissa" },
+      { x: 0.80, y: 0.78, testo: "La merce sul banco", icona: "mercato", fa: "negozio" },
+      { x: 0.49, y: 0.51, testo: "In fondo al vicolo", icona: "maschera", fa: "scelta:occ" },
+      { x: 0.67, y: 0.43, testo: "La tenda scura", icona: "stella", fa: "punto:retro" },
+      { x: 0.05, y: 0.47, testo: "Esci dal mercato", icona: "mappa", fa: "altrove" },
+    ] },
+    retro: { img: "img/360/mercato-retro.jpg", lv: 1, punti: [
+      { x: 0.47, y: 0.74, testo: "Il tavolo dei soldi", icona: "maschera", fa: "scelta:occ" },
+      { x: 0.18, y: 0.35, testo: "Gli scaffali", icona: "mercato", fa: "negozio" },
+      { x: 0.63, y: 0.64, testo: "La cassaforte (soffiata)", icona: "soffiata", fa: "soffiata" },
+      { x: 0.52, y: 0.43, testo: "Torna nel vicolo", icona: "mercato", fa: "punto:vicolo" },
+    ] },
+  },
+  bisca: {
+    sala: { img: "img/360/bisca-sala.jpg", lv: 0, punti: [
+      { x: 0.47, y: 0.64, testo: "Un tavolo libero", icona: "bisca", fa: "scelta:fissa" },
+      { x: 0.71, y: 0.62, testo: "Il tavolo del croupier", icona: "maschera", fa: "scelta:occ" },
+      { x: 0.51, y: 0.47, testo: "La porta in fondo", icona: "stella", fa: "punto:grandi" },
+      { x: 0.14, y: 0.47, testo: "La scala per uscire", icona: "mappa", fa: "altrove" },
+    ] },
+    grandi: { img: "img/360/bisca-grandi.jpg", lv: 1, punti: [
+      { x: 0.51, y: 0.62, testo: "Il grande tavolo", icona: "bisca", fa: "scelta:fissa" },
+      { x: 0.33, y: 0.51, testo: "Il padrone dei sigari", icona: "maschera", fa: "scelta:occ" },
+      { x: 0.50, y: 0.37, testo: "Torna nella sala", icona: "bisca", fa: "punto:sala" },
+    ] },
+  },
+  porto: {
+    banchina: { img: "img/360/porto-banchina.jpg", lv: 0, punti: [
+      { x: 0.12, y: 0.66, testo: "I container", icona: "maschera", fa: "scelta:occ" },
+      { x: 0.78, y: 0.74, testo: "La cabina dei gruisti", icona: "porto", fa: "scelta:fissa" },
+      { x: 0.62, y: 0.72, testo: "Il furgone", icona: "furgone", fa: "negozio" },
+      { x: 0.43, y: 0.57, testo: "L'ufficio del capo porto", icona: "stella", fa: "punto:ufficio" },
+      { x: 0.50, y: 0.82, testo: "Il cancello", icona: "mappa", fa: "altrove" },
+    ] },
+    ufficio: { img: "img/360/porto-ufficio.jpg", lv: 1, punti: [
+      { x: 0.53, y: 0.70, testo: "Il registro delle navi", icona: "maschera", fa: "scelta:occ" },
+      { x: 0.43, y: 0.64, testo: "La radio", icona: "porto", fa: "scelta:fissa" },
+      { x: 0.06, y: 0.60, testo: "Scendi in banchina", icona: "porto", fa: "punto:banchina" },
+    ] },
+  },
+  casino: {
+    salone: { img: "img/360/casino-salone.jpg", lv: 0, punti: [
+      { x: 0.27, y: 0.72, testo: "La roulette", icona: "casino", fa: "scelta:fissa" },
+      { x: 0.52, y: 0.47, testo: "La cassa", icona: "ricicla", fa: "scelta:ricicla" },
+      { x: 0.70, y: 0.70, testo: "Il tavolo di Lenz", icona: "handshake", fa: "scelta:banchiere" },
+      { x: 0.89, y: 0.43, testo: "Lo scalone", icona: "stella", fa: "punto:privata" },
+      { x: 0.06, y: 0.43, testo: "L'uscita", icona: "mappa", fa: "altrove" },
+    ] },
+    privata: { img: "img/360/casino-privata.jpg", lv: 1, punti: [
+      { x: 0.52, y: 0.59, testo: "La roulette privata", icona: "casino", fa: "scelta:fissa" },
+      { x: 0.79, y: 0.43, testo: "Il banco privato", icona: "handshake", fa: "scelta:banchiere" },
+      { x: 0.16, y: 0.62, testo: "Il cassiere privato", icona: "ricicla", fa: "scelta:ricicla" },
+      { x: 0.40, y: 0.42, testo: "Torna nel salone", icona: "casino", fa: "punto:salone" },
+    ] },
+  },
+  redazione: {
+    sala: { img: "img/360/redazione-sala.jpg", lv: 0, punti: [
+      { x: 0.57, y: 0.72, testo: "Le bozze sul tavolo", icona: "gazzetta", fa: "scelta:fissa" },
+      { x: 0.72, y: 0.43, testo: "La bacheca del caporedattore", icona: "gazzetta", fa: "scelta:articolo" },
+      { x: 0.21, y: 0.66, testo: "Un avvocato al telefono", icona: "avvocato", fa: "negozio" },
+      { x: 0.50, y: 0.43, testo: "L'ufficio del direttore", icona: "stella", fa: "punto:direttore" },
+      { x: 0.06, y: 0.58, testo: "Le scale", icona: "mappa", fa: "altrove" },
+    ] },
+    direttore: { img: "img/360/redazione-direttore.jpg", lv: 1, punti: [
+      { x: 0.50, y: 0.72, testo: "La prima pagina di domani", icona: "gazzetta", fa: "scelta:fissa" },
+      { x: 0.64, y: 0.62, testo: "Il whisky del direttore", icona: "handshake", fa: "scelta:articolo" },
+      { x: 0.07, y: 0.55, testo: "Torna in redazione", icona: "gazzetta", fa: "punto:sala" },
+    ] },
+  },
+  villa: {
+    bosco: { img: "img/360/villa-bosco.jpg", lv: 0, punti: [
+      { x: 0.70, y: 0.41, testo: "Guarda la villa", icona: "villa", fa: "scelta:fissa" },
+      { x: 0.47, y: 0.60, testo: "Il cancello", icona: "maschera", fa: "scelta:occ" },
+      { x: 0.60, y: 0.55, testo: "Scavalca il muro", icona: "stella", fa: "punto:giardino" },
+      { x: 0.06, y: 0.75, testo: "Torna alla strada", icona: "mappa", fa: "altrove" },
+    ] },
+    giardino: { img: "img/360/villa-giardino.jpg", lv: 1, punti: [
+      { x: 0.16, y: 0.55, testo: "Le porte di vetro", icona: "maschera", fa: "scelta:occ" },
+      { x: 0.52, y: 0.74, testo: "La piscina", icona: "villa", fa: "scelta:fissa" },
+      { x: 0.90, y: 0.70, testo: "Torna nel bosco", icona: "villa", fa: "punto:bosco" },
+    ] },
+  },
+  faro: {
+    scogliera: { img: "img/360/faro-scogliera.jpg", lv: 0, punti: [
+      { x: 0.37, y: 0.43, testo: "La porta del Faro", icona: "setta", fa: "scelta:setta" },
+      { x: 0.86, y: 0.55, testo: "Il mare", icona: "faro", fa: "scelta:fissa" },
+      { x: 0.53, y: 0.66, testo: "Il molo", icona: "maschera", fa: "scelta:occ" },
+      { x: 0.37, y: 0.22, testo: "Sali sulla lanterna", icona: "stella", fa: "punto:lanterna" },
+      { x: 0.65, y: 0.70, testo: "La barca", icona: "mappa", fa: "altrove" },
+    ] },
+    lanterna: { img: "img/360/faro-lanterna.jpg", lv: 1, punti: [
+      { x: 0.16, y: 0.47, testo: "Guarda chi arriva dal mare", icona: "faro", fa: "scelta:fissa" },
+      { x: 0.50, y: 0.47, testo: "La grande lente", icona: "setta", fa: "scelta:setta" },
+      { x: 0.50, y: 0.88, testo: "Scendi", icona: "faro", fa: "punto:scogliera" },
+    ] },
+  },
+  palazzo: {
+    basso: { img: "img/360/palazzo-basso.jpg", lv: 0, punti: [
+      { x: 0.50, y: 0.47, testo: "Esci in strada", icona: "mappa", fa: "altrove" },
+      { x: 0.31, y: 0.74, testo: "Il divano", icona: "casa", fa: "aspetta" },
+      { x: 0.50, y: 0.66, testo: "Il carrello dei liquori", icona: "ricicla", fa: "scelta:paradiso" },
+    ] },
+    attico: { img: "img/360/palazzo-attico.jpg", lv: 1, punti: [
+      { x: 0.51, y: 0.47, testo: "La vista sulla laguna", icona: "casa", fa: "aspetta" },
+      { x: 0.12, y: 0.47, testo: "Il bar", icona: "ricicla", fa: "scelta:paradiso" },
+      { x: 0.90, y: 0.51, testo: "Scendi in città", icona: "mappa", fa: "altrove" },
+    ] },
+    grattacielo: { img: "img/360/palazzo-grattacielo.jpg", lv: 2, punti: [
+      { x: 0.45, y: 0.55, testo: "Sopra le nuvole", icona: "casa", fa: "aspetta" },
+      { x: 0.16, y: 0.78, testo: "La valigetta del jet", icona: "ricicla", fa: "scelta:paradiso" },
+      { x: 0.82, y: 0.55, testo: "L'eliporto", icona: "mappa", fa: "altrove" },
+    ] },
+  },
 };
 let panoOra = null;
+// il punto di vista: chi ha piu' lustro entra direttamente nella sala migliore (poi puo' spostarsi)
+function puntoCorrente(l) {
+  const P = PANORAMI[l], nomi = Object.keys(P);
+  const max = l === "palazzo" ? S.livelloPalazzo || 0 : S.lustro || 0;
+  const permessi = nomi.filter((n) => (P[n].lv || 0) <= max);
+  if (l === "palazzo") return permessi.pop();
+  const chiave = l + "|" + S.ciclo + "|" + S.notte.ora;
+  if (!puntoVista[l] || !permessi.includes(puntoVista[l]) || (puntoVista[l + "#"] !== chiave && !puntoVista[l + "!"])) { puntoVista[l] = permessi[permessi.length - 1]; }
+  puntoVista[l + "#"] = chiave;
+  return puntoVista[l];
+}
 const puntoVista = {};
 function aggiornaPanorama(me) {
   const P = PANORAMI[panoOra]; if (!P) return Pano.nascondi();
-  const nomi = Object.keys(P);
-  let quale = puntoVista[panoOra] || nomi[0];
-  if ((P[quale].lv || 0) > (S.lustro || 0)) quale = nomi[0];
-  puntoVista[panoOra] = quale;
+  const quale = puntoCorrente(panoOra);
   const V = P[quale], N2 = S.notte, scelte = N2.scelte || [];
   const libero = !N2.chiuso[mioId] && !N2.viaggio[mioId] && !S.notteFatti[mioId];
   const punti = V.punti.map((pt) => {
@@ -830,13 +967,15 @@ function aggiornaPanorama(me) {
     } else if (tipo === "punto") {
       const bloccato = (P[chi].lv || 0) > (S.lustro || 0);
       classe = bloccato ? "chiuso" : "porta";
-      azione = bloccato ? () => toast("Il buttafuori ti ferma: qui entra solo chi ha più fama e più soldi.") : () => { puntoVista[panoOra] = chi; Pano.guarda(P[chi].yaw || 0); aggiornaPanorama(me); };
+      azione = bloccato ? () => toast("Il buttafuori ti ferma: qui entra solo chi ha più fama e più soldi.") : () => { puntoVista[panoOra] = chi; puntoVista[panoOra + "!"] = true; Pano.guarda(0); disegna(); };
     } else if (tipo === "altrove") { if (!libero) classe = "spento"; else azione = () => finestraAltrove(me); }
-    else if (tipo === "negozio") azione = () => finestraNegozio(me);
+    else if (tipo === "negozio") { if (!Object.values(L.OGGETTI).some((O) => O.dove === N2.dove[mioId])) classe = "spento"; else azione = () => finestraNegozio(me); }
+    else if (tipo === "soffiata") azione = () => finestraSoffiata(me);
+    else if (tipo === "aspetta") { if (!libero) classe = "spento"; else azione = () => agisci({ tipo: "aspetta" }); }
     else if (tipo === "chiuso") { classe = "chiuso"; azione = () => toast((S.lustro || 0) >= 2 ? chi + ": arriva presto." : "Dietro la porta d'oro c'è la " + chi + ". Si apre solo ai più potenti della Laguna."); }
     return { ...Pano.daFoto(pt.x, pt.y), ...pt, testo: esc(testo), icona: ico(pt.icona), classe, azione };
   });
-  Pano.mostra(V.img, punti, { yaw: V.yaw });
+  Pano.mostra(V.img, punti, { yaw: 0 });
 }
 const ICO_SCELTA = { occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
 function righeNotte(lista) { return lista.map((r) => { const [o, ...t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t.join(" — "))}</p>`; }).join(""); }
@@ -848,7 +987,8 @@ function scenaNotte(me) {
   const lv = qualeLuogo === "palazzo" ? S.livelloPalazzo || 0 : S.lustro || 0;
   const img = me.faro ? SCENA_NOTTE.faro : v ? SCENA_NOTTE.viaggio : fotoLivello(qualeLuogo, lv);
   panoOra = !me.faro && !v && PANORAMI[qualeLuogo] ? qualeLuogo : null;
-  const sala = !me.faro && !v && lv ? (NOMI_LIVELLO[qualeLuogo] || [])[lv] : "";
+  const lvSala = !me.faro && !v && PANORAMI[qualeLuogo] ? PANORAMI[qualeLuogo][puntoCorrente(qualeLuogo)].lv || 0 : lv;
+  const sala = !me.faro && !v && lvSala ? (NOMI_LIVELLO[qualeLuogo] || [])[lvSala] : "";
   const nome = me.faro ? "In cella, al Faro" : aCasa ? "Il tuo Palazzo" : v ? "In viaggio verso " + nomeLuogo(v.verso) : nomeLuogo(dove, true);
   const isola = !v && !aCasa && dove !== "palazzo" && L.LUOGHI[dove] ? L.NOMI_ISOLE[L.LUOGHI[dove].isola] || "" : "";
   const quiAltri = v || aCasa || dove === "palazzo" ? [] : S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !N2.viaggio[p.id] && N2.dove[p.id] === dove);
@@ -856,7 +996,7 @@ function scenaNotte(me) {
   const resto = restoOra();
   const testa = `<div class="scena-testa">
       <div class="kick" style="color:var(--cielo)">${ico("luna")} ore ${L.ORE[N2.ora]} · ${6 - N2.ora} ${6 - N2.ora === 1 ? "ora" : "ore"} all'alba${isola ? " · " + esc(isola) : ""}</div>
-      <h1>${esc(nome)}</h1>${sala ? `<div class="sala">${ico("stella")} ${esc(sala)} <span class="sub">${lv === 2 ? "solo per i più potenti della Laguna" : "ti fanno entrare nella zona VIP"}</span></div>` : ""}
+      <h1>${esc(nome)}</h1>${sala ? `<div class="sala">${ico("stella")} ${esc(sala)} <span class="sub">${lvSala === 2 ? "solo per i più potenti della Laguna" : "ti fanno entrare nella zona VIP"}</span></div>` : ""}
       ${quiAltri.length ? `<div class="qui-altri">${quiAltri.map((p) => `<span class="pall" style="background:${p.colore}">${esc(p.nome[0])}</span>${esc(p.nome)}`).join(" ")} <span class="sub">${quiAltri.length === 1 ? "è qui con te" : "sono qui con te"}</span></div>` : ""}
       ${resto !== null && !aCasa && !me.faro ? `<div class="tempo"><div class="barra" id="barraTempo" style="width:${(resto / (N2.tempo || 120)) * 100}%"></div></div><div class="sub" id="contoTempo">${testoTempo(resto)}</div>` : ""}
     </div>`;
