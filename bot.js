@@ -150,6 +150,11 @@
               c = n.ora;
             (i._n && i._n.ciclo === o.ciclo) || (i._n = { ciclo: o.ciclo, visti: [], ric: !1, corr: !1, aspettato: 0 });
             const l = i._n;
+            // le serate nei casino' privati degli altri
+            const osp = n.ospite && n.ospite[i.id];
+            if (osp) { if (!l.giocato && i.cash > 1e6) { l.giocato = !0; return { tipo: "gioca_serata", importo: 1e5 }; } return c >= 4 ? { tipo: "torna_a_casa" } : { tipo: "aspetta" }; }
+            const ser = Object.keys(n.serate || {}).find((h) => h !== i.id);
+            if (ser && !l.serata && i.cash > 3e6 && Math.random() < 0.35) { l.serata = !0; return { tipo: "vai_serata", host: ser }; }
             l.visti.includes(s) || l.visti.push(s);
             const u = t.occasioniVisibili(o, i).map((o) => ({ ...o, O: t.OCCASIONI.find((t) => t.id === o.id) })),
               p = i.cash + i.sporchi,

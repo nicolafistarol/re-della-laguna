@@ -882,9 +882,10 @@
   function isolaCasa(s, p) { const l = s.lotti.find((x) => x.owner === p.id && x.isola); return l ? l.isola : "Corona"; }
   function isolaLuogo(s, p, l) { return l === "palazzo" ? isolaCasa(s, p) : LUOGHI[l].isola; }
   function oreViaggio(s, p, da, a) {
-    if (haOggetto(p, "motoscafo") || p.veicoli.some((v) => ["motoscafo", "yacht", "megayacht", "elicottero"].includes(v))) return 1;
+    if (haOggetto(p, "motoscafo") || haPiano(p, "eliporto") || p.veicoli.some((v) => ["motoscafo", "yacht", "megayacht", "elicottero"].includes(v))) return 1;
     return isolaLuogo(s, p, da) === isolaLuogo(s, p, a) ? 1 : 2;
   }
+  function haPiano(p, f) { return (p.funzioniPiani || []).includes(f); }
   function haOggetto(p, id) { return (p.valigetta || []).some((o) => o.id === id); }
   function togliOggetto(p, id) { const i = (p.valigetta || []).findIndex((o) => o.id === id); if (i >= 0) p.valigetta.splice(i, 1); }
   function racconta(s, p, testo, dopo) { if (!s.notte) return; (s.notte.racconto[p.id] = s.notte.racconto[p.id] || []).push(ORE[s.notte.ora + (dopo ? 1 : 0)] + " — " + testo); }
@@ -972,7 +973,7 @@
       if (!N2.chiuso[q.id] && !N2.viaggio[q.id]) {
         N2.daScelta[q.id] = (N2.racconto[q.id] || []).length;
         N2.chiuso[q.id] = true;
-        racconta(s, q, "Il tempo passa. Resti a " + nomeLuogo(N2.dove[q.id]) + " senza fare niente.");
+        racconta(s, q, "Il tempo passa. Resti " + (N2.dove[q.id] === "palazzo" ? "nel Palazzo" : "a " + nomeLuogo(N2.dove[q.id])) + " senza fare niente.");
       }
       N2.pronto[q.id] = true;
     }
@@ -1064,10 +1065,77 @@
     N2.chiuso[p.id] = true;
     controllaOra(s);
   }
+  // Il Palazzo di notte: spa, serate nel casino' privato (gli ospiti vengono nel tuo Palazzo e pagano l'ingresso)
+  function aCasaSua(s, p) { const N2 = s.notte; return N2.dove[p.id] === "palazzo" && !N2.viaggio[p.id] && !(N2.ospite && N2.ospite[p.id]); }
+  function spa(s, p) {
+    oraLibera(s, p);
+    if (!aCasaSua(s, p) || !haPiano(p, "spa")) err("Ti serve la Spa nel tuo Palazzo.");
+    if (s.notte.spaFatta && s.notte.spaFatta[p.id]) err("Stanotte la Spa l'hai già usata.");
+    pagaMisto(s, p, 50_000); p.fama += 3; (s.notte.spaFatta = s.notte.spaFatta || {})[p.id] = true;
+    racconta(s, p, "Inviti un'attrice famosa nella tua Spa. Foto in accappatoio, champagne, risate: domani ne parleranno tutti. +3 fama.");
+    s.notte.chiuso[p.id] = true; controllaOra(s);
+  }
+  function apriSerata(s, p, ingresso) {
+    oraLibera(s, p);
+    if (!aCasaSua(s, p)) err("La serata si apre dal tuo Palazzo.");
+    if (!haPiano(p, "casino_privato")) err("Ti serve un piano con il Casinò privato.");
+    ingresso = round(Number(ingresso) || 0);
+    if (ingresso < 0 || ingresso > 500_000) err("L'ingresso va da 0 a 500.000 €.");
+    const N2 = s.notte; N2.serate = N2.serate || {};
+    if (N2.serate[p.id]) err("La serata è già aperta.");
+    N2.serate[p.id] = { ingresso, dalle: N2.ora, ospiti: [], banco: 0 };
+    racconta(s, p, "Accendi le luci del tuo Casinò privato. Gli inviti partono: ingresso " + euro(ingresso) + ". Tu tieni il banco.");
+    for (const q of s.players) if (q.id !== p.id) privato(s, q, "Invito da " + p.nome + ": stanotte serata nel Casinò privato del suo Palazzo, al piano " + p.piani + ". Ingresso " + euro(ingresso) + ".");
+    notizia(s, p.nome + " apre il suo Casinò privato: stanotte si gioca al piano " + p.piani + ".", "voce");
+    N2.chiuso[p.id] = true; controllaOra(s);
+  }
+  function vaiSerata(s, p, idHost) {
+    oraLibera(s, p);
+    const N2 = s.notte, host = giocatore(s, idHost), se = N2.serate && N2.serate[idHost];
+    if (!se || idHost === p.id) err("Non c'è nessuna serata lì.");
+    if (N2.ospite && N2.ospite[p.id] === idHost) err("Sei già alla serata.");
+    const ore = N2.dove[p.id] === "palazzo" ? 1 : oreViaggio(s, p, N2.dove[p.id], "palazzo");
+    N2.viaggio[p.id] = { verso: "palazzo", restano: ore, da: N2.dove[p.id], serata: idHost };
+    N2.chiuso[p.id] = true;
+    racconta(s, p, "Parti verso il Palazzo di " + host.nome + (ore > 1 ? ": ci vorranno 2 ore." : "."));
+    controllaOra(s);
+  }
+  function arrivaSerata(s, p, idHost) {
+    const N2 = s.notte, host = giocatore(s, idHost), se = N2.serate && N2.serate[idHost];
+    N2.ospite = N2.ospite || {};
+    if (!se) { racconta(s, p, "Arrivi al Palazzo di " + host.nome + ", ma la festa è già finita.", true); return; }
+    const paga = Math.min(se.ingresso, p.cash + p.sporchi);
+    if (paga > 0) { pagaMisto(s, p, paga); host.cash += paga; se.banco += paga; }
+    N2.ospite[p.id] = idHost; se.ospiti.push(p.id);
+    racconta(s, p, "Sali fino al piano " + host.piani + " del Palazzo di " + host.nome + ". Paghi l'ingresso (" + euro(paga) + ") e ti siedi al tavolo.", true);
+    racconta(s, host, p.nome + " arriva alla tua serata e paga " + euro(paga) + " di ingresso.", true);
+  }
+  function giocaSerata(s, p, importo) {
+    oraLibera(s, p);
+    const N2 = s.notte, idHost = N2.ospite && N2.ospite[p.id], host = idHost && giocatore(s, idHost);
+    if (!host) err("Non sei a una serata.");
+    importo = round(Number(importo) || 0);
+    if (importo < 10_000) err("La puntata minima è 10.000 €.");
+    const max = Math.max(0, host.cash);
+    if (importo > max) err("Il banco di " + host.nome + " non copre una puntata così alta.");
+    pagaMisto(s, p, importo);
+    if (rng(s) < 0.45) {
+      host.cash -= importo; p.cash += importo * 2; N2.serate[idHost].banco -= importo;
+      racconta(s, p, "Al tavolo di " + host.nome + " la fortuna è tua: vinci " + euro(importo * 2) + ".");
+      racconta(s, host, p.nome + " sbanca un giro al tuo tavolo: il banco paga " + euro(importo) + ".");
+    } else {
+      host.cash += importo; N2.serate[idHost].banco += importo;
+      racconta(s, p, "Il banco di " + host.nome + " vince. Perdi " + euro(importo) + ".");
+      racconta(s, host, p.nome + " perde " + euro(importo) + " al tuo tavolo. Il banco vince.");
+    }
+    N2.chiuso[p.id] = true; controllaOra(s);
+  }
   // Gli incontri: se un altro giocatore e' nello stesso posto, puoi offrirgli da bere, sfidarlo o seguirlo
   function quiConMe(s, p) {
     const N2 = s.notte; if (!N2 || N2.viaggio[p.id]) return [];
-    const d = N2.dove[p.id]; if (d === "palazzo") return [];
+    const d = N2.dove[p.id];
+    const casa = (x) => (N2.ospite && N2.ospite[x.id]) || x.id;
+    if (d === "palazzo") return s.players.filter((x) => x.id !== p.id && !s.notteFatti[x.id] && x.faro === 0 && !N2.viaggio[x.id] && N2.dove[x.id] === "palazzo" && casa(x) === casa(p) && (casa(p) !== p.id || casa(x) !== x.id));
     return s.players.filter((x) => x.id !== p.id && !s.notteFatti[x.id] && x.faro === 0 && !N2.viaggio[x.id] && N2.dove[x.id] === d);
   }
   function incontro(s, p, idA, tipo, importo) {
@@ -1136,6 +1204,16 @@
     if (dove === "club" && lv >= 1) sp.push({ k: "polizia", titolo: "Parla con un agente fuori servizio", testo: "Al bancone c'è un poliziotto che beve da solo. Ha l'aria di chi cerca un extra." });
     if (dove === "redazione") sp.push({ k: "articolo", titolo: "Una busta al caporedattore", testo: "Domattina la Gazzetta può parlare bene di te. O male di un altro." });
     if (dove === "faro" && s.sette.some((st) => st.gm === p.id)) sp.push({ k: "setta", titolo: "Riunisci la setta", testo: "Tra le onde, i tuoi confratelli aspettano un ordine." });
+    const ospiteDi = N2.ospite && N2.ospite[p.id];
+    if (ospiteDi) {
+      const h = giocatore(s, ospiteDi);
+      return [{ k: "tavolo", titolo: "Gioca al tavolo di " + h.nome, testo: "Il banco è suo. Se vinci, ti paga il doppio.", puntata: true },
+        { k: "brinda", a: ospiteDi, titolo: "Brinda con " + h.nome, testo: "Un bicchiere con chi ti ospita: +2 fama se accetta.", costo: 20_000 },
+        { k: "aspetta", titolo: "Goditi la vista", testo: "Dal piano " + h.piani + " la Laguna sembra piccola." }];
+    }
+    if (dove === "palazzo" && haPiano(p, "casino_privato") && !(N2.serate && N2.serate[p.id])) sp.push({ k: "serata", titolo: "Apri una serata nel tuo Casinò", testo: "Gli altri ricevono l'invito. Chi viene paga l'ingresso, e il banco sei tu." });
+    if (dove === "palazzo" && haPiano(p, "spa") && !(N2.spaFatta && N2.spaFatta[p.id])) sp.push({ k: "spa", titolo: "Una serata nella tua Spa", testo: "Un ospite famoso, fotografi discreti. 50.000 €, +3 fama." });
+    if (dove === "palazzo" && haPiano(p, "sala_insonorizzata") && lv >= 1) sp.push({ k: "polizia", titolo: "Un incontro nella sala insonorizzata", testo: "Qui dentro nessuno ascolta. Puoi comprare un poliziotto o il banchiere." });
     if (dove === "palazzo" && p.sporchi > 0 && p.veicoli.includes("jet")) sp.push({ k: "paradiso", titolo: "Volo nel paradiso fiscale", testo: "Il jet è pronto. All'alba i soldi sporchi saranno puliti, meno la commissione." });
     if (haOggetto(p, "macchina") && dove !== "palazzo") {
       const q = s.players.find((x) => x.id !== p.id && N2.dove[x.id] === dove && !N2.viaggio[x.id] && !s.notteFatti[x.id]);
@@ -1178,6 +1256,7 @@
     if (da === luogo) err("Sei già qui.");
     const ore = oreViaggio(s, p, da, luogo);
     s.notte.viaggio[p.id] = { verso: luogo, restano: ore, da };
+    if (s.notte.ospite) delete s.notte.ospite[p.id];
     s.notte.chiuso[p.id] = true;
     racconta(s, p, "Parti verso " + LUOGHI[luogo].nome + (ore > 1 ? ": ci vorranno 2 ore, attraverso i ponti." : "."));
     controllaOra(s);
@@ -1185,7 +1264,8 @@
   function aspetta(s, p) {
     oraLibera(s, p);
     s.notte.chiuso[p.id] = true;
-    racconta(s, p, "Resti a " + nomeLuogo(s.notte.dove[p.id]) + " a guardarti intorno.");
+    const osp = s.notte.ospite && s.notte.ospite[p.id];
+    racconta(s, p, osp ? "Resti alla serata di " + giocatore(s, osp).nome + ", un bicchiere in mano e la Laguna sotto i piedi." : s.notte.dove[p.id] === "palazzo" ? "Resti nel tuo Palazzo a guardare le luci della Laguna." : "Resti a " + nomeLuogo(s.notte.dove[p.id]) + " a guardarti intorno.");
     controllaOra(s);
   }
   function nomeLuogo(l) { return LUOGHI[l] ? LUOGHI[l].nome : l; }
@@ -1254,7 +1334,8 @@
   }
   function corrompi2(s, p, chi, isola, sporchi) {
     oraLibera(s, p);
-    if (chi === "banchiere") qui(s, p, "casino", "Incontrare il banchiere Lenz"); else qui(s, p, "club", "Incontrare la polizia");
+    const sala = s.notte.dove[p.id] === "palazzo" && !s.notte.ospite?.[p.id] && haPiano(p, "sala_insonorizzata") && !s.notte.viaggio[p.id];
+    if (!sala) { if (chi === "banchiere") qui(s, p, "casino", "Incontrare il banchiere Lenz"); else qui(s, p, "club", "Incontrare la polizia"); }
     const ok = corrompi(s, p, chi, isola, sporchi);
     s.notte.chiuso[p.id] = true;
     racconta(s, p, ok ? "Una stretta di mano in un angolo buio. Accordo fatto." : "Ti guarda, intasca i soldi e se ne va. Brutto segno.");
@@ -1313,7 +1394,7 @@
         else if (G.danno === "riconosciuto") { tracce += 15; p.stato = Math.max(p.stato, 2); racconta(s, p, "Hai l'impressione di essere stato riconosciuto. Da domani qualcuno ti terrà d'occhio."); }
         else if (G.danno === "allarme") { guadagno = 0; tracce += 18; p.stato = Math.max(p.stato, 3); racconta(s, p, "Sirene in lontananza. Scappi a mani vuote, e la polizia ha un nome: il tuo."); notizia(s, "Tentato colpo a " + NOMI_ISOLE[isola] + ". La polizia segue una pista.", "scandalo"); }
         else if (G.danno === "foto") { tracce += 8; const altri = s.players.filter((x) => x.id !== p.id); if (altri.length) { const b = altri[Math.floor(rng(s) * altri.length)]; b.prove.push({ su: p.id, ciclo: s.ciclo + 1, cosa: O.nome }); privato(s, b, "Un fotografo ti vende una foto di " + p.nome + " durante \"" + O.nome + "\". È una Prova."); } racconta(s, p, "Qualcuno ora ha una tua foto. Non sai chi."); }
-        else if (G.danno === "retata") { guadagno = 0; tracce += 10; const prima = (p.valigetta || []).length; p.valigetta = (p.valigetta || []).filter((x) => !OGGETTI[x.id].illegale); racconta(s, p, "Ti perquisiscono e ti lasciano andare. Il carico è sequestrato" + (prima > p.valigetta.length ? ", e anche gli oggetti illegali della valigetta." : ".")); }
+        else if (G.danno === "retata") { guadagno = 0; tracce += 10; const prima = (p.valigetta || []).length; if (!haPiano(p, "piani_segreti")) p.valigetta = (p.valigetta || []).filter((x) => !OGGETTI[x.id].illegale); racconta(s, p, "Ti perquisiscono e ti lasciano andare. Il carico è sequestrato" + (prima > p.valigetta.length ? ", e anche gli oggetti illegali della valigetta." : haPiano(p, "piani_segreti") ? ". Gli oggetti illegali però sono al sicuro nei piani segreti del tuo Palazzo." : ".")); }
         else if (G.danno === "meta") { guadagno *= 0.5; racconta(s, p, "Nella confusione ti porti via solo metà del bottino."); }
       }
     }
@@ -1342,7 +1423,9 @@
       v.restano -= 1;
       if (v.restano <= 0) {
         N2.dove[p.id] = v.verso; delete N2.viaggio[p.id];
-        if (v.verso === "palazzo") racconta(s, p, "Sei di nuovo nel tuo palazzo.", true);
+        if (N2.ospite) delete N2.ospite[p.id];
+        if (v.serata) arrivaSerata(s, p, v.serata);
+        else if (v.verso === "palazzo") racconta(s, p, "Sei di nuovo nel tuo palazzo.", true);
         else racconta(s, p, "Arrivi a " + LUOGHI[v.verso].nome + ". " + indizio(s, v.verso), true);
       }
     }
@@ -2035,6 +2118,10 @@
       case "aspetta": return aspetta(s, p);
       case "avanti": return avanti(s, p);
       case "attivita": return attivitaNotte(s, p, a.importo);
+      case "spa": return spa(s, p);
+      case "serata": return apriSerata(s, p, a.ingresso);
+      case "vai_serata": return vaiSerata(s, p, a.host);
+      case "gioca_serata": return giocaSerata(s, p, a.importo);
       case "incontro": return incontro(s, p, a.a, a.cosa, a.importo);
       case "rispondi_incontro": return rispondiIncontro(s, p, a.id, !!a.si);
       case "tempo_scaduto": return tempoScaduto(s);
@@ -2090,12 +2177,14 @@
       const me = s.players.find((x) => x.id === idGiocatore);
       v.notte = {
         ora: s.notte.ora, dove: s.notte.dove,
-        viaggio: Object.fromEntries(Object.entries(s.notte.viaggio).map(([k, x]) => [k, { verso: k === idGiocatore ? x.verso : null, restano: k === idGiocatore ? x.restano : null }])),
+        viaggio: Object.fromEntries(Object.entries(s.notte.viaggio).map(([k, x]) => [k, { verso: k === idGiocatore ? x.verso : null, restano: k === idGiocatore ? x.restano : null, serata: k === idGiocatore ? x.serata || null : null }])),
         chiuso: s.notte.chiuso, racconto: s.notte.racconto[idGiocatore] || [],
         pronto: s.notte.pronto, inizio: s.notte.inizio, tempo: TEMPO_ORA, adesso: adesso(),
         daScelta: s.notte.daScelta[idGiocatore], inizioRacc: s.notte.inizioRacc[idGiocatore] || 0,
         scelte: me ? scelteNotte(s, me) : [],
         qui: me ? quiConMe(s, me).map((x) => x.id) : [],
+        ospite: s.notte.ospite ? s.notte.ospite[idGiocatore] || null : null,
+        serate: Object.entries(s.notte.serate || {}).map(([id, se]) => { const h = s.players.find((x) => x.id === id); return { host: id, nome: h.nome, piani: h.piani, livello: livelloPalazzo(h), ingresso: se.ingresso, ospiti: se.ospiti.length, banco: id === idGiocatore ? se.banco : undefined }; }),
         proposte: (s.notte.proposte || []).filter((x) => x.a === idGiocatore || x.da === idGiocatore),
         occasioni: me ? occasioniVisibili(s, me).map((o) => ({ ...o, ...OCCASIONI.find((x) => x.id === o.id), n: o.n })) : [],
         piuTardi: me && !s.notte.viaggio[idGiocatore] ? s.notte.occasioni.filter((o) => !o.preso && o.luogo === s.notte.dove[idGiocatore] && o.dalle > s.notte.ora && (!o.riservata || o.riservata === idGiocatore)).length : 0,

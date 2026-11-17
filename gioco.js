@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=22";
+import { ico } from "./icone.js?v=23";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=22";
-import * as Pano from "./panorama.js?v=22";
+import * as Tre from "./tre.js?v=23";
+import * as Pano from "./panorama.js?v=23";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=22";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=23";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -940,10 +940,13 @@ const PANORAMI = {
   },
 };
 let panoOra = null;
+// alla serata di un altro si vede il SUO palazzo: piu' piani ha, piu' la vista e' alta
+function serataOspite() { const N2 = S.notte; return N2 && N2.ospite ? (N2.serate || []).find((x) => x.host === N2.ospite) || { nome: "?", piani: 0, livello: 0 } : null; }
+function livelloPalazzoQui() { const so = serataOspite(); return so ? so.livello || 0 : S.livelloPalazzo || 0; }
 // il punto di vista: chi ha piu' lustro entra direttamente nella sala migliore (poi puo' spostarsi)
 function puntoCorrente(l) {
   const P = PANORAMI[l], nomi = Object.keys(P);
-  const max = l === "palazzo" ? S.livelloPalazzo || 0 : S.lustro || 0;
+  const max = l === "palazzo" ? livelloPalazzoQui() : S.lustro || 0;
   const permessi = nomi.filter((n) => (P[n].lv || 0) <= max);
   if (l === "palazzo") return permessi.pop();
   const chiave = l + "|" + S.ciclo + "|" + S.notte.ora;
@@ -975,6 +978,11 @@ function aggiornaPanorama(me) {
     else if (tipo === "chiuso") { classe = "chiuso"; azione = () => toast((S.lustro || 0) >= 2 ? chi + ": arriva presto." : "Dietro la porta d'oro c'è la " + chi + ". Si apre solo ai più potenti della Laguna."); }
     return { ...Pano.daFoto(pt.x, pt.y), ...pt, testo: esc(testo), icona: ico(pt.icona), classe, azione };
   });
+  if (panoOra === "palazzo") {
+    const extra = { serata: "casino", spa: "stella", polizia: "handshake", tavolo: "casino", brinda: "gala" };
+    let k = 0;
+    scelte.forEach((c, i) => { if (!extra[c.k] || !libero) return; punti.push({ ...Pano.daFoto(0.28 + (k++) * 0.22, 0.70), testo: esc(c.titolo), icona: ico(extra[c.k]), classe: "", azione: () => { const b = document.querySelector(`.scena [data-scelta="${i}"]`); if (b) b.click(); } }); });
+  }
   // gli altri giocatori presenti compaiono nella sala
   (N2.qui || []).forEach((id, k) => {
     const q = S.players.find((x) => x.id === id); if (!q) return;
@@ -982,19 +990,20 @@ function aggiornaPanorama(me) {
   });
   Pano.mostra(V.img, punti, { yaw: 0 });
 }
-const ICO_SCELTA = { occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
+const ICO_SCELTA = { tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
 function righeNotte(lista) { return lista.map((r) => { const [o, ...t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t.join(" — "))}</p>`; }).join(""); }
 function restoOra() { const N2 = S.notte; if (!N2 || !N2.inizio) return null; return Math.max(0, Math.ceil((N2.tempo || 120) - (Date.now() - N2.inizio) / 1000)); }
 function scenaNotte(me) {
   const N2 = S.notte, dove = N2.dove[mioId], v = N2.viaggio[mioId];
   const aCasa = S.notteFatti[mioId], scelto = N2.chiuso[mioId], pronto = N2.pronto && N2.pronto[mioId];
   const qualeLuogo = aCasa ? "palazzo" : dove;
-  const lv = qualeLuogo === "palazzo" ? S.livelloPalazzo || 0 : S.lustro || 0;
+  const lv = qualeLuogo === "palazzo" ? livelloPalazzoQui() : S.lustro || 0;
   const img = me.faro ? SCENA_NOTTE.faro : v ? SCENA_NOTTE.viaggio : fotoLivello(qualeLuogo, lv);
   panoOra = !me.faro && !v && PANORAMI[qualeLuogo] ? qualeLuogo : null;
   const lvSala = !me.faro && !v && PANORAMI[qualeLuogo] ? PANORAMI[qualeLuogo][puntoCorrente(qualeLuogo)].lv || 0 : lv;
   const sala = !me.faro && !v && lvSala ? (NOMI_LIVELLO[qualeLuogo] || [])[lvSala] : "";
-  const nome = me.faro ? "In cella, al Faro" : aCasa ? "Il tuo Palazzo" : v ? "In viaggio verso " + nomeLuogo(v.verso) : nomeLuogo(dove, true);
+  const serOsp = serataOspite();
+  const nome = me.faro ? "In cella, al Faro" : aCasa ? "Il tuo Palazzo" : v ? "In viaggio verso " + (v.serata ? "il Palazzo di " + (S.players.find((x) => x.id === v.serata) || {}).nome : nomeLuogo(v.verso)) : serOsp ? "Palazzo di " + serOsp.nome + " · piano " + serOsp.piani : nomeLuogo(dove, true);
   const isola = !v && !aCasa && dove !== "palazzo" && L.LUOGHI[dove] ? L.NOMI_ISOLE[L.LUOGHI[dove].isola] || "" : "";
   const quiAltri = v || aCasa || dove === "palazzo" ? [] : S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !N2.viaggio[p.id] && N2.dove[p.id] === dove);
   const mancano = S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !(N2.pronto && N2.pronto[p.id]));
@@ -1054,6 +1063,10 @@ function collegaScena(me) {
     if (c.k === "foto") return agisci({ tipo: "foto", bersaglio: c.bersaglio });
     if (c.k === "aspetta") return agisci({ tipo: "aspetta" });
     if (c.k === "fissa") return c.puntata ? finestraPuntata(me, c) : agisci({ tipo: "attivita" });
+    if (c.k === "spa") return agisci({ tipo: "spa" });
+    if (c.k === "brinda") return agisci({ tipo: "incontro", a: c.a, cosa: "drink" });
+    if (c.k === "tavolo") return finestraPuntata(me, { ...c, id: "tavolo" });
+    if (c.k === "serata") return finestra(`<span class="kick" style="color:var(--oro)">${ico("casino")} Il tuo Casinò privato · piano ${me.piani}</span><h2>Apri una serata</h2><p>Tutti ricevono l'invito. Chi viene sale nel tuo Palazzo e vede la Laguna dal piano ${me.piani}. Paga l'ingresso a te, poi gioca al tuo tavolo: il banco sei tu (vince un po' più spesso, ma se un ospite sbanca paghi tu).</p><p class="sub">Quanto fai pagare l'ingresso?</p><div class="riga" style="flex-wrap:wrap">${[0, 50_000, 100_000, 250_000].map((x) => `<button class="oro" data-ing="${x}">${x ? euro(x) : "Gratis"}</button>`).join("")}</div><div class="pulsanti"><button id="no">Non stanotte</button></div>`, (d, chiudi) => { d.querySelector("#no").onclick = chiudi; d.querySelectorAll("[data-ing]").forEach((b) => b.onclick = () => { chiudi(); agisci({ tipo: "serata", ingresso: +b.dataset.ing }); }); });
   });
   on("aspetta", () => agisci({ tipo: "aspetta" }));
   document.querySelectorAll(".scena [data-persona]").forEach((b) => b.onclick = () => finestraIncontro(me, b.dataset.persona));
@@ -1075,11 +1088,11 @@ const ICO_FISSA = { giro: "gala", yacht: "marina", chiedi: "soffiata", carte: "b
 function finestraPuntata(me, c) {
   const puntate = [50_000, 100_000, 250_000, 500_000, 1_000_000].filter((x) => x <= (c.id === "roulette" ? me.cash : me.cash + me.sporchi));
   finestra(`<span class="kick" style="color:var(--cielo)">${ico(ICO_FISSA[c.id])} ${esc(nomeLuogo(S.notte.dove[mioId], true))}</span><h2>${esc(c.titolo)}</h2><p class="storia">${esc(c.testo)}</p>
-    <p class="sub">${c.id === "carte" ? "Se vinci, ti danno il doppio in contanti sporchi. Lascia qualche Traccia." : "Se vinci, ti danno il doppio, tutto pulito. Qui si gioca solo con soldi puliti."}${c.id === "carte" ? " Si paga prima con i soldi sporchi." : ""}</p>
+    <p class="sub">${c.id === "tavolo" ? "Se vinci, il padrone di casa ti paga il doppio. Se perdi, i soldi vanno a lui." : c.id === "carte" ? "Se vinci, ti danno il doppio in contanti sporchi. Lascia qualche Traccia." : "Se vinci, ti danno il doppio, tutto pulito. Qui si gioca solo con soldi puliti."}${c.id === "carte" ? " Si paga prima con i soldi sporchi." : ""}</p>
     ${puntate.length ? `<div class="riga" style="flex-wrap:wrap">${puntate.map((x) => `<button class="oro" data-p="${x}">${euro(x)}</button>`).join("")}</div>` : `<p>Non hai abbastanza soldi per puntare.</p>`}
     <div class="pulsanti"><button id="no">Lascio stare</button></div>`, (d, chiudi) => {
     d.querySelector("#no").onclick = chiudi;
-    d.querySelectorAll("[data-p]").forEach((b) => b.onclick = () => { chiudi(); agisci({ tipo: "attivita", importo: +b.dataset.p }); });
+    d.querySelectorAll("[data-p]").forEach((b) => b.onclick = () => { chiudi(); agisci(c.id === "tavolo" ? { tipo: "gioca_serata", importo: +b.dataset.p } : { tipo: "attivita", importo: +b.dataset.p }); });
   });
 }
 function finestraIncontro(me, id) {
@@ -1127,9 +1140,11 @@ function finestraAltrove(me) {
   const chiamate = new Set((N2.chiamate || []).filter((c) => !c.scaduta).map((x) => x.luogo));
   finestra(`<span class="kick" style="color:var(--cielo)">Ore ${L.ORE[N2.ora]} · ${restano} ${restano === 1 ? "ora" : "ore"} all'alba</span><h2>Dove vai?</h2>
     <div class="lista-luoghi">${luoghi.map((l) => { const ore = L.oreViaggio(S, me, dove, l); const gente = S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && N2.dove[p.id] === l && l !== "palazzo").length; return `<button class="luogo-riga" data-l="${l}" ${ore > restano ? "disabled" : ""} style="background-image:linear-gradient(90deg,rgba(6,10,24,.92),rgba(6,10,24,.55)),url('${SCENA_NOTTE[l]}')"><span class="ic">${ICO_LUOGO[l]}</span><span style="flex:1;text-align:left"><b>${esc(nomeLuogo(l, true))}</b><br><span class="sub">${l === "palazzo" ? "Casa tua" : esc(L.NOMI_ISOLE[L.LUOGHI[l].isola] || "")}${gente ? " · " + gente + (gente === 1 ? " persona" : " persone") + " ci sono già" : ""}${chiamate.has(l) ? " · appuntamento" : ""}</span></span><span class="ore">${ore === 1 ? "1 ora" : "2 ore"}</span></button>`; }).join("")}</div>
+    ${(N2.serate || []).filter((x) => x.host !== mioId && x.host !== N2.ospite).map((x) => `<button class="luogo-riga" data-serata="${x.host}" style="margin-top:8px;border-color:rgba(243,197,107,.6)"><span class="ic">${ico("casino")}</span><span style="flex:1;text-align:left"><b>Serata al Palazzo di ${esc(x.nome)}</b><br><span class="sub">Casinò privato al piano ${x.piani} · ingresso ${x.ingresso ? euro(x.ingresso) : "gratis"} · ${x.ospiti} ${x.ospiti === 1 ? "ospite" : "ospiti"}</span></span><span class="ore">invito</span></button>`).join("")}
     <div class="pulsanti"><button id="no">Resto qui</button></div>`, (d, c) => {
     d.querySelector("#no").onclick = c;
     d.querySelectorAll("[data-l]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "vai", luogo: b.dataset.l }); });
+    d.querySelectorAll("[data-serata]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "vai_serata", host: b.dataset.serata }); });
   });
 }
 function finestraRiepilogo(R) {
@@ -1464,6 +1479,15 @@ function finestra(html, collega) {
 function finestreAutomatiche(me) {
   if (document.querySelector(".velo")) return;
   if (S.fase === "notte" && S.notte && finestraProposteNotte(me)) return;
+  if (S.fase === "notte" && S.notte) {
+    const vg = S.notte.viaggio[mioId];
+    const inv = (S.notte.serate || []).find((x) => x.host !== mioId && x.host !== S.notte.ospite && !(vg && vg.serata === x.host) && !visti.has("ser" + S.ciclo + x.host));
+    if (inv) {
+      visti.add("ser" + S.ciclo + inv.host);
+      const libero = !S.notte.chiuso[mioId] && !S.notte.viaggio[mioId] && !S.notteFatti[mioId] && !me.faro;
+      return finestra(`<span class="kick" style="color:var(--oro)">${ico("casino")} Invito</span><h2>${esc(inv.nome)} apre il suo Casinò privato</h2><p>Stanotte si gioca al piano ${inv.piani} del suo Palazzo. Ingresso: <b>${inv.ingresso ? euro(inv.ingresso) : "gratis"}</b>. Il banco è suo.</p>${libero ? "" : `<p class="sub">Puoi andarci nelle prossime ore, da "Vai altrove".</p>`}<div class="pulsanti"><button id="no">Non ci vado</button>${libero ? `<button class="oro" id="si">Ci vado</button>` : ""}</div>`, (d, c) => { d.querySelector("#no").onclick = c; const si = d.querySelector("#si"); if (si) si.onclick = () => { c(); agisci({ tipo: "vai_serata", host: inv.host }); }; });
+    }
+  }
   const rm = S.riepOra && S.riepOra.mio, vuoto = rm && !rm.soldi && !rm.fama && !rm.rischio && !rm.visti.length;
   if (rm && !rm.aCasa && !vuoto && !visti.has("riep" + S.riepOra.ciclo + "_" + S.riepOra.n)) { visti.add("riep" + S.riepOra.ciclo + "_" + S.riepOra.n); if (S.riepOra.ciclo === S.ciclo || S.fase !== "notte") return finestraRiepilogo(S.riepOra); }
   if (S.fase === "pacchetti" && tocca() && !visti.has("pk")) { visti.add("pk"); return finestraPacchetti(); }
@@ -1579,7 +1603,7 @@ function finestraRicicla(me, paradiso) {
     <div class="pulsanti"><button id="x">Lascio stare</button><button class="notte" id="ok">Ripulisco</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "ricicla", metodo: paradiso ? "paradiso" : d.querySelector("#met").value, importo: Number(d.querySelector("#imp").value) }); }; });
 }
 function finestraCorrompi(me) {
-  const club = S.notte.dove[mioId] === "club";
+  const club = S.notte.dove[mioId] === "club" || S.notte.dove[mioId] === "palazzo";
   finestra(`<span class="kick" style="color:var(--cielo)">🤝 ${club ? "Club Neon, il tavolo in fondo" : "Casinò Reale, la sala privata"}</span><h2>${club ? "Un amico in divisa" : "Il banchiere Lenz"}</h2>
     <p>${club ? "Stasera al club c'è chi indossa una divisa di giorno. Un regalo ogni Ciclo, e chiuderà un occhio." : "Lenz sa far sparire i soldi dai registri. Non è gratis, e non è per sempre."} Può anche rifiutare e fare il tuo nome.</p>
     ${club ? `<div class="campo"><label for="chi">Chi</label><select id="chi"><option value="agente">L'agente di quartiere (${euro(L.N.corruz.agente[0])}, poi ${euro(L.N.corruz.agente[1])} a Ciclo)</option><option value="commissario">Il Commissario Vargas (${euro(L.N.corruz.commissario[0])})</option></select></div><div class="campo"><label for="iso">L'agente di quale isola</label><select id="iso">${L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("")}</select></div>` : `<p>Prezzo: ${euro(L.N.corruz.banchiere[0])}, poi ${euro(L.N.corruz.banchiere[1])} a Ciclo.</p>`}
