@@ -406,7 +406,7 @@ function disegnaMappa(me, notte) {
     }).join("");
     const c = casellaDi(me);
     const [mx, my] = puntoMappa(disp[mioId] || me);
-    m.innerHTML = caselle + edifici() + torri() + `<svg class="scia" viewBox="0 0 100 56.25" preserveAspectRatio="none"></svg>` + pedine +
+    m.innerHTML = nomiIsole() + caselle + edifici() + torri() + `<svg class="scia" viewBox="0 0 100 56.25" preserveAspectRatio="none"></svg>` + pedine +
       (c && !animando && S.fase === "giorno" ? `<div class="etichetta" style="left:${mx}%;top:${my}%"><b>${esc(c.nome)}</b>${c.isola ? `<span>${esc(L.NOMI_ISOLE[c.isola])}</span>` : ""}</div>` : "");
     return;
   }
@@ -426,7 +426,7 @@ function disegnaMappa(me, notte) {
     x += 2.2 + k * 1.4; y -= 2.5;
     return `<div class="luce ${N2.viaggio[p.id] ? "viaggio" : ""}" title="${esc(p.nome)}${N2.viaggio[p.id] ? " · in viaggio" : ""}" style="left:${x}%;top:${y}%;background:${p.colore};color:${p.colore};${p.id === mioId ? "width:20px;height:20px;margin:-10px 0 0 -10px" : ""}"></div>`;
   }).join("");
-  m.innerHTML = edifici() + torri() + luoghi + luci;
+  m.innerHTML = nomiIsole() + edifici() + torri() + luoghi + luci;
   m.querySelectorAll(".luogo[data-luogo]").forEach((b) => b.onclick = () => chiediViaggio(me, b.dataset.luogo));
 }
 
@@ -445,7 +445,36 @@ function casellaHtml(l) {
   else { cls += " spec"; dentro = ICO_CASELLA[l.nome] || "✦"; }
   if (own) { cls += " pres"; stile += `--own:${own.colore};`; }
   const sotto = l.tipoCasella === "angolo" ? nomeCorto : `${nomeCorto}${l.tipoCasella === "lotto" || l.tipoCasella === "molo" ? (own ? " · " + own.nome : l.prezzo ? " · " + euro(l.prezzo) : "") : ""}`;
-  return `<div class="${cls}" title="${esc(tit)}" style="${stile}"><i>${dentro}</i><span class="cn">${esc(sotto)}</span></div>`;
+  return `<div class="${cls}" data-cas="${l.id}" title="${esc(tit)}" style="${stile}"><i>${dentro}</i><span class="cn">${esc(sotto)}</span></div>`;
+}
+
+// i nomi delle isole, sempre visibili
+const NOMI_POS = { Ambra: [22, 55], Palma: [21, 23], Flamingo: [78, 21.5], Sole: [86, 71.5], Corona: [50, 53] };
+function nomiIsole() {
+  return Object.entries(NOMI_POS).map(([k, [x, y]]) => `<div class="isola-nome" style="left:${x}%;top:${y}%">${esc(L.NOMI_ISOLE[k])}</div>`).join("") + `<div class="isola-nome piccola" style="left:84%;top:88%">Il Faro</div>`;
+}
+// toccando una casella si apre la sua scheda
+function schedaCasella(id, cx, cy) {
+  document.querySelectorAll(".scheda-cas").forEach((x) => x.remove());
+  const l = S.lotti.find((x) => x.id === id); if (!l) return;
+  const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
+  const righe = [];
+  if (l.isola) righe.push(L.NOMI_ISOLE[l.isola] + (l.serie && l.serie !== "Moli" ? " · zona " + l.serie : ""));
+  if (l.tipoCasella === "lotto" || l.tipoCasella === "molo") {
+    if (own) righe.push(`Di <b style="color:${own.colore}">${esc(own.nome)}</b>${own.id === mioId ? " (tua)" : ""}`); else righe.push("Libera · costa " + euro(l.prezzo));
+    if (l.cantiere) righe.push("🚧 Cantiere: " + L.ATTIVITA[l.cantiere.tipo].nome + ", apre all'Alba");
+    else if (l.tipo) righe.push(L.ATTIVITA[l.tipo].nome + " · livello " + l.lvl);
+    if (own && own.id !== mioId) righe.push("Se ci finisci paghi " + euro(L.affitto(S, l)));
+  } else {
+    const SPIEGA = { "Gazzetta": "Peschi una notizia: può andarti bene o male.", "Mercato Nero": "Di giorno ti danno una dritta. Di notte ci puoi comprare oggetti.", "Spiaggia VIP": "Incontri gente famosa: più fama.", "Gala Flamingo": "Serata di beneficenza: doni e guadagni fama.", "Porto Container": "Di giorno senti delle voci. Di notte arrivano i carichi.", "La Borsa": "Investimenti senza commissioni.", "Il Municipio": "Candidature a Sindaco e licenza del casinò.", "Banca Centrale": "Prestiti.", "Casinò Reale": "Una puntata al tavolo." };
+    const ANG = { 0: "Si parte da qui. Ogni volta che ci passi incassi lo Stipendio.", 10: "La prigione. Se ci finisci per una condanna, stai fermo qualche turno.", 20: "Spiaggia libera: qui non succede niente, ti riposi.", 30: "Posto di blocco: se sei sotto indagine ti controllano." };
+    righe.push(l.tipoCasella === "angolo" ? ANG[l.idx] : SPIEGA[l.nome] || "");
+  }
+  const d = document.createElement("div"); d.className = "scheda-cas vetro";
+  d.innerHTML = `<b>${esc(l.nome)}</b>${righe.map((r) => `<span>${r}</span>`).join("")}`;
+  d.style.left = Math.min(innerWidth - 270, cx + 14) + "px"; d.style.top = Math.max(70, Math.min(innerHeight - 180, cy - 20)) + "px";
+  document.body.appendChild(d);
+  setTimeout(() => addEventListener("pointerdown", function via(e) { if (!e.target.closest(".scheda-cas")) { d.remove(); removeEventListener("pointerdown", via, true); } }, true), 0);
 }
 
 // gli edifici crescono: un disegno per ogni lotto costruito, e la torre del Palazzo di ognuno
@@ -523,6 +552,13 @@ function collegaEsplora() {
     tocchi.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (trascina.pinch && tocchi.size === 2) { const [a, b] = [...tocchi.values()]; zoomA(trascina.z * Math.hypot(a.x - b.x, a.y - b.y) / trascina.pinch, trascina.cx, trascina.cy); return; }
     if (!trascina.pinch) { vista.x = trascina.vx + e.clientX - trascina.x; vista.y = trascina.vy + e.clientY - trascina.y; mondo.classList.add("trascino"); applicaVista(); }
+  });
+  let inizio = null;
+  mondo.addEventListener("pointerdown", (e) => { inizio = { x: e.clientX, y: e.clientY }; }, true);
+  mondo.addEventListener("click", (e) => {
+    const c = e.target.closest(".cas"); if (!c || !S) return;
+    if (inizio && Math.hypot(e.clientX - inizio.x, e.clientY - inizio.y) > 6) return;
+    schedaCasella(c.dataset.cas, e.clientX, e.clientY);
   });
   const fine = (e) => { tocchi.delete(e.pointerId); if (!tocchi.size) { trascina = null; mondo.classList.remove("trascino"); } };
   addEventListener("pointerup", fine); addEventListener("pointercancel", fine);
