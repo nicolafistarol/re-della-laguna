@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=41";
+import { ico } from "./icone.js?v=42";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=41";
-import * as Pano from "./panorama.js?v=41";
+import * as Tre from "./tre.js?v=42";
+import * as Pano from "./panorama.js?v=42";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=41";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=42";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -209,7 +209,8 @@ function schermataProvaLocale(seed) {
       <div class="campo"><label for="nomeLoc">Come ti chiami?</label><input id="nomeLoc" maxlength="24" placeholder="Scrivi il tuo nome" value="${esc(nomeLocale() === "Tu" ? "" : nomeLocale())}"></div>
       <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">${sceltaDurataHtml()}
         <label class="check"><input type="checkbox" id="princL" ${principianti ? "checked" : ""}> Partita guidata: Vera ti dà consigli e le cose si scoprono piano piano (consigliata la prima volta)</label></div>
-      <button class="oro grande" id="via">Inizia</button>${tastoGuida()}</div>`);
+      <button class="oro grande" id="via">Inizia</button>${tastoGuida()}
+      <a href="${location.pathname}" style="align-self:stretch;text-align:center;padding:12px;border-radius:12px;text-decoration:none;font-weight:800;color:#fff;background:rgba(79,195,247,.18);border:1px solid rgba(79,195,247,.6)">👥 Gioca online con gli amici</a></div>`);
     collegaTastoGuida(); if (guidaMaiVista()) apriGuida(0);
     $("#princL").onchange = (e) => { principianti = e.target.checked; try { localStorage.setItem("laguna_guidata", principianti ? "1" : "0"); } catch (er) { } };
     collegaDurata(disegna);
@@ -1353,6 +1354,7 @@ const APPS = [
   { k: "municipio", nome: "Municipio", ico: ico("municipio"), col: "#5c7f99", lv: 0 },
   { k: "sporchi", nome: "Soldi sporchi", ico: ico("maschera"), col: "#7a2c2c", lv: 1 },
   { k: "setta", nome: "Setta", ico: ico("setta"), col: "#3b1d5c", lv: 9 },
+  { k: "tv", nome: "TV", ico: ico("tv"), col: "#e11d48", lv: 4 },
 ];
 // ogni messaggio arriva da una persona: stessa persona = stessa conversazione
 const MITTENTI = [
@@ -1459,7 +1461,7 @@ function mostraUltimOra() {
 // ------------------------------------------------------------ telefono: home chiara
 // App raggruppate, una riga di stato sotto ogni icona, pallino rosso solo per le cose da fare,
 // "NUOVA" sulle app appena sbloccate, e in alto "Adesso puoi" con 1-3 cose da fare subito.
-const GRUPPI_APP = [["Soldi", ["impero", "banca", "borsa"]], ["Costruire", ["imprese", "agenzia", "palazzo", "lusso"]], ["Persone", ["messaggi", "rubrica", "contratti", "setta"]], ["Notte", ["valigetta", "sporchi", "prove"]], ["Città", ["gazzetta", "municipio", "scoperte"]]];
+const GRUPPI_APP = [["Soldi", ["impero", "banca", "borsa"]], ["Costruire", ["imprese", "agenzia", "palazzo", "lusso"]], ["Persone", ["messaggi", "rubrica", "contratti", "setta"]], ["Notte", ["valigetta", "sporchi", "prove"]], ["Città", ["gazzetta", "tv", "municipio", "scoperte"]]];
 const APP_SEMPRE = ["impero", "imprese", "agenzia", "banca", "gazzetta", "messaggi", "valigetta", "palazzo", "lusso", "rubrica", "municipio"];
 function appViste() { try { return new Set(JSON.parse(localStorage.getItem("laguna_appviste_" + partita) || "[]")); } catch (e) { return new Set(); } }
 function segnaAppVista(k) { try { const v = appViste(); v.add(k); localStorage.setItem("laguna_appviste_" + partita, JSON.stringify([...v])); } catch (e) { } }
@@ -1485,6 +1487,7 @@ function statoApp(me, k, nuovi) {
     case "prove": return { riga: (me.prove || []).length + " in mano" };
     case "gazzetta": return { riga: "Ciclo " + (S.ciclo + 1) };
     case "municipio": { const sind = S.players.find((p) => p.id === S.sindaco); return { riga: sind ? "Sindaco " + esc(sind.nome) : "Sindaco Albertini" }; }
+    case "tv": { const t = (S.grandi || {}).tv; if (!t || t.stato === "chiusa") return { riga: "chiusa" }; if (t.stato === "asta") return { riga: "all'asta", fare: t.offerte && t.offerte[mioId] ? 0 : 1 }; return { riga: t.capo === mioId ? "la comandi tu" : "di " + esc((S.players.find((p) => p.id === t.capo) || {}).nome || "nessuno"), fare: t.capo === mioId && t.titoloneCiclo !== S.ciclo ? 1 : 0 }; }
     case "scoperte": { const n = L.SCOPERTE.filter((x) => (me.scoperte || {})[x.id] !== undefined).length; return { riga: n + " / " + L.SCOPERTE.length }; }
   }
   return { riga: "" };
@@ -1628,6 +1631,7 @@ function contenutoApp(me, k) {
       Array.from({ length: Math.max(0, posti - v.length) }, () => `<div class="ogg vuoto"><span class="ic">·</span><span class="sub">Posto libero</span></div>`).join("");
   }
   if (k === "palazzo") return appPalazzo(me, miTurno);
+  if (k === "tv") return appTV(me);
   if (k === "lusso") return `<div class="scheda"><h4>I tuoi mezzi</h4><span class="sub">${me.veicoli.map((x) => L.N.veicoli[x].nome).join(", ") || "Nessuno, per ora."}</span></div>${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="veicolo">Vai in concessionaria</button>` : `<span class="sub">I mezzi si comprano con la mossa del giorno.</span>`}<span class="sub">Un motoscafo o un elicottero ti fanno muovere di notte in 1 ora ovunque.</span>`;
   if (k === "prove") return (me.prove || []).map((pr, i) => `<div class="scheda"><h4>📷 ${esc(S.players.find((x) => x.id === pr.su).nome)}</h4><span class="sub">${esc(pr.cosa)} · Ciclo ${pr.ciclo}</span><button class="piccolo" data-denuncia="${i}">Manda alla polizia</button></div>`).join("") || `<p class="sub">Nessuna prova. Una macchina fotografica aiuta.</p>`;
   if (k === "borsa") return L.AZIENDE.map((a) => `<div class="scheda"><h4>${a} <span class="sub">${S.borsa[a].toFixed(1)}</span></h4><span class="sub">Ne hai per ${euro((me.azioni[a] || 0) * S.borsa[a])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="b_${a}" style="width:100px"><button class="piccolo" data-compra="borsa|${a}">Compra</button><button class="piccolo" data-vendi="borsa|${a}">Vendi</button></div></div>`).join("") +
@@ -1774,6 +1778,7 @@ const SBLOCCHI = [
   ["Livello 1 · patrimonio 3,5 milioni", "Mercato Nero, Bisca, Porto e Casinò Reale. Soldi sporchi e app Soldi sporchi, occasioni illegali, Prove. Valigetta da 4 posti."],
   ["Livello 2 · patrimonio 7 milioni", "Borsa, Cripto, Contratti, evasione delle tasse. Di notte anche la Redazione."],
   ["Livello 3 · patrimonio 15 milioni", "La Villa sulla scogliera e il Faro. Valigetta da 6 posti. (La setta si apre a parte: servono 8 milioni sporchi.)"],
+  ["Livello 4 · patrimonio 40 milioni (solo partite lunghe)", "I Grandi Affari: la TV della Laguna va all'asta. Chi la comanda sceglie il titolone della Gazzetta. Si può strappare comprando quote."],
 ];
 const PAROLE = [
   ["Ciclo", "Un giro completo: 4 giorni di dadi, una notte, un'Alba. Come finisce la partita si sceglie quando la crei: a Cicli, a obiettivo o libera."],
@@ -1818,6 +1823,7 @@ function collegaApp(me) {
   on('[data-a2="regala"]', () => agisci({ tipo: "regala", a: v("#regA"), importo: Number(v("#regImp")), sporchi: !!box.querySelector("#regSp")?.checked }));
   on('[data-a2="piano"]', () => finestraPalazzo(me));
   on("[data-piani]", (b) => agisci({ tipo: "piano", quanti: +b.dataset.piani }));
+  collegaTV(box, me);
   on("[data-stanza]", (b) => agisci({ tipo: "stanza", stanza: b.dataset.stanza }));
   on('[data-a2="veicolo"]', () => finestraVeicolo());
   on('[data-a2="nuovoContratto"]', () => finestraContratto());
@@ -1952,7 +1958,7 @@ function finestraAlba(me) {
   finestra(`<span class="kick" style="color:var(--oro)">${ico("sole")} L'Alba · Ciclo ${S.ultimaAlba.ciclo}</span><h2>La tua notte</h2>
     <div style="display:flex;flex-direction:column;gap:6px">${racc.map((x) => { const [o, t] = x.split(" — "); return `<p class="storia" style="margin:0"><b style="color:var(--cielo);font-style:normal">${esc(o)}</b> ${esc(t)}</p>`; }).join("") || `<p class="sub">Una notte tranquilla.</p>`}</div>
     <p class="kick" style="color:var(--muted);margin-top:16px">I conti del mattino</p>
-    ${(r.dettaglio || []).length ? `<table class="cl">${r.dettaglio.map((x) => `<tr><td>${esc(x.nome)} <span class="sub">${esc(x.cosa)}</span></td><td style="color:${x.importo ? "var(--pulito)" : "var(--muted)"};font-weight:700">${x.importo ? "+ " + euro(x.importo) : "0 €"}</td></tr>`).join("")}${r.palazzo ? `<tr><td>Il tuo Palazzo</td><td style="color:var(--pulito);font-weight:700">+ ${euro(r.palazzo)}</td></tr>` : ""}${r.veicoli ? `<tr><td>Noleggio dei tuoi veicoli</td><td style="color:var(--pulito);font-weight:700">+ ${euro(Math.round(r.veicoli))}</td></tr>` : ""}</table>` : ""}
+    ${(r.dettaglio || []).length ? `<table class="cl">${r.dettaglio.map((x) => `<tr><td>${esc(x.nome)} <span class="sub">${esc(x.cosa)}</span></td><td style="color:${x.importo ? "var(--pulito)" : "var(--muted)"};font-weight:700">${x.importo ? "+ " + euro(x.importo) : "0 €"}</td></tr>`).join("")}${r.palazzo ? `<tr><td>Il tuo Palazzo</td><td style="color:var(--pulito);font-weight:700">+ ${euro(r.palazzo)}</td></tr>` : ""}${r.veicoli ? `<tr><td>Noleggio dei tuoi veicoli</td><td style="color:var(--pulito);font-weight:700">+ ${euro(Math.round(r.veicoli))}</td></tr>` : ""}${r.tv ? `<tr><td>TV della Laguna (le tue quote)</td><td style="color:var(--pulito);font-weight:700">+ ${euro(r.tv)}</td></tr>` : ""}${r.tvSpesa ? `<tr><td>Spesa per comandare la TV</td><td style="color:#ff9a9a;font-weight:700">− ${euro(r.tvSpesa)}</td></tr>` : ""}</table>` : ""}
     <table class="cl"><tr><td><b>Totale rendite</b></td><td style="color:var(--pulito);font-weight:800">+ ${euro(r.rendite || 0)}</td></tr><tr><td>Tasse</td><td style="color:var(--sporco);font-weight:800">− ${euro(r.tasse || 0)}</td></tr>
     ${r.interessi ? `<tr><td>Interessi alla Banca</td><td>− ${euro(r.interessi)}</td></tr>` : ""}${r.corruzione ? `<tr><td>Le "mance" ai tuoi amici</td><td>− ${euro(r.corruzione)}</td></tr>` : ""}</table>
     ${r.consiglio ? `<div class="scheda" style="margin-top:14px;border:1px solid rgba(255,95,162,.4)"><b style="color:#ff5fa2">Vera ti suggerisce</b><p style="margin:4px 0 0">${esc(r.consiglio.testo)}</p></div>` : ""}
@@ -2195,7 +2201,7 @@ function datiGuida() { return [
     "Vince chi ha il <b>patrimonio</b> più alto: soldi, terreni, Palazzo, mezzi, azioni. I soldi sporchi valgono solo un quarto.",
     "Come finisce lo scegliete voi: dopo 6–20 Cicli, a un obiettivo (50, 100 o 200 milioni) o partita libera.",
     "Prima della fine c'è la <b>Resa dei conti</b>: chi ha lasciato piste paga.",
-    "<b>Livelli</b>: più sei ricco, più cose si aprono (Livello 1 a 3,5 M, 2 a 7 M, 3 a 15 M).",
+    "<b>Livelli</b>: più sei ricco, più cose si aprono (Livello 1 a 3,5 M, 2 a 7 M, 3 a 15 M; nelle partite lunghe Livello 4 a 40 M).",
     "Il <b>telefono</b> in basso a destra: le app arrivano piano piano. Il pallino rosso vuol dire che c'è qualcosa da fare.",
   ], tag: ["Storie", "Ciclo", "Alba", "Patrimonio", "Resa dei conti", "Livelli", "Telefono"] },
   { img: "img/vicolo.jpg", kick: "2 di 6 · Il giorno", tit: "Dadi, terreni, attività", righe: [
@@ -2238,8 +2244,9 @@ function datiGuida() { return [
     "<b>Municipio</b>: candidati a <b>Sindaco</b> e fai le leggi. Lì chiedi anche la licenza del casinò.",
     "<b>Gazzetta</b>: le notizie di ogni Ciclo. Puoi comprare un articolo, o <b>denunciare</b> un rivale con le prove.",
     "<b>Da scoprire</b>: 22 cose da provare, la prima volta +1 fama. Nella partita guidata <b>Vera</b> ti consiglia.",
+    "<b>Grandi Affari</b> (Livello 4, partite lunghe): la <b>TV della Laguna</b> va all'asta. Chi la comanda sceglie il titolone, ma gliela possono strappare comprando quote.",
     "Titoli finali: Re della Laguna, La Stella, Mani Pulite, Gran Burattinaio.",
-  ], tag: ["Banca", "Borsa", "Cripto", "Contratti", "Tasse", "Sindaco", "Leggi", "Gazzetta", "Denunce", "Da scoprire", "Vera"] },
+  ], tag: ["Banca", "Borsa", "Cripto", "Contratti", "Tasse", "Sindaco", "Leggi", "Gazzetta", "Denunce", "TV", "Da scoprire", "Vera"] },
 ]; }
 function apriGuida(da = 0) {
   const GUIDA = datiGuida();
@@ -2273,3 +2280,52 @@ function apriGuida(da = 0) {
 function guidaMaiVista() { try { return !localStorage.getItem("laguna_guida_vista"); } catch (e) { return false; } }
 function tastoGuida() { return `<button class="bianco" id="apriGuida" style="align-self:stretch">📖 Come si gioca · 6 slide</button>`; }
 function collegaTastoGuida() { const b = $("#apriGuida"); if (b) b.onclick = () => apriGuida(0); }
+
+// ------------------------------------------------------------ APP TV: il primo Grande Affare (Livello 4)
+function appTV(me) {
+  const G = L.GRANDI.tv, t = (S.grandi || {}).tv || { stato: "chiusa" }, lv4 = (S.sblocco || 0) >= 4;
+  const testa = `<div class="scheda tv-testa"><span class="kick" style="color:#ff6b8a">${ico("tv")} Grande Affare · uno solo in tutta la Laguna</span><h3 style="margin:4px 0">${G.nome}</h3>
+    <span class="sub">Chi la comanda sceglie a ogni Ciclo il titolone della Gazzetta. Ha 10 quote: comanda chi ne ha di più.</span></div>`;
+  if (t.stato === "chiusa") return testa + `<div class="scheda"><span class="sub">Si apre quando il primo giocatore arriva al Livello 4 (40 milioni di patrimonio). Solo nelle partite lunghe.</span></div>`;
+  if (t.stato === "asta") {
+    const mia = (t.offerte || {})[mioId];
+    const prop = [G.base, Math.round(G.base * 1.25), Math.round(G.base * 1.5), Math.round(G.base * 2)].filter((x) => x <= me.cash);
+    return testa + `<div class="scheda" style="border-color:var(--oro)"><h4 style="color:var(--oro)">All'asta: si chiude all'Alba</h4>
+      <span class="sub">L'offerta è <b>segreta</b>: la vedi solo tu. All'Alba vince la più alta e paga quello che ha offerto (i soldi vanno alla banca). Chi vince prende 4 quote su 10 e comanda la TV. Base: ${euro(G.base)}.</span>
+      ${!lv4 ? `<p class="sub">All'asta possono offrire solo i giocatori al Livello 4.</p>` : `
+      <p>${mia ? `La tua offerta: <b style="color:var(--oro)">${euro(mia)}</b>` : "Non hai ancora offerto."}</p>
+      ${prop.length ? `<div class="riga" style="flex-wrap:wrap">${prop.map((x) => `<button class="piccolo oro" data-tv-off="${x}">${euro(x)}</button>`).join("")}</div>` : `<p class="sub">Ti servono almeno ${euro(G.base)} puliti.</p>`}
+      <div class="riga"><input id="tvOff" type="number" placeholder="altra cifra" style="flex:1"><button class="piccolo" data-tv-off="campo">Offri</button>${mia ? `<button class="piccolo" data-tv-off="0">Ritira</button>` : ""}</div>`}</div>`;
+  }
+  // attiva
+  const capo = S.players.find((p) => p.id === t.capo), mie = (t.quote || {})[mioId] || 0, sonoCapo = t.capo === mioId;
+  const celle = [];
+  for (const [id, q] of Object.entries(t.quote || {}).sort((a, b) => (b[0] === t.capo) - (a[0] === t.capo) || b[1] - a[1])) { const p = S.players.find((x) => x.id === id); for (let i = 0; i < q; i++) celle.push(`<i title="${esc(p.nome)}" style="background:${p.colore}">${esc(p.nome[0])}</i>`); }
+  for (let i = 0; i < t.mercato; i++) celle.push(`<i class="mercato" title="In vendita"></i>`);
+  const gia = (t.quoteCiclo || {})[mioId] || 0, resta = G.maxQuoteCiclo - gia;
+  const costo = (n) => { let c = 0; for (let k = 0; k < n; k++) c += Math.round(t.prezzoQuota * Math.pow(1.1, k)); return c; };
+  const resaQuota = Math.round(G.pubblicita / G.quote);
+  const quote = `<div class="scheda"><h4>Chi comanda: <span style="color:${capo ? capo.colore : "inherit"}">${capo ? esc(capo.nome) + (sonoCapo ? " (tu)" : "") : "nessuno"}</span></h4>
+    <div class="tv-quote">${celle.join("")}</div>
+    <span class="sub">Colori = quote dei giocatori · grigie = in vendita. Hai <b>${mie}</b> ${mie === 1 ? "quota" : "quote"}. Ogni quota rende almeno ${euro(resaQuota)} a ogni Alba (più una parte del lusso che comprano gli altri).</span>
+    ${lv4 ? (t.mercato > 0 ? `<div class="riga" style="flex-wrap:wrap;margin-top:6px">${[1, 2].filter((n) => n <= resta && n <= t.mercato).map((n) => `<button class="piccolo oro" data-tv-quote="${n}" ${me.cash >= costo(n) ? "" : "disabled"}>Compra ${n} ${n === 1 ? "quota" : "quote"} · ${euro(costo(n))}</button>`).join("") || `<span class="sub">Questo Ciclo hai già comprato ${G.maxQuoteCiclo} quote.</span>`}</div>
+      <span class="sub">Al massimo ${G.maxQuoteCiclo} quote per Ciclo. Ogni quota venduta fa salire il prezzo del 10%.</span>` : `<p class="sub">Tutte le quote sono in mano ai giocatori: per ora non si compra niente.</p>`) : `<p class="sub">Le quote le comprano solo i giocatori al Livello 4.</p>`}
+    ${sonoCapo ? `<p class="sub" style="color:#ffb3b3">Chi comanda paga ${euro(G.spesa)} a ogni Alba. Se non li hai, perdi il comando.</p>` : capo && lv4 ? `<p class="sub">Per strappargliela ti servono più quote di ${esc(capo.nome)} (${(t.quote || {})[t.capo] || 0}).</p>` : ""}</div>`;
+  let tit = "";
+  if (sonoCapo) {
+    if (t.titoloneCiclo === S.ciclo) tit = `<div class="scheda"><h4>Il titolone</h4><span class="sub">Hai già scelto il titolone di questo Ciclo. Torna al prossimo.</span></div>`;
+    else {
+      const altri = S.players.filter((p) => p.id !== mioId);
+      tit = `<h4 style="margin:12px 0 4px">Il titolone di questo Ciclo</h4>
+      <div class="tv-scelta"><b>${ico("stella")} La tua faccia in prima serata</b><span class="sub">+8 fama. Sicuro, senza rischi.</span><button class="oro" data-tv-tit="fama">Scegli</button></div>
+      <div class="tv-scelta"><b>${ico("siren")} Uno scandalo su un rivale</b><span class="sub">Se ha davvero qualcosa da nascondere: −15 fama e la polizia lo guarda di più. Se è pulito, metà delle volte la figuraccia è tua (−10 fama).</span><div class="riga"><select id="tvBers" style="flex:1">${altri.map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join("")}</select><button class="oro" data-tv-tit="scandalo">Scegli</button></div></div>
+      <div class="tv-scelta"><b>${ico("borsa")} Una notizia di Borsa</b><span class="sub">All'Alba l'azienda sale o scende del 12%. Comprale o vendile prima! Ma manipolare la Borsa lascia tracce.</span><div class="riga"><select id="tvAz" style="flex:1">${L.AZIENDE.map((a) => `<option>${a}</option>`).join("")}</select><select id="tvVerso"><option value="1">sale</option><option value="0">scende</option></select><button class="oro" data-tv-tit="borsa">Scegli</button></div></div>`;
+    }
+  }
+  return testa + quote + tit;
+}
+function collegaTV(box, me) {
+  box.querySelectorAll("[data-tv-off]").forEach((b) => b.onclick = () => { const v = b.dataset.tvOff === "campo" ? Number(box.querySelector("#tvOff").value) : Number(b.dataset.tvOff); agisci({ tipo: "offerta_grande", affare: "tv", importo: v }); });
+  box.querySelectorAll("[data-tv-quote]").forEach((b) => b.onclick = () => agisci({ tipo: "quote_grande", affare: "tv", n: +b.dataset.tvQuote }));
+  box.querySelectorAll("[data-tv-tit]").forEach((b) => b.onclick = () => { const sc = b.dataset.tvTit; agisci(sc === "scandalo" ? { tipo: "titolone", scelta: sc, bersaglio: box.querySelector("#tvBers").value } : sc === "borsa" ? { tipo: "titolone", scelta: sc, azienda: box.querySelector("#tvAz").value, su: box.querySelector("#tvVerso").value === "1" } : { tipo: "titolone", scelta: sc }); });
+}

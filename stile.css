@@ -505,3 +505,12 @@ button .lic{margin-right:2px}
 .guida-punti button.on{background:var(--oro);width:22px;border-radius:6px}
 @media (max-width:480px){.guida-foto{min-height:120px}.guida-foto h2{font-size:26px}.guida-righe{font-size:13.5px;padding-left:28px}.guida-nav button{padding:8px 10px}}
 .guida-nav>button{white-space:nowrap}
+
+/* app TV */
+.tv-testa{border:1px solid rgba(255,107,138,.45);background:linear-gradient(135deg,rgba(225,29,72,.18),rgba(0,0,0,0))}
+.tv-quote{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin:8px 0}
+.tv-quote i{font-style:normal;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:#0b1018;border:1.5px solid rgba(255,255,255,.7)}
+.tv-quote i.mercato{background:rgba(255,255,255,.08);border:1.5px dashed rgba(255,255,255,.35)}
+.tv-scelta{display:flex;flex-direction:column;gap:5px;padding:10px;border-radius:12px;margin:6px 0;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04)}
+.tv-scelta b{display:flex;gap:6px;align-items:center}.tv-scelta b .lic{width:16px;height:16px}
+.tv-scelta>button{align-self:flex-start}
