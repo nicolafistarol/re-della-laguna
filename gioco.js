@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=33";
+import { ico } from "./icone.js?v=34";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=33";
-import * as Pano from "./panorama.js?v=33";
+import * as Tre from "./tre.js?v=34";
+import * as Pano from "./panorama.js?v=34";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=33";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=34";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -1348,7 +1348,7 @@ function contenutoApp(me, k) {
     const miei = S.lotti.filter((l) => l.owner === mioId);
     if (!miei.length) return `<p class="sub">Non hai ancora terreni. Quando atterri su un lotto libero puoi comprarlo.</p>`;
     return `<p class="sub">Ogni impresa nasce in 4 passi: terreno, permesso del Municipio, cantiere (apre all'Alba), apertura.</p>` + miei.map((l) => {
-      const next = l.lvl + 1, costo = next <= 5 ? Math.round(L.N.costLvl[next] * l.prezzo * (me.pacchetto === "costruttore" ? 0.8 : 1)) : 0;
+      const next = l.lvl + 1, costo = next <= 5 ? Math.round(L.N.costLvl[next] * l.prezzo * (me.pacchetto === "costruttore" ? 0.85 : 1)) : 0;
       let azioni = "";
       if (l.tipoCasella === "lotto" && l.lvl < 5 && !l.cantiere && miTurno) {
         if (l.negato) azioni = `<button class="piccolo" data-regalo="${l.id}">Una busta all'assessore (${euro(Math.max(50000, Math.round(l.prezzo * 0.1)))})</button>`;
@@ -1390,11 +1390,7 @@ function contenutoApp(me, k) {
       v.map((o) => { const O = L.OGGETTI[o.id]; return `<div class="ogg"><span class="ic">${ICO_OGG[o.id]}</span><div><b>${esc(O.nome)}</b><div class="sub" style="font-size:12px">${esc(O.descr)}${o.notti ? " Ancora " + o.notti + (o.notti === 1 ? " notte." : " notti.") : ""}</div></div></div>`; }).join("") +
       Array.from({ length: Math.max(0, posti - v.length) }, () => `<div class="ogg vuoto"><span class="ic">·</span><span class="sub">Posto libero</span></div>`).join("");
   }
-  if (k === "palazzo") {
-    const costo = L.costoPiano(me);
-    return `<div class="scheda"><span class="serif" style="font-size:30px">${me.piani} ${me.piani === 1 ? "piano" : "piani"}</span><span class="sub">${me.piani ? me.funzioniPiani.map((f) => f.replace(/_/g, " ")).join(", ") : "Il tuo grattacielo è ancora un sogno."}</span></div>
-      ${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="piano">Costruisci il prossimo piano · ${euro(costo)}</button>` : `<span class="sub">I piani si costruiscono con la mossa del giorno, durante il tuo turno.</span>`}`;
-  }
+  if (k === "palazzo") return appPalazzo(me, miTurno);
   if (k === "lusso") return `<div class="scheda"><h4>I tuoi mezzi</h4><span class="sub">${me.veicoli.map((x) => L.N.veicoli[x].nome).join(", ") || "Nessuno, per ora."}</span></div>${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="veicolo">Vai in concessionaria</button>` : `<span class="sub">I mezzi si comprano con la mossa del giorno.</span>`}<span class="sub">Un motoscafo o un elicottero ti fanno muovere di notte in 1 ora ovunque.</span>`;
   if (k === "prove") return (me.prove || []).map((pr, i) => `<div class="scheda"><h4>📷 ${esc(S.players.find((x) => x.id === pr.su).nome)}</h4><span class="sub">${esc(pr.cosa)} · Ciclo ${pr.ciclo}</span><button class="piccolo" data-denuncia="${i}">Manda alla polizia</button></div>`).join("") || `<p class="sub">Nessuna prova. Una macchina fotografica aiuta.</p>`;
   if (k === "borsa") return L.AZIENDE.map((a) => `<div class="scheda"><h4>${a} <span class="sub">${S.borsa[a].toFixed(1)}</span></h4><span class="sub">Ne hai per ${euro((me.azioni[a] || 0) * S.borsa[a])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="b_${a}" style="width:100px"><button class="piccolo" data-compra="borsa|${a}">Compra</button><button class="piccolo" data-vendi="borsa|${a}">Vendi</button></div></div>`).join("") +
@@ -1825,11 +1821,24 @@ function finestraSetta(me) {
   });
 }
 function finestraPalazzo(me) {
-  const F = { appartamenti: "Appartamenti (rendono)", uffici: "Uffici (rendono)", ristorante_panoramico: "Ristorante panoramico", spa: "Spa e piscina", casino_privato: "Casinò privato (serve la licenza)", caveau: "Caveau (protegge i soldi sporchi)", sala_insonorizzata: "Sala insonorizzata", garage: "Garage di lusso", eliporto: "Eliporto", piani_segreti: "Piani segreti" };
-  const costo = L.costoPiano(me);
-  finestra(`<span class="kick" style="color:var(--oro)">🏙️ Il tuo Palazzo</span><h2>Un piano in più</h2><p>Hai ${me.piani} piani. Il prossimo costa <b>${euro(costo)}</b>${me.piani === 0 && me.pacchetto !== "costruttore" ? ", più il permesso (300.000 €)" : ""}.</p>
-    <div class="campo"><label for="f">Cosa ci metti</label><select id="f">${Object.entries(F).map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></div>
-    <div class="pulsanti"><button id="x">Chiudi</button><button class="oro" id="ok">Costruisci</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "piano", funzione: d.querySelector("#f").value }); }; });
+  const costo = L.costoPiano(me), poss = L.stanzePossibili(S, me), primo = poss.find((x) => x.ok);
+  finestra(`<span class="kick" style="color:var(--oro)">${ico("palazzo")} Il tuo Palazzo</span><h2>Il piano ${me.piani + 1}</h2><p>Costa <b>${euro(costo)}</b>${me.piani === 0 && me.pacchetto !== "costruttore" ? ", più il permesso (300.000 €)" : ""}. Scegli la stanza:</p>
+    <div class="lista-luoghi">${poss.map((x) => `<button class="luogo-riga stanza ${x.id === (primo && primo.id) ? "scelta-on" : ""}" data-st="${x.id}" ${x.ok ? "" : "disabled"}><span class="ic">${ico(x.ok ? "palazzo" : "chiave")}</span><span style="flex:1;text-align:left"><b>${esc(L.STANZE[x.id].nome)}</b><br><span class="sub">${esc(L.STANZE[x.id].descr)}</span></span><span class="ore">${x.ok ? x.fascia : esc(x.perche)}</span></button>`).join("")}</div>
+    <div class="pulsanti"><button id="x">Chiudi</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelectorAll("[data-st]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "piano", funzione: b.dataset.st }); }); });
+}
+function appPalazzo(me, miTurno) {
+  const F = L.FASCE_PALAZZO, n = me.piani, fasciaDi = (num) => F.reduce((r, f, i) => (num >= f.da ? i : r), 0);
+  const prossima = F.find((f) => f.da > n);
+  const meta = prossima ? `<div class="scheda" style="border-color:var(--oro)"><h4 style="color:var(--oro)">Prossimo traguardo: ${prossima.nome}</h4><span class="sub">Ti ${prossima.da - n === 1 ? "manca 1 piano" : "mancano " + (prossima.da - n) + " piani"}${S.sblocco < prossima.lv ? " e il Livello " + prossima.lv : ""}. Si aprono: ${prossima.fun.map((f) => L.STANZE[f].nome).join(", ")}. Premio: +${prossima.da === F[1].da ? 5 : 10} fama e una vista più alta.</span></div>` : `<div class="scheda"><h4 style="color:var(--oro)">Sei in cima: Grattacielo</h4><span class="sub">Più piani costruisci, più rendi. Il palazzo più alto vale il titolo di Padrone dello Skyline.</span></div>`;
+  const COL = ["#8a6d3b", "#b8860b", "#7a5cff"];
+  const torre = Array.from({ length: Math.max(n + 2, Math.min(F[2].da + 1, n + 4)) }, (_, i) => i + 1).reverse().map((num) => {
+    const f = me.funzioniPiani[num - 1], fi = fasciaDi(num), conf = F.some((x) => x.da === num && num > 1);
+    return `${conf ? `<div class="pal-fascia" style="color:${COL[fi]}">— ${F[fi].nome} (dal piano ${F[fi].da}, Livello ${F[fi].lv}) —</div>` : ""}<div class="pal-piano ${f ? "" : "vuoto"}" style="--c:${COL[fi]}"><span class="num">${num}</span><span>${f ? esc(L.STANZE[f]?.nome || f) : num === n + 1 ? "prossimo piano · " + euro(L.costoPiano(me)) : "…"}</span></div>`;
+  }).join("") + `<div class="pal-fascia" style="color:${COL[0]}">— Palazzo (dal piano 1) —</div>`;
+  const stanze = F.map((fa, i) => `<div class="scheda"><h4 style="color:${COL[i]}">${fa.nome} · dal piano ${fa.da}${fa.lv ? " · Livello " + fa.lv : ""}</h4>${fa.fun.map((f) => `<div style="margin-top:4px"><b>${esc(L.STANZE[f].nome)}</b>${me.funzioniPiani.includes(f) ? ` <span class="tag">ce l'hai</span>` : ""}<div class="sub">${esc(L.STANZE[f].descr)}</div></div>`).join("")}</div>`).join("");
+  return `<div class="scheda"><span class="serif" style="font-size:30px">${n} ${n === 1 ? "piano" : "piani"}</span><span class="sub">${n ? "Fascia: " + F[fasciaDi(n)].nome + ". Ogni piano costa un po' più del precedente; i piani che rendono ripagano col tempo." : "Il tuo grattacielo è ancora un sogno. Servono almeno 2 attività aperte per iniziare."}</span>
+    ${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="piano">Costruisci il piano ${n + 1} · ${euro(L.costoPiano(me))}</button>` : `<span class="sub">I piani si costruiscono con la mossa del giorno, durante il tuo turno.</span>`}</div>
+    ${meta}<div class="pal-torre">${torre}</div><h4 style="margin:10px 0 4px">Le stanze</h4>${stanze}`;
 }
 function finestraVeicolo() {
   finestra(`<span class="kick" style="color:var(--oro)">🛥️ Marina dei Re</span><h2>Mezzi di lusso</h2><div class="griglia">${Object.entries(L.N.veicoli).map(([k, v]) => `<button class="sch" data-v="${k}"><h3>${v.nome}</h3><p>${euro(v.prezzo)}<br>rende ${euro(v.prezzo * v.rend)} a Ciclo · +${v.fama} fama</p></button>`).join("")}</div>

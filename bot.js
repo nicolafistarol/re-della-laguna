@@ -126,9 +126,13 @@
           })(o, i, n);
           if (r) return r;
           const a = (function (o, t, i) {
-            const casinoOk = (o.licenze || []).includes(t.id) && !(t.funzioniPiani || []).includes("casino_privato");
+            const casinoOk = (globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null)).stanzePossibili(o, t).some((x) => x.id === "casino_privato" && x.ok);
             if (t.piani > 0 && casinoOk && ["Costruttore", "Spavaldo", "Furbo"].includes(i) && t.cash > 15e5 && Math.random() < 0.4) return { tipo: "piano", funzione: "casino_privato" };
-            if ("Costruttore" === i && t.cash > 25e5 && Math.random() < 0.3 && (t.piani > 0 || o.lotti.filter((l) => l.owner === t.id && l.lvl >= 1).length >= 2)) return { tipo: "piano", funzione: "appartamenti" };
+            if (("Costruttore" === i ? t.cash > 15e5 && Math.random() < 0.6 : t.cash > 4e6 && Math.random() < 0.15) && (t.piani > 0 || o.lotti.filter((l) => l.owner === t.id && l.lvl >= 1).length >= 2)) {
+              const ok = (globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null)).stanzePossibili(o, t).filter((x) => x.ok).map((x) => x.id);
+              const f = ["uffici", t.veicoli.length ? "garage" : null, "ristorante_panoramico", "suite", "appartamenti"].filter(Boolean).find((x) => ok.includes(x)) || ok[0];
+              if (f) return { tipo: "piano", funzione: f };
+            }
             const r = e(o, t, !0),
               n = r ? { tipo: "costruisci", lotto: r.l.id, attivita: 0 === r.l.lvl ? r.tipo : void 0 } : null;
             return (

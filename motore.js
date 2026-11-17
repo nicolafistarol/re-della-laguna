@@ -80,7 +80,7 @@
   // Le classi: tutti partono con gli stessi soldi e un terreno a sorte; ogni classe ha un vantaggio suo.
   const PACCHETTI = [
     { id: "commerciante", nome: "Il Commerciante", perk: "Tutti i tuoi affitti rendono il 25% in più.", extra: {} },
-    { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 20% in meno. Il permesso del Palazzo è gratis.", extra: {} },
+    { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 15% in meno. Il permesso del Palazzo è gratis.", extra: {} },
     { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo del 4%.", extra: {} },
     { id: "playboy", nome: "Il Playboy", perk: "+2 fama ogni Alba. Parti con il motoscafo (Viaggio rapido tra i Moli) e gli amici dello yacht.", extra: { veicolo: "motoscafo" } },
     { id: "contrabbandiere", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta.", extra: {} },
@@ -603,7 +603,7 @@
     let costo = N.costLvl[next] * l.prezzo;
     if (s.leggi.includes("condono")) costo *= 0.5;
     if (casella(s, p).id === l.id) costo *= 0.9;
-    if (p.pacchetto === "costruttore") costo *= 0.8;
+    if (p.pacchetto === "costruttore") costo *= 0.85;
     costo = round(costo);
     if (p.cash < costo) err("Ti servono " + euro(costo) + " puliti.");
     p.cash -= costo; l.cantiere = { tipo: nuovoTipo, lvl: next }; l.permesso = false; p.azioneGiornoFatta = true;
@@ -614,8 +614,12 @@
   }
   function piano(s, p, funzione) {
     azioneGiorno(s, p);
-    const FUN = ["appartamenti", "uffici", "ristorante_panoramico", "spa", "casino_privato", "caveau", "sala_insonorizzata", "garage", "eliporto", "piani_segreti"];
-    if (!FUN.includes(funzione)) err("Funzione del piano non valida.");
+    const fi = FASCE_PALAZZO.findIndex((f) => f.fun.includes(funzione));
+    if (fi < 0) err("Funzione del piano non valida.");
+    const F = FASCE_PALAZZO[fi], numero = p.piani + 1;
+    if (numero < F.da) err(STANZE[funzione].nome + " si costruisce dal piano " + F.da + " (" + F.nome + "). Ora costruisci il piano " + numero + ".");
+    if (livelloSblocco(s, p) < F.lv) err(STANZE[funzione].nome + " si apre al Livello " + F.lv + ".");
+    if (STANZE[funzione].unica && haPiano(p, funzione)) err(STANZE[funzione].nome + " ce l'hai già: se ne fa una sola.");
     if (p.piani === 0 && propri(s, p).filter((l) => l.lvl >= 1).length < 2) err("Per il Palazzo servono almeno 2 attività aperte.");
     if (p.piani === 0 && !p.permessoPalazzo && p.pacchetto !== "costruttore") {
       if (p.cash < 300_000) err("Il permesso per il Palazzo costa 300.000 €.");
@@ -628,10 +632,36 @@
     if (p.cash < costo) err("Il prossimo piano costa " + euro(costo) + ".");
     p.cash -= costo; p.piani += 1; p.funzioniPiani.push(funzione); p.azioneGiornoFatta = true;
     if (p.piani % 5 === 0) p.fama += 1;
+    if (p.piani === FASCE_PALAZZO[1].da) { p.fama += 5; privato(s, p, "Il tuo Palazzo diventa un Attico: +5 fama. Ora puoi costruire Uffici, Spa, Sala insonorizzata, Caveau e Casinò privato (dal Livello 1)."); notizia(s, "Il Palazzo di " + p.nome + " ha ora un Attico con vista su tutta la Laguna.", "fama"); }
+    if (p.piani === FASCE_PALAZZO[2].da) { p.fama += 10; privato(s, p, "Il tuo Palazzo è un Grattacielo: +10 fama. Ora puoi costruire Eliporto, Piani segreti e Suite presidenziale (dal Livello 2)."); notizia(s, "Il Palazzo di " + p.nome + " tocca il cielo: è un Grattacielo.", "fama"); }
     log(s, p.nome + " aggiunge il piano " + p.piani + " al suo Palazzo (" + funzione.replace(/_/g, " ") + ").", p.id);
     aggiornaSkyline(s);
   }
-  function costoPiano(p) { return round(N.pianoCost * Math.pow(N.pianoGrow, p.piani) * (p.pacchetto === "costruttore" ? 0.8 : 1)); }
+  // Il Palazzo cresce in 3 fasce: ogni fascia apre stanze nuove (servono i piani e il livello)
+  const FASCE_PALAZZO = [
+    { nome: "Palazzo", da: 1, lv: 0, fun: ["appartamenti", "garage", "ristorante_panoramico"] },
+    { nome: "Attico", da: 6, lv: 1, fun: ["uffici", "spa", "sala_insonorizzata", "caveau", "casino_privato"] },
+    { nome: "Grattacielo", da: 15, lv: 2, fun: ["eliporto", "piani_segreti", "suite"] },
+  ];
+  const STANZE = {
+    appartamenti: { nome: "Appartamenti", descr: "Ogni Alba incassi l'affitto degli inquilini. Puoi farne quanti vuoi." },
+    garage: { nome: "Garage di lusso", unica: true, descr: "I tuoi mezzi rendono il 50% in più." },
+    ristorante_panoramico: { nome: "Ristorante panoramico", unica: true, descr: "Rende un po' più degli appartamenti e ti dà +1 fama ogni Ciclo." },
+    uffici: { nome: "Uffici", descr: "Rendono il 30% in più degli appartamenti. Puoi farne quanti vuoi." },
+    spa: { nome: "Spa e piscina", unica: true, descr: "Di notte organizzi serate con ospiti famosi: +3 fama." },
+    sala_insonorizzata: { nome: "Sala insonorizzata", unica: true, descr: "Di notte compri poliziotti e banchieri senza uscire di casa." },
+    caveau: { nome: "Caveau", unica: true, descr: "Se ti condannano salva fino a 5 milioni di soldi sporchi." },
+    casino_privato: { nome: "Casinò privato", unica: true, descr: "Organizzi serate di poker: gli ospiti pagano l'ingresso e giocano contro di te. Serve la licenza." },
+    eliporto: { nome: "Eliporto", unica: true, descr: "Viaggio rapido verso gli Eliporti di giorno; di notte ti sposti in 1 ora." },
+    piani_segreti: { nome: "Piani segreti", unica: true, descr: "Nelle retate la polizia non trova la tua valigetta." },
+    suite: { nome: "Suite presidenziale", unica: true, descr: "Ospiti potenti dormono da te: +3 fama ogni Ciclo." },
+  };
+  function stanzePossibili(s, p) {
+    const numero = p.piani + 1, lv = livelloSblocco(s, p);
+    return FASCE_PALAZZO.flatMap((F) => F.fun.map((f) => ({ id: f, fascia: F.nome, ok: numero >= F.da && lv >= F.lv && !(STANZE[f].unica && haPiano(p, f)) && !(f === "casino_privato" && !s.licenze.includes(p.id)),
+      perche: STANZE[f].unica && haPiano(p, f) ? "ce l'hai già" : numero < F.da ? "dal piano " + F.da : lv < F.lv ? "dal Livello " + F.lv : f === "casino_privato" && !s.licenze.includes(p.id) ? "serve la licenza" : "" })));
+  }
+  function costoPiano(p) { return round(N.pianoCost * Math.pow(N.pianoGrow, p.piani) * (p.pacchetto === "costruttore" ? 0.85 : 1)); }
   function aggiornaSkyline(s) {
     let best = null;
     for (const p of s.players) if (p.piani > 0 && (!best || p.piani > best.piani)) best = p;
@@ -1110,7 +1140,7 @@
     const punti = p.fama + patrimonio(s, p) / 500_000;
     return punti >= 55 ? 2 : punti >= 30 ? 1 : 0;
   }
-  function livelloPalazzo(p) { return p.piani >= 30 ? 2 : p.piani >= 10 ? 1 : 0; }
+  function livelloPalazzo(p) { return p.piani >= FASCE_PALAZZO[2].da ? 2 : p.piani >= FASCE_PALAZZO[1].da ? 1 : 0; }
   // Ogni luogo ha un'attivita' fissa, sempre presente
   const ATTIVITA_NOTTE = {
     club: { id: "giro", titolo: "Offri un giro a tutto il locale", testo: "Champagne per tutti. Domani tutti sapranno il tuo nome.", costo: 30_000 },
@@ -2075,13 +2105,16 @@
       let pal = 0;
       p.funzioniPiani.forEach((f, i) => {
         const c = N.pianoCost * Math.pow(N.pianoGrow, i);
-        if (["appartamenti", "uffici"].includes(f)) pal += c * N.pianoRend;
+        if (f === "appartamenti") pal += c * N.pianoRend;
+        else if (f === "uffici") pal += c * N.pianoRend * 1.3;
         else if (["ristorante_panoramico", "casino_privato"].includes(f)) pal += c * N.pianoRend * 1.1;
         else pal += c * 0.15;
       });
       r.palazzo = round(pal);
       // veicoli a noleggio
-      for (const v of p.veicoli) r.veicoli += N.veicoli[v].prezzo * N.veicoli[v].rend;
+      for (const v of p.veicoli) r.veicoli += N.veicoli[v].prezzo * N.veicoli[v].rend * (haPiano(p, "garage") ? 1.5 : 1);
+      if (haPiano(p, "ristorante_panoramico")) p.fama += 1;
+      if (haPiano(p, "suite")) p.fama += 3;
       rend += pal + r.veicoli;
       if (p.faro > 0) rend *= 0.7;
       if (p.blocco > 0) { rend *= 0.5; p.blocco -= 1; }
@@ -2372,7 +2405,7 @@
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE,
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
-    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, rischioContatto, nomeContatto, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, oreViaggio, luogoAperto,
+    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, rischioContatto, nomeContatto, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, FASCE_PALAZZO, STANZE, stanzePossibili, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;

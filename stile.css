@@ -405,3 +405,10 @@ button .lic{margin-right:2px}
 .scena .scelte{align-items:end}
 .scena .scelta:not(.aperta){flex-direction:row;align-items:center;gap:10px;padding:12px 14px;flex-wrap:wrap}
 .scena .scelta:not(.aperta) .costo{margin-left:auto;font-size:12px}
+
+/* torre del Palazzo nell'app */
+.pal-torre{display:flex;flex-direction:column;gap:3px;margin:8px 0}
+.pal-piano{display:flex;gap:8px;align-items:center;padding:6px 10px;border-radius:8px;background:color-mix(in srgb,var(--c) 35%,transparent);border-left:4px solid var(--c);font-size:13px}
+.pal-piano.vuoto{background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);border-left-style:dashed}
+.pal-piano .num{width:22px;text-align:right;font-weight:800;opacity:.8}
+.pal-fascia{font-size:11px;font-weight:800;text-align:center;margin-top:4px}
