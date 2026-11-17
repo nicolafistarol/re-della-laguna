@@ -346,3 +346,8 @@ button .lic{margin-right:2px}
 .scena.con-pano .scelta .costo{margin:0 0 0 auto;white-space:nowrap}
 .scena.con-pano .scelta .ic svg{width:22px;height:22px}
 .scena.con-pano .appunt{padding:6px 10px;font-size:13px}
+
+.scena .persona{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:999px;background:rgba(10,16,30,.7);border:1px solid rgba(255,255,255,.3);color:#fff;font-weight:700;cursor:pointer;pointer-events:auto}
+.scena .persona:hover{border-color:var(--oro)}
+.scena.con-pano .scena-testa .qui-altri{pointer-events:auto}
+.pano-punto.persona .anello{border-color:var(--oro);background:rgba(30,20,5,.6)}

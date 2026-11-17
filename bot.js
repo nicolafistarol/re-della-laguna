@@ -139,7 +139,10 @@
       return "notte" === o.fase
         ? (function (o, i, e) {
             const n = o.notte;
-            if (!n || o.notteFatti[i.id] || i.faro > 0) return null;
+            if (!n) return null;
+            const prop = (n.proposte || []).find((x) => x.a === i.id && x.stato === "attesa");
+            if (prop) return { tipo: "rispondi_incontro", id: prop.id, si: prop.tipo === "drink" ? Math.random() < 0.8 : i.cash > prop.importo * 6 && Math.random() < 0.6 };
+            if (o.notteFatti[i.id] || i.faro > 0) return null;
             if (n.pronto && n.pronto[i.id]) return null;
             if (n.chiuso[i.id] || n.viaggio[i.id]) return { tipo: "avanti" };
             const a = t.livelloSblocco(o),

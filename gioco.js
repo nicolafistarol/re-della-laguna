@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=21";
+import { ico } from "./icone.js?v=22";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=21";
-import * as Pano from "./panorama.js?v=21";
+import * as Tre from "./tre.js?v=22";
+import * as Pano from "./panorama.js?v=22";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=21";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=22";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -975,6 +975,11 @@ function aggiornaPanorama(me) {
     else if (tipo === "chiuso") { classe = "chiuso"; azione = () => toast((S.lustro || 0) >= 2 ? chi + ": arriva presto." : "Dietro la porta d'oro c'è la " + chi + ". Si apre solo ai più potenti della Laguna."); }
     return { ...Pano.daFoto(pt.x, pt.y), ...pt, testo: esc(testo), icona: ico(pt.icona), classe, azione };
   });
+  // gli altri giocatori presenti compaiono nella sala
+  (N2.qui || []).forEach((id, k) => {
+    const q = S.players.find((x) => x.id === id); if (!q) return;
+    punti.push({ ...Pano.daFoto(0.38 + k * 0.12, 0.62), testo: esc(q.nome) + " è qui", icona: `<b style="color:${q.colore};font-size:18px">${esc(q.nome[0])}</b>`, classe: "persona", azione: () => finestraIncontro(me, id) });
+  });
   Pano.mostra(V.img, punti, { yaw: 0 });
 }
 const ICO_SCELTA = { occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
@@ -997,7 +1002,7 @@ function scenaNotte(me) {
   const testa = `<div class="scena-testa">
       <div class="kick" style="color:var(--cielo)">${ico("luna")} ore ${L.ORE[N2.ora]} · ${6 - N2.ora} ${6 - N2.ora === 1 ? "ora" : "ore"} all'alba${isola ? " · " + esc(isola) : ""}</div>
       <h1>${esc(nome)}</h1>${sala ? `<div class="sala">${ico("stella")} ${esc(sala)} <span class="sub">${lvSala === 2 ? "solo per i più potenti della Laguna" : "ti fanno entrare nella zona VIP"}</span></div>` : ""}
-      ${quiAltri.length ? `<div class="qui-altri">${quiAltri.map((p) => `<span class="pall" style="background:${p.colore}">${esc(p.nome[0])}</span>${esc(p.nome)}`).join(" ")} <span class="sub">${quiAltri.length === 1 ? "è qui con te" : "sono qui con te"}</span></div>` : ""}
+      ${quiAltri.length ? `<div class="qui-altri">${quiAltri.map((p) => `<button class="persona" data-persona="${p.id}"><span class="pall" style="background:${p.colore}">${esc(p.nome[0])}</span>${esc(p.nome)}</button>`).join(" ")} <span class="sub">${quiAltri.length === 1 ? "è qui con te: toccalo" : "sono qui con te: toccali"}</span></div>` : ""}
       ${resto !== null && !aCasa && !me.faro ? `<div class="tempo"><div class="barra" id="barraTempo" style="width:${(resto / (N2.tempo || 120)) * 100}%"></div></div><div class="sub" id="contoTempo">${testoTempo(resto)}</div>` : ""}
     </div>`;
   let corpo = "";
@@ -1051,6 +1056,7 @@ function collegaScena(me) {
     if (c.k === "fissa") return c.puntata ? finestraPuntata(me, c) : agisci({ tipo: "attivita" });
   });
   on("aspetta", () => agisci({ tipo: "aspetta" }));
+  document.querySelectorAll(".scena [data-persona]").forEach((b) => b.onclick = () => finestraIncontro(me, b.dataset.persona));
   // l'orologio dell'ora: scorre ogni secondo; se il tempo finisce e io ho gia' finito, lo dico al server
   clearInterval(orologioNotte);
   orologioNotte = setInterval(() => {
@@ -1075,6 +1081,45 @@ function finestraPuntata(me, c) {
     d.querySelector("#no").onclick = chiudi;
     d.querySelectorAll("[data-p]").forEach((b) => b.onclick = () => { chiudi(); agisci({ tipo: "attivita", importo: +b.dataset.p }); });
   });
+}
+function finestraIncontro(me, id) {
+  const q = S.players.find((x) => x.id === id), N2 = S.notte;
+  const libero = !N2.chiuso[mioId] && !N2.viaggio[mioId] && !S.notteFatti[mioId];
+  const foto = (me.valigetta || []).some((o) => o.id === "macchina");
+  const riga = (k, icona, titolo, testo) => `<button class="luogo-riga" data-i="${k}" ${libero ? "" : "disabled"}><span class="ic">${ico(icona)}</span><span style="flex:1;text-align:left"><b>${titolo}</b><br><span class="sub">${testo}</span></span></button>`;
+  finestra(`<span class="kick" style="color:var(--cielo)">${esc(nomeLuogo(N2.dove[mioId], true))} · ore ${L.ORE[N2.ora]}</span>
+    <h2><span class="pall" style="background:${q.colore};display:inline-flex;width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;font-size:15px;border:2px solid #fff;vertical-align:middle">${esc(q.nome[0])}</span> ${esc(q.nome)}</h2>
+    <p class="sub">${esc(q.fascia || "")}. ${libero ? "Cosa fai? Ogni scelta usa la tua ora." : "Hai già deciso cosa fare in quest'ora."}</p>
+    <div class="lista-luoghi">
+      ${riga("drink", "gala", "Offrigli da bere", "20.000 €. Se accetta: +2 fama a tutti e due, e capisci quanti soldi sporchi ha.")}
+      ${riga("sfida", "bisca", "Sfidalo a carte", "Una mano sola, chi vince prende tutto. Se rifiuta, ti riprendi i soldi.")}
+      ${riga("segui", "setta", "Seguilo", "Non se ne accorge. Alla fine dell'ora sai dove è andato.")}
+      ${foto ? riga("foto", "macchina", "Fotografalo", "Se fa qualcosa di losco, hai una Prova.") : ""}
+    </div>
+    <div class="pulsanti"><button id="no">Lascia stare</button></div>`, (d, c) => {
+    d.querySelector("#no").onclick = c;
+    d.querySelectorAll("[data-i]").forEach((b) => b.onclick = () => {
+      const k = b.dataset.i; c();
+      if (k === "foto") return agisci({ tipo: "foto", bersaglio: id });
+      if (k === "sfida") return finestra(`<h2>Quanto metti sul tavolo?</h2><div class="riga" style="flex-wrap:wrap">${[50_000, 100_000, 250_000, 500_000, 1_000_000].filter((x) => x <= me.cash + me.sporchi).map((x) => `<button class="oro" data-p="${x}">${euro(x)}</button>`).join("")}</div><div class="pulsanti"><button id="no">Lascia stare</button></div>`, (d2, c2) => { d2.querySelector("#no").onclick = c2; d2.querySelectorAll("[data-p]").forEach((x) => x.onclick = () => { c2(); agisci({ tipo: "incontro", a: id, cosa: "sfida", importo: +x.dataset.p }); }); });
+      agisci({ tipo: "incontro", a: id, cosa: k });
+    });
+  });
+}
+function finestraProposteNotte(me) {
+  const pr = (S.notte && S.notte.proposte || []).find((x) => x.a === mioId && x.stato === "attesa" && !visti.has("pn" + S.ciclo + "_" + x.id));
+  if (!pr) return false;
+  visti.add("pn" + S.ciclo + "_" + pr.id);
+  const da = S.players.find((x) => x.id === pr.da);
+  finestra(`<span class="kick" style="color:var(--cielo)">${ico("luna")} ${esc(nomeLuogo(S.notte.dove[mioId], true))}</span>
+    <h2>${pr.tipo === "drink" ? esc(da.nome) + " ti offre da bere" : esc(da.nome) + " ti sfida a carte"}</h2>
+    <p>${pr.tipo === "drink" ? "Un cameriere posa due bicchieri sul tuo tavolo. Se accetti: +2 fama, ma potresti parlare troppo." : "Ha messo <b>" + euro(pr.importo) + "</b> sul tavolo. Per accettare devi metterne altrettanti. Una mano sola: chi vince prende tutto."}</p>
+    <p class="sub">Rispondere non usa la tua ora.</p>
+    <div class="pulsanti"><button id="no">No, grazie</button><button class="oro" id="si">${pr.tipo === "drink" ? "Brindo" : "Accetto"}</button></div>`, (d, c) => {
+    d.querySelector("#no").onclick = () => { c(); agisci({ tipo: "rispondi_incontro", id: pr.id, si: false }); };
+    d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "rispondi_incontro", id: pr.id, si: true }); };
+  });
+  return true;
 }
 function finestraAltrove(me) {
   const N2 = S.notte, dove = N2.dove[mioId], restano = 6 - N2.ora;
@@ -1418,6 +1463,7 @@ function finestra(html, collega) {
 }
 function finestreAutomatiche(me) {
   if (document.querySelector(".velo")) return;
+  if (S.fase === "notte" && S.notte && finestraProposteNotte(me)) return;
   const rm = S.riepOra && S.riepOra.mio, vuoto = rm && !rm.soldi && !rm.fama && !rm.rischio && !rm.visti.length;
   if (rm && !rm.aCasa && !vuoto && !visti.has("riep" + S.riepOra.ciclo + "_" + S.riepOra.n)) { visti.add("riep" + S.riepOra.ciclo + "_" + S.riepOra.n); if (S.riepOra.ciclo === S.ciclo || S.fase !== "notte") return finestraRiepilogo(S.riepOra); }
   if (S.fase === "pacchetti" && tocca() && !visti.has("pk")) { visti.add("pk"); return finestraPacchetti(); }
@@ -1430,7 +1476,7 @@ function finestreAutomatiche(me) {
   if (me.ultimaSentenza && !visti.has("sent" + JSON.stringify(me.ultimaSentenza))) { visti.add("sent" + JSON.stringify(me.ultimaSentenza)); const s = me.ultimaSentenza; return finestra(`<span class="kick" style="color:var(--sporco)">Sentenza · ${esc(s.gravita)}</span><h2>Il Giudice ha deciso</h2><p>Soldi sporchi confiscati: <b>${euro(s.confiscati)}</b><br>Multa: <b>${euro(s.multa)}</b>${s.faro ? `<br>Faro: <b>${s.faro} turni</b>` : ""}${s.blocco ? `<br>Entrate bloccate per <b>${s.blocco} Cicli</b>` : ""}</p><div class="pulsanti"><button class="oro" id="ok">Ho capito</button></div>`, (d, c) => d.querySelector("#ok").onclick = c); }
   const vera = (me.messaggi || []).filter((m) => m.testo.startsWith("Vera:")).slice(-1)[0];
   if (vera && !visti.has("vera" + vera.testo)) { visti.add("vera" + vera.testo); try { if (localStorage.getItem("vera_" + partita + vera.testo.length)) return; localStorage.setItem("vera_" + partita + vera.testo.length, "1"); } catch (e) { } return finestra(`<span class="kick" style="color:var(--rosa)">${ico("vera")} Vera, la tua assistente</span><p class="storia" style="font-size:17px">${esc(vera.testo.replace(/^Vera: /, ""))}</p><div class="pulsanti"><button class="oro" id="ok">Grazie, Vera</button></div>`, (d, c) => d.querySelector("#ok").onclick = c); }
-  if (S.fase === "notte" && S.notte && S.notte.ora === 0 && !visti.has("notte" + S.ciclo)) { visti.add("notte" + S.ciclo); return finestra(`<span class="kick" style="color:var(--cielo)">🌙 Cala la notte</span><h2>La Laguna è tua, fino alle 4</h2><p>La notte dura 6 ore. Tocca un luogo illuminato sulla mappa per andarci: nella stessa isola ci metti 1 ora, su un'altra isola 2.</p><p>Non sai cosa troverai finché non arrivi. Guarda gli indizi, e fidati del tuo istinto.</p>${(S.notte.chiamate || []).length ? `<p style="color:var(--rosa)">📞 Hai ricevuto una chiamata: guarda il racconto a sinistra.</p>` : ""}<div class="pulsanti"><button class="notte" id="ok">Esco</button></div>`, (d, c) => d.querySelector("#ok").onclick = c); }
+  if (S.fase === "notte" && S.notte && S.notte.ora === 0 && !visti.has("notte" + S.ciclo)) { visti.add("notte" + S.ciclo); return finestra(`<span class="kick" style="color:var(--cielo)">🌙 Cala la notte</span><h2>La Laguna è tua, fino alle 4</h2><p>La notte dura 6 ore. Ogni ora scegli cosa fare, poi premi <b>Avanti</b>. Per spostarti usa <b>Vai altrove</b>: nella stessa isola ci metti 1 ora, su un'altra isola 2.</p><p>In ogni posto puoi <b>trascinare</b> per guardarti intorno e <b>toccare i cerchi</b>: persone, tavoli, porte. Se sei famoso e ricco, ti fanno entrare nelle sale VIP.</p>${(S.notte.chiamate || []).length ? `<p style="color:var(--rosa)">📞 Hai ricevuto una chiamata: c'è un appuntamento, lo trovi nella scena.</p>` : ""}<div class="pulsanti"><button class="notte" id="ok">Esco</button></div>`, (d, c) => d.querySelector("#ok").onclick = c); }
 }
 function extraTesto(e) {
   const t = [];

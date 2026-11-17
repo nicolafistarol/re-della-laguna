@@ -1064,6 +1064,63 @@
     N2.chiuso[p.id] = true;
     controllaOra(s);
   }
+  // Gli incontri: se un altro giocatore e' nello stesso posto, puoi offrirgli da bere, sfidarlo o seguirlo
+  function quiConMe(s, p) {
+    const N2 = s.notte; if (!N2 || N2.viaggio[p.id]) return [];
+    const d = N2.dove[p.id]; if (d === "palazzo") return [];
+    return s.players.filter((x) => x.id !== p.id && !s.notteFatti[x.id] && x.faro === 0 && !N2.viaggio[x.id] && N2.dove[x.id] === d);
+  }
+  function incontro(s, p, idA, tipo, importo) {
+    oraLibera(s, p);
+    const N2 = s.notte, q = giocatore(s, idA);
+    if (!quiConMe(s, p).includes(q)) err(q.nome + " non è qui.");
+    N2.proposte = N2.proposte || [];
+    if (tipo === "segui") {
+      N2.segue = N2.segue || {}; N2.segue[p.id] = q.id;
+      racconta(s, p, "Ti metti in un angolo e non perdi d'occhio " + q.nome + ". Dove andrà, lo saprai.");
+    } else if (tipo === "drink") {
+      pagaMisto(s, p, 20_000);
+      N2.proposte.push({ id: (N2.prossimaProposta = (N2.prossimaProposta || 0) + 1), da: p.id, a: q.id, tipo, importo: 0, stato: "attesa" });
+      racconta(s, p, "Fai portare due bicchieri al tavolo di " + q.nome + ". Ora tocca a lui decidere.");
+    } else if (tipo === "sfida") {
+      importo = round(Number(importo) || 0);
+      if (importo < 50_000) err("La sfida minima è 50.000 €.");
+      const sp0 = p.sporchi; pagaMisto(s, p, importo);
+      N2.proposte.push({ id: (N2.prossimaProposta = (N2.prossimaProposta || 0) + 1), da: p.id, a: q.id, tipo, importo, sporchiDa: sp0 - p.sporchi, stato: "attesa" });
+      racconta(s, p, "Butti " + euro(importo) + " sul tavolo davanti a " + q.nome + ": \"Una mano sola. Chi vince prende tutto.\"");
+    } else err("Incontro sconosciuto.");
+    N2.chiuso[p.id] = true;
+    controllaOra(s);
+  }
+  function restituisci_(p, pr) { p.sporchi += pr.sporchiDa || 0; p.cash += pr.importo - (pr.sporchiDa || 0); }
+  function rispondiIncontro(s, p, id, si) {
+    if (s.fase !== "notte" || !s.notte) err("Non è notte.");
+    const N2 = s.notte, pr = (N2.proposte || []).find((x) => x.id === id && x.a === p.id && x.stato === "attesa");
+    if (!pr) err("Questa proposta non c'è più.");
+    const da = giocatore(s, pr.da);
+    if (!si) {
+      pr.stato = "no";
+      if (pr.importo) restituisci_(da, pr); // la posta torna indietro
+      racconta(s, da, p.nome + " non accetta" + (pr.tipo === "drink" ? " il bicchiere" : " la sfida") + "." + (pr.importo ? " Ti riprendi i soldi." : ""));
+      racconta(s, p, "Rifiuti la proposta di " + da.nome + ".");
+      return;
+    }
+    if (pr.tipo === "drink") {
+      pr.stato = "si"; da.fama += 2; p.fama += 2;
+      const tasche = p.sporchi > 2_000_000 ? "ha le tasche piene di contanti sporchi" : p.sporchi > 300_000 ? "maneggia qualche contante di troppo" : "sembra pulito, per ora";
+      racconta(s, da, p.nome + " accetta il bicchiere. Si parla, si ride. Tra una frase e l'altra capisci che " + tasche + ". +2 fama.");
+      racconta(s, p, "Bevi con " + da.nome + ". Una bella serata: +2 fama. Forse hai parlato un po' troppo.");
+    } else {
+      const sp0 = p.sporchi; pagaMisto(s, p, pr.importo);
+      pr.stato = "si";
+      const vince = rng(s) < 0.5 ? da : p, perde = vince === da ? p : da;
+      const sporchiPiatto = (pr.sporchiDa || 0) + (sp0 - p.sporchi); // i soldi sporchi restano sporchi anche se cambiano tasca
+      vince.sporchi += sporchiPiatto; vince.cash += pr.importo * 2 - sporchiPiatto;
+      racconta(s, vince, "Una mano sola contro " + perde.nome + ". Hai vinto: " + euro(pr.importo * 2) + ".");
+      racconta(s, perde, "Una mano sola contro " + vince.nome + ". Hai perso " + euro(pr.importo) + ".");
+      notizia(s, "Al " + nomeLuogo(N2.dove[p.id]) + " sfida a carte tra " + da.nome + " e " + p.nome + ": vince " + vince.nome + ".", "voce");
+    }
+  }
   // Le scelte dell'ora: al massimo 3, decise dal luogo e dall'ora
   function scelteNotte(s, p) {
     const N2 = s.notte;
@@ -1314,6 +1371,18 @@
         else { p.prove.push({ su: t.id, ciclo: s.ciclo + 1, cosa: "foto notturna" }); racconta(s, p, "Click. Hai una foto di " + t.nome + " con le mani nel sacco. È una Prova."); }
       } else racconta(s, p, "Fotografi " + t.nome + ", ma non sta facendo niente di strano.");
     }
+    for (const pr of N2.proposte || []) if (pr.stato === "attesa") {
+      pr.stato = "scaduta";
+      const da = giocatore(s, pr.da);
+      if (pr.importo) restituisci_(da, pr);
+      racconta(s, da, giocatore(s, pr.a).nome + " non ti ha risposto." + (pr.importo ? " Ti riprendi i soldi." : ""));
+    }
+    for (const [chi, chiSeguito] of Object.entries(N2.segue || {})) {
+      const p = giocatore(s, chi), q = giocatore(s, chiSeguito);
+      const dove = s.notteFatti[q.id] ? "a casa sua" : N2.viaggio[q.id] ? "verso " + nomeLuogo(N2.viaggio[q.id].verso) : "a " + nomeLuogo(N2.dove[q.id]);
+      racconta(s, p, "Segui " + q.nome + " da lontano: va " + dove + ".", true);
+    }
+    N2.segue = {};
     // 4. il riepilogo dell'ora: chi hai visto, cosa hai guadagnato, quanto rischio hai preso
     const per = {};
     for (const p of s.players) {
@@ -1966,6 +2035,8 @@
       case "aspetta": return aspetta(s, p);
       case "avanti": return avanti(s, p);
       case "attivita": return attivitaNotte(s, p, a.importo);
+      case "incontro": return incontro(s, p, a.a, a.cosa, a.importo);
+      case "rispondi_incontro": return rispondiIncontro(s, p, a.id, !!a.si);
       case "tempo_scaduto": return tempoScaduto(s);
       case "pronto": case "torna_a_casa": return tornaACasa(s, p);
       case "compra_oggetto": return compraOggetto(s, p, a.oggetto);
@@ -2024,6 +2095,8 @@
         pronto: s.notte.pronto, inizio: s.notte.inizio, tempo: TEMPO_ORA, adesso: adesso(),
         daScelta: s.notte.daScelta[idGiocatore], inizioRacc: s.notte.inizioRacc[idGiocatore] || 0,
         scelte: me ? scelteNotte(s, me) : [],
+        qui: me ? quiConMe(s, me).map((x) => x.id) : [],
+        proposte: (s.notte.proposte || []).filter((x) => x.a === idGiocatore || x.da === idGiocatore),
         occasioni: me ? occasioniVisibili(s, me).map((o) => ({ ...o, ...OCCASIONI.find((x) => x.id === o.id), n: o.n })) : [],
         piuTardi: me && !s.notte.viaggio[idGiocatore] ? s.notte.occasioni.filter((o) => !o.preso && o.luogo === s.notte.dove[idGiocatore] && o.dalle > s.notte.ora && (!o.riservata || o.riservata === idGiocatore)).length : 0,
         chiamate: s.notte.occasioni.filter((o) => o.riservata === idGiocatore && !o.preso).map((o) => ({ n: o.n, luogo: o.luogo, alle: o.alle, nome: OCCASIONI.find((x) => x.id === o.id).nome })),
