@@ -60,10 +60,14 @@ function rispostaInvito(o, i, n, a) {
 // Il Gran Maestro bot invita una persona al Ciclo, con un regalo se il Tesoro puo' permetterselo
 function invitoBot(o, i, L) {
   const st = (o.sette || []).find((x) => x.gm === i.id);
+  if (st && st.membri.length >= 2 && !(st.convocazione && st.convocazione.ciclo === o.ciclo) && o.ciclo % 2 === 0) {
+    const posti = ["faro", "porto", "bisca", "club"].filter((l) => L.luogoAperto(o, l, i));
+    if (posti.length) return { tipo: "convoca", setta: st.id, luogo: posti[0], ora: 2 + Math.floor(Math.random() * 2) };
+  }
   if (!st || i._invCiclo === o.ciclo) return null;
   i._invCiclo = o.ciclo;
   const presi = new Set((o.inviti || []).filter((x) => x.setta === st.id).map((x) => x.a));
-  const scelte = o.players.filter((q) => q.id !== i.id && !st.membri.includes(q.id) && !presi.has(q.id) && !q.settaFondata && !q.eliminato);
+  const scelte = o.players.filter((q) => q.id !== i.id && !st.membri.includes(q.id) && !presi.has(q.id) && !q.settaFondata && !(q.sette || []).length && !q.eliminato);
   if (!scelte.length) return null;
   // preferisce chi ha soldi sporchi: e' gia' dei loro
   const q = scelte.sort((a, b) => (b.sporchi || 0) - (a.sporchi || 0))[0];
@@ -71,8 +75,19 @@ function invitoBot(o, i, L) {
   return { tipo: "invita_setta", setta: st.id, invitato: q.id, offerta: regalo };
 }
 // Di notte: fondare la setta e, col livello 2, reclutare al Faro
+// convocazione: i membri ci vanno e aspettano, il Gran Maestro celebra il rito quando arriva qualcuno
+function convocazioneBot(o, i, L, s) {
+  for (const id of i.sette || []) {
+    const st = (o.sette || []).find((x) => x.id === id), c = st && st.convocazione;
+    if (!c || c.ciclo !== o.ciclo || c.fatto || o.notte.ora > c.ora + 2) continue;
+    if (s !== c.luogo) { if (L.luogoAperto(o, c.luogo, i)) return { tipo: "vai", luogo: c.luogo }; continue; }
+    if (st.gm === i.id && o.notte.ora >= c.ora) { const qui = o.players.filter((q) => q.id !== i.id && st.membri.includes(q.id) && o.notte.dove[q.id] === c.luogo && !o.notte.viaggio[q.id] && !o.notteFatti[q.id]); if (qui.length) return { tipo: "rito", setta: st.id }; }
+    return { tipo: "aspetta" };
+  }
+  return null;
+}
 function settaNotteBot(o, i, e, L, s) {
-  if (!i.settaFondata && ["Spavaldo", "Furbo", "Esperto"].includes(e) && i.sporchi >= L.N.settaSporchi && o.ciclo >= 2 && i._fondaCiclo !== o.ciclo) {
+  if (!i.settaFondata && !(i.sette || []).length && ["Spavaldo", "Furbo", "Esperto"].includes(e) && i.sporchi >= L.N.settaSporchi && o.ciclo >= 2 && i._fondaCiclo !== o.ciclo) {
     i._fondaCiclo = o.ciclo;
     if (Math.random() < 0.6) { const usati = (o.sette || []).map((x) => x.nome); const nm = NOMI_SETTA.find((x) => !usati.includes(x[0])) || ["La Setta di " + i.nome, ""]; return { tipo: "fonda_setta", nome: nm[0], motto: nm[1] }; }
   }
@@ -276,6 +291,7 @@ function grandiBot(o, i, n) {
             (i._n && i._n.ciclo === o.ciclo) || (i._n = { ciclo: o.ciclo, visti: [], ric: !1, corr: !1, aspettato: 0 });
             const l = i._n;
             if (n.serate && n.serate[i.id]) return c >= 5 ? { tipo: "torna_a_casa" } : { tipo: "aspetta" }; // chi ospita resta a casa
+            { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); const cv = convocazioneBot(o, i, LL, s); if (cv) return cv; }
             // se una persona vera e' nello stesso posto, a volte il bot si fa avanti
             if (s !== "palazzo" && !l.proposto && !n.chiuso[i.id] && !n.viaggio[i.id]) {
               const umano = o.players.find((x) => !x.bot && x.id !== i.id && !o.notteFatti[x.id] && x.faro === 0 && !n.viaggio[x.id] && n.dove[x.id] === s);
@@ -286,7 +302,7 @@ function grandiBot(o, i, n) {
             if (osp) { if (!l.giocato && i.cash > 1e6) { l.giocato = !0; return { tipo: "gioca_serata", importo: 1e5 }; } return c >= 4 ? { tipo: "torna_a_casa" } : { tipo: "aspetta" }; }
             const ser = Object.keys(n.serate || {}).find((h) => h !== i.id);
             if (ser && !l.serata && i.cash > 3e6 && Math.random() < 0.35) { l.serata = !0; return { tipo: "vai_serata", host: ser }; }
-            { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); if (!l.setta) { const sn = settaNotteBot(o, i, e, LL, s); if (sn) { if (sn.tipo !== "vai") l.setta = !0; return sn; } } }
+            { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); if (!l.setta) { const sn = settaNotteBot(o, i, e, LL, s); if (sn) { if (sn.tipo === "fonda_setta" || sn.tipo === "recluta") l.setta = !0; return sn; } } }
             l.visti.includes(s) || l.visti.push(s);
             // prima si ripuliscono i soldi sporchi: tenerli a fine partita vale poco e una confisca li porta via
             // ripulisce solo quanto i suoi locali possono giustificare, se no la Finanza se ne accorge

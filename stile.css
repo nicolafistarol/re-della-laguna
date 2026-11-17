@@ -554,3 +554,9 @@ button .lic{margin-right:2px}
 .tot-sm.sballo{color:#ff8a8a}.tot-sm.sette{color:#f5c84c}
 .rilancio-sm{display:block;margin:8px auto 0;border-color:#f5c84c!important;color:#f5c84c!important}
 .esito-sm{display:flex;flex-direction:column;align-items:center;margin:6px 0}
+
+/* Setta: convocazione e chat */
+.conv-setta,.chat-setta{background:rgba(59,29,92,.35)!important;margin-top:8px}
+.chat-righe{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;margin:6px 0;font-size:13px}
+.chat-righe div{background:rgba(255,255,255,.06);border-radius:8px;padding:4px 8px}
+.chat-righe div.mio{background:rgba(155,89,182,.3);align-self:flex-end}

@@ -1235,6 +1235,7 @@
   function isolaLuogo(s, p, l) { return l === "palazzo" ? isolaCasa(s, p) : LUOGHI[l].isola; }
   function oreViaggio(s, p, da, a) {
     if (a === "aeroporto" && p.veicoli.includes("jet")) return 1;
+    { const cv = convocazioneDi(s, p); if (cv && a === cv.c.luogo && giocatore(s, cv.st.gm).veicoli.includes("jet")) return 1; } // il jet della setta passa a prenderti
     if (haOggetto(p, "motoscafo") || haPiano(p, "eliporto") || p.veicoli.some((v) => ["motoscafo", "yacht", "megayacht", "elicottero"].includes(v))) return 1;
     return isolaLuogo(s, p, da) === isolaLuogo(s, p, a) ? 1 : 2;
   }
@@ -1708,10 +1709,11 @@
     if (dove === "club" && lv >= 1) sp.push({ k: "polizia", titolo: "Parla con un agente fuori servizio", testo: "Al bancone c'è un poliziotto che beve da solo. Ha l'aria di chi cerca un extra." });
     if (dove === "redazione") sp.push({ k: "articolo", titolo: "Una busta al caporedattore", testo: "Domattina la Gazzetta può parlare bene di te. O male di un altro." });
     if (dove === "faro" && s.sette.some((st) => st.gm === p.id)) sp.push({ k: "setta", titolo: "Riunisci la setta", testo: "Tra le onde, i tuoi confratelli aspettano un ordine." });
+    { const cv = convocazioneDi(s, p); if (cv && cv.st.gm === p.id && dove === cv.c.luogo && N2.ora >= cv.c.ora && quiConMe(s, p).some((x) => cv.st.membri.includes(x.id))) sp.push({ k: "rito", setta: cv.st.id, titolo: "Celebra il rito della setta", testo: "I confratelli arrivati qui: Tracce cancellate e protezione per il resto della notte." }); }
     const ospiteDi = N2.ospite && N2.ospite[p.id];
     if (ospiteDi) {
       const h = giocatore(s, ospiteDi);
-      return [{ k: "tavolo", titolo: "Una mano di poker con " + h.nome, testo: "5 carte a te, 5 al banco. Vince la mano migliore: ti paga il doppio.", puntata: true },
+      return [{ k: "tavolo", titolo: "Sette e mezzo al tavolo di " + h.nome, testo: "Giochi tu la mano contro il banco del padrone di casa. Se vinci ti paga il doppio.", puntata: true },
         { k: "brinda", a: ospiteDi, titolo: "Brinda con " + h.nome, testo: "Un bicchiere con chi ti ospita: +2 fama se accetta.", costo: 20_000 },
         { k: "aspetta", titolo: "Goditi la vista", testo: "Dal piano " + h.piani + " la Laguna sembra piccola." }];
     }
@@ -1724,7 +1726,8 @@
       if (q) sp.push({ k: "foto", bersaglio: q.id, titolo: "Fotografa " + q.nome, testo: q.nome + " è qui. Se fa qualcosa di strano, avrai una Prova." });
     }
     const fissa = ATTIVITA_NOTTE[dove] ? { k: "fissa", ...ATTIVITA_NOTTE[dove] } : null;
-    const tutte = fissa ? [...[...occ, ...sp].slice(0, 2), fissa] : [...occ, ...sp].slice(0, 3);
+    const prima = sp.filter((x) => x.k === "rito"), resto = sp.filter((x) => x.k !== "rito"); // il rito della setta viene prima di tutto
+    const tutte = fissa ? [...[...prima, ...occ, ...resto].slice(0, 2), fissa] : [...prima, ...occ, ...resto].slice(0, 3);
     if (tutte.length < 3) {
       const tardi = s.notte.occasioni.some((o) => !o.preso && o.luogo === dove && o.dalle > N2.ora && (!o.riservata || o.riservata === p.id));
       tutte.push({ k: "aspetta", titolo: dove === "palazzo" ? "Resta a casa un'ora" : "Resta qui e guardati intorno", testo: tardi ? "Si dice che più tardi qui arrivi qualcuno." : dove === "palazzo" ? "Ti versi da bere e guardi le luci della Laguna." : "Passi un'ora a osservare chi entra e chi esce." });
@@ -1888,6 +1891,8 @@
     let pg = P_GUAI[LIVELLI_PERICOLO.indexOf(s.notte.pericolo[o.luogo])];
     if (p.corrotti["agente_" + isola]) { pg *= 0.6; p.corrotti["agente_" + isola].usi = (p.corrotti["agente_" + isola].usi || 0) + 1; }
     if (p.corrotti.commissario) { pg *= 0.8; p.corrotti.commissario.usi = (p.corrotti.commissario.usi || 0) + 1; }
+    if (s.notte.rito && s.notte.rito[p.id]) pg *= 0.7; // la setta ti copre dopo il rito
+    if ((p.sette || []).some((id) => { const st = s.sette.find((x) => x.id === id); return st && st.commissario; })) pg *= 0.85; // il Commissario e' della setta
     if (o.luogo === "aeroporto" && p.corrotti.doganiere) { pg *= 0.5; p.corrotti.doganiere.usi = (p.corrotti.doganiere.usi || 0) + 1; }
     if (s.leggi.includes("polizia_doppia_" + isola)) pg *= 1.4;
     if (poliziaOccupata(s, p)) pg *= N.occupata;
@@ -2149,6 +2154,7 @@
   function fondaSetta(s, p, nome, motto) {
     inNotte(s, p);
     if (p.settaFondata) err("Hai già fondato una setta.");
+    if ((p.sette || []).length) err("Sei già in una setta: per fondarne una tua devi prima uscire.");
     if (p.sporchi < N.settaSporchi) err("Per fondare una setta servono almeno " + euro(N.settaSporchi) + " in soldi sporchi.");
     if (!nome) err("Dai un nome alla setta.");
     p.sporchi -= N.settaCosto; // il patto di sangue: una parte va nel tesoro, il resto nel rito
@@ -2210,6 +2216,47 @@
     else { if (p.cash < importo) err("Non hai abbastanza soldi."); p.cash -= importo; }
     st.tesoro += importo;
   }
+  // la chat della setta: la leggono solo i membri
+  function msgSetta(s, p, idSetta, testo) {
+    const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id)) err("Non sei in questa setta.");
+    testo = String(testo || "").trim().slice(0, 160); if (!testo) err("Scrivi qualcosa.");
+    st.chat = st.chat || []; st.chat.push({ da: p.id, nome: p.nome, testo, ciclo: s.ciclo, notte: s.fase === "notte" });
+    if (st.chat.length > 40) st.chat.splice(0, st.chat.length - 40);
+  }
+  // la convocazione: il Gran Maestro sceglie un posto e un'ora di stanotte; il messaggio arriva solo ai membri
+  function convoca(s, p, idSetta, luogo, ora) {
+    const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro convoca la setta.");
+    if (!LUOGHI[luogo] || luogo === "palazzo") err("Scegli un posto della Laguna.");
+    ora = Math.floor(Number(ora)); if (!(ora >= 1 && ora <= 5)) err("Scegli un'ora tra le 23 e le 3.");
+    if (s.fase === "notte" && s.notte && ora <= s.notte.ora) err("Quell'ora è già passata.");
+    st.convocazione = { ciclo: s.ciclo, luogo, ora, fatto: false };
+    for (const id of st.membri) privato(s, giocatore(s, id), (id === p.id ? "Hai convocato" : "Il Gran Maestro convoca") + " la setta \"" + st.nome + "\": stanotte alle " + ORE[ora] + ", " + LUOGHI[luogo].nome + "." + (id === p.id ? "" : " Chi viene partecipa al rito."));
+  }
+  function convocazioneDi(s, p) { // la convocazione di stanotte per una setta di cui p fa parte
+    for (const id of p.sette || []) { const st = s.sette.find((x) => x.id === id); const c = st && st.convocazione; if (c && c.ciclo === s.ciclo && !c.fatto) return { st, c }; }
+    return null;
+  }
+  // il rito: chi e' al posto giusto all'ora giusta si fa cancellare un po' di Tracce e stanotte e' protetto
+  function rito(s, p, idSetta) {
+    oraLibera(s, p);
+    const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro celebra il rito.");
+    const c = st.convocazione; if (!c || c.ciclo !== s.ciclo || c.fatto) err("Stanotte non hai convocato la setta.");
+    const N2 = s.notte;
+    if (N2.dove[p.id] !== c.luogo) err("Il rito si fa a " + LUOGHI[c.luogo].nome + ".");
+    if (N2.ora < c.ora) err("È presto: hai convocato la setta alle " + ORE[c.ora] + ".");
+    const presenti = [p, ...quiConMe(s, p).filter((x) => st.membri.includes(x.id))];
+    if (presenti.length < 2) err("Non è ancora arrivato nessun confratello.");
+    c.fatto = true;
+    N2.rito = N2.rito || {};
+    for (const m of presenti) {
+      m.tracce = Math.max(0, m.tracce - 8); m.fama += 2; N2.rito[m.id] = true;
+      racconta(s, m, "Il rito della setta \"" + st.nome + "\". " + presenti.map((x) => x.nome).join(", ") + " sotto lo stesso cappuccio. Qualcuno fa sparire un po' delle tue Tracce, e per il resto della notte la setta ti copre: meno pericoli negli affari.");
+    }
+    const assenti = st.membri.filter((id) => !presenti.some((x) => x.id === id)).map((id) => giocatore(s, id).nome);
+    if (assenti.length) racconta(s, p, "Non si sono presentati: " + assenti.join(", ") + ".");
+    for (const id of st.membri) if (!presenti.some((x) => x.id === id)) privato(s, giocatore(s, id), "Stanotte non eri al rito della setta. Il Gran Maestro se n'è accorto.");
+    N2.chiuso[p.id] = true; controllaOra(s);
+  }
   function recluta(s, p, idSetta, chi) {
     inNotte(s, p);
     const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro recluta.");
@@ -2230,6 +2277,7 @@
       blackout: { lv: 3, costo: 3_000_000, nome: "Blackout di un'isola" },
       evasione: { lv: 3, costo: 2_000_000, nome: "Evasione dal Faro" },
       fantoccio: { lv: 4, costo: 10_000_000, nome: "Sindaco fantoccio" },
+      inchiesta: { lv: 4, costo: 4_000_000, nome: "Inchiesta pilotata" },
     };
     const O = OPS[tipo]; if (!O) err("Operazione sconosciuta.");
     if (lv < O.lv) err(O.nome + " richiede una setta di livello " + O.lv + ".");
@@ -2247,6 +2295,10 @@
       s.blackout = bersaglio; notizia(s, "Blackout totale a " + (NOMI_ISOLE[bersaglio] || bersaglio) + ". Nessuno ha visto niente.", "evento");
     } else if (tipo === "evasione") {
       const b = giocatore(s, bersaglio); b.faro = 0; notizia(s, b.nome + " è evaso dal Faro!", "evento");
+    } else if (tipo === "inchiesta") {
+      const b = giocatore(s, bersaglio); if (!b || b.id === p.id) err("Scegli chi colpire.");
+      b.tracce += 25; b.stato = Math.max(b.stato, 1);
+      notizia(s, "La Procura apre un'inchiesta su " + b.nome + ". Una soffiata anonima, dicono.", "scandalo");
     } else if (tipo === "fantoccio") {
       s.sindaco = p.id; s.sindacoFino = s.ciclo + 2; notizia(s, "Colpo di scena al Municipio: il Sindaco si dimette. Il nuovo Sindaco sembra sapere già cosa fare.", "politica");
     }
@@ -2588,6 +2640,9 @@
       let decima = 0;
       for (const id of p.sette) { const st = s.sette.find((x) => x.id === id); if (st) { const d = (rend - evasa - tassa) * N.decima / p.sette.length; st.tesoro += d; decima += d; } }
       p.cash += rend - evasa - tassa - decima;
+      if ((p.sette || []).some((id) => { const st = s.sette.find((x) => x.id === id); return st && st.banchiere; }) && p.sporchi > 0) {
+        const q = Math.min(500_000, round(p.sporchi * 0.1)); p.sporchi -= q; p.cash += q; r.banchiereSetta = q; // il Banchiere della setta ripulisce un po' ogni Alba
+      }
       for (const st of s.sette) if (st.gm === p.id && st.tesoro > 0) { const quota = round(st.tesoro * 0.05); st.tesoro -= quota; p.sporchi += quota; r.tesoroSetta = quota; }
       r.rendite = round(rend); r.tasse = round(tassa); r.evasa = round(evasa); r.decima = round(decima);
       // sindaco
@@ -2954,6 +3009,9 @@
       case "rispondi_invito": return rispondiInvito(s, p, a.setta, !!a.si, a.motivo);
       case "versa_setta": return versaSetta(s, p, a.setta, a.importo, !!a.sporchi);
       case "recluta": return settaAlFaro(s, p, () => recluta(s, p, a.setta, a.chi));
+      case "msg_setta": return msgSetta(s, p, a.setta, a.testo);
+      case "convoca": return convoca(s, p, a.setta, a.luogo, a.ora);
+      case "rito": return rito(s, p, a.setta);
       case "operazione": return settaAlFaro(s, p, () => operazione(s, p, a.setta, a.op, a.bersaglio, a.direzione));
       case "articolo": return s.fase === "notte" ? articolo2(s, p, a) : articolo(s, p, a.bersaglio, a.tono, a.importo, a.testo, !!a.sporchi);
       case "contratto": return proponiContratto(s, p, a.contratto);

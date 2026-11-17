@@ -1146,7 +1146,7 @@ function aggiornaPanorama(me) {
   });
   Pano.mostra(V.img, punti, { yaw: 0 });
 }
-const ICO_SCELTA = { doganiere: "handshake", tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
+const ICO_SCELTA = { rito: "setta", doganiere: "handshake", tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
 function righeNotte(lista) { return lista.map((r) => { const [o, ...t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t.join(" — "))}</p>`; }).join(""); }
 function restoOra() { const N2 = S.notte; if (!N2 || !N2.inizio) return null; return Math.max(0, Math.ceil((N2.tempo || 120) - (Date.now() - N2.inizio) / 1000)); }
 function scenaNotte(me) {
@@ -1210,7 +1210,7 @@ function collegaScena(me) {
   const scelte = S.notte.scelte || [];
   document.querySelectorAll(".scena [data-scelta]").forEach((b) => b.onclick = () => {
     const c = scelte[+b.dataset.scelta]; if (!c) return;
-    const diretta = ["occ", "ricicla", "paradiso", "banchiere", "polizia", "doganiere"].includes(c.k);
+    const diretta = ["occ", "ricicla", "paradiso", "banchiere", "polizia", "doganiere", "rito"].includes(c.k);
     if (!diretta && !b.classList.contains("aperta")) { document.querySelectorAll(".scena .scelta.aperta").forEach((x) => x.classList.remove("aperta")); b.classList.add("aperta"); return; }
     if (c.k === "occ") return finestraOccasione(me, c.n);
     if (c.k === "ricicla") return finestraRicicla(me, false);
@@ -1219,6 +1219,7 @@ function collegaScena(me) {
     if (c.k === "doganiere") return finestraDoganiere(me);
     if (c.k === "articolo") return finestraArticolo(me);
     if (c.k === "setta") return finestraSetta(me);
+    if (c.k === "rito") return agisci({ tipo: "rito", setta: c.setta });
     if (c.k === "foto") return agisci({ tipo: "foto", bersaglio: c.bersaglio });
     if (c.k === "aspetta") return agisci({ tipo: "aspetta" });
     if (c.k === "fissa") return c.puntata ? finestraPuntata(me, c) : agisci({ tipo: "attivita" });
@@ -1752,6 +1753,14 @@ function contenutoApp(me, k) {
       (S.sette.length ? S.sette.map((st) => `<div class="scheda"><h4 style="color:var(--setta)">${esc(st.nome)}</h4><i class="sub">${esc(st.motto)}</i><span class="sub">Livello ${L.livelloSetta(S, st)} · membri: ${st.membri.map((id) => esc(S.players.find((x) => x.id === id).nome)).join(", ")} · tesoro ${euro(st.tesoro)}</span>
         <div class="riga"><input type="number" placeholder="versa" id="versa_${st.id}" style="width:100px"><button class="piccolo" data-versa="${st.id}|0">Puliti</button><button class="piccolo" data-versa="${st.id}|1">Sporchi</button></div>
         ${st.membri.filter((id) => id !== st.gm).length ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${st.membri.filter((id) => id !== st.gm).map((id) => { const m = S.players.find((x) => x.id === id); return `<div class="riga" style="justify-content:space-between"><span class="sub">${esc(m.nome)}${id === mioId ? " (tu)" : ""}</span>${st.gm === mioId ? `<button class="piccolo" data-caccia="${st.id}|${id}">Caccia</button>` : id === mioId ? `<button class="piccolo" data-lascia="${st.id}">Esci dalla setta</button>` : ""}</div>`; }).join("")}</div>` : ""}
+        <span class="sub" style="display:block;margin-top:6px">${requisitiSetta(st)}${PNG_SETTA.filter((x) => st[x.k]).length ? " Personaggi: " + PNG_SETTA.filter((x) => st[x.k]).map((x) => x.nome).join(", ") + "." : ""}</span>
+        ${(() => { const cv = st.convocazione && st.convocazione.ciclo === S.ciclo ? st.convocazione : null;
+          const luoghi = Object.keys(L.LUOGHI).filter((l) => l !== "palazzo");
+          return `<div class="scheda conv-setta"><h4>🕯️ Convocazione</h4>${cv ? `<span class="sub"><b>Stanotte alle ${L.ORE[cv.ora]}, ${esc(L.LUOGHI[cv.luogo].nome)}</b>${cv.fatto ? " · il rito è già stato fatto" : ". Chi è lì a quell'ora partecipa al rito: Tracce cancellate e protezione per il resto della notte." + (S.players.find((x) => x.id === st.gm).veicoli.includes("jet") ? " Il jet del Gran Maestro ti porta lì in 1 ora." : "")}</span>` : `<span class="sub">Nessuna convocazione per stanotte.</span>`}
+          ${st.gm === mioId && !(cv && cv.fatto) ? `<div class="riga" style="flex-wrap:wrap;margin-top:6px"><select id="convL_${st.id}">${luoghi.map((l) => `<option value="${l}" ${cv && cv.luogo === l ? "selected" : ""}>${esc(L.LUOGHI[l].nome)}</option>`).join("")}</select><select id="convO_${st.id}">${[1, 2, 3, 4, 5].filter((o) => !(S.fase === "notte" && S.notte && o <= S.notte.ora)).map((o) => `<option value="${o}" ${cv && cv.ora === o ? "selected" : ""}>${L.ORE[o]}</option>`).join("")}</select><button class="piccolo oro" data-convoca="${st.id}">Convoca</button></div><span class="sub">Solo i membri ricevono il messaggio. Il rito lo celebri tu, di notte, quando sei lì.</span>` : ""}</div>`; })()}
+        <div class="scheda chat-setta"><h4>💬 Parla con i confratelli</h4>
+          <div class="chat-righe">${(st.chat || []).slice(-12).map((m) => `<div class="${m.da === mioId ? "mio" : ""}"><b>${esc(m.nome)}</b> ${esc(m.testo)}</div>`).join("") || `<span class="sub">Ancora nessun messaggio. Qui scrivono solo i membri.</span>`}</div>
+          <div class="riga"><input id="chat_${st.id}" maxlength="160" placeholder="Scrivi ai confratelli…" style="flex:1"><button class="piccolo oro" data-schat="${st.id}">Invia</button></div></div>
         ${st.gm === mioId ? (() => { const fuori = S.players.filter((x) => !st.membri.includes(x.id)); return fuori.length ? `<div class="scheda" style="margin-top:8px;background:rgba(255,255,255,.04)"><h4>Invita qualcuno</h4>
           <span class="sub">L'invito arriva senza firma: vedono la setta e il patto, non chi lo manda.</span>
           <select id="inv_${st.id}">${fuori.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select>
@@ -1889,6 +1898,8 @@ function collegaApp(me) {
   on("[data-vendi]", (b) => { const [cosa, nome] = b.dataset.vendi.split("|"); agisci({ tipo: "vendi", cosa, nome, quota: 1 }); });
   on("[data-gciclo]", (b) => { gazzettaCiclo = +b.dataset.gciclo; disegnaTelefono(io()); });
   on("[data-invito]", (b) => { const [st, si] = b.dataset.invito.split("|"); agisci({ tipo: "rispondi_invito", setta: st, si: si === "1" }); });
+  on("[data-convoca]", (b) => { const id = b.dataset.convoca; agisci({ tipo: "convoca", setta: id, luogo: v("#convL_" + id), ora: +v("#convO_" + id) }); });
+  on("[data-schat]", (b) => { const id = b.dataset.schat, t = v("#chat_" + id); if (t && t.trim()) agisci({ tipo: "msg_setta", setta: id, testo: t }); });
   on("[data-versa]", (b) => { const [st, sp] = b.dataset.versa.split("|"); agisci({ tipo: "versa_setta", setta: st, importo: Number(v("#versa_" + st)), sporchi: sp === "1" }); });
   on("[data-invita]", (b) => { const id = b.dataset.invita; const segno = +v("#invTipo_" + id); const soldi = Math.max(0, Number(v("#invSoldi_" + id)) || 0); if (segno && !soldi) return toast("Scrivi quanto."); agisci({ tipo: "invita_setta", setta: id, invitato: v("#inv_" + id), offerta: segno * soldi }); toast("Invito mandato."); });
   on("[data-caccia]", (b) => { const [st, id] = b.dataset.caccia.split("|"); const m = S.players.find((x) => x.id === id); finestra(`<h2>Cacci ${esc(m.nome)}?</h2><p>Perde subito tutti i privilegi della setta. Però sa chi sono i membri: potrebbe parlare.</p><div class="pulsanti"><button id="no">No</button><button class="oro" id="si">Caccialo</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "espelli_setta", setta: st, membro: id }); }; }); });
@@ -2205,15 +2216,54 @@ function finestraArticolo(me) {
     <label class="check"><input type="checkbox" id="artSp"> Pago in contanti sporchi</label>
     <div class="pulsanti"><button id="x">Lascio stare</button><button class="notte" id="ok">Consegno la busta</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "articolo", bersaglio: d.querySelector("#art").value, tono: d.querySelector("#ton").value, importo: Number(d.querySelector("#artImp").value), testo: d.querySelector("#artTesto").value, sporchi: d.querySelector("#artSp").checked }); }; });
 }
+const OPS_SETTA = [
+  { k: "manipola", nome: "Muovere un titolo in Borsa", lv: 2, costo: 1_000_000, ob: "azienda", descr: "Un titolo sale o scende del 15% (del 40% dal livello 3). Compra prima, poi fallo salire." },
+  { k: "blackout", nome: "Spegnere un'isola", lv: 3, costo: 3_000_000, ob: "isola", descr: "Stanotte su quell'isola la polizia è al buio: niente pericoli negli affari." },
+  { k: "evasione", nome: "Far evadere qualcuno dal Faro", lv: 3, costo: 2_000_000, ob: "giocatore", descr: "Esce subito dalla prigione." },
+  { k: "inchiesta", nome: "Inchiesta pilotata", lv: 4, costo: 4_000_000, ob: "giocatore", descr: "Una soffiata alla Procura: il bersaglio prende +25 Tracce e la polizia lo tiene d'occhio." },
+  { k: "fantoccio", nome: "Un Sindaco fantoccio", lv: 4, costo: 10_000_000, ob: null, descr: "Diventi Sindaco per 2 Cicli." },
+];
+const PNG_SETTA = [
+  { k: "banchiere", nome: "Il Banchiere", costo: 2_500_000, descr: "A ogni Alba ripulisce il 10% dei soldi sporchi di ogni membro (fino a 500.000 €)." },
+  { k: "commissario", nome: "Il Commissario", costo: 3_000_000, descr: "Di notte la polizia disturba meno i membri: pericoli -15% negli affari." },
+  { k: "giudice", nome: "Il Giudice", costo: 3_500_000, descr: "Spesso alleggerisce le condanne dei membri." },
+];
+function requisitiSetta(st) {
+  const lv = L.livelloSetta(S, st), soglie = L.N.settaLivelli, membri = st.membri.length, png = st.pngReclutati || 0;
+  if (lv >= 4) return "Livello massimo.";
+  const serve = [];
+  if (membri < 3) serve.push(`${3 - membri} ${3 - membri === 1 ? "membro" : "membri"} in più`);
+  if (st.tesoro < soglie[lv]) serve.push(`${euro(soglie[lv] - st.tesoro)} in più nel Tesoro`);
+  if (lv >= 2 && png < 1) serve.push("un personaggio reclutato");
+  return `Per il livello ${lv + 1} ti manca: ${serve.join(", ") || "niente, sali all'Alba"}.`;
+}
 function finestraSetta(me) {
-  const st = S.sette.find((x) => x.gm === mioId);
-  finestra(`<span class="kick" style="color:var(--setta)">🗼 Il Faro, a mezzanotte</span><h2>${esc(st.nome)}</h2><p>Livello ${L.livelloSetta(S, st)} · tesoro ${euro(st.tesoro)}. Cosa decide la setta stanotte?</p>
-    <div class="campo"><label for="op">Operazione</label><select id="op"><option value="manipola">Muovere un titolo in Borsa (liv. 2)</option><option value="blackout">Spegnere un'isola (liv. 3)</option><option value="evasione">Far evadere qualcuno dal Faro (liv. 3)</option><option value="fantoccio">Un Sindaco fantoccio (liv. 4)</option></select></div>
-    <div class="riga"><select id="ob">${L.AZIENDE.map((a) => `<option value="${a}">${a}</option>`).join("")}${L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("")}${S.players.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><select id="od"><option value="su">su</option><option value="giu">giù</option></select></div>
-    <div class="pulsanti"><button id="x">Chiudi</button><button id="rec">Recluta il banchiere</button><button class="notte" id="ok">Si fa</button></div>`, (d, c) => {
+  const st = S.sette.find((x) => x.gm === mioId), lv = L.livelloSetta(S, st);
+  const opz = (o) => `<option value="${o.k}" ${lv < o.lv || st.tesoro < o.costo ? "disabled" : ""}>${o.nome} · liv. ${o.lv} · ${euro(o.costo)}</option>`;
+  finestra(`<span class="kick" style="color:var(--setta)">🗼 Il Faro, a mezzanotte</span><h2>${esc(st.nome)}</h2>
+    <p>Livello <b>${lv}</b> · Tesoro <b>${euro(st.tesoro)}</b> · ${st.membri.length} membri</p><p class="sub">${requisitiSetta(st)}</p>
+    <h4 style="margin:10px 0 4px">Operazioni</h4>
+    <div class="campo"><select id="op">${OPS_SETTA.map(opz).join("")}</select></div>
+    <p class="sub" id="opDescr"></p>
+    <div class="riga" id="obRiga"><select id="ob"></select><select id="od"><option value="su">su</option><option value="giu">giù</option></select></div>
+    <p class="sub">Riesce 3 volte su 4. Ogni membro prende +5 Tracce.</p>
+    <h4 style="margin:12px 0 4px">Personaggi</h4>
+    ${PNG_SETTA.map((x) => `<div class="riga" style="justify-content:space-between;align-items:center;gap:8px"><span class="sub" style="flex:1"><b>${x.nome}</b> · ${euro(x.costo)}<br>${x.descr}</span>${st[x.k] ? `<span class="sub" style="color:var(--pulito)">✔ è vostro</span>` : `<button class="piccolo" data-rec="${x.k}" ${lv < 2 || st.tesoro < x.costo ? "disabled" : ""}>Recluta</button>`}</div>`).join("")}
+    ${lv < 2 ? `<p class="sub">I personaggi si reclutano dal livello 2.</p>` : ""}
+    <div class="pulsanti"><button id="x">Chiudi</button><button class="notte" id="ok">Si fa</button></div>`, (d, c) => {
+    const sel = d.querySelector("#op"), ob = d.querySelector("#ob"), od = d.querySelector("#od");
+    const primo = OPS_SETTA.find((o) => lv >= o.lv && st.tesoro >= o.costo); if (primo) sel.value = primo.k;
+    const aggiorna = () => {
+      const o = OPS_SETTA.find((x) => x.k === sel.value);
+      d.querySelector("#opDescr").textContent = o.descr;
+      ob.innerHTML = o.ob === "azienda" ? L.AZIENDE.map((a) => `<option value="${a}">${a}</option>`).join("") : o.ob === "isola" ? L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("") : o.ob === "giocatore" ? S.players.filter((x) => o.k === "evasione" ? x.faro > 0 : x.id !== mioId).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("") : "";
+      ob.style.display = o.ob ? "" : "none"; od.style.display = o.ob === "azienda" ? "" : "none";
+      d.querySelector("#ok").disabled = lv < o.lv || st.tesoro < o.costo || (o.ob && !ob.value);
+    };
+    sel.onchange = aggiorna; aggiorna();
     d.querySelector("#x").onclick = c;
-    d.querySelector("#rec").onclick = () => { c(); agisci({ tipo: "recluta", setta: st.id, chi: "banchiere" }); };
-    d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "operazione", setta: st.id, op: d.querySelector("#op").value, bersaglio: d.querySelector("#ob").value, direzione: d.querySelector("#od").value }); };
+    d.querySelectorAll("[data-rec]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "recluta", setta: st.id, chi: b.dataset.rec }); });
+    d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "operazione", setta: st.id, op: sel.value, bersaglio: ob.value, direzione: od.value }); };
   });
 }
 // IL PALAZZO: i piani (altezza, rendono) e le stanze speciali (si comprano a parte)
