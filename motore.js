@@ -19,6 +19,7 @@
     costLvl: [0, 0.5, 0.5, 0.75, 1.0, 1.5], R: 0.75,
     moloFee: [0, 25_000, 50_000, 100_000, 200_000],
     pianoCost: 400_000, pianoGrow: 1.08, pianoRend: 0.62, pianiMax: 60,
+    bonusIllegale: 1.4, // gli affari della notte rendono il 40% in piu': tanto premio, tanto rischio
     borsaMu: 0.21, borsaSd: 0.16, criptoMu: 0.40, criptoSd: 0.50, criptoCrash: 0.12,
     caricoBase: 350_000, caricoGrow: 150_000, caricoMax: 3_000_000, caricoMagazzino: 1.5,
     profittoBase: 0.65, tracceAffare: 10, coltoBase: 0.012, affariNotte: 2,
@@ -1410,7 +1411,7 @@
     if (p.corrotti.commissario) pg *= 0.8;
     if (s.leggi.includes("polizia_doppia_" + isola)) pg *= 1.4;
     const guaio = O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
-    let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) : 0;
+    let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale : 0;
     if (guaio) {
       const G = PERICOLI[guaio];
       const salvatore = usati.find((id) => (OGGETTI[id].salva || []).includes(guaio)) || (guaio === "guardia" && haOggetto(p, "motoscafo") ? "motoscafo" : null) || (guaio === "pattuglia" && haOggetto(p, "furgone") ? "furgone" : null);
