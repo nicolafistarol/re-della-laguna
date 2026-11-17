@@ -32,7 +32,7 @@
     pentito: 0.04,
     prestitoQuota: 0.30, prestitoInt: 0.10, emergenzaInt: 0.25, ipotecaQuota: 0.5,
     candidatura: 750_000, stipendioSindaco: 750_000,
-    settaPatrimonio: 8_000_000, settaFama: 20, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], decima: 0.15,
+    settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], decima: 0.15,
     fasce: [[6e6, "Benestante"], [12e6, "Ricco"], [20e6, "Milionario"], [30e6, "Magnate"], [Infinity, "Sovrano"]],
     mosse: {
       nascosto: { nome: "Posto nascosto", tracce: 0.60, colto: 0.70, carico: 0.9, costo: 0 },
@@ -373,11 +373,11 @@
     switch (c.nome) {
       case "Gazzetta": cartaGazzetta(s, p); break;
       case "Ponte Est — Posto di blocco": postoDiBlocco(s, p); break;
-      case "Bisca del Vicolo": if (livelloSblocco(s) >= 1) privato(s, p, "Dalla porta della Bisca qualcuno ti fa segno: \"Stanotte si gioca forte. Porta contanti.\""); else { const f = 1 + Math.floor(rng(s) * 2); p.fama += f; log(s, p.nome + " si fa vedere alla Bisca del Vicolo: +" + f + " fama.", p.id); } break;
-      case "Mercato Nero": if (livelloSblocco(s) >= 1) privato(s, p, "Passando dal Mercato Nero un venditore ti fa l'occhiolino: \"Stanotte passa a trovarmi, ho roba nuova.\""); break;
+      case "Bisca del Vicolo": if (livelloSblocco(s, p) >= 1) privato(s, p, "Dalla porta della Bisca qualcuno ti fa segno: \"Stanotte si gioca forte. Porta contanti.\""); else { const f = 1 + Math.floor(rng(s) * 2); p.fama += f; log(s, p.nome + " si fa vedere alla Bisca del Vicolo: +" + f + " fama.", p.id); } break;
+      case "Mercato Nero": if (livelloSblocco(s, p) >= 1) privato(s, p, "Passando dal Mercato Nero un venditore ti fa l'occhiolino: \"Stanotte passa a trovarmi, ho roba nuova.\""); break;
       case "Spiaggia VIP": { const f = 2 + Math.floor(rng(s) * 4); p.fama += f; log(s, p.nome + " incontra un ospite famoso alla Spiaggia VIP: +" + f + " fama.", p.id); break; }
       case "Gala Flamingo": s.pending = { tipo: "gala", giocatore: p.id }; break;
-      case "Porto Container": if (livelloSblocco(s) >= 1) privato(s, p, "Al Porto un gruista ti dice sottovoce che stanotte arrivano container senza bolla."); break;
+      case "Porto Container": if (livelloSblocco(s, p) >= 1) privato(s, p, "Al Porto un gruista ti dice sottovoce che stanotte arrivano container senza bolla."); break;
       case "La Borsa": privato(s, p, "Alla Borsa: le tue prossime operazioni oggi sono senza commissioni."); break;
       case "Il Municipio": p.municipioOggi = true; s.pending = { tipo: "municipio", giocatore: p.id }; break;
       case "Banca Centrale": privato(s, p, "Alla Banca Centrale: puoi chiedere un prestito con l'Azione del giorno."); break;
@@ -877,9 +877,17 @@
   const LIVELLI_PERICOLO = ["tranquillo", "agitato", "pericoloso"];
   const P_GUAI = [0.10, 0.30, 0.55];
 
-  function livelloSblocco(s) { return s.principianti ? Math.min(3, s.ciclo) : 3; }
-  function postiValigetta(s) { return [2, 4, 4, 6][livelloSblocco(s)]; }
-  function luogoAperto(s, l) { return LUOGHI[l] && LUOGHI[l].sblocco <= livelloSblocco(s); }
+  // Il livello di ogni giocatore sale con i soldi: piu' sei ricco, piu' cose si aprono (non si torna indietro)
+  const SOGLIE_LIVELLO = [0, 3_500_000, 7_000_000, 15_000_000];
+  function livelloPersonale(s, p) {
+    const pat = patrimonio(s, p, true);
+    let lv = 0; for (let i = 0; i < SOGLIE_LIVELLO.length; i++) if (pat >= SOGLIE_LIVELLO[i]) lv = i;
+    if (lv > (p.livello || 0)) p.livello = lv;
+    return p.livello || 0;
+  }
+  function livelloSblocco(s, p) { return p ? p.livello || 0 : 3; }
+  function postiValigetta(s, p) { return [2, 4, 4, 6][livelloSblocco(s, p)]; }
+  function luogoAperto(s, l, p) { return LUOGHI[l] && LUOGHI[l].sblocco <= livelloSblocco(s, p); }
   function isolaCasa(s, p) { const l = s.lotti.find((x) => x.owner === p.id && x.isola); return l ? l.isola : "Corona"; }
   function isolaLuogo(s, p, l) { return l === "palazzo" ? isolaCasa(s, p) : LUOGHI[l].isola; }
   function oreViaggio(s, p, da, a) {
@@ -898,15 +906,15 @@
 
   const VERA = [
     null,
-    "Vera: \"Ti ha cercato un tipo del Porto. Gente seria. Stanotte si aprono il Mercato Nero, la Bisca, il Porto e il Casinò Reale. La valigetta ora ha 4 posti.\"",
-    "Vera: \"Il banchiere Lenz vuole conoscerti. Da oggi puoi usare Borsa, Cripto e Contratti. Di notte anche la Redazione della Gazzetta è aperta per te.\"",
-    "Vera: \"È arrivato un biglietto senza firma: 'Al Faro, a mezzanotte'. Si aprono la Villa sulla scogliera, il Faro e le sette. La valigetta ora ha 6 posti.\"",
+    "Vera: \"Sei diventato qualcuno. Un tipo del Porto ha chiesto di te. Di notte si aprono il Mercato Nero, la Bisca, il Porto e il Casinò Reale. Arrivano i primi affari sporchi. La valigetta ora ha 4 posti.\"",
+    "Vera: \"Ormai sei ricco. Il banchiere Lenz vuole conoscerti: da oggi puoi usare Borsa, Cripto, Contratti e nascondere le tasse. Di notte si apre anche la Redazione della Gazzetta.\"",
+    "Vera: \"Sei tra i più potenti della Laguna. È arrivato un biglietto senza firma: 'Al Faro, a mezzanotte'. Si aprono la Villa sulla scogliera e il Faro. La valigetta ora ha 6 posti.\"",
   ];
 
   function iniziaNotte(s) {
     s.fase = "notte"; s.notteFatti = {};
     const lv = livelloSblocco(s);
-    if (s.principianti && lv > 0 && s.sbloccoAnnunciato !== lv) { s.sbloccoAnnunciato = lv; for (const p of s.players) privato(s, p, VERA[lv]); }
+    for (const p of s.players) { const prima = p.livello || 0, ora = livelloPersonale(s, p); if (ora > prima) { p.livelloNuovo = ora; privato(s, p, VERA[ora]); } }
     s.notte = { ora: 0, pericolo: {}, occasioni: [], chiuso: {}, viaggio: {}, dove: {}, fatto: {}, foto: {}, racconto: {}, pronto: {}, daScelta: {}, inizioRacc: {}, base: {}, inizio: 0 };
     for (const l of Object.keys(LUOGHI)) {
       const x = rng(s);
@@ -934,8 +942,9 @@
       if (p.faro > 0) { s.notteFatti[p.id] = true; racconta(s, p, "Passi la notte al Faro, in cella. Fuori la Laguna si muove senza di te."); continue; }
       racconta(s, p, "Esci dal tuo palazzo. La Laguna è accesa.");
       // una chiamata, a volte
-      if (lv >= 1 && rng(s) < 0.45) {
-        const pool = OCCASIONI.filter((o) => !o.legale && o.sblocco <= lv && luogoAperto(s, o.luogo));
+      if (livelloSblocco(s, p) >= 1 && rng(s) < 0.45) {
+        const lvp = livelloSblocco(s, p);
+        const pool = OCCASIONI.filter((o) => !o.legale && o.sblocco <= lvp && luogoAperto(s, o.luogo, p));
         const o = pool[Math.floor(rng(s) * pool.length)];
         const alle = 3 + Math.floor(rng(s) * 3);
         s.notte.occasioni.push({ n: n++, id: o.id, luogo: o.luogo, dalle: 0, alle, preso: null, riservata: p.id });
@@ -1003,7 +1012,7 @@
     oraLibera(s, p);
     const N2 = s.notte, dove = N2.dove[p.id], A = ATTIVITA_NOTTE[dove];
     if (!A) err("Qui non c'è niente di speciale da fare.");
-    const altroLuogo = () => { const ls = Object.keys(LUOGHI).filter((l) => l !== "palazzo" && l !== dove && luogoAperto(s, l)); return ls[Math.floor(rng(s) * ls.length)]; };
+    const altroLuogo = () => { const ls = Object.keys(LUOGHI).filter((l) => l !== "palazzo" && l !== dove && luogoAperto(s, l, p)); return ls[Math.floor(rng(s) * ls.length)]; };
     if (A.puntata) {
       importo = round(Number(importo) || 0);
       if (importo < 10_000) err("La puntata minima è 10.000 €.");
@@ -1021,7 +1030,7 @@
         break;
       }
       case "chiedi": {
-        const o = N2.occasioni.find((x) => !x.preso && !x.riservata && x.luogo !== "mercato" && x.alle > N2.ora && luogoAperto(s, x.luogo) && !OCCASIONI.find((y) => y.id === x.id).legale);
+        const o = N2.occasioni.find((x) => !x.preso && !x.riservata && x.luogo !== "mercato" && x.alle > N2.ora && luogoAperto(s, x.luogo, p) && !OCCASIONI.find((y) => y.id === x.id).legale);
         if (o) racconta(s, p, "Il vecchio abbassa la voce: \"" + OCCASIONI.find((y) => y.id === o.id).nome + ", a " + LUOGHI[o.luogo].nome + ", tra le " + ORE[Math.max(o.dalle, N2.ora)] + " e le " + ORE[o.alle] + ".\"");
         else racconta(s, p, "Il vecchio scuote la testa: stanotte non gira niente di buono.");
         break;
@@ -1221,7 +1230,7 @@
   function scelteNotte(s, p) {
     const N2 = s.notte;
     if (!N2 || s.notteFatti[p.id] || p.faro > 0 || N2.chiuso[p.id] || N2.viaggio[p.id]) return [];
-    const dove = N2.dove[p.id], lv = livelloSblocco(s);
+    const dove = N2.dove[p.id], lv = livelloSblocco(s, p);
     const occ = occasioniVisibili(s, p).sort((a, b) => (b.riservata ? 1 : 0) - (a.riservata ? 1 : 0)).map((o) => {
       const O = OCCASIONI.find((x) => x.id === o.id);
       return { k: "occ", n: o.n, titolo: O.nome, testo: O.testo, costo: O.costo || 0, legale: !!O.legale, riservata: !!o.riservata };
@@ -1273,13 +1282,14 @@
   function occasioniVisibili(s, p) {
     if (!s.notte || s.notte.viaggio[p.id]) return [];
     const dove = s.notte.dove[p.id], ora = s.notte.ora;
-    return s.notte.occasioni.filter((o) => !o.preso && o.luogo === dove && ora >= o.dalle && ora < o.alle && (!o.riservata || o.riservata === p.id));
+    const lvp = livelloSblocco(s, p);
+    return s.notte.occasioni.filter((o) => !o.preso && o.luogo === dove && ora >= o.dalle && ora < o.alle && (!o.riservata || o.riservata === p.id) && OCCASIONI.find((x) => x.id === o.id).sblocco <= lvp);
   }
 
   function vai(s, p, luogo) {
     oraLibera(s, p);
     if (!LUOGHI[luogo]) err("Luogo sconosciuto.");
-    if (!luogoAperto(s, luogo)) err("Questo posto non si è ancora aperto per te.");
+    if (!luogoAperto(s, luogo, p)) err("Questo posto non si è ancora aperto per te: si apre quando diventi più ricco.");
     const da = s.notte.dove[p.id];
     if (da === luogo) err("Sei già qui.");
     const ore = oreViaggio(s, p, da, luogo);
@@ -1310,7 +1320,7 @@
     const O = OGGETTI[id]; if (!O) err("Oggetto sconosciuto.");
     qui(s, p, O.dove, "Questo acquisto");
     p.valigetta = p.valigetta || [];
-    if (p.valigetta.length >= postiValigetta(s)) err("La valigetta è piena (" + postiValigetta(s) + " posti).");
+    if (p.valigetta.length >= postiValigetta(s, p)) err("La valigetta è piena (" + postiValigetta(s, p) + " posti).");
     if (!O.notti && !O.consuma && haOggetto(p, id)) err("Ce l'hai già.");
     pagaMisto(s, p, O.prezzo);
     p.valigetta.push({ id, notti: O.notti || null });
@@ -1621,7 +1631,7 @@
 
   // ------------------------------------------------------------ imprevisti di giorno
   function chiamataLampo(s, p) {
-    if (livelloSblocco(s) < 1 || p.faro > 0 || p.bot && false) return;
+    if (livelloSblocco(s, p) < 1 || p.faro > 0) return;
     if (rng(s) >= 0.12) return;
     const g = round(150_000 + rng(s) * 150_000);
     s.pending = { tipo: "chiamata", giocatore: p.id, guadagno: g, testo: "Squilla il telefono, numero sconosciuto: \"Ho un lavoretto veloce, oggi. " + euro(g) + " in contanti. Ci stai? Non richiamarmi da questo numero.\"" };
@@ -1656,10 +1666,10 @@
   function fondaSetta(s, p, nome, motto) {
     inNotte(s, p);
     if (p.settaFondata) err("Hai già fondato una setta.");
-    if (patrimonio(s, p, false) < N.settaPatrimonio) err("Per fondare una setta serve un patrimonio di " + euro(N.settaPatrimonio) + ".");
-    if (p.fama < N.settaFama && p.reputazione < 20) err("Serve fama 20 (o una buona Reputazione nel giro).");
+    if (p.sporchi < N.settaSporchi) err("Per fondare una setta servono almeno " + euro(N.settaSporchi) + " in soldi sporchi.");
     if (!nome) err("Dai un nome alla setta.");
-    const st = { id: "s" + s.prossimoId++, nome: String(nome).slice(0, 40), motto: String(motto || "").slice(0, 80), gm: p.id, membri: [p.id], tesoro: 0, operazioni: 0, pngReclutati: 0 };
+    p.sporchi -= N.settaCosto; // il patto di sangue: una parte va nel tesoro, il resto nel rito
+    const st = { id: "s" + s.prossimoId++, nome: String(nome).slice(0, 40), motto: String(motto || "").slice(0, 80), gm: p.id, membri: [p.id], tesoro: N.settaTesoroIniziale, operazioni: 0, pngReclutati: 0 };
     s.sette.push(st); p.sette.push(st.id); p.settaFondata = st.id;
     privato(s, p, "Hai fondato la setta \"" + st.nome + "\". Sei il Gran Maestro. Invita altri membri.");
     notizia(s, "Strani simboli compaiono sui muri della Laguna. Qualcuno dice che è nata una nuova setta.", "voce");
@@ -2222,7 +2232,7 @@
     }
     if (s.riepOra) v.riepOra = { n: s.riepOra.n, ciclo: s.riepOra.ciclo, da: s.riepOra.da, a: s.riepOra.a, mio: s.riepOra.per[idGiocatore] || null };
     { const me = s.players.find((x) => x.id === idGiocatore); if (me) { v.lustro = lustro(s, me); v.livelloPalazzo = livelloPalazzo(me); } }
-    v.sblocco = livelloSblocco(s); v.postiValigetta = postiValigetta(s);
+    { const me = s.players.find((x) => x.id === idGiocatore); v.sblocco = me ? livelloSblocco(s, me) : 3; v.postiValigetta = me ? postiValigetta(s, me) : 6; v.soglieLivello = SOGLIE_LIVELLO; }
     return v;
   }
 

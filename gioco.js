@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=26";
+import { ico } from "./icone.js?v=27";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=26";
-import * as Pano from "./panorama.js?v=26";
+import * as Tre from "./tre.js?v=27";
+import * as Pano from "./panorama.js?v=27";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=26";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=27";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -1220,7 +1220,8 @@ const APPS = [
   { k: "borsa", nome: "Borsa", ico: ico("borsa"), col: "#0f766e", lv: 2 },
   { k: "contratti", nome: "Contratti", ico: ico("contratti"), col: "#b5179e", lv: 2 },
   { k: "municipio", nome: "Municipio", ico: ico("municipio"), col: "#5c7f99", lv: 0 },
-  { k: "setta", nome: "Setta", ico: ico("setta"), col: "#3b1d5c", lv: 3 },
+  { k: "sporchi", nome: "Soldi sporchi", ico: ico("maschera"), col: "#7a2c2c", lv: 1 },
+  { k: "setta", nome: "Setta", ico: ico("setta"), col: "#3b1d5c", lv: 9 },
 ];
 // ogni messaggio arriva da una persona: stessa persona = stessa conversazione
 const MITTENTI = [
@@ -1253,6 +1254,11 @@ function lettiChat(nome) { try { return +(localStorage.getItem("laguna_chat_" + 
 function segnaChat(nome, n) { try { localStorage.setItem("laguna_chat_" + partita + "_" + nome, String(n)); } catch (e) { } }
 function letti() { try { return +(localStorage.getItem("laguna_letti_" + partita) || 0); } catch (e) { return 0; } }
 function segnaLetti(n) { try { localStorage.setItem("laguna_letti_" + partita, String(n)); } catch (e) { } }
+function appVisibile(me, a) {
+  if (a.k === "setta") return S.sette.length > 0 || (S.inviti || []).length > 0 || me.sporchi >= L.N.settaSporchi;
+  if (a.k === "sporchi") return S.sblocco >= 1 || me.sporchi > 0;
+  return a.lv <= S.sblocco || (a.k === "prove" && (me.prove || []).length);
+}
 function apriApp(k) { telAperto = true; app = k; chatAperta = null; if (k === "messaggi") segnaLetti((io().messaggi || []).length); disegnaTelefono(io()); }
 function disegnaTelefono(me) {
   const box = $("#telefonoBox");
@@ -1265,7 +1271,7 @@ function disegnaTelefono(me) {
   const ora = S.fase === "notte" && S.notte ? L.ORE[S.notte.ora] : ["9:00", "13:00", "18:00"][S.giorno] || "9:00";
   let dentro;
   if (!app) {
-    dentro = `<div class="home">${APPS.filter((a) => a.lv <= S.sblocco || (a.k === "prove" && (me.prove || []).length) || (a.k === "setta" && S.sette.length)).map((a) => `<button class="app" data-app="${a.k}"><span class="ico" style="background:${a.col}">${a.ico}${a.k === "messaggi" && nuovi ? `<span class="badge">${nuovi}</span>` : ""}</span>${a.nome}</button>`).join("")}</div><button class="piccolo esci-partita" id="esciPartita">Esci dalla partita</button>`;
+    dentro = `<div class="home">${APPS.filter((a) => appVisibile(me, a)).map((a) => `<button class="app" data-app="${a.k}"><span class="ico" style="background:${a.col}">${a.ico}${a.k === "messaggi" && nuovi ? `<span class="badge">${nuovi}</span>` : ""}</span>${a.nome}</button>`).join("")}</div><button class="piccolo esci-partita" id="esciPartita">Esci dalla partita</button>`;
   } else {
     const A = APPS.find((a) => a.k === app);
     dentro = `<div class="app-testa"><button id="indietro">‹ Home</button><b>${A.ico} ${A.nome}</b></div><div class="app-corpo">${contenutoApp(me, app)}</div>`;
@@ -1392,12 +1398,23 @@ function contenutoApp(me, k) {
         ${me.licenzaNegata && miTurnoApp() ? `<button class="piccolo" data-a2="bustaLicenza">Una busta all'assessore (650.000 €, lascia tracce)</button>` : ""}
         ${miTurnoApp() ? `<button class="piccolo oro" data-a2="licenza">Chiedi la licenza</button>` : `<span class="sub">Si chiede nel tuo turno, dopo aver tirato i dadi.</span>`}`}</div>`;
   }
+  if (k === "sporchi") {
+    const cop = L.copertura(S, me), sp = me.sporchi || 0;
+    return `<div class="scheda"><h4 style="color:var(--sporco)">Hai ${euro(sp)} sporchi</h4><span class="sub">Sono contanti che non puoi mostrare. Di giorno non comprano quasi niente: case, piani e azioni vogliono soldi puliti.</span></div>
+      <div class="scheda"><h4>Da dove arrivano</h4><span class="sub">Gli affari della notte (container, orologi, carichi dal mare, il colpo alla villa…), le vincite alla Bisca e le tasse che non paghi.</span></div>
+      <div class="scheda"><h4>Come spenderli così</h4><span class="sub">Di notte: oggetti del Mercato Nero, occasioni, sfide a carte, ingresso alle serate. Per corrompere costano il 20% in meno.</span></div>
+      <div class="scheda"><h4>Come ripulirli (di notte)</h4>
+        <div class="liv"><span class="liv-n">1</span><div><b>Attività di copertura</b> · al Casinò Reale<div class="sub" style="font-size:12px">Perdi il 15%. Poche tracce. Ne puoi ripulire al massimo ${euro(cop)} a Ciclo con le tue lavanderie, gallerie e magazzini.</div></div></div>
+        <div class="liv"><span class="liv-n">2</span><div><b>ShadowCoin</b> · al Casinò Reale<div class="sub" style="font-size:12px">Perdi il 25%. Più tracce. Il Sindaco la può bloccare.</div></div></div>
+        <div class="liv"><span class="liv-n">3</span><div><b>Paradiso fiscale</b> · dal tuo Palazzo, serve il jet<div class="sub" style="font-size:12px">Perdi il 30%. Una volta per Ciclo.</div></div></div></div>
+      <div class="scheda"><h4 style="color:var(--setta)">La setta</h4><span class="sub">${sp >= L.N.settaSporchi ? "Hai abbastanza soldi sporchi: puoi fondare una setta, di notte, dall'app Setta." : "Si apre quando hai " + euro(L.N.settaSporchi) + " sporchi. Fondarla costa " + euro(L.N.settaCosto) + " (di cui " + euro(L.N.settaTesoroIniziale) + " diventano il tesoro)."}</span></div>`;
+  }
   if (k === "setta") {
     return (S.inviti || []).map((x) => `<div class="scheda"><h4>Un invito senza firma</h4><div class="riga"><button class="piccolo oro" data-invito="${x.setta}|1">Entro</button><button class="piccolo" data-invito="${x.setta}|0">Rifiuto</button></div></div>`).join("") +
       (S.sette.length ? S.sette.map((st) => `<div class="scheda"><h4 style="color:var(--setta)">${esc(st.nome)}</h4><i class="sub">${esc(st.motto)}</i><span class="sub">Livello ${L.livelloSetta(S, st)} · membri: ${st.membri.map((id) => esc(S.players.find((x) => x.id === id).nome)).join(", ")} · tesoro ${euro(st.tesoro)}</span>
         <div class="riga"><input type="number" placeholder="versa" id="versa_${st.id}" style="width:100px"><button class="piccolo" data-versa="${st.id}|0">Puliti</button><button class="piccolo" data-versa="${st.id}|1">Sporchi</button></div>
         ${st.gm === mioId ? `<div class="riga"><select id="inv_${st.id}">${S.players.filter((x) => !st.membri.includes(x.id)).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><button class="piccolo" data-invita="${st.id}">Invita</button></div><span class="sub">Le operazioni si decidono di notte, al Faro.</span>` : ""}</div>`).join("")
-        : S.fase === "notte" ? `<div class="scheda"><h4>Fonda una setta</h4><span class="sub">Serve un patrimonio di ${euro(L.N.settaPatrimonio)} e fama ${L.N.settaFama}.</span><input id="sNome" placeholder="Nome"><input id="sMotto" placeholder="Motto"><button class="piccolo oro" data-a2="fonda">Fonda</button></div>` : `<p class="sub">Le sette si fondano di notte.</p>`);
+        : S.fase === "notte" ? `<div class="scheda"><h4>Fonda una setta</h4><span class="sub">Il patto costa ${euro(L.N.settaCosto)} in soldi sporchi: ${euro(L.N.settaTesoroIniziale)} diventano il tesoro della setta, il resto se ne va nel rito.</span><input id="sNome" placeholder="Nome"><input id="sMotto" placeholder="Motto"><button class="piccolo oro" data-a2="fonda">Fonda</button></div>` : `<p class="sub">Le sette si fondano di notte.</p>`);
   }
   return "";
 }
@@ -1410,10 +1427,10 @@ const LIVELLI = [
   ["Livello 5 · Icona", "Serve fama 50. Il simbolo dell'isola: affitti da capogiro."],
 ];
 const SBLOCCHI = [
-  ["Ciclo 1", "Dadi, terreni, permessi e cantieri. Di notte: il tuo Palazzo, il Club Neon e la Marina. Valigetta da 2 posti."],
-  ["Ciclo 2", "Il primo contatto: Mercato Nero, Bisca, Porto e Casinò Reale. Soldi sporchi, occasioni illegali, Prove. Valigetta da 4 posti."],
-  ["Ciclo 3", "Borsa, Cripto, Contratti, Municipio, evasione delle tasse. Di notte anche la Redazione."],
-  ["Ciclo 4", "La Villa sulla scogliera, il Faro e le sette. Valigetta da 6 posti."],
+  ["Livello 0 · si parte", "Dadi, terreni, permessi e cantieri. Di notte: il tuo Palazzo, il Club Neon e la Marina. Valigetta da 2 posti."],
+  ["Livello 1 · patrimonio 3,5 milioni", "Mercato Nero, Bisca, Porto e Casinò Reale. Soldi sporchi e app Soldi sporchi, occasioni illegali, Prove. Valigetta da 4 posti."],
+  ["Livello 2 · patrimonio 7 milioni", "Borsa, Cripto, Contratti, evasione delle tasse. Di notte anche la Redazione."],
+  ["Livello 3 · patrimonio 15 milioni", "La Villa sulla scogliera e il Faro. Valigetta da 6 posti. (La setta si apre a parte: servono 8 milioni sporchi.)"],
 ];
 const PAROLE = [
   ["Ciclo", "Un giro completo: 4 giorni di dadi, una notte, un'Alba. La partita dura 6, 8 o 10 Cicli (si sceglie quando la crei)."],
@@ -1482,6 +1499,17 @@ function finestra(html, collega) {
 function finestreAutomatiche(me) {
   if (document.querySelector(".velo")) return;
   if (S.fase === "notte" && S.notte && finestraProposteNotte(me)) return;
+  const livVisto = (() => { try { return +(localStorage.getItem("laguna_liv_" + partita) || 0); } catch (e) { return 0; } })();
+  if ((S.sblocco || 0) > livVisto) {
+    try { localStorage.setItem("laguna_liv_" + partita, String(S.sblocco)); } catch (e) { }
+    const nuove = APPS.filter((a) => appVisibile(me, a) && a.lv === S.sblocco);
+    const [tit, des] = SBLOCCHI[S.sblocco] || ["", ""];
+    return finestra(`<span class="kick" style="color:var(--oro)">${ico("stella")} Sei salito di livello</span><h2>${esc(tit)}</h2><p>${esc(des)}</p>${nuove.length ? `<p class="kick" style="color:var(--muted);margin-top:10px">Nuove app nel telefono</p><div class="home" style="grid-template-columns:repeat(4,1fr)">${nuove.map((a) => `<div class="app"><span class="ico" style="background:${a.col}">${a.ico}</span>${a.nome}</div>`).join("")}</div>` : ""}<div class="pulsanti"><button class="oro" id="ok">Bene</button></div>`, (d, c) => { d.querySelector("#ok").onclick = () => { c(); finestreAutomatiche(io()); }; });
+  }
+  if (S.fase === "notte" && S.notte && S.notte.ora === 0 && (me.sporchi || 0) >= 1_000_000 && !visti.has("sp" + S.ciclo)) {
+    visti.add("sp" + S.ciclo);
+    return finestra(`<span class="kick" style="color:var(--sporco)">${ico("maschera")} Soldi sporchi</span><h2>Hai ${euro(me.sporchi)} sporchi</h2><p>Stanotte puoi spenderli (Mercato Nero, occasioni, serate) oppure ripulirli al Casinò Reale.${me.sporchi >= L.N.settaSporchi ? " Ne hai abbastanza anche per fondare una setta." : ""}</p><p class="sub">Tutti i dettagli nell'app Soldi sporchi del telefono.</p><div class="pulsanti"><button class="oro" id="ok">Ho capito</button></div>`, (d, c) => { d.querySelector("#ok").onclick = () => { c(); finestreAutomatiche(io()); }; });
+  }
   if (S.fase === "notte" && S.notte) {
     const vg = S.notte.viaggio[mioId];
     const inv = (S.notte.serate || []).find((x) => x.host !== mioId && x.host !== S.notte.ospite && !(vg && vg.serata === x.host) && !visti.has("ser" + S.ciclo + x.host));

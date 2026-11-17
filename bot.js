@@ -118,7 +118,7 @@
           const a = (function (o, t, i) {
             const casinoOk = (o.licenze || []).includes(t.id) && !(t.funzioniPiani || []).includes("casino_privato");
             if (t.piani > 0 && casinoOk && ["Costruttore", "Spavaldo", "Furbo"].includes(i) && t.cash > 15e5 && Math.random() < 0.4) return { tipo: "piano", funzione: "casino_privato" };
-            if ("Costruttore" === i && t.cash > 12e5 && Math.random() < 0.5) return { tipo: "piano", funzione: t.piani % 5 === 4 && !(t.funzioniPiani || []).includes("spa") ? "spa" : "appartamenti" };
+            if ("Costruttore" === i && t.cash > 12e5 && Math.random() < 0.5) return { tipo: "piano", funzione: "appartamenti" };
             const r = e(o, t, !0),
               n = r ? { tipo: "costruisci", lotto: r.l.id, attivita: 0 === r.l.lvl ? r.tipo : void 0 } : null;
             return (
@@ -147,7 +147,7 @@
             if (o.notteFatti[i.id] || i.faro > 0) return null;
             if (n.pronto && n.pronto[i.id]) return null;
             if (n.chiuso[i.id] || n.viaggio[i.id]) return { tipo: "avanti" };
-            const a = t.livelloSblocco(o),
+            const a = t.livelloSblocco(o, i),
               s = n.dove[i.id],
               c = n.ora;
             (i._n && i._n.ciclo === o.ciclo) || (i._n = { ciclo: o.ciclo, visti: [], ric: !1, corr: !1, aspettato: 0 });
@@ -173,7 +173,7 @@
               return "palazzo" !== s || l.uscito
                 ? { tipo: "torna_a_casa" }
                 : ((l.uscito = !0), { tipo: "vai", luogo: Math.random() < 0.5 ? "club" : "marina" });
-            const g = t.postiValigetta(o),
+            const g = t.postiValigetta(o, i),
               h = (i.valigetta || []).length,
               v =
                 "mercato" === s
@@ -202,11 +202,11 @@
             if (c >= 5) return { tipo: "torna_a_casa" };
             const b = o.notte.occasioni.find((o) => o.riservata === i.id && !o.preso && o.alle > c + 1);
             if (b && s !== b.luogo) return { tipo: "vai", luogo: b.luogo };
-            if (i.sporchi > 6e5 && t.luogoAperto(o, "casino") && !l.ric && "casino" !== s) return { tipo: "vai", luogo: "casino" };
-            if (!r(i, "maschera") && t.luogoAperto(o, "mercato") && !l.visti.includes("mercato") && "mercato" !== s)
+            if (i.sporchi > 6e5 && t.luogoAperto(o, "casino", i) && !l.ric && "casino" !== s) return { tipo: "vai", luogo: "casino" };
+            if (!r(i, "maschera") && t.luogoAperto(o, "mercato", i) && !l.visti.includes("mercato") && "mercato" !== s)
               return { tipo: "vai", luogo: "mercato" };
             const z = ["porto", "marina", "bisca", "villa", "club"].filter(
-              (i) => t.luogoAperto(o, i) && !l.visti.includes(i) && i !== s && ("villa" !== i || "Furbo" !== e),
+              (x) => t.luogoAperto(o, x, i) && !l.visti.includes(x) && x !== s && ("villa" !== x || "Furbo" !== e),
             );
             if (z.length) return { tipo: "vai", luogo: z[Math.floor(Math.random() * z.length)] };
             if (l.aspettato < 1) return (l.aspettato++, { tipo: "aspetta" });
