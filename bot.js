@@ -104,15 +104,25 @@
       }
       const prop = (o.proposte || []).find((x) => x.a === i.id && "proposta" === x.stato);
       if (prop) {
+        // trattare i terreni: il bot ragiona sul valore e su quante vie del gruppo ha, e dice il suo prezzo
         const l = o.lotti.find((x) => x.id === prop.lotto);
         const valore = l.prezzo * (1 + 0.6 * (l.lvl || 0));
-        let si;
-        if (prop.compro) si = prop.prezzo >= valore * 1.5 && !t.haSerie(o, i, l.serie);
-        else {
-          const completa = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id).every((x) => x.owner === i.id);
-          si = i.cash - prop.prezzo > 3e5 && (completa ? prop.prezzo <= valore * 1.8 : prop.prezzo <= valore * 0.9);
+        const arrot = (v) => Math.ceil(v / 10000) * 10000;
+        const delGruppo = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id && x.owner === i.id).length;
+        const gruppo = o.lotti.filter((x) => x.serie === l.serie).length;
+        if (prop.compro) {
+          // un altro vuole comprare un terreno del bot
+          if (t.haSerie(o, i, l.serie) && l.serie !== "Moli") { const s3 = arrot(valore * 3); return prop.prezzo >= s3 ? { tipo: "rispondi_proposta", id: prop.id, si: !0 } : { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Ha tutto il gruppo di vie: lo venderebbe solo per almeno " + s3.toLocaleString("it-IT") + " €." }; }
+          let soglia = valore * (delGruppo >= 1 ? 1.5 : 1.2) * ({ Spavaldo: 1.1, Costruttore: 1.15, Investitore: 0.95 }[n] || 1);
+          if (i.cash < 3e5) soglia *= 0.85; // se e' a corto di soldi vende piu' volentieri
+          soglia = arrot(soglia);
+          return prop.prezzo >= soglia ? { tipo: "rispondi_proposta", id: prop.id, si: !0 } : { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Lo venderebbe per almeno " + soglia.toLocaleString("it-IT") + " €." };
         }
-        return { tipo: "rispondi_proposta", id: prop.id, si };
+        // un altro vuole vendere un suo terreno al bot
+        const completa = delGruppo === gruppo - 1;
+        const massimo = arrot(valore * (completa ? 1.8 : delGruppo >= 1 ? 1.25 : 1.0));
+        if (i.cash - prop.prezzo < 3e5) return { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Adesso non ha abbastanza soldi." };
+        return prop.prezzo <= massimo ? { tipo: "rispondi_proposta", id: prop.id, si: !0 } : { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Al massimo pagherebbe " + massimo.toLocaleString("it-IT") + " €." };
       }
       const a = o.inviti.find((o) => o.a === i.id);
       if (a)

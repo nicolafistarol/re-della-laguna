@@ -1318,7 +1318,11 @@
       // una chiamata, a volte
       if (livelloSblocco(s, p) >= 1 && rng(s) < 0.45) {
         const lvp = livelloSblocco(s, p);
-        const pool = OCCASIONI.filter((o) => !o.legale && !o.soloSetta && o.sblocco <= lvp && luogoAperto(s, o.luogo, p));
+        const tutte = OCCASIONI.filter((o) => !o.legale && !o.soloSetta && o.sblocco <= lvp && luogoAperto(s, o.luogo, p));
+        // ognuno ha il suo appuntamento: se si puo', in un posto diverso da quello degli altri
+        const giaUsati = new Set(s.notte.occasioni.filter((x) => x.riservata).map((x) => x.luogo));
+        const libere = tutte.filter((o) => !giaUsati.has(o.luogo));
+        const pool = libere.length ? libere : tutte;
         const o = pool[Math.floor(rng(s) * pool.length)];
         const alle = 3 + Math.floor(rng(s) * 3);
         s.notte.occasioni.push({ n: n++, id: o.id, luogo: o.luogo, dalle: 0, alle, preso: null, riservata: p.id });
@@ -2238,11 +2242,11 @@
     log(s, p.nome + " fa una proposta a " + a.nome + " per " + l.nome + ".", p.id);
     return pr.id;
   }
-  function rispondiProposta(s, p, idP, si) {
+  function rispondiProposta(s, p, idP, si, motivo) {
     const pr = (s.proposte || []).find((x) => x.id === idP);
     if (!pr || pr.a !== p.id || pr.stato !== "proposta") err("Proposta non trovata.");
     const da = giocatore(s, pr.da), l = lotto(s, pr.lotto);
-    if (!si) { pr.stato = "rifiutata"; privato(s, da, p.nome + " ha rifiutato la tua proposta per " + l.nome + "."); log(s, p.nome + " rifiuta la proposta di " + da.nome + " per " + l.nome + ".", p.id); return; }
+    if (!si) { pr.stato = "rifiutata"; pr.motivo = motivo ? String(motivo).slice(0, 160) : null; privato(s, da, p.nome + " ha rifiutato la tua proposta per " + l.nome + "." + (pr.motivo ? " " + pr.motivo : "")); log(s, p.nome + " rifiuta la proposta di " + da.nome + " per " + l.nome + ".", p.id); return; }
     const compratore = pr.compro ? da : p, venditore = pr.compro ? p : da;
     if (l.owner !== venditore.id) { pr.stato = "scaduta"; err("Il terreno non è più di " + venditore.nome + "."); }
     if (l.cantiere) err("C'è un cantiere aperto su quel terreno: aspetta l'Alba.");
@@ -2799,7 +2803,7 @@
       case "compra": return compra(s, p, !!a.si);
       case "agenzia": return agenzia(s, p, a.lotto);
       case "proponi_lotto": return proponiLotto(s, p, a.a, a.lotto, a.prezzo, a.compro);
-      case "rispondi_proposta": return rispondiProposta(s, p, a.id, !!a.si);
+      case "rispondi_proposta": return rispondiProposta(s, p, a.id, !!a.si, a.motivo);
       case "licenza": return chiediLicenza(s, p);
       case "busta_licenza": return bustaLicenza(s, p);
       case "offerta": return offerta(s, p, a.importo);
