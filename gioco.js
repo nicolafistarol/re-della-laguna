@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=59";
+import * as Tre from "./tre.js?v=60";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=59";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=60";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -521,11 +521,11 @@ async function cammina(id, n, finale, mio) {
     punti.push(puntoMappa(q));
     disegnaScia(punti, mio);
     const [x, y] = punti[punti.length - 1];
-    ped.style.left = x + "%"; ped.style.top = y + "%";
+    ped.style.left = x + "%"; ped.style.top = y + "%"; ped.dataset.pos = q.pos;
     ped.classList.remove("salto"); void ped.offsetWidth; ped.classList.add("salto"); Suono.passo(mio);
     await pausa(mio ? 190 : 95);
   }
-  if (finale) { const [x, y] = puntoMappa(finale); ped.style.left = x + "%"; ped.style.top = y + "%"; disp[id] = copiaPos(finale); }
+  if (finale) { const [x, y] = puntoMappa(finale); ped.style.left = x + "%"; ped.style.top = y + "%"; ped.dataset.pos = finale.pos; disp[id] = copiaPos(finale); }
   else disp[id] = q;
   await pausa(mio ? 500 : 150);
   const sv = document.querySelector("#mappa .scia"); if (sv) sv.classList.add("spegni");
@@ -544,7 +544,7 @@ function disegna() {
   $("#mondo").style.display = notte && !S.fine ? "none" : "block";
   $("#mondo").classList.toggle("notte", !!notte);
   document.body.classList.toggle("di-notte", !!notte);
-  if (!TRE3D && vuole3D() && !VELOCE_2D) { try { TRE3D = Tre.avvia($("#mondo"), $("#mappa"), "img/mappa-hd.jpg"); } catch (e) { console.error(e); TRE3D = false; } }
+  if (!TRE3D && vuole3D() && !VELOCE_2D) { try { TRE3D = Tre.avvia($("#mondo"), $("#mappa"), "img/mappa-hd.jpg"); if (TRE3D) { Tre.sonoIo(mioId); Tre.suCasella((id, x, y) => schedaCasella(id, x, y)); } } catch (e) { console.error(e); TRE3D = false; } }
   $("#mondo").classList.toggle("tre", TRE3D);
   if (TRE3D) Tre.impostaNotte(!!notte);
   Suono.ambiente(notte ? "notte" : "giorno");
@@ -593,7 +593,7 @@ function disegnaMappa(me, notte) {
     const pedine = S.players.map((p) => {
       const q = disp[p.id] || copiaPos(p); const key = "o" + q.pos; const k = (gruppi[key] = (gruppi[key] || 0) + 1) - 1;
       const [x, y] = puntoMappa(q);
-      return `<div class="ped ${p.id === mioId ? "io" : ""}" data-id="${p.id}" title="${esc(p.nome)}" style="left:${x}%;top:${y}%;margin-left:${(p.id === mioId ? -21 : -17) + k * 16}px;background:${p.colore}${p.faro ? ";opacity:.45" : ""}"><b>${esc(p.nome[0])}</b><span class="nomeped">${esc(p.nome.slice(0, 12))}</span></div>`;
+      return `<div class="ped ${p.id === mioId ? "io" : ""}" data-id="${p.id}" data-pos="${q.pos}" title="${esc(p.nome)}" style="left:${x}%;top:${y}%;margin-left:${(p.id === mioId ? -21 : -17) + k * 16}px;background:${p.colore}${p.faro ? ";opacity:.45" : ""}"><b>${esc(p.nome[0])}</b><span class="nomeped">${esc(p.nome.slice(0, 12))}</span></div>`;
     }).join("");
     const c = casellaDi(me);
     const [mx, my] = puntoMappa(disp[mioId] || me);
@@ -667,6 +667,7 @@ function legenda() {
     <div><span class="lg spec">${ico("chiave")}</span> Agenzia: compri un terreno dell'isola</div>
     <div><span class="lg spec">${ico("gazzetta")}</span> Posto speciale: il nome è scritto sotto</div>
     <div><span class="lg ang">${ico("flag")}</span> Ponte: Partenza, Faro, Posto di blocco</div>
+    ${TRE3D && Tre.mondoNuovo() ? `<div class="sub" style="margin-top:6px"><b>Nel mondo 3D:</b> ogni terreno è un lotto accanto alla strada. Il colore della piastra e del bordo strada è il quartiere (gruppo di vie). Cartello bianco = in vendita. Bandiera e cornice colorate = di chi è; cornice d'oro = tuo. La forma dell'edificio dice l'attività (case, torre, locale, magazzino, casinò…), l'altezza il livello. Le auto sono le pedine. Tocca un lotto per la sua scheda.</div>` : ""}
     <div class="sub">Il colore della striscia è il gruppo di vie. Tocca una casella per la sua scheda. «Cosa ho» mostra solo le tue cose.</div></div>${soloMiei ? pannelloMiei() : ""}</div>`;
 }
 // «Cosa ho»: solo le tue cose sul tabellone, con l'elenco
@@ -690,11 +691,11 @@ function aggiorna3D(gruppi) {
   const conta = {};
   const caselle = S.lotti.map((l) => {
     const [x, y] = puntoMappa({ pos: l.idx }); const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
-    return { x, y, tipo: l.tipoCasella, colore: own ? own.colore : COL_SERIE[l.serie] || (l.tipoCasella === "angolo" ? "#c9a24a" : "#28344a"), proprietario: own ? own.colore : null, livello: l.lvl, cantiere: !!l.cantiere, spento: soloMiei && (!own || own.id !== mioId) };
+    return { id: l.id, idx: l.idx, isola: l.isola || L.isolaDiPos(l.idx), serie: l.serie, coloreSerie: COL_SERIE[l.serie] || "#9aa4b2", terreno: l.tipoCasella === "lotto" || l.tipoCasella === "molo", mio: !!own && own.id === mioId, attivita: l.tipo || null, x, y, tipo: l.tipoCasella, colore: own ? own.colore : COL_SERIE[l.serie] || (l.tipoCasella === "angolo" ? "#c9a24a" : "#28344a"), proprietario: own ? own.colore : null, livello: l.lvl, cantiere: !!l.cantiere, spento: soloMiei && (!own || own.id !== mioId) };
   });
   const cc = {};
-  const torri3 = S.players.filter((p) => p.piani > 0).map((p) => { const isola = isolaCasa(p); const k = (cc[isola] = (cc[isola] || 0) + 1) - 1; const [x, y] = POS_CASA[isola]; return { x: x + k * 2.2, y, colore: p.colore, piani: p.piani, spento: soloMiei && p.id !== mioId }; });
-  const giocatori = S.players.map((p) => { const q = disp[p.id] || copiaPos(p); const key = "o" + q.pos; const k = (conta[key] = (conta[key] || 0) + 1) - 1; const [x, y] = puntoMappa(q); return { id: p.id, colore: p.colore, x, y, offset: k, nascosta: S.fase === "notte" || p.faro > 0 }; });
+  const torri3 = S.players.filter((p) => p.piani > 0).map((p) => { const isola = isolaCasa(p); const k = (cc[isola] = (cc[isola] || 0) + 1) - 1; const [x, y] = POS_CASA[isola]; return { x: x + k * 2.2, y, isola, colore: p.colore, piani: p.piani, spento: soloMiei && p.id !== mioId }; });
+  const giocatori = S.players.map((p) => { const q = disp[p.id] || copiaPos(p); const key = "o" + q.pos; const k = (conta[key] = (conta[key] || 0) + 1) - 1; const [x, y] = puntoMappa(q); return { id: p.id, colore: p.colore, x, y, pos: q.pos, offset: k, nascosta: S.fase === "notte" || p.faro > 0 }; });
   Tre.aggiorna({ caselle, torri: torri3, giocatori });
 }
 // i gruppi di vie: spiegati con parole semplici
@@ -868,7 +869,8 @@ function collegaEsplora() {
   addEventListener("resize", applicaVista);
 }
 function comandiVista() {
-  return `<div class="comandi-vista vetro"><button id="zPiu" aria-label="Avvicina">＋</button><button id="zMeno" aria-label="Allontana">−</button>${TRE3D ? `<button id="zSx" aria-label="Ruota a sinistra" title="Ruota">⟲</button><button id="zDx" aria-label="Ruota a destra" title="Ruota">⟳</button>` : ""}<button id="zTutto" aria-label="Vista intera" title="Vista intera">⤢</button><button id="zMio" aria-label="Vai alla tua pedina" title="La tua pedina">◎</button><button id="z3d" title="${TRE3D ? "Passa al tabellone piatto" : "Passa al tabellone 3D"}" style="font-size:12px;font-weight:800">${TRE3D ? "2D" : "3D"}</button></div>`;
+  const mondo = TRE3D && Tre.mondoNuovo(), m = mondo ? Tre.modoVista() : "";
+  return `<div class="comandi-vista vetro">${mondo ? `<button id="vSegui" class="${m === "segui" ? "attivo" : ""}" title="Segui la tua auto da dietro">🚗<small>Segui</small></button><button id="vLibera" class="${m === "libera" ? "attivo" : ""}" title="Gira la visuale come vuoi: trascina per spostarti, con due dita (o tasto destro) ruoti e inclini">🧭<small>Libera</small></button><button id="vAlto" class="${m === "alto" ? "attivo" : ""}" title="Tutta la Laguna vista dall'alto">🗺️<small>Alto</small></button>` : ""}<button id="zPiu" aria-label="Avvicina">＋</button><button id="zMeno" aria-label="Allontana">−</button>${TRE3D ? `<button id="zSx" aria-label="Ruota a sinistra" title="Ruota">⟲</button><button id="zDx" aria-label="Ruota a destra" title="Ruota">⟳</button>` : ""}${mondo ? "" : `<button id="zTutto" aria-label="Vista intera" title="Vista intera">⤢</button>`}<button id="zMio" aria-label="Vai alla tua pedina" title="La tua pedina">◎</button><button id="z3d" title="${TRE3D ? "Passa al tabellone piatto" : "Passa al tabellone 3D"}" style="font-size:12px;font-weight:800">${TRE3D ? "2D" : "3D"}</button></div>`;
 }
 function notteOra() { return S && S.fase === "notte" && S.notte; }
 let legendaAperta = false;
@@ -886,8 +888,10 @@ function collegaComandiVista(me) {
   $("#zPiu").onclick = () => TRE3D ? Tre.avvicina(0.7) : zoomA(vista.z * 1.35);
   $("#zMeno").onclick = () => TRE3D ? Tre.avvicina(1.4) : zoomA(vista.z / 1.35);
   if ($("#zSx")) { $("#zSx").onclick = () => Tre.ruota(-35); $("#zDx").onclick = () => Tre.ruota(35); }
-  $("#zTutto").onclick = () => { if (TRE3D) return Tre.tutto(); vista = { z: 1, x: 0, y: 0 }; applicaVista(); };
-  $("#zMio").onclick = () => { const notte = S.fase === "notte" && S.notte; const [x, y] = notte ? posLuogo(S.notte.dove[mioId], me) : puntoMappa(disp[mioId] || me); TRE3D ? Tre.centraSu(x, y) : centraSu(x, y); };
+  if ($("#zTutto")) $("#zTutto").onclick = () => { if (TRE3D) return Tre.tutto(); vista = { z: 1, x: 0, y: 0 }; applicaVista(); };
+  const modoV = (m) => { Tre.impostaModo(m, mioId); document.querySelectorAll("#vSegui,#vLibera,#vAlto").forEach((b) => b.classList.toggle("attivo", b.id === { segui: "vSegui", libera: "vLibera", alto: "vAlto" }[m])); };
+  if ($("#vSegui")) { $("#vSegui").onclick = () => modoV("segui"); $("#vLibera").onclick = () => modoV("libera"); $("#vAlto").onclick = () => modoV("alto"); }
+  $("#zMio").onclick = () => { const notte = S.fase === "notte" && S.notte; const [x, y] = notte ? posLuogo(S.notte.dove[mioId], me) : puntoMappa(disp[mioId] || me); if (TRE3D && Tre.mondoNuovo() && Tre.seguiPedina(mioId)) return; TRE3D ? Tre.centraSu(x, y) : centraSu(x, y); };
   $("#z3d").onclick = () => { try { localStorage.setItem("laguna_3d", TRE3D ? "0" : "1"); } catch (e) { } location.reload(); };
 }
 
@@ -1720,7 +1724,7 @@ function contenutoApp(me, k) {
     return testa + liberi.map((l) => { const costo = L.prezzoAgenzia(S, me, l); return `<div class="scheda"><h4><span style="color:${COL_SERIE[l.serie] || "#aaa"}">■</span> ${esc(l.nome)}</h4><span class="sub">${l.tipoCasella === "molo" ? "Molo: chi ci passa ti paga il pedaggio." : "Gruppo " + esc(l.serie) + " · prezzo " + euro(l.prezzo)}</span><button class="piccolo oro" data-agenzia="${l.id}" ${me.cash < costo ? "disabled" : ""}>Compra a ${euro(costo)}</button></div>`; }).join("");
   }
   if (k === "municipio") {
-    return `<div class="scheda"><h4>Sindaco: ${S.sindaco ? esc(S.players.find((x) => x.id === S.sindaco).nome) : "nessuno"}</h4><span class="sub">Tasse al ${Math.round(S.tassa * 100)}%. Le elezioni sono ogni 2 Cicli: per candidarti serve fama 40, passando dal Municipio.</span></div>
+    return `<div class="scheda"><h4>Sindaco: ${S.sindaco ? esc(S.players.find((x) => x.id === S.sindaco).nome) : "nessuno"}</h4><span class="sub">Tasse al ${Math.round(S.tassa * 100)}%. Le elezioni sono ogni 2 Cicli: per candidarti serve fama 40, passando dal Municipio. Ci arrivi coi dadi o, a inizio turno, con il Viaggio rapido in taxi (${euro(L.N.taxiMunicipio)}).</span></div>
       ${S.candidati[mioId] !== undefined ? `<div class="scheda"><h4>Sei candidato</h4><div class="riga"><input id="campImp" type="number" placeholder="quanto" style="width:110px"><button class="piccolo" data-a2="campagna">Investi in campagna</button></div></div>` : ""}
       ${S.sindaco === mioId ? `<div class="scheda"><h4>Sei il Sindaco</h4><div class="riga"><select id="leggeSel">${Object.entries(L.LEGGI).map(([kk, x]) => `<option value="${kk}">${esc(x.nome)}</option>`).join("")}</select><select id="leggeIsola">${L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("")}</select><button class="piccolo" data-a2="legge">Firma</button></div><div class="riga">Tasse <select id="tasseSel">${[0.1, 0.15, 0.2, 0.25, 0.3].map((q) => `<option value="${q}" ${Math.abs(q - S.tassa) < 0.01 ? "selected" : ""}>${q * 100}%</option>`).join("")}</select><button class="piccolo" data-a2="tasse">Cambia</button></div></div>` : ""}
       <div class="scheda"><h4>La licenza del casinò</h4>${S.licenze.includes(mioId) ? `<span class="sub">Ce l'hai. Ora puoi aprire un casinò su un tuo terreno di Baia Flamingo o Isola Corona, e il Casinò privato nel tuo Palazzo.</span>`
@@ -2237,7 +2241,7 @@ function finestraCorrompi(me) {
 }
 function finestraRapido(me) {
   const dest = L.destinazioniRapide(S, me);
-  const MEZZO = { traghetto: ["marina", "Traghetto"], motoscafo: ["motoscafo", "Motoscafo"], elicottero: ["palazzo", "Elicottero"], jet: ["aereo", "Jet"] };
+  const MEZZO = { taxi: ["municipio", "Taxi per il Municipio (candidarsi a Sindaco, licenza sicura)"], traghetto: ["marina", "Traghetto"], motoscafo: ["motoscafo", "Motoscafo"], elicottero: ["palazzo", "Elicottero"], jet: ["aereo", "Jet"] };
   finestra(`<span class="kick" style="color:var(--oro)">${ico("aereo")} Viaggio rapido</span><h2>Dove vuoi andare?</h2>
     <p>Una volta per Ciclo, al posto dei dadi. Non passi dalla Partenza (niente stipendio) e se atterri sul terreno di un altro paghi l'affitto.</p>
     <div class="lista-luoghi">${dest.map((d) => { const l = S.lotti.find((x) => x.idx === d.idx); const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;

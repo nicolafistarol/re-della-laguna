@@ -57,17 +57,17 @@ function caso(seme) { let t = seme >>> 0; return () => { t = (t + 0x6d2b79f5) >>
 // caselle: [{ x, z, isola }] nell'ordine del giro. Ritorna un gruppo da aggiungere alla scena.
 export function costruisci(caselle) {
   const mondo = new THREE.Group();
-  const QUOTA = 1.4; // altezza della strada sulle isole
+  const QUOTA = 1.55; // altezza della strada sulle isole
   // --- 1. le isole
   const perIsola = {};
-  for (const c of caselle) (perIsola[c.isola] = perIsola[c.isola] || []).push({ x: c.x, y: c.z });
+  for (const c of caselle) if (!c.ponte) (perIsola[c.isola] = perIsola[c.isola] || []).push({ x: c.x, y: c.z }); // i ponti (angoli) stanno sull'acqua tra due isole
   const poligoni = {};
   for (const [nome, pts] of Object.entries(perIsola)) {
     const st = STILE_ISOLA[nome] || STILE_BASE;
-    const fuori = contorno(pts, 9), sopra = contorno(pts, 6.5);
+    const fuori = contorno(pts, 7.2), sopra = contorno(pts, 5.6);
     poligoni[nome] = sopra.punti;
     mondo.add(lastra(fuori.punti, 0.6, -0.2, st.sabbia));
-    mondo.add(lastra(sopra.punti, 0.5, 0.5, st.terra));
+    mondo.add(lastra(sopra.punti, 0.4, 0.3, st.terra));
     // la citta': tanti piccoli edifici dentro l'isola, lontani dalla strada
     const r = caso(nome.length * 977 + pts.length * 31);
     const minX = Math.min(...sopra.punti.map((q) => q.x)), maxX = Math.max(...sopra.punti.map((q) => q.x));
@@ -79,7 +79,7 @@ export function costruisci(caselle) {
     for (let k = 0; k < 420; k++) {
       const q = { x: minX + r() * (maxX - minX), y: minY + r() * (maxY - minY) };
       if (!dentro(q, sopra.punti)) continue;
-      if (caselle.some((c) => Math.hypot(c.x - q.x, c.z - q.y) < 4.2)) continue; // la strada e i lotti restano liberi
+      if (caselle.some((c) => Math.hypot(c.x - q.x, c.z - q.y) < 7)) continue; // la strada e i lotti restano liberi
       const i = Math.floor(r() * mats.length); if (conta[i] >= 160) continue;
       const h = (0.8 + r() * 2.2) * st.alte * (r() < 0.08 ? 2.4 : 1);
       dummy.position.set(q.x, 1.0, q.y); dummy.scale.set(1 + r() * 1.4, h, 1 + r() * 1.4); dummy.rotation.y = r() * Math.PI; dummy.updateMatrix();
@@ -129,7 +129,10 @@ export function costruisci(caselle) {
   const d2 = new THREE.Object3D();
   pilastri.forEach((p, i) => { d2.position.copy(p); d2.updateMatrix(); pil.setMatrixAt(i, d2.matrix); });
   pil.count = pilastri.length; mondo.add(pil);
-  return { mondo, curva, quota: QUOTA };
+  const centri = {};
+  for (const [nome, poli] of Object.entries(poligoni)) centri[nome] = { x: poli.reduce((a, q) => a + q.x, 0) / poli.length, z: poli.reduce((a, q) => a + q.y, 0) / poli.length };
+  const suTerra = (x, z) => !!isolaDi({ x, y: z });
+  return { mondo, curva, quota: QUOTA, centri, suTerra };
 }
 
 // il mare: un piano grande che ondeggia piano

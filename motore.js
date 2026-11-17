@@ -43,7 +43,7 @@
     pentito: 0.04, oggettoFalla: 0.15,
     prestitoQuota: 0.30, prestitoInt: 0.10, emergenzaInt: 0.25, ipotecaQuota: 0.5,
     candidatura: 750_000, stipendioSindaco: 750_000,
-    settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], settaInfluenza: [0, 0, 12, 35, 70], decima: 0.15,
+    settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], settaInfluenza: [0, 0, 12, 35, 70], taxiMunicipio: 250_000, decima: 0.15,
     fasce: [[6e6, "Benestante"], [12e6, "Ricco"], [20e6, "Milionario"], [30e6, "Magnate"], [Infinity, "Sovrano"]],
     mosse: {
       nascosto: { nome: "Posto nascosto", tracce: 0.60, colto: 0.70, carico: 0.9, costo: 0 },
@@ -398,6 +398,8 @@
     if (p.veicoli.some((v) => ["motoscafo", "yacht", "megayacht"].includes(v))) { for (const m of moli) metti(m, 0, "motoscafo"); metti(corona, 0, "motoscafo"); }
     if (p.veicoli.includes("elicottero") || haPiano(p, "eliporto")) for (const e of eli) metti(e, 0, "elicottero");
     if (p.veicoli.includes("jet")) { metti(aero, 0, "jet"); for (const e of eli) metti(e, 0, "jet"); }
+    // il Municipio e' sempre raggiungibile: un taxi ti ci porta (costa, e salti il giro dei dadi)
+    metti(idxCasella("Il Municipio"), N.taxiMunicipio, "taxi");
     return [...d.values()];
   }
   function viaggioRapido(s, p, idx) {
@@ -411,7 +413,7 @@
     if (p.cash < dest.costo) err("Il traghetto costa " + euro(dest.costo) + ".");
     p.cash -= dest.costo; p.rapidoCiclo = s.ciclo; p.haTirato = true; p.inner = false; p.pos = idx;
     const c = casella(s, p);
-    const COME = { traghetto: "prende il traghetto", motoscafo: "attraversa la laguna in motoscafo", elicottero: "atterra in elicottero", jet: "atterra con il jet" };
+    const COME = { taxi: "prende un taxi per il centro", traghetto: "prende il traghetto", motoscafo: "attraversa la laguna in motoscafo", elicottero: "atterra in elicottero", jet: "atterra con il jet" };
     log(s, p.nome + " " + COME[dest.mezzo] + ": " + c.nome + ".", p.id);
     atterra(s, p, c);
   }

@@ -583,3 +583,6 @@ button .lic{margin-right:2px}
 
 .barra-inf{height:8px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden;margin:6px 0}.barra-inf i{display:block;height:100%;background:linear-gradient(90deg,var(--setta),var(--oro))}
 details.opera{border-top:1px solid rgba(255,255,255,.1);padding:6px 0}details.opera summary{cursor:pointer;font-size:13px}details.opera.fatta summary{opacity:.7}
+
+.comandi-vista button small{display:block;font-size:9px;font-weight:700;line-height:1;margin-top:1px;opacity:.85}
+.comandi-vista button.attivo{background:rgba(243,197,107,.28);outline:1px solid var(--oro)}

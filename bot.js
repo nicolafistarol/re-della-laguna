@@ -275,8 +275,8 @@ function grandiBot(o, i, n) {
         if (!i.haTirato) {
           if (!i.doppi && i.rapidoCiclo !== o.ciclo && t.destinazioniRapide && Math.random() < 0.3) {
             const ds = t.destinazioniRapide(o, i).filter((d) => i.cash - d.costo > 3e5);
-            const buone = ds.filter((d) => { const l = o.lotti.find((x) => x.idx === d.idx); return !l.owner || l.owner === i.id; });
-            const d = (buone.length ? buone : ds)[Math.floor(Math.random() * (buone.length ? buone.length : ds.length))];
+            const buone = ds.filter((d) => { const l = o.lotti.find((x) => x.idx === d.idx); return d.mezzo !== "taxi" && (!l.owner || l.owner === i.id); });
+            const vere = ds.filter((d) => d.mezzo !== "taxi"); const d = buone.length ? buone[Math.floor(Math.random() * buone.length)] : vere[Math.floor(Math.random() * vere.length)];
             if (d) return { tipo: "viaggio_rapido", idx: d.idx };
           }
           return { tipo: "tira" };
