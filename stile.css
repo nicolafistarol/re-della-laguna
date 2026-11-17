@@ -395,3 +395,13 @@ button .lic{margin-right:2px}
 .luogo .volti{display:flex;gap:2px;margin-top:-10px;z-index:2}
 .scheda.pg{display:flex;gap:10px;align-items:flex-start}
 .volti-riga{display:flex;gap:3px;margin-right:10px}
+
+/* scene pulite: nelle scelte solo icona, titolo e costo; la descrizione si apre al tocco */
+.scena .scelta{min-height:0}
+.scena .scelta .t,.scena .scelta .fai{display:none}
+.scena .scelta.aperta .t{display:block}
+.scena .scelta.aperta .fai{display:block;font-size:12px;font-weight:800;color:var(--oro)}
+.scena .scelta.aperta{border-color:var(--oro)}
+.scena .scelte{align-items:end}
+.scena .scelta:not(.aperta){flex-direction:row;align-items:center;gap:10px;padding:12px 14px;flex-wrap:wrap}
+.scena .scelta:not(.aperta) .costo{margin-left:auto;font-size:12px}

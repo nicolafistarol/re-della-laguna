@@ -29,7 +29,7 @@
     indagineK: 100, scendi: 0.35, decayPulito: 0.20, decaySporco: 0.05,
     prot: { agente: 0.30, commissario: 0.50, max: 0.70 },
     corruz: { agente: [250_000, 125_000], commissario: [1_000_000, 500_000], banchiere: [750_000, 375_000], doganiere: [500_000, 250_000] },
-    pentito: 0.04,
+    pentito: 0.04, oggettoFalla: 0.15,
     prestitoQuota: 0.30, prestitoInt: 0.10, emergenzaInt: 0.25, ipotecaQuota: 0.5,
     candidatura: 750_000, stipendioSindaco: 750_000,
     settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], decima: 0.15,
@@ -484,7 +484,8 @@
   }
 
   function postoDiBlocco(s, p) {
-    if (haOggetto(p, "documenti")) { togliOggetto(p, "documenti"); log(s, p.nome + " passa il Posto di blocco senza problemi.", p.id); privato(s, p, "Al Posto di blocco mostri i documenti falsi. L'agente ti fa cenno di passare."); return; }
+    if (haOggetto(p, "documenti") && rng(s) < N.oggettoFalla) { togliOggetto(p, "documenti"); privato(s, p, "Al Posto di blocco l'agente guarda i tuoi documenti falsi troppo a lungo. Non ci casca."); }
+    else if (haOggetto(p, "documenti")) { togliOggetto(p, "documenti"); log(s, p.nome + " passa il Posto di blocco senza problemi.", p.id); privato(s, p, "Al Posto di blocco mostri i documenti falsi. L'agente ti fa cenno di passare."); return; }
     if (p.stato >= 2 || (p.tracce > 25 && rng(s) < p.tracce / 180)) {
       log(s, p.nome + " viene fermato al Posto di blocco e controllato.", p.id);
       condanna(s, p, p.peggiorReato || "lieve", "Posto di blocco");
@@ -978,6 +979,34 @@
     if (a === "aeroporto" && p.veicoli.includes("jet")) return 1;
     if (haOggetto(p, "motoscafo") || haPiano(p, "eliporto") || p.veicoli.some((v) => ["motoscafo", "yacht", "megayacht", "elicottero"].includes(v))) return 1;
     return isolaLuogo(s, p, da) === isolaLuogo(s, p, a) ? 1 : 2;
+  }
+  // La rete della polizia: chi hai comprato e dove ti copre. Gli Affari Interni possono beccarli.
+  function nomeContatto(k) { return k.startsWith("agente_") ? "l'agente di " + NOMI_ISOLE[k.slice(7)] : k === "commissario" ? "il Commissario Vargas" : k === "doganiere" ? "il doganiere dell'Aeroporto" : k === "banchiere" ? "il banchiere Lenz" : k === "giudice" ? "il Giudice" : k; }
+  function rischioContatto(s, p, k) {
+    const c = p.corrotti[k]; if (!c) return 0;
+    let r = 0.03 + 0.02 * Math.min(5, c.usi || 0) + Math.min(0.1, p.tracce / 1000);
+    if (k.startsWith("agente_") && s.leggi.includes("polizia_doppia_" + k.slice(7))) r += 0.05;
+    if (k === "commissario") r += 0.02;
+    return Math.min(0.35, r);
+  }
+  function affariInterni(s, p, k) {
+    const c = p.corrotti[k]; if (!c) return;
+    if (c.sospetto) {
+      // un Ciclo di tempo per scaricarlo: se e' ancora li', meta' delle volte lo prendono
+      if (rng(s) < 0.5) {
+        delete p.corrotti[k];
+        notizia(s, "Affari Interni: arrestato " + nomeContatto(k) + " per corruzione.", "scandalo");
+        if (rng(s) < 0.5) { p.tracce += 15; p.stato = Math.min(4, p.stato + 1); privato(s, p, "Hanno arrestato " + nomeContatto(k) + ". Sotto interrogatorio ha fatto il tuo nome: la polizia sale di un gradino."); }
+        else privato(s, p, "Hanno arrestato " + nomeContatto(k) + ". Non ha parlato, per ora. Ma la sua protezione è finita.");
+      } else { c.sospetto = null; privato(s, p, "Le indagini su " + nomeContatto(k) + " si sono chiuse senza niente. Ti è andata bene."); }
+      return;
+    }
+    if (rng(s) < rischioContatto(s, p, k)) { c.sospetto = s.ciclo; privato(s, p, "Vera: \"Gli Affari Interni indagano su " + nomeContatto(k) + ". Se lo scarichi adesso sei al sicuro; se lo tieni, all'Alba può fare il tuo nome.\" (app Soldi sporchi, La tua rete)"); }
+  }
+  function scaricaContatto(s, p, k) {
+    if (!p.corrotti[k]) err("Non hai questo contatto.");
+    delete p.corrotti[k];
+    privato(s, p, "Chiudi l'accordo con " + nomeContatto(k) + ". Da ora non ti protegge più, ma non può farti il nome.");
   }
   function inSetta(p) { return (p.sette || []).length > 0; }
   function haPiano(p, f) { return (p.funzioniPiani || []).includes(f); }
@@ -1506,18 +1535,19 @@
     let tracce = O.tracce * 0.75 * (0.7 + 0.6 * rng(s));
     const isola = LUOGHI[o.luogo].isola;
     let pg = P_GUAI[LIVELLI_PERICOLO.indexOf(s.notte.pericolo[o.luogo])];
-    if (p.corrotti["agente_" + isola]) pg *= 0.6;
-    if (p.corrotti.commissario) pg *= 0.8;
-    if (o.luogo === "aeroporto" && p.corrotti.doganiere) pg *= 0.5;
+    if (p.corrotti["agente_" + isola]) { pg *= 0.6; p.corrotti["agente_" + isola].usi = (p.corrotti["agente_" + isola].usi || 0) + 1; }
+    if (p.corrotti.commissario) { pg *= 0.8; p.corrotti.commissario.usi = (p.corrotti.commissario.usi || 0) + 1; }
+    if (o.luogo === "aeroporto" && p.corrotti.doganiere) { pg *= 0.5; p.corrotti.doganiere.usi = (p.corrotti.doganiere.usi || 0) + 1; }
     if (s.leggi.includes("polizia_doppia_" + isola)) pg *= 1.4;
     const guaio = O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
     let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale : 0;
     if (guaio) {
       const G = PERICOLI[guaio];
       const salvatore = usati.find((id) => (OGGETTI[id].salva || []).includes(guaio)) || (guaio === "guardia" && haOggetto(p, "motoscafo") ? "motoscafo" : null) || (guaio === "pattuglia" && haOggetto(p, "furgone") ? "furgone" : null);
-      if (salvatore) racconta(s, p, "Mentre lavori " + G.arriva + ", ma " + G.salvo + ".");
+      const falla = salvatore && rng(s) < N.oggettoFalla;
+      if (salvatore && !falla) racconta(s, p, "Mentre lavori " + G.arriva + ", ma " + G.salvo + ".");
       else {
-        racconta(s, p, "Mentre lavori " + G.arriva + ".");
+        racconta(s, p, "Mentre lavori " + G.arriva + "." + (falla ? " Contavi su: " + (OGGETTI[salvatore] ? OGGETTI[salvatore].nome.toLowerCase() : salvatore) + ", ma stavolta non basta." : ""));
         if (G.danno === "perso") { guadagno = 0; tracce += 6; racconta(s, p, "Molli tutto e scappi. Il carico è perso, e con lui i soldi che ci avevi messo."); }
         else if (G.danno === "riconosciuto") { tracce += 15; p.stato = Math.max(p.stato, 2); racconta(s, p, "Hai l'impressione di essere stato riconosciuto. Da domani qualcuno ti terrà d'occhio."); }
         else if (G.danno === "allarme") { guadagno = 0; tracce += 18; p.stato = Math.max(p.stato, 3); racconta(s, p, "Sirene in lontananza. Scappi a mani vuote, e la polizia ha un nome: il tuo."); notizia(s, "Tentato colpo a " + NOMI_ISOLE[isola] + ". La polizia segue una pista.", "scandalo"); }
@@ -2083,7 +2113,7 @@
         const base = k.startsWith("agente_") ? N.corruz.agente[1] : N.corruz[k] ? N.corruz[k][1] : 0;
         if (p.sporchi >= base) p.sporchi -= base; else if (p.cash >= base) p.cash -= base; else { delete p.corrotti[k]; privato(s, p, "Non hai pagato: hai perso un contatto corrotto."); continue; }
         r.corruzione += base;
-        if (rng(s) < N.pentito) { delete p.corrotti[k]; p.tracce += 25; p.stato = Math.min(4, p.stato + 1); notizia(s, "Un pentito parla: tremano in molti nella Laguna.", "scandalo"); privato(s, p, "Uno dei tuoi contatti corrotti si è pentito e ha fatto il tuo nome."); }
+        affariInterni(s, p, k);
       }
       // tracce che calano
       p.tracce *= 1 - (p.pulitoCiclo ? N.decayPulito : N.decaySporco);
@@ -2268,6 +2298,7 @@
       case "occasione": return prendiOccasione(s, p, a.n, a.oggetti);
       case "foto": return fotografa(s, p, a.bersaglio);
       case "corrompi": return corrompi2(s, p, a.chi, a.isola, !!a.sporchi);
+      case "scarica_contatto": return scaricaContatto(s, p, a.chiave);
       case "ricicla": return ricicla2(s, p, a.metodo, a.importo);
       case "denuncia": return denuncia(s, p, a.prova);
       case "fonda_setta": return fondaSetta(s, p, a.nome, a.motto);
@@ -2341,7 +2372,7 @@
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE,
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
-    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, oreViaggio, luogoAperto,
+    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, rischioContatto, nomeContatto, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;

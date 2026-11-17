@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=32";
+import { ico } from "./icone.js?v=33";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=32";
-import * as Pano from "./panorama.js?v=32";
+import * as Tre from "./tre.js?v=33";
+import * as Pano from "./panorama.js?v=33";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=32";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=33";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -1015,9 +1015,9 @@ function scenaNotte(me) {
   const resto = restoOra();
   const testa = `<div class="scena-testa">
       <div class="kick" style="color:var(--cielo)">${ico("luna")} ore ${L.ORE[N2.ora]} · ${6 - N2.ora} ${6 - N2.ora === 1 ? "ora" : "ore"} all'alba${isola ? " · " + esc(isola) : ""}${N2.pericoloQui && !v && !aCasa ? ` · <span style="color:${COLORE_POLIZIA[N2.pericoloQui]}">polizia ${N2.pericoloQui}</span>` : ""}</div>
-      <h1>${esc(nome)}</h1>${sala ? `<div class="sala">${ico("stella")} ${esc(sala)} <span class="sub">${lvSala === 2 ? "solo per i più potenti della Laguna" : "ti fanno entrare nella zona VIP"}</span></div>` : ""}
+      <h1>${esc(nome)}</h1>${sala ? `<div class="sala">${ico("stella")} ${esc(sala)}</div>` : ""}
       ${quiAltri.length ? `<div class="qui-altri">${quiAltri.map((p) => `<button class="persona" data-persona="${p.id}"><span class="pall" style="background:${p.colore}">${esc(p.nome[0])}</span>${esc(p.nome)}</button>`).join(" ")} <span class="sub">${quiAltri.length === 1 ? "è qui con te: toccalo" : "sono qui con te: toccali"}</span></div>` : ""}
-      ${resto !== null && !aCasa && !me.faro ? `<div class="tempo"><div class="barra" id="barraTempo" style="width:${(resto / (N2.tempo || 120)) * 100}%"></div></div><div class="sub" id="contoTempo">${testoTempo(resto)}</div>` : ""}
+      ${resto !== null && !aCasa && !me.faro ? `<div class="tempo"><div class="barra" id="barraTempo" style="width:${(resto / (N2.tempo || 120)) * 100}%"></div></div><div class="sub" id="contoTempo">${resto <= 20 ? testoTempo(resto) : ""}</div>` : ""}
     </div>`;
   let corpo = "";
   const racc = N2.racconto || [];
@@ -1027,10 +1027,10 @@ function scenaNotte(me) {
     const intro = racc.slice(N2.inizioRacc || 0);
     const scelte = N2.scelte || [];
     const negozio = Object.values(L.OGGETTI).some((O) => O.dove === dove);
-    corpo = `${intro.length ? `<div class="righe">${righeNotte(intro)}</div>` : ""}
+    corpo = `${intro.length ? `<div class="righe">${righeNotte(intro.slice(-1))}</div>` : ""}
       ${appuntamenti(me, dove)}
       <div class="scelte">${scelte.map((c, i) => `<button class="scelta ${c.k === "occ" && !c.legale ? "losca" : c.k === "occ" ? "legale" : c.k === "aspetta" ? "calma" : ""}" data-scelta="${i}">
-        <span class="ic">${ico(c.k === "occ" ? (c.legale ? "stella" : "maschera") : c.k === "fissa" ? ICO_FISSA[c.id] || "stella" : ICO_SCELTA[c.k] || "orologio")}</span><b>${esc(c.titolo)}</b><span class="t">${esc(c.testo)}</span>${c.k === "occ" ? `<span class="costo">${c.costo ? "Ci metti " + euro(c.costo) : "Non costa niente"}${c.riservata ? " · è l'appuntamento" : ""}</span>` : c.k === "fissa" ? `<span class="costo">${c.costo ? euro(c.costo) : c.puntata ? "Scegli la puntata" : "Non costa niente"}</span>` : ""}</button>`).join("")}</div>
+        <span class="ic">${ico(c.k === "occ" ? (c.legale ? "stella" : "maschera") : c.k === "fissa" ? ICO_FISSA[c.id] || "stella" : ICO_SCELTA[c.k] || "orologio")}</span><b>${esc(c.titolo)}</b><span class="t">${esc(c.testo)}</span><span class="fai">Tocca ancora per farlo</span>${c.k === "occ" ? `<span class="costo">${c.costo ? "Ci metti " + euro(c.costo) : "Non costa niente"}${c.riservata ? " · è l'appuntamento" : ""}</span>` : c.k === "fissa" ? `<span class="costo">${c.costo ? euro(c.costo) : c.puntata ? "Scegli la puntata" : "Non costa niente"}</span>` : ""}</button>`).join("")}</div>
       <div class="scena-barra">${negozio ? `<button data-a="negozio">${ico("mercato")} Guarda la merce</button>` : ""}${dove === "mercato" ? `<button data-a="soffiata">${ico("soffiata")} Soffiata</button>` : ""}${scelte.some((c) => c.k === "aspetta") ? "" : `<button data-a="aspetta">${ico("orologio")} Resta qui</button>`}<button data-a="altrove">${ico("mappa")} Vai altrove</button><button data-a="casa">${ico("casa")} Torna a casa</button></div>`;
   } else {
     const da = v && N2.daScelta === undefined ? N2.inizioRacc || 0 : N2.daScelta !== undefined ? N2.daScelta : N2.inizioRacc || 0;
@@ -1059,6 +1059,8 @@ function collegaScena(me) {
   const scelte = S.notte.scelte || [];
   document.querySelectorAll(".scena [data-scelta]").forEach((b) => b.onclick = () => {
     const c = scelte[+b.dataset.scelta]; if (!c) return;
+    const diretta = ["occ", "ricicla", "paradiso", "banchiere", "polizia", "doganiere"].includes(c.k);
+    if (!diretta && !b.classList.contains("aperta")) { document.querySelectorAll(".scena .scelta.aperta").forEach((x) => x.classList.remove("aperta")); b.classList.add("aperta"); return; }
     if (c.k === "occ") return finestraOccasione(me, c.n);
     if (c.k === "ricicla") return finestraRicicla(me, false);
     if (c.k === "paradiso") return finestraRicicla(me, true);
@@ -1083,7 +1085,7 @@ function collegaScena(me) {
     const r = restoOra(); if (r === null) return;
     const b = $("#barraTempo"), t = $("#contoTempo");
     if (b) b.style.width = (r / (S.notte.tempo || 120)) * 100 + "%";
-    if (t) t.textContent = testoTempo(r);
+    if (t) t.textContent = r <= 20 ? testoTempo(r) : "";
     const io_ = io(), N2 = S.notte;
     const hoFinito = S.notteFatti[mioId] || io_.faro || (N2.pronto && N2.pronto[mioId]);
     const chiave = S.ciclo + "_" + N2.ora;
@@ -1425,7 +1427,7 @@ function contenutoApp(me, k) {
   if (k === "sporchi") {
     const cop = L.copertura(S, me), sp = me.sporchi || 0;
     return `<div class="scheda"><h4 style="color:var(--sporco)">Hai ${euro(sp)} sporchi</h4><span class="sub">Sono contanti che non puoi mostrare. Di giorno non comprano quasi niente: case, piani e azioni vogliono soldi puliti.</span></div>
-      <div class="scheda"><h4 style="color:var(--oro)">Attento: a fine partita valgono poco</h4><span class="sub">Nella classifica finale ogni euro sporco conta solo ${Math.round(L.N.valoreSporchi * 100)} centesimi. Ripuliscili prima della fine.</span></div>
+      ${laTuaRete(me)}<div class="scheda"><h4 style="color:var(--oro)">Attento: a fine partita valgono poco</h4><span class="sub">Nella classifica finale ogni euro sporco conta solo ${Math.round(L.N.valoreSporchi * 100)} centesimi. Ripuliscili prima della fine.</span></div>
       <div class="scheda"><h4>Da dove arrivano</h4><span class="sub">Gli affari della notte (container, orologi, carichi dal mare, il colpo alla villa…), le vincite alla Bisca e le tasse che non paghi.</span></div>
       <div class="scheda"><h4>Come spenderli così</h4><span class="sub">Di notte: oggetti del Mercato Nero, occasioni, sfide a carte, ingresso alle serate. Per corrompere costano il 20% in meno.</span></div>
       <div class="scheda"><h4>Come ripulirli (di notte)</h4>
@@ -1484,6 +1486,13 @@ const PERSONAGGI = [
     fa: "Una notte il tuo carico al Porto vale il doppio. Ma lascia il doppio delle Tracce.", costo: "Niente: è lui a cercare te", come: "Appare ogni tanto: ti scrive un messaggio. Quella notte vai al Porto." },
 ];
 function volto(pg, grande) { return `<span class="volto ${grande ? "grande" : ""}" style="background:${pg.col}" title="${esc(pg.nome)}">${ico(pg.ico)}</span>`; }
+function laTuaRete(me) {
+  const ks = Object.keys(me.corrotti || {});
+  const DOVE = (k) => k.startsWith("agente_") ? "ti copre solo a " + L.NOMI_ISOLE[k.slice(7)] + " (rischio −40%)" : k === "commissario" ? "ti copre un po' ovunque (rischio −20%)" : k === "doganiere" ? "ti copre solo all'Aeroporto (rischio −50%)" : k === "banchiere" ? "i controlli sui tuoi conti trovano meno" : "";
+  return `<div class="scheda"><h4>La tua rete</h4>${ks.length ? ks.map((k) => { const c = me.corrotti[k], r = Math.round(L.rischioContatto(S, { ...me, tracce: 0 }, k) * 100);
+    return `<div style="margin-top:8px"><b>${esc(L.nomeContatto(k).replace(/^./, (x) => x.toUpperCase()))}</b><div class="sub">${DOVE(k)}.</div>${c.sospetto ? `<div class="sub" style="color:#ff8a8a;font-weight:700">Gli Affari Interni indagano su di lui: all'Alba può fare il tuo nome.</div>` : `<div class="sub">Rischio che gli Affari Interni lo scoprano: almeno ${r}% a Ciclo (sale più lo usi e più Tracce hai).</div>`}<button class="piccolo" data-scarica="${k}" style="margin-top:4px">Scaricalo</button></div>`; }).join("") : `<span class="sub">Nessun contatto comprato. Agenti e Vargas al Club Neon, Lenz al Casinò, il doganiere all'Aeroporto: guarda la Rubrica.</span>`}
+    <div class="sub" style="margin-top:8px">Gli oggetti ti salvano quasi sempre, non sempre: circa 1 volta su 7 qualcosa va storto.</div></div>`;
+}
 function rubrica(me) {
   const notte = S.fase === "notte", dove = notte ? S.notte.dove[mioId] : null;
   const QUANDO = { notte: "di notte", giorno: "di giorno", alba: "all'Alba", sempre: "sempre", raro: "ogni tanto, di notte" };
@@ -1543,6 +1552,7 @@ function collegaApp(me) {
   const ch = box.querySelector(".chat"); if (ch) ch.scrollTop = ch.scrollHeight;
   on("[data-permesso]", (b) => agisci({ tipo: "permesso", lotto: b.dataset.permesso }));
   on("[data-agenzia]", (b) => agisci({ tipo: "agenzia", lotto: b.dataset.agenzia }));
+  on("[data-scarica]", (b) => agisci({ tipo: "scarica_contatto", chiave: b.dataset.scarica }));
   on("[data-vai]", (b) => { telAperto = false; disegnaTelefono(me); chiediViaggio(me, b.dataset.vai); });
   on('[data-a2="licenza"]', () => agisci({ tipo: "licenza" }));
   on('[data-a2="bustaLicenza"]', () => agisci({ tipo: "busta_licenza" }));
@@ -1708,7 +1718,7 @@ function boxRischio(me, o) {
     const G = L.PERICOLI[k]; const salva = Object.entries(L.OGGETTI).filter(([id, O]) => (O.salva || []).includes(k));
     const ho = salva.some(([id]) => v.includes(id));
     const danno = { perso: "perdi il carico e i soldi messi", riconosciuto: "ti riconoscono: più tracce, la polizia ti tiene d'occhio", allarme: "scappi a mani vuote e la polizia ha il tuo nome", foto: "un altro giocatore ottiene una Prova contro di te", retata: "sequestrano il carico e gli oggetti illegali", meta: "ti porti via solo metà" }[G.danno] || "";
-    return `<div class="liv"><span class="liv-n" style="background:${ho ? "#2e7d4f" : "rgba(255,255,255,.1)"}">${ho ? "✓" : "!"}</span><div><b>Se ${esc(G.arriva)}</b><div class="sub" style="font-size:12px">${esc(danno)}.${salva.length ? " Ti salva: " + salva.map(([id, O]) => O.nome.toLowerCase() + (v.includes(id) ? " (ce l'hai)" : "")).join(" o ") + "." : " Niente ti salva."}</div></div></div>`;
+    return `<div class="liv"><span class="liv-n" style="background:${ho ? "#2e7d4f" : "rgba(255,255,255,.1)"}">${ho ? "✓" : "!"}</span><div><b>Se ${esc(G.arriva)}</b><div class="sub" style="font-size:12px">${esc(danno)}.${salva.length ? " Ti salva quasi sempre: " + salva.map(([id, O]) => O.nome.toLowerCase() + (v.includes(id) ? " (ce l'hai)" : "")).join(" o ") + "." : " Niente ti salva."}</div></div></div>`;
   }).join("");
   return `<div class="rischio-box">
     <div class="riga" style="justify-content:space-between"><b>${ico("siren")} Il rischio</b>${prob !== null ? `<span>Polizia stanotte: <b style="color:${COLORE_POLIZIA[lv]}">${lv}</b> · guai: <b>${prob}%</b></span>` : ""}</div>

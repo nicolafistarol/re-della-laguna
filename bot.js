@@ -95,6 +95,8 @@
             return { tipo: "municipio", scelta: i.fama >= 40 && i.cash > 3e6 && void 0 === o.candidati[i.id] ? "candidati" : "nulla" };
         }
         if (r) return null;
+        { const sosp = Object.keys(i.corrotti || {}).find((k) => i.corrotti[k].sospetto && i.stato >= 1);
+          if (sosp) return { tipo: "scarica_contatto", chiave: sosp }; }
         if (!i.haTirato) {
           if (!i.doppi && i.rapidoCiclo !== o.ciclo && t.destinazioniRapide && Math.random() < 0.3) {
             const ds = t.destinazioniRapide(o, i).filter((d) => i.cash - d.costo > 3e5);
