@@ -10,8 +10,8 @@
 // Il saldo segreto resta qui: ai giocatori arriva solo la loro "vista".
 // =====================================================================
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@667b39ab61c6b1d0e130ce6e9365c298b9876482/server/motore.js";
-import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@667b39ab61c6b1d0e130ce6e9365c298b9876482/server/bot.js";
+import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@eb430116f2bd3656182e547dc986e238012e3441/server/motore.js";
+import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@eb430116f2bd3656182e547dc986e238012e3441/server/bot.js";
 
 // deno-lint-ignore no-explicit-any
 const L = (globalThis as any).Laguna;
@@ -48,6 +48,7 @@ function vistaSicura(stato: any, id: string) {
     if (p.id === id) { delete p.tracce; continue; } // le proprie Tracce restano nascoste anche a se stessi
     for (const k of ALTRI_SEGRETI) delete p[k];
     if (Array.isArray(p.funzioniPiani)) p.funzioniPiani = p.funzioniPiani.map((f: string) => PIANI_SEGRETI.includes(f) ? "riservato" : f);
+    if (Array.isArray(p.stanze)) p.stanze = p.stanze.filter((f: string) => !PIANI_SEGRETI.includes(f)); // le stanze segrete degli altri non si vedono
   }
   // dalla cronaca pubblica tolgo le operazioni private degli altri (prestiti, investimenti, vendite)
   // deno-lint-ignore no-explicit-any
