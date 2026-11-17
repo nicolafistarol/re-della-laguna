@@ -1,0 +1,162 @@
+:root{--oro:#f3c56b;--pulito:#5fd38d;--sporco:#ff6b6b;--setta:#b388ff;--rosa:#ff5fa2;--cielo:#9ecbff;--ink:#fff;--muted:rgba(255,255,255,.72);--vetro:rgba(10,16,26,.62);--bordo:rgba(255,255,255,.16)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0b1018;color:var(--ink);font-family:Manrope,system-ui,sans-serif;overflow:hidden}
+.serif{font-family:'DM Serif Display',Georgia,serif;font-weight:400}
+.kick{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.vetro{background:var(--vetro);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);border:1px solid var(--bordo)}
+button{font:inherit;cursor:pointer;border:1px solid rgba(255,255,255,.28);border-radius:12px;padding:10px 16px;background:rgba(255,255,255,.08);color:#fff;font-weight:700}
+button:hover{filter:brightness(1.12)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #ffe0a3;outline-offset:2px}
+button.oro{background:var(--oro);color:#1a1205;border:0;font-weight:800}
+button.bianco{background:#fff;color:#0b1018;border:0;font-weight:800}
+button.notte{background:var(--cielo);color:#0a1730;border:0;font-weight:800}
+button.grande{font-size:17px;padding:15px 26px}
+button.piccolo{padding:6px 11px;font-size:13px;border-radius:9px}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,select,textarea{font:inherit;color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:9px 11px}
+select option{color:#0b1018}
+label{font-size:13px;color:var(--muted)}
+.riga{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sub{font-size:14px;color:var(--muted);line-height:1.45}
+
+/* il mondo: la mappa a tutto schermo */
+#sfondo{position:fixed;inset:0;background:#0b1018 center/cover no-repeat;filter:blur(18px) brightness(.55);transform:scale(1.1)}
+#mondo{position:fixed;inset:0;overflow:hidden;display:none}
+#mappa{position:absolute;left:50%;top:50%;width:max(100vw,calc(100vh*16/9));aspect-ratio:16/9;transform:translate(-50%,-50%);background:url('img/mappa.jpg') center/cover;transition:filter 1s}
+#mondo.notte #mappa{filter:brightness(.38) saturate(.75) hue-rotate(12deg)}
+#mondo::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(5,10,20,0) 55%,rgba(5,10,20,.55) 100%)}
+.cas{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:rgba(255,255,255,.6);box-shadow:0 0 0 1px rgba(0,0,0,.35);z-index:2}
+.cas.ang{width:14px;height:14px;margin:-7px 0 0 -7px;background:var(--oro)}
+.cas.pres{width:11px;height:11px;margin:-5.5px 0 0 -5.5px;box-shadow:0 0 0 2px #fff}
+.cas.cant{box-shadow:0 0 0 2px #ffd27a,0 0 10px #ffb52e}
+#mondo.notte .cas{opacity:.25}
+.ped{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;transition:left .17s ease-out,top .17s ease-out;z-index:4;box-shadow:0 3px 10px rgba(0,0,0,.5)}
+.ped b{font-size:11px;color:#0b1018}
+.ped.io{width:28px;height:28px;margin:-14px 0 0 -14px;z-index:5;animation:pulsa 1.8s infinite}
+@keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(243,197,107,.8)}70%{box-shadow:0 0 0 14px rgba(243,197,107,0)}100%{box-shadow:0 0 0 0 rgba(243,197,107,0)}}
+.ped.salto{animation:salto .18s ease-out}
+@keyframes salto{50%{transform:translateY(-8px) scale(1.12)}}
+#mondo.notte .ped{display:none}
+.scia{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;transition:opacity .8s}
+.scia.spegni{opacity:0}
+.scia polyline{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.scia polyline.oro{stroke:#ffd27a;stroke-width:.6;filter:drop-shadow(0 0 .8px #ffb52e)}
+.scia polyline.altro{stroke:rgba(255,255,255,.75);stroke-width:.35;stroke-dasharray:.8 .8}
+.scia circle.oro{fill:#fff3d0}.scia circle.altro{fill:rgba(255,255,255,.8)}
+.etichetta{position:absolute;transform:translate(-50%,calc(-100% - 22px));background:rgba(10,16,26,.85);border:1px solid rgba(243,197,107,.6);border-radius:12px;padding:6px 12px;font-size:13px;white-space:nowrap;display:flex;flex-direction:column;align-items:center;z-index:6;pointer-events:none}
+.etichetta span{color:var(--muted);font-size:11px}
+/* i luoghi della notte */
+.luogo{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px;z-index:6;cursor:pointer;background:none;border:0;padding:0;color:#fff}
+.luogo .pin{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;background:radial-gradient(circle,#ffe6a8 0%,#f3c56b 45%,rgba(243,197,107,.15) 70%);box-shadow:0 0 22px rgba(255,200,90,.85),0 0 60px rgba(255,170,60,.35);transition:transform .2s}
+.luogo:hover .pin{transform:scale(1.12)}
+.luogo .nome{font-size:12px;font-weight:800;background:rgba(5,10,20,.75);padding:3px 9px;border-radius:8px;white-space:nowrap}
+.luogo .ore{font-size:11px;color:var(--cielo);font-weight:700;background:rgba(5,10,20,.75);padding:1px 7px;border-radius:6px}
+.luogo.qui .pin{background:radial-gradient(circle,#fff 0%,#9ecbff 50%,rgba(158,203,255,.15) 72%);box-shadow:0 0 26px rgba(158,203,255,.95)}
+.luogo.chiamata .pin{animation:squilla 1s infinite}
+@keyframes squilla{0%,100%{transform:rotate(0)}20%{transform:rotate(-12deg)}40%{transform:rotate(12deg)}60%{transform:rotate(-8deg)}}
+.luogo:disabled{cursor:default}
+.luce{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid #fff;z-index:7;box-shadow:0 0 12px currentColor;transition:left .8s,top .8s}
+.luce.viaggio{animation:lampeggia 1s infinite}
+@keyframes lampeggia{50%{opacity:.25}}
+
+/* l'interfaccia sopra la mappa */
+.hud-alto{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;z-index:20;pointer-events:none}
+.hud-alto>*{pointer-events:auto}
+.chips{display:flex;gap:6px;flex-wrap:wrap;max-width:40%}
+.chip{display:flex;align-items:center;gap:8px;padding:4px 11px 4px 4px;border-radius:999px}
+.chip.turno{outline:2px solid var(--oro)}
+.pall{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#0b1018;font-weight:800;font-size:12px;flex-shrink:0}
+.chip .n{font-size:12px;font-weight:800;line-height:1.1}
+.chip .s{font-size:11px;color:var(--muted)}
+.fase{padding:10px 20px;border-radius:999px;font-size:15px;font-weight:800;white-space:nowrap}
+.saldo{padding:10px 14px;border-radius:16px;min-width:210px}
+.saldo .tot{font-size:26px;color:var(--pulito);line-height:1.1}
+.saldo .ri{display:flex;justify-content:space-between;gap:12px;font-size:12px;margin-top:3px}
+.carta{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:min(620px,calc(100vw - 32px));border-radius:22px;padding:18px 20px;z-index:20;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 50px rgba(0,0,0,.45)}
+.carta .titolo{font-size:20px;font-weight:800}
+.carta .dove{font-family:'DM Serif Display',Georgia,serif;font-size:28px;line-height:1.05}
+.storia{font-size:15px;line-height:1.5;color:rgba(255,255,255,.9);font-style:italic}
+.dado{width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,.95);color:#0b1018;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:20px}
+.ticker{position:fixed;left:14px;bottom:16px;width:300px;display:flex;flex-direction:column;gap:5px;z-index:15;pointer-events:none}
+.ticker div{font-size:12px;padding:7px 10px;border-radius:10px;background:rgba(10,16,26,.62);border:1px solid rgba(255,255,255,.1);opacity:.92}
+.ticker div.mia{border-color:rgba(243,197,107,.5)}
+.racconto{position:fixed;left:14px;top:96px;bottom:16px;width:270px;border-radius:18px;padding:14px;overflow:auto;z-index:15;display:flex;flex-direction:column;gap:8px}
+.racconto p{margin:0;font-size:13px;line-height:1.45;color:rgba(255,255,255,.88)}
+.racconto p b{color:var(--cielo);font-weight:800}
+.occ{border:1px solid rgba(158,203,255,.35);background:rgba(158,203,255,.07);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.occ h3{margin:0;font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:22px}
+.occ.legale{border-color:rgba(243,197,107,.4);background:rgba(243,197,107,.07)}
+
+/* il telefono */
+#telefonoBox{position:fixed;right:16px;bottom:16px;z-index:30}
+.tel-tasto{width:64px;height:64px;border-radius:18px;font-size:28px;display:flex;align-items:center;justify-content:center;position:relative;padding:0}
+.tel-tasto .badge{position:absolute;top:-5px;right:-5px;background:var(--rosa);color:#fff;border-radius:999px;font-size:11px;font-weight:800;padding:2px 7px}
+.tel{width:340px;height:min(660px,calc(100vh - 32px));border-radius:42px;padding:12px;background:#05070b;border:2px solid #2a2f3a;box-shadow:0 30px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}
+.schermo{flex:1;border-radius:32px;overflow:hidden;display:flex;flex-direction:column;background:linear-gradient(160deg,#1c2a44,#0c1220 60%,#2a1530)}
+.barra{display:flex;justify-content:space-between;padding:10px 22px 4px;font-size:12px;font-weight:700}
+.home{display:grid;grid-template-columns:repeat(4,1fr);gap:18px 8px;padding:22px 16px}
+.app{display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;padding:0;font-size:11px;font-weight:600;color:#fff}
+.app .ico{width:58px;height:58px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 6px 14px rgba(0,0,0,.35);position:relative}
+.app .ico .badge{position:absolute;top:-4px;right:-4px;background:var(--rosa);border-radius:999px;font-size:10px;font-weight:800;padding:1px 6px}
+.app-testa{display:flex;align-items:center;gap:10px;padding:8px 14px 10px;border-bottom:1px solid rgba(255,255,255,.08)}
+.app-testa button{padding:4px 10px;font-size:13px}
+.app-testa b{font-size:17px}
+.app-corpo{flex:1;overflow:auto;padding:10px 14px 16px;font-size:13px;display:flex;flex-direction:column;gap:10px}
+.tel-chiudi{align-self:center;margin-top:8px;width:120px;height:5px;border-radius:5px;background:#fff;opacity:.6;border:0;padding:0}
+.scheda{border:1px solid var(--bordo);background:rgba(255,255,255,.05);border-radius:14px;padding:11px;display:flex;flex-direction:column;gap:6px}
+.scheda h4{margin:0;font-size:14px}
+.tappe{display:flex;gap:4px;align-items:center;font-size:11px;font-weight:700;flex-wrap:wrap}
+.tappe span{padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--muted)}
+.tappe span.fatta{background:rgba(95,211,141,.2);color:#bff0d2}
+.tappe span.ora{background:var(--oro);color:#1a1205}
+.ogg{display:flex;gap:10px;align-items:center;border:1px solid var(--bordo);border-radius:14px;padding:10px;background:rgba(255,255,255,.04)}
+.ogg .ic{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.ogg.vuoto{border-style:dashed;opacity:.5}
+.ogg.sel{border-color:var(--cielo);background:rgba(158,203,255,.14)}
+.msg{background:rgba(255,255,255,.08);border-radius:14px 14px 14px 4px;padding:9px 11px;line-height:1.4}
+.msg.vera{background:rgba(255,95,162,.18)}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;background:rgba(255,255,255,.12);margin-right:4px;font-weight:700}
+.tag.scandalo{background:rgba(255,107,107,.25)}.tag.voce{background:rgba(243,197,107,.25)}.tag.borsa{background:rgba(79,195,247,.25)}.tag.fama{background:rgba(243,197,107,.25)}
+
+/* finestre */
+.velo{position:fixed;inset:0;background:rgba(3,6,14,.5);display:flex;align-items:center;justify-content:center;z-index:50}
+.fin{width:min(620px,94vw);max-height:88vh;overflow:auto;border-radius:22px;padding:24px;box-shadow:0 30px 60px rgba(0,0,0,.45)}
+.fin h2{margin:0 0 6px;font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:30px}
+.fin p{margin:6px 0;font-size:14px;line-height:1.5}
+.fin .pulsanti{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.campo{display:flex;flex-direction:column;gap:5px;margin:10px 0}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;color:#fff;margin:5px 0}
+.griglia{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.sch{border:1px solid var(--bordo);background:rgba(255,255,255,.05);border-radius:14px;padding:12px;cursor:pointer;text-align:left;color:#fff}
+.sch:hover{border-color:var(--oro)}
+.sch h3{margin:0 0 6px;font-size:16px}
+.sch p{margin:0;font-size:12px;color:var(--muted)}
+table.cl{width:100%;border-collapse:collapse;font-size:14px}table.cl td,table.cl th{padding:7px;border-bottom:1px solid rgba(255,255,255,.12);text-align:left}
+#toasts{position:fixed;top:72px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;z-index:70;pointer-events:none;width:min(560px,90vw)}
+.toast{padding:10px 16px;border-radius:12px;font-size:14px;background:rgba(10,16,26,.92);border:1px solid var(--bordo);text-align:center}
+.ingresso{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+.ingresso .cartaI{width:min(480px,92vw);padding:28px;border-radius:24px;display:flex;flex-direction:column;gap:14px}
+.posto{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.05)}
+
+/* i dadi */
+.dadi-scena{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;z-index:60;pointer-events:none;background:radial-gradient(circle,rgba(3,6,14,.55),rgba(3,6,14,0) 60%);transition:opacity .35s}
+.dadi-scena.via{opacity:0}
+.dadi-scena .chi{font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:13px;color:var(--oro)}
+.coppia{display:flex;gap:46px;perspective:700px}
+.cubo{position:relative;width:96px;height:96px;transform-style:preserve-3d}
+.faccia{position:absolute;inset:0;background:linear-gradient(145deg,#fff,#ece6d6);border-radius:16px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:14px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08),inset 0 -6px 12px rgba(0,0,0,.08)}
+.faccia i{display:flex;align-items:center;justify-content:center}
+.faccia i.pt::after{content:"";width:16px;height:16px;border-radius:50%;background:#1b1408;box-shadow:inset 0 2px 3px rgba(0,0,0,.6)}
+.faccia.f{transform:translateZ(48px)}.faccia.b{transform:rotateY(180deg) translateZ(48px)}.faccia.r{transform:rotateY(90deg) translateZ(48px)}.faccia.l{transform:rotateY(-90deg) translateZ(48px)}.faccia.t{transform:rotateX(90deg) translateZ(48px)}.faccia.u{transform:rotateX(-90deg) translateZ(48px)}
+.totale{font-family:'DM Serif Display',Georgia,serif;font-size:76px;line-height:1;color:#fff;text-shadow:0 4px 30px rgba(243,197,107,.8);opacity:0;transform:scale(.6);transition:all .3s}
+.totale span{font-family:Manrope,sans-serif;font-size:20px;font-weight:800;color:var(--oro);vertical-align:middle}
+.dadi-scena.fatto .totale{opacity:1;transform:scale(1)}
+.dadi-scena.piccoli{background:none;justify-content:flex-start;padding-top:80px}
+.dadi-scena.piccoli .cubo{width:56px;height:56px}.dadi-scena.piccoli .faccia{padding:8px;border-radius:10px}.dadi-scena.piccoli .faccia i.pt::after{width:9px;height:9px}
+.dadi-scena.piccoli .faccia.f{transform:translateZ(28px)}.dadi-scena.piccoli .faccia.b{transform:rotateY(180deg) translateZ(28px)}.dadi-scena.piccoli .faccia.r{transform:rotateY(90deg) translateZ(28px)}.dadi-scena.piccoli .faccia.l{transform:rotateY(-90deg) translateZ(28px)}.dadi-scena.piccoli .faccia.t{transform:rotateX(90deg) translateZ(28px)}.dadi-scena.piccoli .faccia.u{transform:rotateX(-90deg) translateZ(28px)}
+.dadi-scena.piccoli .coppia{gap:24px}.dadi-scena.piccoli .totale{font-size:40px}
+.delta{position:fixed;right:30px;top:150px;font-family:'DM Serif Display',Georgia,serif;font-size:34px;z-index:65;animation:sale 2.6s ease-out forwards;text-shadow:0 2px 14px rgba(0,0,0,.6)}
+@keyframes sale{0%{opacity:0;transform:translateY(20px)}15%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
+
+@media(max-width:900px){.chips{max-width:100%}.hud-alto{flex-wrap:wrap}.ticker,.racconto{display:none}.carta{bottom:92px}.tel{width:calc(100vw - 32px)}}
+@media(prefers-reduced-motion:reduce){.ped,.scia,.totale,.dadi-scena,.luce{transition:none}.ped.salto,.delta,.ped.io,.luce.viaggio,.luogo.chiamata .pin{animation:none}}

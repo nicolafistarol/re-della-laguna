@@ -1,0 +1,769 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
+const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
+const sb = createClient(SB_URL, SB_KEY);
+const db = sb.schema("laguna");
+const L = window.Laguna;
+const euro = L.euro;
+const $ = (q) => document.querySelector(q);
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const VELOCE = location.search.includes("veloce");   // ?veloce = senza animazioni (per le prove)
+const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
+const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
+const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
+
+let utente = null, partita = null, mioId = null, S = null, canale = null;
+let telAperto = false, app = null, saldoNascosto = false, attesa = false, principianti = true, timerSala = null;
+const visti = new Set();
+
+function toast(t) { let box = $("#toasts"); if (!box) { box = document.createElement("div"); box.id = "toasts"; document.body.appendChild(box); } const d = document.createElement("div"); d.className = "toast"; d.textContent = t; box.appendChild(d); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => d.remove(), 4500); }
+function salvaLocale() { try { localStorage.setItem("laguna_online", JSON.stringify({ partita, mioId })); } catch (e) { } }
+function leggiLocale() { try { return JSON.parse(localStorage.getItem("laguna_online") || "{}"); } catch (e) { return {}; } }
+function sfondo(img) { $("#sfondo").style.backgroundImage = `url('${img}')`; }
+
+// ------------------------------------------------------------ server
+async function chiama(corpo) {
+  const { data, error } = await sb.functions.invoke("laguna", { body: corpo });
+  if (error) {
+    let msg = "Errore di collegamento.";
+    try { const j = await error.context.json(); msg = j.errore || msg; if (error.context.status === 409) return { conflitto: true, errore: msg }; } catch (e) { }
+    return { errore: msg };
+  }
+  return data;
+}
+async function agisci(azione) {
+  if (attesa) return;
+  attesa = true;
+  let r = await chiama({ comando: "azione", partita, azione });
+  if (r && r.conflitto) r = await chiama({ comando: "azione", partita, azione });
+  attesa = false;
+  if (r && r.errore) toast(r.errore);
+  await caricaVista();
+}
+async function caricaVista() {
+  const { data, error } = await db.from("viste").select("vista,versione").eq("partita_id", partita).eq("player_id", mioId).maybeSingle();
+  if (error) { toast("Non riesco a leggere la partita: " + error.message); return; }
+  if (data) riceviVista(data.vista);
+}
+let timerVista = null;
+function ascolta() {
+  if (canale) sb.removeChannel(canale);
+  canale = sb.channel("viste-" + partita)
+    .on("postgres_changes", { event: "*", schema: "laguna", table: "viste", filter: "partita_id=eq." + partita }, (p) => {
+      if (p.new && p.new.player_id === mioId && p.new.vista) riceviVista(p.new.vista);
+    }).subscribe();
+  clearInterval(timerVista);
+  timerVista = setInterval(() => { if (!document.hidden) caricaVista(); }, 8000);
+}
+
+// ------------------------------------------------------------ ingresso
+async function avvio() {
+  const { data: { session } } = await sb.auth.getSession();
+  utente = session?.user || null;
+  const loc = leggiLocale();
+  if (!utente) return schermataNome();
+  if (loc.partita && loc.mioId) {
+    partita = loc.partita; mioId = loc.mioId;
+    const { data } = await db.from("partite_pubbliche").select("*").eq("id", partita).maybeSingle();
+    if (data && data.in_corso) { await caricaVista(); ascolta(); return; }
+    if (data && !data.finita) return sala();
+  }
+  schermataCasa();
+}
+function schermoIngresso(html) { $("#mondo").style.display = "none"; $("#telefonoBox").innerHTML = ""; sfondo("img/laguna.jpg"); $("#sfondo").style.filter = "none"; $("#radice").innerHTML = `<div class="ingresso">${html}</div>`; }
+function schermataNome() {
+  schermoIngresso(`<div class="cartaI vetro">
+    <span class="kick" style="color:var(--oro)">Benvenuto nella Laguna</span>
+    <span class="serif" style="font-size:52px;line-height:1">Re della Laguna</span>
+    <div class="campo"><label for="nome">Come ti chiami?</label><input id="nome" maxlength="24" placeholder="Il tuo nome"></div>
+    <button class="oro grande" id="entra">Entra</button>
+    <span style="font-size:12px;color:var(--muted)">Niente email e niente password: ti ricordiamo su questo computer.</span></div>`);
+  $("#entra").onclick = async () => {
+    const nome = $("#nome").value.trim(); if (!nome) return toast("Scrivi il tuo nome.");
+    const { data, error } = await sb.auth.signInAnonymously({ options: { data: { nome } } });
+    if (error) return toast("Non riesco a farti entrare: " + error.message);
+    utente = data.user; schermataCasa();
+  };
+}
+function nomeMio() { return utente?.user_metadata?.nome || "Giocatore"; }
+function schermataCasa() {
+  const righe = [{ tipo: "amico" }, { tipo: "amico" }, { tipo: "computer", strat: "Furbo" }];
+  const STR = ["Legale", "Costruttore", "Investitore", "Furbo", "Spavaldo", "Esperto"];
+  const disegnaCasa = () => {
+    schermoIngresso(`<div class="cartaI vetro" style="width:min(560px,94vw)">
+      <span class="kick" style="color:var(--oro)">Ciao ${esc(nomeMio())}</span>
+      <span class="serif" style="font-size:44px;line-height:1">Re della Laguna</span>
+      <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">
+        <b>Crea una partita</b>
+        <div class="posto"><div class="pall" style="background:var(--oro)">${esc(nomeMio()[0] || "T")}</div><span style="flex:1">${esc(nomeMio())} (tu)</span></div>
+        ${righe.map((r, i) => `<div class="posto"><div class="pall" style="background:${r.tipo === "amico" ? "#4fc3f7" : "#8a8a8a"}">${i + 2}</div>
+          <select data-i="${i}" class="tipo" style="flex:1"><option value="amico" ${r.tipo === "amico" ? "selected" : ""}>Posto per un amico</option>${STR.map((s) => `<option value="${s}" ${r.tipo === "computer" && r.strat === s ? "selected" : ""}>Computer: ${s}</option>`).join("")}</select></div>`).join("")}
+        <div class="riga"><button class="piccolo" id="piu">+ posto</button><button class="piccolo" id="meno">− posto</button></div>
+        <label class="check"><input type="checkbox" id="princ" ${principianti ? "checked" : ""}> Partita guidata: le cose si scoprono piano piano (consigliata)</label>
+        <button class="oro grande" id="crea">Crea la partita</button>
+      </div>
+      <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">
+        <b>Hai un codice d'invito?</b>
+        <div class="riga"><input id="codice" placeholder="es. PALMA-4821" style="flex:1;text-transform:uppercase"><button class="bianco" id="unisciti">Entra</button></div>
+      </div></div>`);
+    document.querySelectorAll(".tipo").forEach((s) => s.onchange = () => { const r = righe[s.dataset.i]; if (s.value === "amico") { r.tipo = "amico"; r.strat = null; } else { r.tipo = "computer"; r.strat = s.value; } });
+    $("#princ").onchange = (e) => principianti = e.target.checked;
+    $("#piu").onclick = () => { if (righe.length < 7) { righe.push({ tipo: "amico" }); disegnaCasa(); } };
+    $("#meno").onclick = () => { if (righe.length > 1) { righe.pop(); disegnaCasa(); } };
+    $("#crea").onclick = async () => {
+      const giocatori = [{ nome: nomeMio(), bot: false }, ...righe.map((r, i) => r.tipo === "amico" ? { nome: "Amico " + (i + 1), bot: false } : { nome: r.strat, bot: true, strategia: r.strat })];
+      const r = await chiama({ comando: "crea", giocatori, principianti });
+      if (r.errore) return toast(r.errore);
+      partita = r.partita; mioId = "g1"; salvaLocale(); sala();
+    };
+    $("#unisciti").onclick = async () => {
+      const codice = $("#codice").value.trim().toUpperCase(); if (!codice) return;
+      const r = await chiama({ comando: "entra", codice, nome: nomeMio() });
+      if (r.errore) return toast(r.errore);
+      partita = r.partita; mioId = r.player; salvaLocale(); sala();
+    };
+  };
+  disegnaCasa();
+}
+async function sala() {
+  clearInterval(timerSala);
+  const disegnaSala = async () => {
+    const { data: p } = await db.from("partite_pubbliche").select("*").eq("id", partita).maybeSingle();
+    if (!p) { clearInterval(timerSala); toast("Partita non trovata."); return schermataCasa(); }
+    if (p.in_corso) { clearInterval(timerSala); await caricaVista(); ascolta(); return; }
+    const { data: g } = await db.from("giocatori").select("*").eq("partita_id", partita).order("player_id");
+    const manca = (g || []).filter((x) => !x.bot && !x.user_id).length;
+    const creatore = mioId === "g1";
+    schermoIngresso(`<div class="cartaI vetro" style="width:min(560px,94vw)">
+      <span class="kick" style="color:var(--oro)">Sala d'attesa</span>
+      <span class="kick" style="color:var(--muted)">Codice d'invito</span>
+      <div class="riga"><span class="serif" style="font-size:44px;letter-spacing:.04em">${esc(p.codice)}</span><button class="piccolo" id="copia">Copia</button></div>
+      <span class="sub">Manda il codice agli amici: aprono questa pagina, scrivono il nome e il codice.</span>
+      ${(g || []).map((x) => `<div class="posto"><div class="pall" style="background:${x.bot ? "#8a8a8a" : x.user_id ? "#4fc3f7" : "transparent;border:2px dashed rgba(255,255,255,.4)"}">${x.user_id || x.bot ? esc(x.nome[0]) : ""}</div>
+        <span style="flex:1"><b>${x.user_id || x.bot ? esc(x.nome) : "Posto libero"}</b>${x.player_id === mioId ? " (tu)" : ""}</span>
+        <span style="font-size:12px;color:${x.user_id && !x.bot ? "var(--pulito)" : "var(--muted)"}">${x.bot ? "Computer" : x.user_id ? "Pronto" : "In attesa"}</span></div>`).join("")}
+      ${creatore ? `<button class="oro grande" id="inizia" ${manca ? "disabled" : ""}>${manca ? `Mancano ${manca} amici` : "Inizia la partita"}</button>` : `<span class="sub">Aspetta che chi ha creato la partita la faccia iniziare.</span>`}
+      <button class="piccolo" id="esci" style="align-self:flex-start">Esci dalla sala</button></div>`);
+    $("#copia").onclick = () => { navigator.clipboard?.writeText(p.codice).then(() => toast("Codice copiato."), () => { }); };
+    $("#esci").onclick = () => { clearInterval(timerSala); try { localStorage.removeItem("laguna_online"); } catch (e) { } partita = null; schermataCasa(); };
+    if ($("#inizia")) $("#inizia").onclick = async () => {
+      clearInterval(timerSala);
+      const r = await chiama({ comando: "inizia", partita, principianti });
+      if (r.errore) { toast(r.errore); timerSala = setInterval(disegnaSala, 3000); return; }
+      await caricaVista(); ascolta();
+    };
+  };
+  await disegnaSala();
+  timerSala = setInterval(disegnaSala, 3000);
+}
+
+// ------------------------------------------------------------ chi deve agire
+function io() { return S.players.find((p) => p.id === mioId); }
+function mioTurno() { return S && S.fase === "giorno" && L.corrente(S).id === mioId; }
+function tocca() {
+  if (!S || S.fine) return false;
+  if (S.fase === "pacchetti") return S.players[S.sceltaPacchetti[0]].id === mioId;
+  if (S.pending && S.pending.tipo === "asta") return S.pending.partecipanti.includes(mioId) && typeof S.pending.offerte[mioId] !== "number";
+  if (S.fase === "giorno") return mioTurno();
+  return false;
+}
+function casellaDi(p) { return p.inner ? S.lotti.find((l) => l.giro === "i" && l.idx === p.ipos) : S.lotti.find((l) => l.giro === "o" && l.idx === p.pos); }
+
+// ------------------------------------------------------------ geografia della mappa (in % dell'immagine)
+const ANG = [[54.7, 73], [13.7, 43.4], [44, 23.4], [86, 45]];
+const CTRL = [[22.5, 69.4], [21.5, 29.5], [76.2, 26], [84, 62.5]];
+function puntoMappa(p) {
+  if (p.inner) { const a = (90 + p.ipos * 30) * Math.PI / 180; return [50 + 9 * Math.cos(a), 37.5 + 10.5 * Math.sin(a)]; }
+  const lato = Math.floor(p.pos / 10), t = (p.pos % 10) / 10;
+  const a = ANG[lato], b = ANG[(lato + 1) % 4], c = CTRL[lato];
+  return [(1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * c[0] + t * t * b[0], (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * c[1] + t * t * b[1]];
+}
+const POS_LUOGO = { club: [73.7, 33], marina: [40, 76], mercato: [31, 64], bisca: [27.5, 77], porto: [82, 65], casino: [45, 31], redazione: [57, 45], villa: [31, 26], faro: [84, 80] };
+const POS_CASA = { Ambra: [35, 70], Palma: [26, 30], Flamingo: [82.5, 26], Sole: [86, 52], Corona: [52, 41] };
+const ICO_LUOGO = { palazzo: "🏙️", club: "🍸", marina: "🛥️", mercato: "🕯️", bisca: "🃏", porto: "🏗️", casino: "🎰", redazione: "📰", villa: "🏛️", faro: "🗼" };
+const ICO_OGG = { maschera: "🎭", disturbatore: "📡", telefono: "📱", documenti: "🪪", furgone: "🚐", motoscafo: "🚤", avvocato: "⚖️", macchina: "📷", fiches: "🪙", cassetta: "🔐" };
+function isolaCasa(p) { const l = S.lotti.find((x) => x.owner === p.id && x.isola); return l ? l.isola : "Corona"; }
+function posLuogo(l, p) { return l === "palazzo" ? POS_CASA[isolaCasa(p)] : POS_LUOGO[l]; }
+function nomeLuogo(l, maiusc) { return l === "palazzo" ? (maiusc ? "Il tuo Palazzo" : "il tuo Palazzo") : L.LUOGHI[l].nome; }
+
+// ------------------------------------------------------------ animazioni (dadi, pedine)
+let disp = {}, ultimoLog = null, coda = [], animando = false, ultimaVistaJson = "";
+const PRIVATI = /prestito|restituisce|investe|vende|ipoteca|riscatta/;
+function copiaPos(p) { return { inner: !!p.inner, pos: p.pos, ipos: p.ipos }; }
+function nuoviLog(log) {
+  if (!ultimoLog) return [];
+  const k = JSON.stringify(ultimoLog);
+  for (let i = log.length - 1; i >= 0; i--) if (JSON.stringify(log[i]) === k) return log.slice(i + 1);
+  return log.slice(-12);
+}
+function riceviVista(v) {
+  const j = JSON.stringify(v); if (j === ultimaVistaJson) return; ultimaVistaJson = j;
+  if (!S) { S = v; S.players.forEach((p) => disp[p.id] = copiaPos(p)); ultimoLog = S.log[S.log.length - 1] || null; disegna(); return; }
+  coda.push(v);
+  if (!animando) eseguiCoda();
+}
+async function eseguiCoda() {
+  animando = true;
+  while (coda.length) {
+    const v = coda.shift();
+    const righe = nuoviLog(v.log);
+    if (v.log.length) ultimoLog = v.log[v.log.length - 1];
+    const cashPrima = io() ? io().cash : 0;
+    const tiri = [];
+    for (const r of righe) { const m = / tira (\d) e (\d)\.$/.exec(r.testo); if (m && r.chi) tiri.push({ chi: r.chi, d: [+m[1], +m[2]] }); }
+    if (tiri.length && S.fase === "giorno") disegna();
+    for (let i = 0; i < tiri.length; i++) {
+      const t = tiri[i], mio = t.chi === mioId;
+      await mostraDadi(t.d, mio, v.players.find((p) => p.id === t.chi));
+      const ultimo = !tiri.slice(i + 1).some((x) => x.chi === t.chi);
+      await cammina(t.chi, t.d[0] + t.d[1], ultimo ? v.players.find((p) => p.id === t.chi) : null, mio);
+    }
+    S = v;
+    S.players.forEach((p) => disp[p.id] = copiaPos(p));
+    const me = io();
+    if (me && me.cash !== cashPrima && cashPrima && !saldoNascosto) mostraDelta(me.cash - cashPrima);
+    for (const r of righe) avvisoPerMe(r);
+  }
+  animando = false;
+  disegna();
+}
+function avvisoPerMe(r) {
+  const me = io(); if (!me || / tira \d e \d\.$/.test(r.testo)) return;
+  if (/affitto|Stipendio|compra|Asta|Faro|Gazzetta|Posto di blocco|Casinò|ospite famoso|permesso|cantiere/.test(r.testo) && (r.chi === mioId || r.testo.includes(" a " + me.nome + " ("))) toast(r.testo);
+}
+function mostraDelta(d) {
+  document.querySelectorAll(".delta").forEach((x) => x.remove());
+  const el = document.createElement("div"); el.className = "delta"; el.textContent = (d > 0 ? "+ " : "− ") + euro(Math.abs(d));
+  el.style.color = d > 0 ? "var(--pulito)" : "var(--sporco)";
+  document.body.appendChild(el); setTimeout(() => el.remove(), 2600);
+}
+const FACCE = { 1: [0, 0], 6: [0, 180], 3: [0, -90], 4: [0, 90], 5: [-90, 0], 2: [90, 0] };
+const PUNTI = { 1: [5], 2: [1, 9], 3: [1, 5, 9], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] };
+function cubo() { return `<div class="cubo">${[["f", 1], ["b", 6], ["r", 3], ["l", 4], ["t", 5], ["u", 2]].map(([k, n]) => `<div class="faccia ${k}">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => `<i class="${PUNTI[n].includes(i) ? "pt" : ""}"></i>`).join("")}</div>`).join("")}</div>`; }
+async function mostraDadi(d, mio, p) {
+  if (VELOCE) return;
+  const lento = mio ? 1 : 0.55;
+  const box = document.createElement("div"); box.className = "dadi-scena" + (mio ? "" : " piccoli");
+  box.innerHTML = `<div class="chi">${mio ? "I tuoi dadi" : esc(p ? p.nome : "") + " tira i dadi"}</div><div class="coppia">${cubo()}${cubo()}</div><div class="totale">&nbsp;</div>`;
+  document.body.appendChild(box);
+  const cubi = box.querySelectorAll(".cubo");
+  cubi.forEach((c) => { c.style.transition = "none"; c.style.transform = `rotateX(${Math.random() * 360}deg) rotateY(${Math.random() * 360}deg)`; });
+  await pausa(30);
+  cubi.forEach((c, i) => { const [x, y] = FACCE[d[i]]; c.style.transition = `transform ${1.1 * lento}s cubic-bezier(.2,.75,.25,1)`; c.style.transform = `rotateX(${x + 720 + 360 * (i + 1)}deg) rotateY(${y + 720 + 360 * (2 - i)}deg)`; });
+  await pausa(1150 * lento);
+  box.querySelector(".totale").innerHTML = `${d[0] + d[1]}${d[0] === d[1] ? ' <span>doppio!</span>' : ""}`;
+  box.classList.add("fatto");
+  await pausa(mio ? 900 : 450);
+  box.classList.add("via"); setTimeout(() => box.remove(), 400);
+}
+async function cammina(id, n, finale, mio) {
+  if (VELOCE) return;
+  const ped = document.querySelector(`#mappa .ped[data-id="${id}"]`); if (!ped) return;
+  const q = { ...(disp[id] || { inner: false, pos: 0, ipos: 0 }) };
+  const punti = [puntoMappa(q)];
+  for (let k = 0; k < n; k++) {
+    if (q.inner) q.ipos = (q.ipos + 1) % 12; else q.pos = (q.pos + 1) % 40;
+    punti.push(puntoMappa(q));
+    disegnaScia(punti, mio);
+    const [x, y] = punti[punti.length - 1];
+    ped.style.left = x + "%"; ped.style.top = y + "%";
+    ped.classList.remove("salto"); void ped.offsetWidth; ped.classList.add("salto");
+    await pausa(mio ? 190 : 95);
+  }
+  if (finale) { const [x, y] = puntoMappa(finale); ped.style.left = x + "%"; ped.style.top = y + "%"; disp[id] = copiaPos(finale); }
+  else disp[id] = q;
+  await pausa(mio ? 500 : 150);
+  const sv = document.querySelector("#mappa .scia"); if (sv) sv.classList.add("spegni");
+}
+function disegnaScia(punti, mio) {
+  const sv = document.querySelector("#mappa .scia"); if (!sv) return;
+  sv.classList.remove("spegni");
+  sv.innerHTML = `<polyline points="${punti.map(([x, y]) => x + "," + (y * 0.5625)).join(" ")}" class="${mio ? "oro" : "altro"}"/>` + punti.map(([x, y]) => `<circle cx="${x}" cy="${y * 0.5625}" r="${mio ? 0.6 : 0.4}" class="${mio ? "oro" : "altro"}"/>`).join("");
+}
+
+// ------------------------------------------------------------ disegno
+function disegna() {
+  if (!S) return;
+  const me = io(); if (!me) return;
+  const notte = S.fase === "notte" && S.notte;
+  $("#mondo").style.display = "block";
+  $("#mondo").classList.toggle("notte", !!notte);
+  $("#sfondo").style.filter = "";
+  const c = casellaDi(me);
+  sfondo(notte ? "img/marina.jpg" : c && c.isola ? SCENE[c.isola] : "img/laguna.jpg");
+  disegnaMappa(me, notte);
+  const turno = S.fase === "giorno" ? L.corrente(S) : null;
+  const faseTesto = S.fine ? "Partita finita" : S.fase === "pacchetti" ? "Si sceglie come iniziare" : notte ? `🌙 Notte · ${L.ORE[S.notte.ora]}` : `Ciclo ${S.ciclo + 1} di 6 · Giorno ${S.giorno + 1} · ${turno.id === mioId ? '<span style="color:var(--oro)">Tocca a te</span>' : "Turno di " + esc(turno.nome)}`;
+  const segn = ["Nessuno parla di te.", "Voci: si parla di te, in giro.", "Osservato: la polizia ti tiene d'occhio.", "Indagato: la Gazzetta fa il tuo nome.", "Processo: convocazione del Giudice all'Alba."][me.stato || 0];
+  const cron = S.log.filter((r) => !/ tira \d e \d\.$/.test(r.testo) && !(r.chi && r.chi !== mioId && PRIVATI.test(r.testo))).slice(-4);
+  $("#radice").innerHTML = `
+  <div class="hud-alto">
+    <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""}"><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${notte ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · ha deciso" : " · decide…") : ""}</div></div></div>`).join("")}</div>
+    <div class="fase vetro">${faseTesto}</div>
+    <div class="saldo vetro">
+      <div class="riga" style="justify-content:space-between"><span class="kick" style="color:var(--muted)">I tuoi soldi</span><button class="piccolo" id="occhio" style="padding:2px 8px">${saldoNascosto ? "Mostra" : "Nascondi"}</button></div>
+      <div class="serif tot">${saldoNascosto ? "••••••" : euro(me.cash)}</div>
+      ${S.sblocco >= 1 || me.sporchi ? `<div class="ri"><span style="color:var(--sporco)">Sporchi ${saldoNascosto ? "•••" : euro(me.sporchi)}</span><span style="color:var(--oro)">Fama ${Math.round(me.fama)}</span></div>` : `<div class="ri"><span style="color:var(--oro)">Fama ${Math.round(me.fama)}</span></div>`}
+      <div style="font-size:12px;margin-top:4px;color:${(me.stato || 0) >= 2 ? "#ffb3b3" : "var(--muted)"}">${segn}</div>
+    </div>
+  </div>
+  ${notte ? `<div class="racconto vetro"><span class="kick" style="color:var(--cielo)">La tua notte</span>${S.notte.racconto.map((r) => { const [o, t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t)}</p>`; }).join("")}</div>`
+      : `<div class="ticker">${cron.map((r) => `<div class="${r.chi === mioId ? "mia" : ""}">${esc(r.testo)}</div>`).join("")}</div>`}
+  <div class="carta vetro">${animando ? `<div class="sub">…</div>` : notte ? cartaNotte(me) : cartaGiorno(me)}</div>`;
+  $("#occhio").onclick = () => { saldoNascosto = !saldoNascosto; disegna(); };
+  const rc = document.querySelector(".racconto"); if (rc) rc.scrollTop = rc.scrollHeight;
+  disegnaTelefono(me);
+  if (animando) return;
+  collegaCarta(me);
+  if (S.fine) return fine();
+  finestreAutomatiche(me);
+}
+
+function disegnaMappa(me, notte) {
+  const m = $("#mappa");
+  if (!notte) {
+    const caselle = S.lotti.map((l) => {
+      const [x, y] = puntoMappa(l.giro === "i" ? { inner: true, ipos: l.idx } : { inner: false, pos: l.idx });
+      const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
+      const tit = `${l.nome}${l.isola ? " · " + L.NOMI_ISOLE[l.isola] : ""}${own ? " · di " + own.nome + (l.tipo ? " (" + L.ATTIVITA[l.tipo].nome + ", livello " + l.lvl + ")" : "") + (l.cantiere ? " · cantiere in corso" : "") : l.prezzo ? " · libero, " + euro(l.prezzo) : ""}`;
+      return `<div class="cas ${l.tipoCasella === "angolo" ? "ang" : ""} ${own ? "pres" : ""} ${l.cantiere ? "cant" : ""}" title="${esc(tit)}" style="left:${x}%;top:${y}%;${own ? "background:" + own.colore : ""}"></div>`;
+    }).join("");
+    const gruppi = {};
+    const pedine = S.players.map((p) => {
+      const q = disp[p.id] || copiaPos(p); const key = q.inner ? "i" + q.ipos : "o" + q.pos; const k = (gruppi[key] = (gruppi[key] || 0) + 1) - 1;
+      const [x, y] = puntoMappa(q);
+      return `<div class="ped ${p.id === mioId ? "io" : ""}" data-id="${p.id}" title="${esc(p.nome)}" style="left:${x}%;top:${y}%;margin-left:${(p.id === mioId ? -14 : -11) + k * 8}px;background:${p.colore}${p.faro ? ";opacity:.45" : ""}"><b>${esc(p.nome[0])}</b></div>`;
+    }).join("");
+    const c = casellaDi(me);
+    const [mx, my] = puntoMappa(disp[mioId] || me);
+    m.innerHTML = caselle + `<svg class="scia" viewBox="0 0 100 56.25" preserveAspectRatio="none"></svg>` + pedine +
+      (c && !animando && S.fase === "giorno" ? `<div class="etichetta" style="left:${mx}%;top:${my}%"><b>${esc(c.nome)}</b>${c.isola ? `<span>${esc(L.NOMI_ISOLE[c.isola])}</span>` : ""}</div>` : "");
+    return;
+  }
+  const N2 = S.notte, dove = N2.dove[mioId], libero = !N2.chiuso[mioId] && !S.notteFatti[mioId] && !me.faro && !N2.viaggio[mioId];
+  const chiamate = new Set((N2.chiamate || []).map((x) => x.luogo));
+  const luoghi = Object.keys(L.LUOGHI).filter((l) => L.LUOGHI[l].sblocco <= S.sblocco).map((l) => {
+    const [x, y] = posLuogo(l, me);
+    const qui = dove === l && !N2.viaggio[mioId];
+    const ore = !qui && libero ? L.oreViaggio(S, me, dove, l) : null;
+    return `<button class="luogo ${qui ? "qui" : ""} ${chiamate.has(l) ? "chiamata" : ""}" data-luogo="${l}" style="left:${x}%;top:${y}%" ${!libero || qui ? "disabled" : ""} aria-label="${esc(nomeLuogo(l))}">
+      <span class="pin">${ICO_LUOGO[l]}</span><span class="nome">${l === "palazzo" ? "Il tuo Palazzo" : esc(L.LUOGHI[l].nome)}</span>${ore ? `<span class="ore">${ore === 1 ? "1 ora" : "2 ore"}</span>` : qui ? `<span class="ore">sei qui</span>` : ""}</button>`;
+  }).join("");
+  const conta = {};
+  const luci = S.players.filter((p) => !p.faro).map((p) => {
+    const d = N2.dove[p.id]; let [x, y] = posLuogo(d, p);
+    const k = (conta[d + (d === "palazzo" ? p.id : "")] = (conta[d + (d === "palazzo" ? p.id : "")] || 0) + 1) - 1;
+    x += 2.2 + k * 1.4; y -= 2.5;
+    return `<div class="luce ${N2.viaggio[p.id] ? "viaggio" : ""}" title="${esc(p.nome)}${N2.viaggio[p.id] ? " · in viaggio" : ""}" style="left:${x}%;top:${y}%;background:${p.colore};color:${p.colore};${p.id === mioId ? "width:20px;height:20px;margin:-10px 0 0 -10px" : ""}"></div>`;
+  }).join("");
+  m.innerHTML = luoghi + luci;
+  m.querySelectorAll(".luogo[data-luogo]").forEach((b) => b.onclick = () => chiediViaggio(me, b.dataset.luogo));
+}
+
+// ------------------------------------------------------------ la carta principale (in basso)
+function cartaGiorno(me) {
+  if (S.fine) return `<div class="titolo">La partita è finita</div>`;
+  if (S.fase === "pacchetti") return tocca() ? `<div class="titolo">Scegli come iniziare</div><button class="oro grande" data-a="pacchetti">Vedi le storie di partenza</button>` : `<div class="titolo">Gli altri scelgono come iniziare</div><div class="sub">Tocca a ${esc(S.players[S.sceltaPacchetti[0]].nome)}.</div>`;
+  if (S.pending && S.pending.tipo === "asta") {
+    const l = S.lotti.find((x) => x.id === S.pending.lotto);
+    return tocca() ? `<div class="titolo">Asta: ${esc(l.nome)}</div><button class="oro grande" data-a="asta">Fai la tua offerta segreta</button>` : `<div class="titolo">Asta in corso: ${esc(l.nome)}</div><div class="sub">Aspetta le offerte degli altri.</div>`;
+  }
+  const turno = L.corrente(S);
+  if (turno.id !== mioId) return `<div class="titolo">Turno di ${esc(turno.nome)}</div><div class="sub">Guarda dove va. Intanto puoi aprire il telefono.</div>`;
+  if (S.pending && S.pending.giocatore === mioId) return `<div class="titolo">${S.pending.tipo === "chiamata" ? "📞 Ti stanno chiamando" : "Hai una scelta da fare"}</div><button class="oro grande" data-a="pending">${S.pending.tipo === "chiamata" ? "Rispondi" : "Decidi"}</button>`;
+  const c = casellaDi(me);
+  if (!me.haTirato) return `<div class="riga" style="justify-content:space-between;align-items:center"><div><div class="kick" style="color:var(--muted)">Sei a</div><div class="dove">${esc(c ? c.nome : "")}</div></div><button class="oro grande" data-a="tira">🎲 Tira i dadi</button></div>`;
+  if (me.faro) return `<div class="titolo">Sei al Faro</div><div class="sub">Oggi non ti muovi. Hai diritto a una telefonata: puoi usare il telefono una volta.</div><button class="oro" data-a="fine">Fine turno</button>`;
+  const dadi = me.dadi ? `<span class="dado">${me.dadi[0]}</span><span class="dado">${me.dadi[1]}</span>` : "";
+  const own = c && c.owner ? S.players.find((p) => p.id === c.owner) : null;
+  const cosa = !c ? "" : own && own.id === mioId ? "È tua." : own ? `È di ${esc(own.nome)}.` : c.prezzo ? "È libera." : "";
+  const permessi = S.lotti.filter((l) => l.owner === mioId && l.permesso && !l.cantiere).length;
+  return `<div class="riga" style="align-items:center">${dadi}<div style="flex:1;min-width:0"><div class="dove">${esc(c ? c.nome : "")}</div><div class="sub">${c && c.isola ? esc(L.NOMI_ISOLE[c.isola]) + " · " : ""}${cosa}</div></div></div>
+    <div class="sub">${me.azioneGiornoFatta ? "Hai già fatto la tua mossa di oggi." : permessi ? `Hai ${permessi === 1 ? "un permesso pronto" : permessi + " permessi pronti"}: puoi aprire un cantiere.` : "Oggi puoi fare una mossa: chiedere un permesso, aprire un cantiere, alzare il Palazzo…"}</div>
+    <div class="riga">${me.azioneGiornoFatta ? "" : `<button data-a="imprese">🏗️ Le mie imprese</button>`}<button class="oro" data-a="fine" style="margin-left:auto">Fine turno</button></div>`;
+}
+function cartaNotte(me) {
+  const N2 = S.notte;
+  if (me.faro) return `<div class="titolo">Notte al Faro</div><div class="sub">Sei in cella. La Laguna si muove senza di te.</div>`;
+  if (S.notteFatti[mioId]) return `<div class="titolo">Sei a casa</div><div class="sub">Per te la notte è finita. Gli altri girano ancora: all'Alba si scopre tutto.</div>`;
+  const v = N2.viaggio[mioId];
+  if (v) return `<div class="titolo">In viaggio verso ${esc(nomeLuogo(v.verso))}…</div><div class="sub">Arrivi tra ${v.restano === 1 ? "un'ora" : v.restano + " ore"}.</div>`;
+  const altri = S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !N2.chiuso[p.id]);
+  if (N2.chiuso[mioId]) return `<div class="titolo">Hai deciso.</div><div class="sub">${altri.length ? "Aspetti che " + altri.map((p) => esc(p.nome)).join(", ") + (altri.length > 1 ? " decidano" : " decida") + "…" : "L'ora sta per finire…"}</div>`;
+  const dove = N2.dove[mioId];
+  const ultima = [...N2.racconto].reverse().find((r) => r.includes("Arrivi a")) || "";
+  const indizio = ultima.includes(nomeLuogo(dove)) ? ultima.split(". ").slice(1).join(". ") : "";
+  const occ = (N2.occasioni || []).map((o) => `<div class="occ ${o.legale ? "legale" : ""}"><h3>${esc(o.nome)}</h3><div class="storia">${esc(o.testo)}</div>
+      <div class="riga"><span class="sub">${o.costo ? "Ci metti " + euro(o.costo) : "Non costa niente"}</span><button class="${o.legale ? "oro" : "notte"}" data-occ="${o.n}" style="margin-left:auto">${o.legale ? "Ci sto" : "Accetto"}</button></div></div>`).join("");
+  const extra = [];
+  const negozio = Object.entries(L.OGGETTI).filter(([k, O]) => O.dove === dove);
+  if (negozio.length) extra.push(`<button data-a="negozio">🛍️ ${dove === "mercato" ? "Il banco del Mercato Nero" : "Compra qui"}</button>`);
+  if (dove === "mercato") extra.push(`<button data-a="soffiata">🤫 Una soffiata (50.000 €)</button>`);
+  if (dove === "casino" && me.sporchi > 0) extra.push(`<button data-a="ricicla">🎰 Ripulisci i soldi</button>`);
+  if (dove === "palazzo" && me.sporchi > 0 && me.veicoli.includes("jet")) extra.push(`<button data-a="paradiso">✈️ Volo nel paradiso fiscale</button>`);
+  if ((dove === "club" || dove === "casino") && S.sblocco >= 1) extra.push(`<button data-a="corrompi">🤝 ${dove === "club" ? "Parla con la polizia" : "Parla con il banchiere Lenz"}</button>`);
+  if (dove === "redazione") extra.push(`<button data-a="articolo">📰 Compra un articolo</button>`);
+  if (dove === "faro" && S.sette.some((st) => st.gm === mioId)) extra.push(`<button data-a="setta">👁️ Riunisci la setta</button>`);
+  const quiAltri = S.players.filter((p) => p.id !== mioId && N2.dove[p.id] === dove && dove !== "palazzo" && !N2.viaggio[p.id]);
+  if (quiAltri.length && (me.valigetta || []).some((o) => o.id === "macchina")) extra.push(...quiAltri.map((p) => `<button data-foto="${p.id}">📷 Fotografa ${esc(p.nome)}</button>`));
+  return `<div class="riga" style="justify-content:space-between;align-items:baseline"><div class="dove">${esc(nomeLuogo(dove, true))}</div><span class="kick" style="color:var(--cielo)">ore ${L.ORE[N2.ora]} · ${6 - N2.ora} ${6 - N2.ora === 1 ? "ora" : "ore"} all'alba</span></div>
+    ${indizio ? `<div class="storia">${esc(indizio)}</div>` : dove === "palazzo" && N2.ora === 0 ? `<div class="storia">La notte è tua. Tocca un luogo illuminato sulla mappa per andarci.</div>` : ""}
+    ${occ}
+    ${extra.length ? `<div class="riga">${extra.join("")}</div>` : ""}
+    <div class="riga"><span class="sub" style="flex:1">${dove === "palazzo" ? "Tocca un luogo sulla mappa per uscire." : "Tocca un luogo sulla mappa per spostarti."}</span><button data-a="aspetta">⏳ Resta qui un'ora</button><button data-a="casa">🏠 Torna a casa</button></div>`;
+}
+function collegaCarta(me) {
+  const on = (a, f) => document.querySelectorAll(`.carta [data-a="${a}"]`).forEach((b) => b.onclick = f);
+  on("tira", () => agisci({ tipo: "tira" }));
+  on("fine", () => agisci({ tipo: "fine_turno" }));
+  on("pacchetti", () => finestraPacchetti());
+  on("asta", () => finestraAsta(me));
+  on("pending", () => finestraPending(me));
+  on("imprese", () => apriApp("imprese"));
+  on("aspetta", () => agisci({ tipo: "aspetta" }));
+  on("casa", () => finestra(`<h2>Torni a casa?</h2><p>Per te la notte finisce qui. Non potrai più uscire fino all'Alba.</p><div class="pulsanti"><button id="no">Resto fuori</button><button class="notte" id="si">Torno a casa</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "torna_a_casa" }); }; }));
+  on("negozio", () => finestraNegozio(me));
+  on("soffiata", () => finestraSoffiata(me));
+  on("ricicla", () => finestraRicicla(me, false));
+  on("paradiso", () => finestraRicicla(me, true));
+  on("corrompi", () => finestraCorrompi(me));
+  on("articolo", () => finestraArticolo(me));
+  on("setta", () => finestraSetta(me));
+  document.querySelectorAll(".carta [data-occ]").forEach((b) => b.onclick = () => finestraOccasione(me, +b.dataset.occ));
+  document.querySelectorAll(".carta [data-foto]").forEach((b) => b.onclick = () => agisci({ tipo: "foto", bersaglio: b.dataset.foto }));
+}
+function chiediViaggio(me, luogo) {
+  const ore = L.oreViaggio(S, me, S.notte.dove[mioId], luogo);
+  const restano = 6 - S.notte.ora;
+  finestra(`<span class="kick" style="color:var(--cielo)">${ICO_LUOGO[luogo]} ${luogo === "palazzo" ? "" : esc(L.NOMI_ISOLE[L.LUOGHI[luogo].isola] || "")}</span><h2>${esc(nomeLuogo(luogo))}</h2>
+    <p>Ci vogliono <b>${ore === 1 ? "1 ora" : "2 ore"}</b>${ore === 2 ? ", attraverso i ponti" : ""}. Mancano ${restano} ${restano === 1 ? "ora" : "ore"} all'alba.</p>
+    ${ore > restano ? `<p style="color:#ffb3b3">Non arriveresti prima dell'alba.</p>` : ""}
+    <div class="pulsanti"><button id="no">Resto qui</button><button class="notte" id="si" ${ore > restano ? "disabled" : ""}>Vado</button></div>`,
+    (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "vai", luogo }); }; });
+}
+
+// ------------------------------------------------------------ il telefono
+const APPS = [
+  { k: "imprese", nome: "Imprese", ico: "🏗️", col: "#c9a24a", lv: 0 },
+  { k: "banca", nome: "Banca", ico: "🏦", col: "#2f6fe0", lv: 0 },
+  { k: "gazzetta", nome: "Gazzetta", ico: "📰", col: "#d9d2c0", lv: 0 },
+  { k: "messaggi", nome: "Messaggi", ico: "💬", col: "#3fa34d", lv: 0 },
+  { k: "valigetta", nome: "Valigetta", ico: "💼", col: "#8a5a2c", lv: 0 },
+  { k: "palazzo", nome: "Palazzo", ico: "🏙️", col: "#7a5cff", lv: 0 },
+  { k: "lusso", nome: "Lusso", ico: "🛥️", col: "#14a3a8", lv: 0 },
+  { k: "prove", nome: "Prove", ico: "📷", col: "#3a3f4b", lv: 1 },
+  { k: "borsa", nome: "Borsa", ico: "📈", col: "#0f766e", lv: 2 },
+  { k: "contratti", nome: "Contratti", ico: "✍️", col: "#b5179e", lv: 2 },
+  { k: "municipio", nome: "Municipio", ico: "🏛️", col: "#5c7f99", lv: 2 },
+  { k: "setta", nome: "Setta", ico: "👁️", col: "#3b1d5c", lv: 3 },
+];
+function letti() { try { return +(localStorage.getItem("laguna_letti_" + partita) || 0); } catch (e) { return 0; } }
+function segnaLetti(n) { try { localStorage.setItem("laguna_letti_" + partita, String(n)); } catch (e) { } }
+function apriApp(k) { telAperto = true; app = k; if (k === "messaggi") segnaLetti((io().messaggi || []).length); disegnaTelefono(io()); }
+function disegnaTelefono(me) {
+  const box = $("#telefonoBox");
+  const nuovi = Math.max(0, (me.messaggi || []).length - letti());
+  if (!telAperto) {
+    box.innerHTML = `<button class="tel-tasto vetro" id="apriTel" aria-label="Apri il telefono">📱${nuovi ? `<span class="badge">${nuovi}</span>` : ""}</button>`;
+    $("#apriTel").onclick = () => { telAperto = true; app = null; disegnaTelefono(me); };
+    return;
+  }
+  const ora = S.fase === "notte" && S.notte ? L.ORE[S.notte.ora] : ["9:00", "13:00", "18:00"][S.giorno] || "9:00";
+  let dentro;
+  if (!app) {
+    dentro = `<div class="home">${APPS.filter((a) => a.lv <= S.sblocco || (a.k === "prove" && (me.prove || []).length) || (a.k === "setta" && S.sette.length)).map((a) => `<button class="app" data-app="${a.k}"><span class="ico" style="background:${a.col}">${a.ico}${a.k === "messaggi" && nuovi ? `<span class="badge">${nuovi}</span>` : ""}</span>${a.nome}</button>`).join("")}</div>`;
+  } else {
+    const A = APPS.find((a) => a.k === app);
+    dentro = `<div class="app-testa"><button id="indietro">‹ Home</button><b>${A.ico} ${A.nome}</b></div><div class="app-corpo">${contenutoApp(me, app)}</div>`;
+  }
+  box.innerHTML = `<div class="tel"><div class="schermo"><div class="barra"><span>${ora}</span><span>Laguna 5G</span></div>${dentro}</div><button class="tel-chiudi" id="chiudiTel" aria-label="Chiudi il telefono"></button></div>`;
+  $("#chiudiTel").onclick = () => { telAperto = false; disegnaTelefono(me); };
+  box.querySelectorAll("[data-app]").forEach((b) => b.onclick = () => apriApp(b.dataset.app));
+  if ($("#indietro")) $("#indietro").onclick = () => { app = null; disegnaTelefono(me); };
+  collegaApp(me);
+}
+function tappe(l) {
+  const passi = ["Terreno", "Permesso", "Cantiere", "Aperta"];
+  const ora = l.cantiere ? 2 : l.permesso ? 2 : l.lvl > 0 ? 3 : 1;
+  return `<div class="tappe">${passi.map((t, i) => `<span class="${i < ora ? "fatta" : i === ora ? "ora" : ""}">${t}${i === 3 && l.lvl > 0 ? " · liv. " + l.lvl : ""}</span>`).join("")}</div>`;
+}
+function contenutoApp(me, k) {
+  const miTurno = mioTurno() && !S.pending && me.haTirato && !me.faro;
+  if (k === "imprese") {
+    const miei = S.lotti.filter((l) => l.owner === mioId);
+    if (!miei.length) return `<p class="sub">Non hai ancora terreni. Quando atterri su un lotto libero puoi comprarlo.</p>`;
+    return `<p class="sub">Ogni impresa nasce in 4 passi: terreno, permesso del Municipio, cantiere (apre all'Alba), apertura.</p>` + miei.map((l) => {
+      const next = l.lvl + 1, costo = next <= 5 ? Math.round(L.N.costLvl[next] * l.prezzo) : 0;
+      let azioni = "";
+      if (l.tipoCasella === "lotto" && l.lvl < 5 && !l.cantiere && miTurno) {
+        if (l.negato) azioni = `<button class="piccolo" data-regalo="${l.id}">Una busta all'assessore (${euro(Math.max(50000, Math.round(l.prezzo * 0.1)))})</button>`;
+        else if (!l.permesso) azioni = `<button class="piccolo oro" data-permesso="${l.id}">Chiedi il permesso al Municipio</button>`;
+        else if (!me.azioneGiornoFatta) {
+          const ok = next < 3 || L.haSerie(S, me, l.serie);
+          azioni = !ok ? `<span class="sub">Per il livello ${next} serve tutta la serie ${esc(l.serie)}.</span>` : `${l.lvl === 0 ? `<select id="t_${l.id}">${Object.entries(L.ATTIVITA).filter(([kk, t]) => (!t.isole || t.isole.includes(l.isola)) && !t.serie).map(([kk, t]) => `<option value="${kk}">${esc(t.nome)}</option>`).join("")}</select>` : ""}<button class="piccolo oro" data-cantiere="${l.id}" ${me.cash < costo ? "disabled" : ""}>Apri il cantiere · ${euro(costo)}</button>`;
+        }
+      }
+      return `<div class="scheda"><h4>${esc(l.nome)} <span class="tag" style="background:${COL_SERIE[l.serie] || "#555"}">${esc(l.serie || "")}</span></h4>
+        <span class="sub">${l.cantiere ? "🚧 Cantiere: " + esc(L.ATTIVITA[l.cantiere.tipo].nome) + " livello " + l.cantiere.lvl + ", apre all'Alba." : l.tipo ? esc(L.ATTIVITA[l.tipo].nome) + " · rende " + euro(L.rendita(S, l)) + " a Ciclo" : "Terreno vuoto"}</span>
+        ${l.tipoCasella === "lotto" ? tappe(l) : ""}${azioni ? `<div class="riga">${azioni}</div>` : ""}</div>`;
+    }).join("");
+  }
+  if (k === "banca") {
+    const altri = S.players.filter((x) => x.id !== mioId);
+    return `<div class="scheda"><span class="kick" style="color:var(--muted)">Conto</span><span class="serif" style="font-size:28px;color:var(--pulito)">${euro(me.cash)}</span>${me.sporchi ? `<span style="color:var(--sporco)">In contanti sporchi: ${euro(me.sporchi)}</span>` : ""}</div>
+      <div class="scheda"><h4>Debito: ${euro(me.debito)}</h4>${me.debito ? `<button class="piccolo" data-a2="restituisci">Restituisci tutto</button>` : ""}${miTurno && !me.azioneGiornoFatta ? `<button class="piccolo" data-a2="prestito">Chiedi un prestito</button>` : `<span class="sub">I prestiti si chiedono durante il tuo turno.</span>`}</div>
+      <div class="scheda"><h4>Fai un regalo</h4><div class="riga"><select id="regA">${altri.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><input id="regImp" type="number" placeholder="quanto" style="width:110px"></div>${S.sblocco >= 1 ? `<label class="check"><input type="checkbox" id="regSp"> in contanti sporchi</label>` : ""}<button class="piccolo" data-a2="regala">Dai</button></div>
+      ${S.sblocco >= 2 ? `<div class="scheda"><h4>Tasse</h4><span class="sub">Puoi nascondere una parte delle rendite al fisco: diventano soldi sporchi e lasciano Tracce.</span><select id="evasione">${[0, 0.1, 0.2, 0.3].map((q) => `<option value="${q}" ${Math.abs(q - (me.evasione || 0)) < 0.01 ? "selected" : ""}>${q ? "Nascondi il " + q * 100 + "%" : "Pago tutto"}</option>`).join("")}</select></div>` : ""}`;
+  }
+  if (k === "gazzetta") return [...S.gazzetta].reverse().slice(0, 30).map((g) => `<div class="scheda"><span><span class="tag ${g.tipo}">Ciclo ${g.ciclo}</span></span><span class="serif" style="font-size:16px">${esc(g.testo)}</span></div>`).join("");
+  if (k === "messaggi") return [...(me.messaggi || [])].reverse().map((m) => `<div class="msg ${m.testo.startsWith("Vera:") ? "vera" : ""}">${esc(m.testo)}</div>`).join("") || `<p class="sub">Nessun messaggio.</p>`;
+  if (k === "valigetta") {
+    const v = me.valigetta || [], posti = S.postiValigetta;
+    return `<p class="sub">${v.length} posti usati su ${posti}. Gli oggetti si comprano di notte, nei posti giusti.</p>` +
+      v.map((o) => { const O = L.OGGETTI[o.id]; return `<div class="ogg"><span class="ic">${ICO_OGG[o.id]}</span><div><b>${esc(O.nome)}</b><div class="sub" style="font-size:12px">${esc(O.descr)}${o.notti ? " Ancora " + o.notti + (o.notti === 1 ? " notte." : " notti.") : ""}</div></div></div>`; }).join("") +
+      Array.from({ length: Math.max(0, posti - v.length) }, () => `<div class="ogg vuoto"><span class="ic">·</span><span class="sub">Posto libero</span></div>`).join("");
+  }
+  if (k === "palazzo") {
+    const costo = Math.round(L.N.pianoCost * Math.pow(L.N.pianoGrow, me.piani));
+    return `<div class="scheda"><span class="serif" style="font-size:30px">${me.piani} ${me.piani === 1 ? "piano" : "piani"}</span><span class="sub">${me.piani ? me.funzioniPiani.map((f) => f.replace(/_/g, " ")).join(", ") : "Il tuo grattacielo è ancora un sogno."}</span></div>
+      ${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="piano">Costruisci il prossimo piano · ${euro(costo)}</button>` : `<span class="sub">I piani si costruiscono con la mossa del giorno, durante il tuo turno.</span>`}`;
+  }
+  if (k === "lusso") return `<div class="scheda"><h4>I tuoi mezzi</h4><span class="sub">${me.veicoli.map((x) => L.N.veicoli[x].nome).join(", ") || "Nessuno, per ora."}</span></div>${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="veicolo">Vai in concessionaria</button>` : `<span class="sub">I mezzi si comprano con la mossa del giorno.</span>`}<span class="sub">Un motoscafo o un elicottero ti fanno muovere di notte in 1 ora ovunque.</span>`;
+  if (k === "prove") return (me.prove || []).map((pr, i) => `<div class="scheda"><h4>📷 ${esc(S.players.find((x) => x.id === pr.su).nome)}</h4><span class="sub">${esc(pr.cosa)} · Ciclo ${pr.ciclo}</span><button class="piccolo" data-denuncia="${i}">Manda alla polizia</button></div>`).join("") || `<p class="sub">Nessuna prova. Una macchina fotografica aiuta.</p>`;
+  if (k === "borsa") return L.AZIENDE.map((a) => `<div class="scheda"><h4>${a} <span class="sub">${S.borsa[a].toFixed(1)}</span></h4><span class="sub">Ne hai per ${euro((me.azioni[a] || 0) * S.borsa[a])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="b_${a}" style="width:100px"><button class="piccolo" data-compra="borsa|${a}">Compra</button><button class="piccolo" data-vendi="borsa|${a}">Vendi</button></div></div>`).join("") +
+    L.MONETE.map((m) => `<div class="scheda"><h4>${m} <span class="sub">${S.cripto[m].toFixed(2)}</span></h4><span class="sub">Ne hai per ${euro((me.cripto[m] || 0) * S.cripto[m])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="c_${m}" style="width:100px"><button class="piccolo" data-compra="cripto|${m}">Compra</button><button class="piccolo" data-vendi="cripto|${m}">Vendi</button></div></div>`).join("");
+  if (k === "contratti") {
+    const miei = S.contratti.filter((x) => x.da === mioId || x.a === mioId);
+    return miei.map((x) => `<div class="scheda"><span><span class="tag">${x.tipo === "notarile" ? "Dal notaio" : "Sulla parola"}</span><span class="tag">${esc(x.stato)}</span></span><span>${esc(S.players.find((y) => y.id === x.da).nome)} ↔ ${esc(S.players.find((y) => y.id === x.a).nome)}: subito ${euro(x.pagoOra)}, poi ${euro(x.pagoDopo)}</span>${x.testo ? `<i class="sub">"${esc(x.testo)}"</i>` : ""}${x.a === mioId && x.stato === "proposto" ? `<div class="riga"><button class="piccolo oro" data-contr="${x.id}|1">Accetta</button><button class="piccolo" data-contr="${x.id}|0">Rifiuta</button></div>` : ""}</div>`).join("") + `<button class="oro" data-a2="nuovoContratto">Proponi un patto</button>`;
+  }
+  if (k === "municipio") {
+    return `<div class="scheda"><h4>Sindaco: ${S.sindaco ? esc(S.players.find((x) => x.id === S.sindaco).nome) : "nessuno"}</h4><span class="sub">Tasse al ${Math.round(S.tassa * 100)}%. Le elezioni sono ogni 2 Cicli: per candidarti serve fama 40, passando dal Municipio.</span></div>
+      ${S.candidati[mioId] !== undefined ? `<div class="scheda"><h4>Sei candidato</h4><div class="riga"><input id="campImp" type="number" placeholder="quanto" style="width:110px"><button class="piccolo" data-a2="campagna">Investi in campagna</button></div></div>` : ""}
+      ${S.sindaco === mioId ? `<div class="scheda"><h4>Sei il Sindaco</h4><div class="riga"><select id="leggeSel">${Object.entries(L.LEGGI).map(([kk, x]) => `<option value="${kk}">${esc(x.nome)}</option>`).join("")}</select><select id="leggeIsola">${L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("")}</select><button class="piccolo" data-a2="legge">Firma</button></div><div class="riga">Tasse <select id="tasseSel">${[0.1, 0.15, 0.2, 0.25, 0.3].map((q) => `<option value="${q}" ${Math.abs(q - S.tassa) < 0.01 ? "selected" : ""}>${q * 100}%</option>`).join("")}</select><button class="piccolo" data-a2="tasse">Cambia</button></div></div>` : ""}
+      <div class="scheda"><h4>La licenza del casinò</h4><span class="sub">${S.licenze.includes(mioId) ? "Ce l'hai." : "Si chiede atterrando sul Municipio di Isola Corona."}</span></div>`;
+  }
+  if (k === "setta") {
+    return (S.inviti || []).map((x) => `<div class="scheda"><h4>Un invito senza firma</h4><div class="riga"><button class="piccolo oro" data-invito="${x.setta}|1">Entro</button><button class="piccolo" data-invito="${x.setta}|0">Rifiuto</button></div></div>`).join("") +
+      (S.sette.length ? S.sette.map((st) => `<div class="scheda"><h4 style="color:var(--setta)">${esc(st.nome)}</h4><i class="sub">${esc(st.motto)}</i><span class="sub">Livello ${L.livelloSetta(S, st)} · membri: ${st.membri.map((id) => esc(S.players.find((x) => x.id === id).nome)).join(", ")} · tesoro ${euro(st.tesoro)}</span>
+        <div class="riga"><input type="number" placeholder="versa" id="versa_${st.id}" style="width:100px"><button class="piccolo" data-versa="${st.id}|0">Puliti</button><button class="piccolo" data-versa="${st.id}|1">Sporchi</button></div>
+        ${st.gm === mioId ? `<div class="riga"><select id="inv_${st.id}">${S.players.filter((x) => !st.membri.includes(x.id)).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><button class="piccolo" data-invita="${st.id}">Invita</button></div><span class="sub">Le operazioni si decidono di notte, al Faro.</span>` : ""}</div>`).join("")
+        : S.fase === "notte" ? `<div class="scheda"><h4>Fonda una setta</h4><span class="sub">Serve un patrimonio di ${euro(L.N.settaPatrimonio)} e fama ${L.N.settaFama}.</span><input id="sNome" placeholder="Nome"><input id="sMotto" placeholder="Motto"><button class="piccolo oro" data-a2="fonda">Fonda</button></div>` : `<p class="sub">Le sette si fondano di notte.</p>`);
+  }
+  return "";
+}
+function collegaApp(me) {
+  const box = $("#telefonoBox");
+  const on = (sel, f) => box.querySelectorAll(sel).forEach((b) => b.onclick = () => f(b));
+  const v = (q) => box.querySelector(q)?.value;
+  on("[data-permesso]", (b) => agisci({ tipo: "permesso", lotto: b.dataset.permesso }));
+  on("[data-regalo]", (b) => agisci({ tipo: "regalo_assessore", lotto: b.dataset.regalo }));
+  on("[data-cantiere]", (b) => agisci({ tipo: "costruisci", lotto: b.dataset.cantiere, attivita: v("#t_" + b.dataset.cantiere) }));
+  on('[data-a2="restituisci"]', () => agisci({ tipo: "restituisci", importo: me.debito }));
+  on('[data-a2="prestito"]', () => finestraPrestito(me));
+  on('[data-a2="regala"]', () => agisci({ tipo: "regala", a: v("#regA"), importo: Number(v("#regImp")), sporchi: !!box.querySelector("#regSp")?.checked }));
+  on('[data-a2="piano"]', () => finestraPalazzo(me));
+  on('[data-a2="veicolo"]', () => finestraVeicolo());
+  on('[data-a2="nuovoContratto"]', () => finestraContratto());
+  on('[data-a2="campagna"]', () => agisci({ tipo: "campagna", importo: Number(v("#campImp")) }));
+  on('[data-a2="legge"]', () => agisci({ tipo: "legge", legge: v("#leggeSel"), isola: v("#leggeIsola") }));
+  on('[data-a2="tasse"]', () => agisci({ tipo: "tasse", quota: Number(v("#tasseSel")) }));
+  on('[data-a2="fonda"]', () => agisci({ tipo: "fonda_setta", nome: v("#sNome"), motto: v("#sMotto") }));
+  if (box.querySelector("#evasione")) box.querySelector("#evasione").onchange = (e) => agisci({ tipo: "evasione", quota: Number(e.target.value) });
+  on("[data-denuncia]", (b) => agisci({ tipo: "denuncia", prova: Number(b.dataset.denuncia) }));
+  on("[data-compra]", (b) => { const [cosa, nome] = b.dataset.compra.split("|"); agisci({ tipo: "investi", cosa, nome, importo: Number(v(`[data-imp="${cosa === "borsa" ? "b" : "c"}_${nome}"]`)) }); });
+  on("[data-vendi]", (b) => { const [cosa, nome] = b.dataset.vendi.split("|"); agisci({ tipo: "vendi", cosa, nome, quota: 1 }); });
+  on("[data-invito]", (b) => { const [st, si] = b.dataset.invito.split("|"); agisci({ tipo: "rispondi_invito", setta: st, si: si === "1" }); });
+  on("[data-versa]", (b) => { const [st, sp] = b.dataset.versa.split("|"); agisci({ tipo: "versa_setta", setta: st, importo: Number(v("#versa_" + st)), sporchi: sp === "1" }); });
+  on("[data-invita]", (b) => agisci({ tipo: "invita_setta", setta: b.dataset.invita, invitato: v("#inv_" + b.dataset.invita) }));
+  on("[data-contr]", (b) => { const [kk, si] = b.dataset.contr.split("|"); agisci({ tipo: "rispondi_contratto", id: kk, si: si === "1" }); });
+}
+
+// ------------------------------------------------------------ finestre
+function finestra(html, collega) {
+  const d = document.createElement("div"); d.className = "velo"; d.innerHTML = `<div class="fin vetro">${html}</div>`;
+  document.body.appendChild(d);
+  const chiudi = () => d.remove();
+  collega && collega(d, chiudi);
+  return chiudi;
+}
+function finestreAutomatiche(me) {
+  if (document.querySelector(".velo")) return;
+  if (S.fase === "pacchetti" && tocca() && !visti.has("pk")) { visti.add("pk"); return finestraPacchetti(); }
+  if (S.pending && S.pending.tipo === "asta" && tocca()) { const k = "asta" + S.pending.lotto + S.ciclo + S.giorno; if (!visti.has(k)) { visti.add(k); return finestraAsta(me); } }
+  if (S.pending && S.pending.giocatore === mioId && S.pending.tipo !== "asta") { const k = "p" + S.pending.tipo + (S.pending.lotto || "") + S.ciclo + S.giorno; if (!visti.has(k)) { visti.add(k); return finestraPending(me); } }
+  if (S.ultimaAlba && S.fase === "giorno" && !visti.has("alba" + S.ultimaAlba.ciclo)) { visti.add("alba" + S.ultimaAlba.ciclo); return finestraAlba(me); }
+  if (S.ultimaCarta && S.ultimaCarta.giocatore === mioId) { const k = "carta" + S.ultimaCarta.testo + S.ciclo + S.giorno; if (!visti.has(k)) { visti.add(k); return finestra(`<span class="kick" style="color:var(--oro)">Gazzetta</span><h2>${esc(S.ultimaCarta.testo)}</h2><div class="pulsanti"><button class="oro" id="ok">Ok</button></div>`, (d, c) => d.querySelector("#ok").onclick = c); } }
+  if (me.ultimaSentenza && !visti.has("sent" + JSON.stringify(me.ultimaSentenza))) { visti.add("sent" + JSON.stringify(me.ultimaSentenza)); const s = me.ultimaSentenza; return finestra(`<span class="kick" style="color:var(--sporco)">Sentenza · ${esc(s.gravita)}</span><h2>Il Giudice ha deciso</h2><p>Soldi sporchi confiscati: <b>${euro(s.confiscati)}</b><br>Multa: <b>${euro(s.multa)}</b>${s.faro ? `<br>Faro: <b>${s.faro} turni</b>` : ""}${s.blocco ? `<br>Entrate bloccate per <b>${s.blocco} Cicli</b>` : ""}</p><div class="pulsanti"><button class="oro" id="ok">Ho capito</button></div>`, (d, c) => d.querySelector("#ok").onclick = c); }
+  const vera = (me.messaggi || []).filter((m) => m.testo.startsWith("Vera:")).slice(-1)[0];
+  if (vera && !visti.has("vera" + vera.testo)) { visti.add("vera" + vera.testo); try { if (localStorage.getItem("vera_" + partita + vera.testo.length)) return; localStorage.setItem("vera_" + partita + vera.testo.length, "1"); } catch (e) { } return finestra(`<span class="kick" style="color:var(--rosa)">💬 Vera, la tua assistente</span><p class="storia" style="font-size:17px">${esc(vera.testo.replace(/^Vera: /, ""))}</p><div class="pulsanti"><button class="oro" id="ok">Grazie, Vera</button></div>`, (d, c) => d.querySelector("#ok").onclick = c); }
+  if (S.fase === "notte" && S.notte && S.notte.ora === 0 && !visti.has("notte" + S.ciclo)) { visti.add("notte" + S.ciclo); return finestra(`<span class="kick" style="color:var(--cielo)">🌙 Cala la notte</span><h2>La Laguna è tua, fino alle 4</h2><p>La notte dura 6 ore. Tocca un luogo illuminato sulla mappa per andarci: nella stessa isola ci metti 1 ora, su un'altra isola 2.</p><p>Non sai cosa troverai finché non arrivi. Guarda gli indizi, e fidati del tuo istinto.</p>${(S.notte.chiamate || []).length ? `<p style="color:var(--rosa)">📞 Hai ricevuto una chiamata: guarda il racconto a sinistra.</p>` : ""}<div class="pulsanti"><button class="notte" id="ok">Esco</button></div>`, (d, c) => d.querySelector("#ok").onclick = c); }
+}
+function extraTesto(e) {
+  const t = [];
+  if (e.cash) t.push("+" + euro(e.cash)); if (e.piani) t.push("un Palazzo di " + e.piani + " piani"); if (e.azioni) t.push(euro(e.azioni) + " in azioni");
+  if (e.veicolo) t.push("un motoscafo"); if (e.fama) t.push("fama " + e.fama); if (e.reputazione) t.push("amici nel giro"); if (e.cripto) t.push(euro(e.cripto) + " in FlamingoToken");
+  return t.join(" · ");
+}
+function finestraPacchetti() {
+  finestra(`<span class="kick" style="color:var(--oro)">La tua storia</span><h2>Chi sei, quando arrivi nella Laguna?</h2><p>Ogni storia ti dà 2 attività già aperte e un vantaggio. Parti anche con ${euro(L.N.cashStart)}.</p>
+    <div class="griglia">${S.pacchettiDisponibili.map((id) => { const k = L.PACCHETTI.find((x) => x.id === id); return `<button class="sch" data-pk="${id}"><h3 class="serif" style="font-weight:400;font-size:20px">${esc(k.nome)}</h3><p>${k.lotti.map(([n, t]) => esc(L.ATTIVITA[t].nome) + " in " + esc(n)).join("<br>")}</p><p style="margin-top:6px;color:var(--oro);font-weight:700">${extraTesto(k.extra)}</p></button>`; }).join("")}</div>`,
+    (d, chiudi) => d.querySelectorAll("[data-pk]").forEach((el) => el.onclick = () => { chiudi(); agisci({ tipo: "pacchetto", id: el.dataset.pk }); }));
+}
+function finestraAsta(me) {
+  const l = S.lotti.find((x) => x.id === S.pending.lotto);
+  finestra(`<span class="kick" style="color:var(--rosa)">Asta${l.isola ? " · " + esc(L.NOMI_ISOLE[l.isola]) : ""}</span><h2>${esc(l.nome)}</h2><p>Vale ${euro(l.prezzo)}. Ognuno offre in segreto: vince chi offre di più. Hai ${euro(me.cash)}.</p>
+    <div class="campo"><label for="off">La tua offerta</label><input id="off" type="number" value="0" style="font-size:22px;font-weight:800"></div>
+    <div class="pulsanti"><button id="no">Non offro</button><button class="oro" id="ok">Offro</button></div>`, (d, chiudi) => {
+    d.querySelector("#ok").onclick = () => { chiudi(); agisci({ tipo: "offerta", importo: Number(d.querySelector("#off").value) }); };
+    d.querySelector("#no").onclick = () => { chiudi(); agisci({ tipo: "offerta", importo: 0 }); };
+  });
+}
+function finestraPending(me) {
+  const pd = S.pending;
+  if (pd.tipo === "compra") {
+    const l = S.lotti.find((x) => x.id === pd.lotto);
+    return finestra(`<span class="kick" style="color:${COL_SERIE[l.serie] || "var(--oro)"}">${l.isola ? esc(L.NOMI_ISOLE[l.isola]) + " · serie " + esc(l.serie) : ""}</span><h2>${esc(l.nome)}</h2>
+      <p class="serif" style="font-size:30px;color:var(--oro);margin:4px 0">${euro(l.prezzo)}</p>
+      <p>Un terreno libero. Se lo compri, poi ti serve il permesso del Municipio per costruirci. Se non lo compri, va all'asta tra tutti.</p>
+      <div class="pulsanti"><button id="no">Lascio stare</button><button class="oro" id="si" ${me.cash < l.prezzo ? "disabled" : ""}>Compro · ${euro(l.prezzo)}</button></div>`, (d, c) => {
+      d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "compra", si: true }); };
+      d.querySelector("#no").onclick = () => { c(); agisci({ tipo: "compra", si: false }); };
+    });
+  }
+  if (pd.tipo === "chiamata") {
+    const tel = (me.valigetta || []).some((o) => o.id === "telefono");
+    return finestra(`<span class="kick" style="color:var(--rosa)">📞 Numero sconosciuto</span><p class="storia" style="font-size:17px">${esc(pd.testo)}</p>
+      ${tel ? `<label class="check"><input type="checkbox" id="tel" checked> Rispondo dal telefono usa-e-getta</label>` : `<p class="sub">Se accetti dal tuo numero, qualcuno potrebbe ascoltare.</p>`}
+      <div class="pulsanti"><button id="no">Riattacco</button><button class="oro" id="si">Ci sto</button></div>`, (d, c) => {
+      d.querySelector("#no").onclick = () => { c(); agisci({ tipo: "chiamata", si: false }); };
+      d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "chiamata", si: true, telefono: !!d.querySelector("#tel")?.checked }); };
+    });
+  }
+  if (pd.tipo === "gala") return finestra(`<span class="kick" style="color:var(--rosa)">Baia Flamingo</span><h2>Il Gala Flamingo</h2><p>Serata di beneficenza. Chi dona tanto, fa parlare di sé.</p><div class="campo"><label for="v">Quanto doni?</label><input id="v" type="number" value="0"></div><div class="pulsanti"><button class="oro" id="ok">Conferma</button></div>`,
+    (d, c) => d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "gala", importo: Number(d.querySelector("#v").value) }); });
+  if (pd.tipo === "casino_reale") return finestra(`<span class="kick" style="color:var(--oro)">Isola Corona</span><h2>Il Casinò Reale</h2><p>Una puntata sul rosso. Quasi metà delle volte raddoppi.</p><div class="campo"><label for="v">Puntata (0 = non giochi)</label><input id="v" type="number" value="0"></div><div class="pulsanti"><button class="oro" id="ok">Conferma</button></div>`,
+    (d, c) => d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "casino_reale", importo: Number(d.querySelector("#v").value) }); });
+  if (pd.tipo === "municipio") return finestra(`<span class="kick" style="color:var(--setta)">Isola Corona</span><h2>Il Municipio</h2><p>Puoi candidarti a Sindaco (fama 40, ${euro(L.N.candidatura)}) o chiedere la licenza per un casinò (500.000 €).</p><div class="pulsanti"><button id="n">Niente</button><button id="l">Licenza casinò</button><button class="oro" id="c">Mi candido</button></div>`,
+    (d, c) => { d.querySelector("#n").onclick = () => { c(); agisci({ tipo: "municipio", scelta: "nulla" }); }; d.querySelector("#l").onclick = () => { c(); agisci({ tipo: "municipio", scelta: "licenza" }); }; d.querySelector("#c").onclick = () => { c(); agisci({ tipo: "municipio", scelta: "candidati" }); }; });
+}
+function finestraAlba(me) {
+  const r = (S.ultimaAlba.riepilogo || {})[mioId] || {};
+  const racc = me.raccontoNotte || [];
+  const gaz = S.gazzetta.filter((g) => g.ciclo === S.ultimaAlba.ciclo || g.ciclo === S.ultimaAlba.ciclo + 1).slice(-6);
+  finestra(`<span class="kick" style="color:var(--oro)">🌅 L'Alba · Ciclo ${S.ultimaAlba.ciclo}</span><h2>La tua notte</h2>
+    <div style="display:flex;flex-direction:column;gap:6px">${racc.map((x) => { const [o, t] = x.split(" — "); return `<p class="storia" style="margin:0"><b style="color:var(--cielo);font-style:normal">${esc(o)}</b> ${esc(t)}</p>`; }).join("") || `<p class="sub">Una notte tranquilla.</p>`}</div>
+    <p class="kick" style="color:var(--muted);margin-top:16px">I conti del mattino</p>
+    <table class="cl"><tr><td>Le tue attività hanno reso</td><td style="color:var(--pulito);font-weight:800">+ ${euro(r.rendite || 0)}</td></tr><tr><td>Tasse</td><td style="color:var(--sporco);font-weight:800">− ${euro(r.tasse || 0)}</td></tr>
+    ${r.interessi ? `<tr><td>Interessi alla Banca</td><td>− ${euro(r.interessi)}</td></tr>` : ""}${r.corruzione ? `<tr><td>Le "mance" ai tuoi amici</td><td>− ${euro(r.corruzione)}</td></tr>` : ""}</table>
+    <p class="kick" style="color:var(--muted);margin-top:16px">📰 La Gazzetta del mattino</p>${gaz.map((g) => `<p class="serif" style="font-size:16px;margin:4px 0">${esc(g.testo)}</p>`).join("")}
+    <div class="pulsanti"><button class="oro" id="ok">Inizia il giorno</button></div>`, (d, c) => d.querySelector("#ok").onclick = c);
+}
+function finestraOccasione(me, n) {
+  const o = S.notte.occasioni.find((x) => x.n === n); if (!o) return;
+  const v = me.valigetta || [];
+  const scelti = new Set();
+  finestra(`<span class="kick" style="color:var(--cielo)">${esc(nomeLuogo(o.luogo))} · ore ${L.ORE[S.notte.ora]}</span><h2>${esc(o.nome)}</h2><p class="storia">${esc(o.testo)}</p>
+    <p>${o.costo ? "Ci metti <b>" + euro(o.costo) + "</b> (prima i soldi sporchi)." : "Non ci metti niente."} ${o.legale ? "" : "Se va bene, torni con contanti sporchi."}</p>
+    ${o.legale ? "" : v.length ? `<p class="kick" style="color:var(--muted);margin-top:12px">Cosa porti con te?</p><p class="sub">Scegli gli oggetti della valigetta. Se qualcosa va storto, quello giusto può salvarti. Quelli che si consumano li perdi.</p><div style="display:flex;flex-direction:column;gap:6px">${v.map((x, i) => `<button class="ogg" data-i="${i}" data-id="${x.id}" style="text-align:left;color:#fff"><span class="ic">${ICO_OGG[x.id]}</span><div><b>${esc(L.OGGETTI[x.id].nome)}</b><div class="sub" style="font-size:12px">${esc(L.OGGETTI[x.id].descr)}</div></div></button>`).join("")}</div>` : `<p class="sub">La valigetta è vuota: vai a mani nude.</p>`}
+    <div class="pulsanti"><button id="no">Lascio stare</button><button class="${o.legale ? "oro" : "notte"}" id="si">${o.legale ? "Ci sto" : "Accetto"}</button></div>`, (d, c) => {
+    d.querySelectorAll(".ogg[data-id]").forEach((b) => b.onclick = () => { const id = b.dataset.id; if (scelti.has(id)) scelti.delete(id); else scelti.add(id); d.querySelectorAll(`.ogg[data-id="${id}"]`).forEach((x) => x.classList.toggle("sel", scelti.has(id))); });
+    d.querySelector("#no").onclick = c;
+    d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "occasione", n, oggetti: [...scelti] }); };
+  });
+}
+function finestraNegozio(me) {
+  const dove = S.notte.dove[mioId];
+  const merce = Object.entries(L.OGGETTI).filter(([k, O]) => O.dove === dove);
+  const v = me.valigetta || [];
+  finestra(`<span class="kick" style="color:var(--cielo)">${ICO_LUOGO[dove]} ${esc(nomeLuogo(dove))}</span><h2>${dove === "mercato" ? "Il banco del Mercato Nero" : "Si può comprare"}</h2>
+    <p class="sub">Valigetta: ${v.length} posti usati su ${S.postiValigetta}. Si paga prima con i soldi sporchi.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">${merce.map(([k, O]) => `<div class="ogg"><span class="ic">${ICO_OGG[k]}</span><div style="flex:1"><b>${esc(O.nome)}</b><div class="sub" style="font-size:12px">${esc(O.descr)}</div></div><button class="piccolo oro" data-ogg="${k}" ${v.length >= S.postiValigetta || me.cash + me.sporchi < O.prezzo ? "disabled" : ""}>${euro(O.prezzo)}</button></div>`).join("")}</div>
+    <div class="pulsanti"><button id="x">Chiudi</button></div>`, (d, c) => {
+    d.querySelector("#x").onclick = c;
+    d.querySelectorAll("[data-ogg]").forEach((b) => b.onclick = async () => { c(); await agisci({ tipo: "compra_oggetto", oggetto: b.dataset.ogg }); finestraNegozio(io()); });
+  });
+}
+function finestraSoffiata(me) {
+  const luoghi = Object.keys(L.LUOGHI).filter((l) => l !== "palazzo" && l !== "mercato" && L.LUOGHI[l].sblocco <= S.sblocco);
+  finestra(`<span class="kick" style="color:var(--cielo)">🕯️ Mercato Nero</span><h2>Una soffiata</h2><p>Un vecchio informatore sa dove stanotte gira la polizia. Per 50.000 € ti dice com'è un posto.</p>
+    <div class="campo"><label for="lu">Su quale posto?</label><select id="lu">${luoghi.map((l) => `<option value="${l}">${esc(L.LUOGHI[l].nome)}</option>`).join("")}</select></div>
+    <div class="pulsanti"><button id="x">Lascio stare</button><button class="notte" id="ok">Pago</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "soffiata", luogo: d.querySelector("#lu").value }); }; });
+}
+function finestraRicicla(me, paradiso) {
+  finestra(`<span class="kick" style="color:var(--cielo)">${paradiso ? "✈️ Il tuo jet" : "🎰 Casinò Reale"}</span><h2>Ripulire i soldi</h2>
+    <p>Hai ${euro(me.sporchi)} sporchi. ${paradiso ? "Un volo veloce in un paradiso fiscale: ne perdi il 30%." : "Al cambio fiches li fai passare per vincite. Con le tue attività di copertura ne perdi poco; senza, li cambi in ShadowCoin e ne perdi di più."}</p>
+    ${paradiso ? "" : `<div class="campo"><label for="met">Come</label><select id="met"><option value="copertura">Con le mie attività di copertura (ancora ${euro(Math.max(0, L.copertura(S, me) - (me.copUsata || 0)))})</option><option value="shadow">Con ShadowCoin</option></select></div>`}
+    <div class="campo"><label for="imp">Quanto</label><input id="imp" type="number" value="${Math.round(me.sporchi)}"></div>
+    <div class="pulsanti"><button id="x">Lascio stare</button><button class="notte" id="ok">Ripulisco</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "ricicla", metodo: paradiso ? "paradiso" : d.querySelector("#met").value, importo: Number(d.querySelector("#imp").value) }); }; });
+}
+function finestraCorrompi(me) {
+  const club = S.notte.dove[mioId] === "club";
+  finestra(`<span class="kick" style="color:var(--cielo)">🤝 ${club ? "Club Neon, il tavolo in fondo" : "Casinò Reale, la sala privata"}</span><h2>${club ? "Un amico in divisa" : "Il banchiere Lenz"}</h2>
+    <p>${club ? "Stasera al club c'è chi indossa una divisa di giorno. Un regalo ogni Ciclo, e chiuderà un occhio." : "Lenz sa far sparire i soldi dai registri. Non è gratis, e non è per sempre."} Può anche rifiutare e fare il tuo nome.</p>
+    ${club ? `<div class="campo"><label for="chi">Chi</label><select id="chi"><option value="agente">L'agente di quartiere (${euro(L.N.corruz.agente[0])}, poi ${euro(L.N.corruz.agente[1])} a Ciclo)</option><option value="commissario">Il Commissario Vargas (${euro(L.N.corruz.commissario[0])})</option></select></div><div class="campo"><label for="iso">L'agente di quale isola</label><select id="iso">${L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("")}</select></div>` : `<p>Prezzo: ${euro(L.N.corruz.banchiere[0])}, poi ${euro(L.N.corruz.banchiere[1])} a Ciclo.</p>`}
+    <label class="check"><input type="checkbox" id="sp"> Pago in contanti sporchi (costa il 20% in meno)</label>
+    <div class="pulsanti"><button id="x">Meglio di no</button><button class="notte" id="ok">Faccio l'offerta</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "corrompi", chi: club ? d.querySelector("#chi").value : "banchiere", isola: club ? d.querySelector("#iso").value : null, sporchi: d.querySelector("#sp").checked }); }; });
+}
+function finestraArticolo(me) {
+  finestra(`<span class="kick" style="color:var(--cielo)">📰 Redazione</span><h2>Un articolo per domattina</h2><p>Il caporedattore pubblica quello che gli porti, se la busta è abbastanza pesante. Uno scandalo contro chi è pulito può ritorcersi contro di te.</p>
+    <div class="campo"><label for="art">Su chi</label><select id="art">${S.players.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select></div>
+    <div class="campo"><label for="ton">Come</label><select id="ton"><option value="elogio">Un elogio (più fama)</option><option value="scandalo">Uno scandalo (meno fama)</option></select></div>
+    <div class="campo"><label for="artImp">La busta (almeno 125.000 €)</label><input id="artImp" type="number" value="250000"></div>
+    <div class="campo"><label for="artTesto">Il titolo</label><input id="artTesto"></div>
+    <label class="check"><input type="checkbox" id="artSp"> Pago in contanti sporchi</label>
+    <div class="pulsanti"><button id="x">Lascio stare</button><button class="notte" id="ok">Consegno la busta</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "articolo", bersaglio: d.querySelector("#art").value, tono: d.querySelector("#ton").value, importo: Number(d.querySelector("#artImp").value), testo: d.querySelector("#artTesto").value, sporchi: d.querySelector("#artSp").checked }); }; });
+}
+function finestraSetta(me) {
+  const st = S.sette.find((x) => x.gm === mioId);
+  finestra(`<span class="kick" style="color:var(--setta)">🗼 Il Faro, a mezzanotte</span><h2>${esc(st.nome)}</h2><p>Livello ${L.livelloSetta(S, st)} · tesoro ${euro(st.tesoro)}. Cosa decide la setta stanotte?</p>
+    <div class="campo"><label for="op">Operazione</label><select id="op"><option value="manipola">Muovere un titolo in Borsa (liv. 2)</option><option value="blackout">Spegnere un'isola (liv. 3)</option><option value="evasione">Far evadere qualcuno dal Faro (liv. 3)</option><option value="fantoccio">Un Sindaco fantoccio (liv. 4)</option></select></div>
+    <div class="riga"><select id="ob">${L.AZIENDE.map((a) => `<option value="${a}">${a}</option>`).join("")}${L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("")}${S.players.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><select id="od"><option value="su">su</option><option value="giu">giù</option></select></div>
+    <div class="pulsanti"><button id="x">Chiudi</button><button id="rec">Recluta il banchiere</button><button class="notte" id="ok">Si fa</button></div>`, (d, c) => {
+    d.querySelector("#x").onclick = c;
+    d.querySelector("#rec").onclick = () => { c(); agisci({ tipo: "recluta", setta: st.id, chi: "banchiere" }); };
+    d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "operazione", setta: st.id, op: d.querySelector("#op").value, bersaglio: d.querySelector("#ob").value, direzione: d.querySelector("#od").value }); };
+  });
+}
+function finestraPalazzo(me) {
+  const F = { appartamenti: "Appartamenti (rendono)", uffici: "Uffici (rendono)", ristorante_panoramico: "Ristorante panoramico", spa: "Spa e piscina", casino_privato: "Casinò privato (serve la licenza)", caveau: "Caveau (protegge i soldi sporchi)", sala_insonorizzata: "Sala insonorizzata", garage: "Garage di lusso", eliporto: "Eliporto", piani_segreti: "Piani segreti" };
+  const costo = Math.round(L.N.pianoCost * Math.pow(L.N.pianoGrow, me.piani));
+  finestra(`<span class="kick" style="color:var(--oro)">🏙️ Il tuo Palazzo</span><h2>Un piano in più</h2><p>Hai ${me.piani} piani. Il prossimo costa <b>${euro(costo)}</b>${me.piani === 0 && me.pacchetto !== "costruttore" ? ", più il permesso (300.000 €)" : ""}.</p>
+    <div class="campo"><label for="f">Cosa ci metti</label><select id="f">${Object.entries(F).map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></div>
+    <div class="pulsanti"><button id="x">Chiudi</button><button class="oro" id="ok">Costruisci</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "piano", funzione: d.querySelector("#f").value }); }; });
+}
+function finestraVeicolo() {
+  finestra(`<span class="kick" style="color:var(--oro)">🛥️ Marina dei Re</span><h2>Mezzi di lusso</h2><div class="griglia">${Object.entries(L.N.veicoli).map(([k, v]) => `<button class="sch" data-v="${k}"><h3>${v.nome}</h3><p>${euro(v.prezzo)}<br>rende ${euro(v.prezzo * v.rend)} a Ciclo · +${v.fama} fama</p></button>`).join("")}</div>
+    <div class="pulsanti"><button id="x">Chiudi</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelectorAll("[data-v]").forEach((el) => el.onclick = () => { c(); agisci({ tipo: "veicolo", veicolo: el.dataset.v }); }); });
+}
+function finestraPrestito(me) {
+  const cap = Math.max(0, L.N.prestitoQuota * S.lotti.filter((l) => l.owner === mioId && l.serie !== "Moli").reduce((a, l) => a + L.valoreLotto(l), 0) - me.debito);
+  finestra(`<span class="kick" style="color:var(--pulito)">🏦 Banca Centrale</span><h2>Un prestito</h2><p>Puoi chiedere fino a <b>${euro(cap)}</b>. Costa il 10% a Ciclo, da restituire entro 3 Cicli.</p>
+    <div class="campo"><label for="imp">Quanto</label><input id="imp" type="number" value="${Math.round(cap / 2)}"></div>
+    <div class="pulsanti"><button id="x">Chiudi</button><button class="oro" id="ok">Chiedi</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "prestito", importo: Number(d.querySelector("#imp").value) }); }; });
+}
+function finestraContratto() {
+  const altri = S.players.filter((x) => x.id !== mioId);
+  const lotti = S.lotti.filter((l) => l.owner && l.tipoCasella !== "angolo");
+  finestra(`<span class="kick" style="color:var(--setta)">✍️ Contratti</span><h2>Proponi un patto</h2>
+    <div class="campo"><label for="a">Con chi</label><select id="a">${altri.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select></div>
+    <div class="campo"><label for="tipo">Come</label><select id="tipo"><option value="notarile">Dal notaio (lo fa rispettare il gioco, costa il 2%)</option><option value="parola">Sulla parola (nessuno lo fa rispettare)</option></select></div>
+    <div class="campo"><label>Subito</label><div class="riga"><input id="ora" type="number" value="0" style="width:140px"> li paga <select id="chiOra"><option value="da">io</option><option value="a">lui/lei</option></select></div></div>
+    <div class="campo"><label>Più avanti</label><div class="riga"><input id="dopo" type="number" value="0" style="width:140px"> li paga <select id="chiDopo"><option value="a">lui/lei</option><option value="da">io</option></select> fra <select id="cicli">${[1, 2, 3, 4].map((n) => `<option>${n}</option>`).join("")}</select> Cicli</div></div>
+    <div class="campo"><label for="lotto">Un lotto che passa di mano subito (facoltativo)</label><select id="lotto"><option value="">nessuno</option>${lotti.map((l) => `<option value="${l.id}">${esc(l.nome)} (${esc(S.players.find((x) => x.id === l.owner).nome)})</option>`).join("")}</select></div>
+    <div class="campo"><label for="testo">Il resto, con parole tue</label><textarea id="testo" rows="3"></textarea></div>
+    <div class="pulsanti"><button id="x">Annulla</button><button class="oro" id="ok">Proponi</button></div>`, (d, c) => {
+    d.querySelector("#x").onclick = c;
+    d.querySelector("#ok").onclick = () => { const g = (q) => d.querySelector(q).value; c(); agisci({ tipo: "contratto", contratto: { a: g("#a"), tipo: g("#tipo"), pagoOra: Number(g("#ora")), chiPagaOra: g("#chiOra"), pagoDopo: Number(g("#dopo")), chiPagaDopo: g("#chiDopo"), cicli: Number(g("#cicli")), lottoCeduto: g("#lotto") || null, garanzia: null, testo: g("#testo") } }); };
+  });
+}
+function fine() {
+  if (document.querySelector(".velo")) return;
+  finestra(`<span class="kick" style="color:var(--oro)">Fine della serata</span><h2>La Rivelazione</h2>
+    <table class="cl"><tr><th>#</th><th>Chi</th><th>Patrimonio</th><th>Fama</th></tr>${S.classifica.map((c, i) => `<tr><td>${i + 1}</td><td>${esc(c.nome)}</td><td>${euro(c.patrimonio)}</td><td>${c.fama}</td></tr>`).join("")}</table>
+    <p class="kick" style="color:var(--muted);margin-top:14px">I titoli</p>${S.titoli.map((t) => `<p><b>${esc(t.titolo)}:</b> ${esc(t.a)}</p>`).join("")}
+    <p class="kick" style="color:var(--muted);margin-top:14px">Le sette</p>${S.rivelazione.length ? S.rivelazione.map((r) => `<p><b style="color:var(--setta)">${esc(r.setta)}</b> — Gran Maestro ${esc(r.gm)}, membri: ${r.membri.map(esc).join(", ")}, tesoro ${euro(r.tesoro)}</p>`).join("") : "<p>Nessuna setta è nata in questa partita.</p>"}
+    <div class="pulsanti"><button class="oro" id="nuova">Nuova partita</button></div>`, (d, c) => d.querySelector("#nuova").onclick = () => { c(); try { localStorage.removeItem("laguna_online"); } catch (e) { } S = null; partita = null; schermataCasa(); });
+}
+
+for (const f of ["laguna", "marina", "mappa", ...Object.values(SCENE).map((x) => x.slice(4, -4))]) { const i = new Image(); i.src = "img/" + f + ".jpg"; }
+avvio();
