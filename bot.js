@@ -82,6 +82,52 @@ function invitoBot(o, i, L) {
   const regalo = st.tesoro > 3.2e6 ? 5e5 : st.tesoro >= 2e6 ? 2e5 : 0;
   return { tipo: "invita_setta", setta: st.id, invitato: q.id, offerta: regalo };
 }
+
+// Le Grandi Opere: ogni carattere vota a modo suo, e dice perché nella chat della setta
+const VOTO_OPERA = {
+  Spavaldo: { amnistia: 1, porto: 1, colpo: 1, giudice: 0.6, isola: 1 },
+  Furbo: { amnistia: 0.6, porto: 1, colpo: 0.7, giudice: 0.7, isola: 1 },
+  Esperto: { amnistia: 0.6, porto: 0.7, colpo: 0.5, giudice: 1, isola: 0.8 },
+  Investitore: { amnistia: 0.4, porto: 0.7, colpo: 0.2, giudice: 0.5, isola: 1 },
+  Costruttore: { amnistia: 0.5, porto: 0.6, colpo: 0.3, giudice: 0.6, isola: 0.9 },
+  Legale: { amnistia: 0.3, porto: 0.2, colpo: 0, giudice: 0.9, isola: 0.3 },
+};
+const MOTIVO_SI = { amnistia: "Una fedina pulita fa comodo a tutti.", porto: "Il Porto senza pattuglie è oro.", colpo: "Sessanta milioni. Ci sto.", giudice: "Un giudice amico vale più di mille avvocati.", isola: "Soldi ogni Alba, per sempre." };
+const MOTIVO_NO = { amnistia: "Troppo rumore per niente: la Procura ci guarderà.", porto: "Al Porto non ci lavoro, sono soldi buttati.", colpo: "Troppo rischioso: se va male finiamo tutti Indagati.", giudice: "Costa troppo per una protezione che forse non serve.", isola: "Costa una fortuna, e i blitz della Finanza fanno paura." };
+function votoBot(o, i, n) {
+  for (const id of i.sette || []) {
+    const st = (o.sette || []).find((x) => x.id === id);
+    if (!st || !st.opera || st.gm === i.id || st.opera.voti[i.id] !== undefined) continue;
+    const k = st.opera.id; let v = (VOTO_OPERA[n] || VOTO_OPERA.Esperto)[k] ?? 0.5;
+    if (k === "amnistia" && ((i.condanne || 0) > 0 || (i.stato || 0) >= 2 || i.faro > 0)) v += 0.5; // chi ha la polizia addosso vuole l'amnistia
+    if (k === "colpo" && (i.stato || 0) >= 2) v -= 0.3; // gia' Indagato: un colpo fallito lo rovina
+    const si = v >= 0.5;
+    return { tipo: "vota_opera", setta: st.id, si, motivo: si ? MOTIVO_SI[k] : MOTIVO_NO[k] };
+  }
+  return null;
+}
+// il Gran Maestro bot propone una Grande Opera quando il Tesoro lo permette (e tiene un cuscinetto)
+const GUSTO_OPERA = { Spavaldo: ["colpo", "porto", "isola", "amnistia", "giudice"], Furbo: ["porto", "isola", "colpo", "amnistia", "giudice"], Esperto: ["giudice", "isola", "amnistia", "porto", "colpo"] };
+function operaBot(o, i, n, L) {
+  const st = (o.sette || []).find((x) => x.gm === i.id);
+  if (!st || st.opera || !L || !L.OPERE || i._operaCiclo === o.ciclo) return null;
+  i._operaCiclo = o.ciclo;
+  const lv = L.livelloSetta(o, st);
+  for (const k of GUSTO_OPERA[n] || ["isola", "giudice", "porto", "amnistia", "colpo"]) {
+    const O = L.OPERE[k]; if ((st.opereFatte || []).includes(k) || lv < O.lv) continue;
+    if (k === "amnistia" && !st.membri.some((id) => { const m = o.players.find((x) => x.id === id); return m && ((m.condanne || 0) > 0 || m.stato >= 2); })) continue;
+    if (st.tesoro >= L.costoOpera(st, k) + 1e6) return { tipo: "proponi_opera", setta: st.id, opera: k };
+  }
+  return null;
+}
+// la Lavanderia della setta: i bot sporchi ci passano un po' di soldi a ogni Ciclo
+function lavaBot(o, i, n, L) {
+  if (!L || i.faro > 0 || i._lavaCiclo === o.ciclo || !["Furbo", "Spavaldo", "Esperto"].includes(n)) return null;
+  i._lavaCiclo = o.ciclo;
+  const st = (o.sette || []).find((x) => (i.sette || []).includes(x.id)); if (!st) return null;
+  const max = 1e6 * L.livelloSetta(o, st), q = Math.floor(Math.min(max, i.sporchi * 0.4, st.tesoro / 0.7) / 1e5) * 1e5;
+  return q >= 2e5 && i.sporchi > 2e6 ? { tipo: "lava_setta", setta: st.id, importo: q } : null;
+}
 // Di notte: fondare la setta e, col livello 2, reclutare al Faro
 // convocazione: i membri ci vanno e aspettano, il Gran Maestro celebra il rito quando arriva qualcuno
 function convocazioneBot(o, i, L, s) {
@@ -100,9 +146,10 @@ function settaNotteBot(o, i, e, L, s) {
     if (Math.random() < 0.6) { const usati = (o.sette || []).map((x) => x.nome); const nm = NOMI_SETTA.find((x) => !usati.includes(x[0])) || ["La Setta di " + i.nome, ""]; return { tipo: "fonda_setta", nome: nm[0], motto: nm[1] }; }
   }
   const st = (o.sette || []).find((x) => x.gm === i.id);
-  if (st && !(st.pngReclutati > 0) && L.livelloSetta(o, st) >= 2 && st.tesoro >= 3e6) {
-    if (s !== "faro") return { tipo: "vai", luogo: "faro" };
-    return { tipo: "recluta", setta: st.id, chi: "banchiere" };
+  if (st && i._recCiclo !== o.ciclo) {
+    const lvS = L.livelloSetta(o, st);
+    const chi = !st.banchiere && st.tesoro >= 3e6 ? "banchiere" : lvS >= 2 && !st.commissario && st.tesoro >= 4.5e6 ? "commissario" : lvS >= 2 && !st.giudice && st.tesoro >= 6e6 ? "giudice" : null;
+    if (chi) { if (s !== "faro") return { tipo: "vai", luogo: "faro" }; i._recCiclo = o.ciclo; return { tipo: "recluta", setta: st.id, chi }; }
   }
   return null;
 }
@@ -202,6 +249,7 @@ function grandiBot(o, i, n) {
       }
       const a = o.inviti.find((o) => o.a === i.id);
       if (a) return rispostaInvito(o, i, n, a);
+      { const vo = votoBot(o, i, n); if (vo) return vo; }
       const s = o.contratti.find((o) => o.a === i.id && "proposto" === o.stato);
       if (s) return { tipo: "rispondi_contratto", id: s.id, si: !1 };
       if ("giorno" === o.fase) {
@@ -221,7 +269,7 @@ function grandiBot(o, i, n) {
         }
         if (r) return null;
         { const gr = grandiBot(o, i, n); if (gr) return gr; }
-        { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); const iv = invitoBot(o, i, LL); if (iv) return iv; }
+        { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); const iv = invitoBot(o, i, LL); if (iv) return iv; const op = operaBot(o, i, n, LL); if (op) return op; const lv = lavaBot(o, i, n, LL); if (lv) return lv; }
         { const sosp = Object.keys(i.corrotti || {}).find((k) => i.corrotti[k].sospetto && i.stato >= 1);
           if (sosp) return { tipo: "scarica_contatto", chiave: sosp }; }
         if (!i.haTirato) {

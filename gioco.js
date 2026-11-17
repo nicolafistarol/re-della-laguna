@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=58";
+import * as Tre from "./tre.js?v=59";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=51";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=59";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -1767,13 +1767,14 @@ function contenutoApp(me, k) {
         <div class="riga"><button class="piccolo oro" data-invito="${x.setta}|1">Entro</button><button class="piccolo" data-invito="${x.setta}|0">Rifiuto</button></div></div>`).join("") +
       (S.sette.length ? `<details class="scheda in-breve" ${S.sette.some((st) => st.gm === mioId) && L.livelloSetta(S, S.sette[0]) <= 1 ? "open" : ""}><summary><b>🕯️ Come funziona la setta</b></summary>
         <div class="ib"><b>1</b><span><b>Cosa ti dà sempre:</b> affari sporchi con il 30% di Tracce in meno, condanne più leggere, il Faro aperto di notte. Ogni Alba il ${pct}% delle rendite dei membri va nel Tesoro; il Gran Maestro prende il 5% del Tesoro in sporchi.</span></div>
-        <div class="ib"><b>2</b><span><b>I livelli:</b> servono 3 membri e soldi nel Tesoro (3 M per il 2, 8 M per il 3, 20 M per il 4). Dal livello 3 serve anche un personaggio reclutato (Banchiere, Commissario o Giudice), che si recluta di notte al Faro.</span></div>
-        <div class="ib"><b>3</b><span><b>Di notte al Faro</b> il Gran Maestro lancia le operazioni (Borsa, blackout, evasione, sabotaggio, inchiesta, Sindaco fantoccio) e nasconde il Tesoro.</span></div>
-        <div class="ib"><b>4</b><span><b>Qui nel telefono:</b> inviti, chat dei confratelli, convocazione (posto e ora) per il rito, Prova di fedeltà contro i traditori.</span></div>
-        <span class="sub">Esempio: convochi la setta al Porto alle 2. Tu e Sabri ci andate: fai il rito, vi cancella 8 Tracce, poi fate l'affare del Porto con meno pericoli.</span></details>` + S.sette.map((st) => `<div class="scheda"><h4 style="color:var(--setta)">${esc(st.nome)}</h4><i class="sub">${esc(st.motto)}</i><span class="sub">Livello ${L.livelloSetta(S, st)} · membri: ${st.membri.map((id) => esc(S.players.find((x) => x.id === id).nome)).join(", ")} · tesoro ${euro(st.tesoro)}</span>
+        <div class="ib"><b>2</b><span><b>Il livello sale con l'Influenza</b>, non con i membri. L'Influenza si guadagna <b>usando il Tesoro</b>: operazioni riuscite, riti, personaggi reclutati, soldi ripuliti con la Lavanderia, Grandi Opere. Livello 2 a ${L.N.settaInfluenza[2]} punti, 3 a ${L.N.settaInfluenza[3]}, 4 a ${L.N.settaInfluenza[4]}. L'Influenza non si perde.</span></div>
+        <div class="ib"><b>3</b><span><b>I membri servono</b> per la decima (più Tesoro), per i riti (più presenti, più Influenza) e per votare le Grandi Opere.</span></div>
+        <div class="ib"><b>4</b><span><b>Grandi Opere</b>: colpi enormi pagati dal Tesoro (da 10 a 30 milioni). Il Gran Maestro propone, gli altri membri votano sì o no fino all'Alba. Passa se i sì sono almeno quanti i no. Da soli si decide da soli, ma costa il 50% in più.</span></div>
+        <span class="sub">Esempio: la tua setta ha 14 punti (livello 2) e 12 milioni nel Tesoro. Proponi l'Amnistia. Sabri vota sì, lo Spavaldo vota no: 1 a 1, decidi tu, passa. All'Alba spariscono le vostre condanne e il 70% delle Tracce, la setta prende +12 Influenza e arriva a 26. Ma per 2 Cicli ogni Traccia nuova pesa di più.</span></details>` + S.sette.map((st) => `<div class="scheda"><h4 style="color:var(--setta)">${esc(st.nome)}</h4><i class="sub">${esc(st.motto)}</i><span class="sub">Livello ${L.livelloSetta(S, st)} · ${Math.floor(L.influenzaDi(S, st))} Influenza · membri: ${st.membri.map((id) => esc(S.players.find((x) => x.id === id).nome)).join(", ")} · tesoro ${euro(st.tesoro)}</span>
         <div class="riga"><input type="number" placeholder="versa" id="versa_${st.id}" style="width:100px"><button class="piccolo" data-versa="${st.id}|0">Puliti</button><button class="piccolo" data-versa="${st.id}|1">Sporchi</button></div>
         ${st.membri.filter((id) => id !== st.gm).length ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${st.membri.filter((id) => id !== st.gm).map((id) => { const m = S.players.find((x) => x.id === id); return `<div class="riga" style="justify-content:space-between"><span class="sub">${esc(m.nome)}${id === mioId ? " (tu)" : ""}</span>${st.gm === mioId ? `<span><button class="piccolo" data-prova="${st.id}|${id}" title="Costa 1 M dal Tesoro: scopri se sta tradendo">Prova di fedeltà</button> <button class="piccolo" data-caccia="${st.id}|${id}">Caccia</button></span>` : id === mioId ? `<button class="piccolo" data-lascia="${st.id}">Esci dalla setta</button>` : ""}</div>`; }).join("")}</div>` : ""}
-        <span class="sub" style="display:block;margin-top:6px">${requisitiSetta(st)}${PNG_SETTA.filter((x) => st[x.k]).length ? " Personaggi: " + PNG_SETTA.filter((x) => st[x.k]).map((x) => x.nome).join(", ") + "." : ""}</span>
+        <span class="sub" style="display:block;margin-top:6px">${PNG_SETTA.filter((x) => st[x.k]).length ? "Personaggi: " + PNG_SETTA.filter((x) => st[x.k]).map((x) => x.nome).join(", ") + "." : "Nessun personaggio reclutato (si reclutano di notte al Faro)."}</span>
+        ${schedaInfluenza(st)}${schedaOpere(st, me)}${schedaLavanderia(st, me)}
         ${(() => { const cv = st.convocazione && st.convocazione.ciclo === S.ciclo ? st.convocazione : null;
           const luoghi = Object.keys(L.LUOGHI).filter((l) => l !== "palazzo");
           return `<div class="scheda conv-setta"><h4>🕯️ Convocazione</h4>${cv ? `<span class="sub"><b>Stanotte alle ${L.ORE[cv.ora]}, ${esc(L.LUOGHI[cv.luogo].nome)}</b>${cv.fatto ? " · il rito è già stato fatto" : ". Chi è lì a quell'ora partecipa al rito: Tracce cancellate e protezione per il resto della notte." + (S.players.find((x) => x.id === st.gm).veicoli.includes("jet") ? " Il jet del Gran Maestro ti porta lì in 1 ora." : "")}</span>` : `<span class="sub">Nessuna convocazione per stanotte.</span>`}
@@ -1927,6 +1928,10 @@ function collegaApp(me) {
   on("[data-invita]", (b) => { const id = b.dataset.invita; const segno = +v("#invTipo_" + id); const soldi = Math.max(0, Number(v("#invSoldi_" + id)) || 0); if (segno && !soldi) return toast("Scrivi quanto."); agisci({ tipo: "invita_setta", setta: id, invitato: v("#inv_" + id), offerta: segno * soldi }); toast("Invito mandato."); });
   on("[data-caccia]", (b) => { const [st, id] = b.dataset.caccia.split("|"); const m = S.players.find((x) => x.id === id); finestra(`<h2>Cacci ${esc(m.nome)}?</h2><p>Perde subito tutti i privilegi della setta. Però sa chi sono i membri: potrebbe parlare.</p><div class="pulsanti"><button id="no">No</button><button class="oro" id="si">Caccialo</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "espelli_setta", setta: st, membro: id }); }; }); });
   on("[data-lascia]", (b) => agisci({ tipo: "lascia_setta", setta: b.dataset.lascia }));
+  on("[data-opera]", (b) => { const [st, k] = b.dataset.opera.split("|"); const o = L.OPERE[k]; finestra(`<h2>${esc(o.nome)}</h2><p>${o.fa}</p><p class="sub" style="color:#ffb3b3"><b>Il rischio:</b> ${o.rischio}</p><div class="pulsanti"><button id="no">Ci penso</button><button class="oro" id="si">Proponi</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "proponi_opera", setta: st, opera: k }); }; }); });
+  on("[data-vota]", (b) => { const [st, si] = b.dataset.vota.split("|"); agisci({ tipo: "vota_opera", setta: st, si: si === "1" }); });
+  on("[data-ritira]", (b) => agisci({ tipo: "ritira_opera", setta: b.dataset.ritira }));
+  on("[data-lava]", (b) => { const id = b.dataset.lava; agisci({ tipo: "lava_setta", setta: id, importo: Number(v("#lava_" + id)) }); });
   on("[data-contr]", (b) => { const [kk, si] = b.dataset.contr.split("|"); agisci({ tipo: "rispondi_contratto", id: kk, si: si === "1" }); });
 }
 
@@ -2273,14 +2278,55 @@ const PNG_SETTA = [
   { k: "giudice", nome: "Il Giudice", costo: 3_500_000, descr: "Spesso alleggerisce le condanne dei membri." },
 ];
 function requisitiSetta(st) {
-  const lv = L.livelloSetta(S, st), soglie = L.N.settaLivelli, membri = st.membri.length, png = st.pngReclutati || 0;
-  const grazia = st.grazia != null && st.grazia >= S.ciclo && st.membri.length < 3 ? ` ⏳ Vi manca un membro: avete tempo fino all'Alba del Ciclo ${st.grazia + 1} per trovarne un altro, poi il livello scende.` : "";
-  if (lv >= 4) return "Livello massimo." + grazia;
-  const serve = [];
-  if (membri < 3) serve.push(`${3 - membri} ${3 - membri === 1 ? "membro" : "membri"} in più`);
-  if (st.tesoro < soglie[lv]) serve.push(`${euro(soglie[lv] - st.tesoro)} in più nel Tesoro`);
-  if (lv >= 2 && png < 1) serve.push("un personaggio reclutato");
-  return `Per il livello ${lv + 1} ti manca: ${serve.join(", ") || "niente, sali all'Alba"}.` + grazia;
+  const lv = L.livelloSetta(S, st), inf = L.influenzaDi(S, st), soglie = L.N.settaInfluenza;
+  if (lv >= 4) return `Livello massimo (${Math.floor(inf)} Influenza).`;
+  return `Influenza ${Math.floor(inf)} su ${soglie[lv + 1]}: per il livello ${lv + 1} ti mancano ${Math.ceil(soglie[lv + 1] - inf)} punti.`;
+}
+const COME_INFLUENZA = [["Operazione riuscita", "+3 e +1 per ogni milione speso (fallita: +1)"], ["Rito", "+1 per ogni presente, fino a 7 (costa 250.000 € a persona dal Tesoro)"], ["Personaggio reclutato", "+6"], ["Lavanderia o Banchiere", "+1 per ogni milione ripulito"], ["Grande Opera", "+1 per ogni milione speso"]];
+function schedaInfluenza(st) {
+  const lv = L.livelloSetta(S, st), inf = L.influenzaDi(S, st), so = L.N.settaInfluenza;
+  const da = so[lv] || 0, a = so[Math.min(4, lv + 1)], pct = lv >= 4 ? 100 : Math.max(0, Math.min(100, Math.round((inf - da) / (a - da) * 100)));
+  const log = (st.infLog || []).slice(-4).reverse();
+  return `<div class="scheda conv-setta"><h4>📈 Influenza · livello ${lv}</h4>
+    <div class="barra-inf"><i style="width:${pct}%"></i></div><span class="sub">${requisitiSetta(st)}</span>
+    <details><summary class="sub"><b>Come si guadagna</b></summary>${COME_INFLUENZA.map(([k, v]) => `<span class="sub" style="display:block">· <b>${k}</b>: ${v}</span>`).join("")}<span class="sub" style="display:block;margin-top:4px">Livello 2: Commissario e Giudice, operazioni, Amnistia e Porto. Livello 3: colpi più forti, Grande Colpo, Giudice supremo, Isola. Livello 4: Sindaco fantoccio e Inchiesta pilotata.</span></details>
+    ${log.length ? `<span class="sub" style="display:block;margin-top:4px">Ultimi punti: ${log.map((x) => `${esc(x.motivo)} <b>+${x.punti}</b>`).join(" · ")}</span>` : ""}</div>`;
+}
+function statoOpera(st, k) {
+  const a = (st.attive || {})[k];
+  if (!a) return (st.opereFatte || []).includes(k) ? "fatta" : "";
+  if (k === "porto") return a.chiuso ? "finita" : `attiva fino al Ciclo ${a.fino + 1}`;
+  if (k === "amnistia") return a.fino >= S.ciclo ? `Procura vigile fino al Ciclo ${a.fino + 1}` : "fatta";
+  if (k === "giudice") return a.caduto ? "il Giudice è caduto" : "attiva per tutta la partita";
+  if (k === "isola") return a.sequestrata ? "sequestrata" : "attiva" + (a.blitz ? " · 1 blitz subito" : "");
+  return "fatta";
+}
+function schedaOpere(st, me) {
+  const O = L.OPERE, lv = L.livelloSetta(S, st), gm = st.gm === mioId, op = st.opera, solo = st.membri.length <= 1;
+  let voto = "";
+  if (op) {
+    const altri = st.membri.filter((id) => id !== st.gm);
+    let si = 0, no = 0; for (const id of altri) { if (op.voti[id] === true) si++; else if (op.voti[id] === false) no++; }
+    voto = `<div class="scheda" style="border-color:var(--oro);margin-top:6px"><h4>🗳️ Si vota: ${esc(O[op.id].nome)}</h4>
+      <span class="sub">Costo ${euro(op.costo)} dal Tesoro. ${op.solo ? "Sei solo: decidi tu, parte all'Alba." : `Si decide all'Alba. Ora: <b>${si} sì</b>, <b>${no} no</b>${si === no ? " (a parità decide il Gran Maestro: passa)" : si > no ? " (passa)" : " (bocciata)"}.`}</span>
+      ${op.solo ? "" : `<span class="sub" style="display:block">${altri.map((id) => { const m = S.players.find((x) => x.id === id); const v = op.voti[id]; return `${esc(m.nome)}: ${v === true ? "✅ sì" : v === false ? "❌ no" : "⏳ non ha votato"}`; }).join(" · ")}</span>`}
+      ${!gm && st.membri.includes(mioId) ? `<div class="riga" style="margin-top:6px"><button class="piccolo oro" data-vota="${st.id}|1">Voto sì</button><button class="piccolo" data-vota="${st.id}|0">Voto no</button></div>` : ""}
+      ${gm ? `<button class="piccolo" data-ritira="${st.id}" style="margin-top:6px">Ritira la proposta</button>` : ""}</div>`;
+  }
+  const righe = Object.entries(O).map(([k, o]) => {
+    const fatta = (st.opereFatte || []).includes(k), c = L.costoOpera(st, k), ok = !fatta && !op && lv >= o.lv && st.tesoro >= c;
+    const perche = fatta ? "" : lv < o.lv ? `serve il livello ${o.lv}` : st.tesoro < c ? `mancano ${euro(c - st.tesoro)} nel Tesoro` : op ? "c'è già un voto in corso" : "";
+    return `<details class="opera${fatta ? " fatta" : ""}"><summary><b>${esc(o.nome)}</b> · ${euro(c)} · liv. ${o.lv}${statoOpera(st, k) ? ` · <i>${statoOpera(st, k)}</i>` : ""}</summary>
+      <span class="sub" style="display:block"><b>Cosa fa:</b> ${o.fa}</span><span class="sub" style="display:block;color:#ffb3b3"><b>Il rischio:</b> ${o.rischio}</span>
+      ${gm && !fatta ? (ok ? `<button class="piccolo oro" data-opera="${st.id}|${k}" style="margin-top:6px">${solo ? "Decido io: si fa all'Alba" : "Proponi ai membri"}</button>` : `<span class="sub">Non ancora: ${perche}.</span>`) : ""}</details>`;
+  }).join("");
+  return `<div class="scheda conv-setta"><h4>🏛️ Grandi Opere</h4><span class="sub">${gm ? (solo ? "Sei l'unico membro: decidi da solo, ma ogni opera costa il 50% in più." : "Tu proponi, gli altri membri votano fino all'Alba. Passa se i sì sono almeno quanti i no.") : "Il Gran Maestro propone, tu voti sì o no fino all'Alba."} Ogni opera si fa una volta sola.</span>${voto}${righe}</div>`;
+}
+function schedaLavanderia(st, me) {
+  if (!st.membri.includes(mioId)) return "";
+  const lv = L.livelloSetta(S, st), max = 1_000_000 * lv, gia = me.lavatoCiclo === S.ciclo ? me.lavato || 0 : 0;
+  return `<div class="scheda conv-setta"><h4>🧺 Lavanderia della setta</h4><span class="sub">Dai i tuoi sporchi alla setta: ti rende il <b>70% puliti</b> dal Tesoro, il 30% resta nel Tesoro. +2 Tracce per milione. Al massimo ${euro(max)} per Ciclo (1 milione per livello)${gia ? `, oggi già ${euro(gia)}` : ""}. Ogni milione dà +1 Influenza.</span>
+    <div class="riga"><input type="number" id="lava_${st.id}" step="100000" min="100000" placeholder="quanto" style="width:110px"><button class="piccolo" data-lava="${st.id}">Ripulisci</button></div></div>`;
 }
 function finestraSetta(me) {
   const st = S.sette.find((x) => x.gm === mioId), lv = L.livelloSetta(S, st);
@@ -2291,13 +2337,13 @@ function finestraSetta(me) {
     <div class="campo"><select id="op">${OPS_SETTA.map(opz).join("")}</select></div>
     <p class="sub" id="opDescr"></p>
     <div class="riga" id="obRiga"><select id="ob"></select><select id="od"><option value="su">su</option><option value="giu">giù</option></select></div>
-    <p class="sub">Riesce 3 volte su 4. Ogni membro prende +5 Tracce.</p>
+    <p class="sub">Riesce 3 volte su 4. Ogni membro prende +5 Tracce. Se riesce: +3 Influenza e +1 per ogni milione speso.</p>
     <h4 style="margin:12px 0 4px">⚰️ Il Tesoro sepolto</h4>
     <p class="sub">Sotto la scogliera: ${euro(st.sepolto || 0)}. Qui la Finanza e i traditori non arrivano, ma non conta per il livello. Se qualcuno ti sta seguendo stanotte, vede dove scavi.</p>
     <div class="riga"><input id="sepImp" type="number" step="500000" placeholder="quanto" style="width:110px"><button class="piccolo" id="sep">Seppellisci</button><button class="piccolo" id="dis">Dissotterra</button></div>
     <h4 style="margin:12px 0 4px">Personaggi</h4>
-    ${PNG_SETTA.map((x) => `<div class="riga" style="justify-content:space-between;align-items:center;gap:8px"><span class="sub" style="flex:1"><b>${x.nome}</b> · ${euro(x.costo)}<br>${x.descr}</span>${st[x.k] ? `<span class="sub" style="color:var(--pulito)">✔ è vostro</span>` : `<button class="piccolo" data-rec="${x.k}" ${lv < 2 || st.tesoro < x.costo ? "disabled" : ""}>Recluta</button>`}</div>`).join("")}
-    ${lv < 2 ? `<p class="sub">I personaggi si reclutano dal livello 2.</p>` : ""}
+    ${PNG_SETTA.map((x) => `<div class="riga" style="justify-content:space-between;align-items:center;gap:8px"><span class="sub" style="flex:1"><b>${x.nome}</b> · ${euro(x.costo)}<br>${x.descr}</span>${st[x.k] ? `<span class="sub" style="color:var(--pulito)">✔ è vostro</span>` : `<button class="piccolo" data-rec="${x.k}" ${(lv < 2 && x.k !== "banchiere") || st.tesoro < x.costo ? "disabled" : ""}>Recluta</button>`}</div>`).join("")}
+    <p class="sub">Ogni personaggio: +6 Influenza. ${lv < 2 ? "Il Banchiere si recluta subito; Commissario e Giudice dal livello 2." : ""}</p>
     <div class="pulsanti"><button id="x">Chiudi</button><button class="notte" id="ok">Si fa</button></div>`, (d, c) => {
     const sel = d.querySelector("#op"), ob = d.querySelector("#ob"), od = d.querySelector("#od");
     const primo = OPS_SETTA.find((o) => lv >= o.lv && st.tesoro >= o.costo); if (primo) sel.value = primo.k;

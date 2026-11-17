@@ -9,7 +9,7 @@ const CHIAVE = "laguna_locale";
 let stato = null;
 
 const ALTRI_SEGRETI = ["affariOk", "pulitoCiclo", "mosseNotte", "mossePagate", "disturbatore", "copUsata",
-  "paradisoCiclo", "ombraCicli", "prestiti", "telefonataUsata", "scontoCarico", "mercatoNero", "emergenza"];
+  "paradisoCiclo", "ombraCicli", "prestiti", "telefonataUsata", "scontoCarico", "mercatoNero", "emergenza", "lavato", "lavatoCiclo"];
 function vistaSicura(s, id) {
   const v = L.vista(s, id);
   for (const p of v.players) {

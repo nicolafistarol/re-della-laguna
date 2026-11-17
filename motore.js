@@ -43,7 +43,7 @@
     pentito: 0.04, oggettoFalla: 0.15,
     prestitoQuota: 0.30, prestitoInt: 0.10, emergenzaInt: 0.25, ipotecaQuota: 0.5,
     candidatura: 750_000, stipendioSindaco: 750_000,
-    settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], decima: 0.15,
+    settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], settaInfluenza: [0, 0, 12, 35, 70], decima: 0.15,
     fasce: [[6e6, "Benestante"], [12e6, "Ricco"], [20e6, "Milionario"], [30e6, "Magnate"], [Infinity, "Sovrano"]],
     mosse: {
       nascosto: { nome: "Posto nascosto", tracce: 0.60, colto: 0.70, carico: 0.9, costo: 0 },
@@ -1899,6 +1899,7 @@
     if (s.leggi.includes("polizia_doppia_" + isola)) pg *= 1.4;
     if (poliziaOccupata(s, p)) pg *= N.occupata;
     pg *= 1 + N.pistaLuogoNotte * ((p.calore || {})[o.luogo] || 0);
+    if (o.luogo === "porto" && operaAttiva(s, p, "porto")) pg = 0; // Grande Opera: il Porto e' della setta
     const guaio = O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
     let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale : 0;
     if (guaio) {
@@ -1929,6 +1930,7 @@
     }
     if (o.riservata === p.id && usati.includes("telefono")) tracce *= 0.5;
     if (inSetta(p)) tracce *= 0.7; // la setta copre i suoi
+    if (operaAttiva(s, p, "amnistia")) tracce *= 1.3; // dopo l'Amnistia la Procura vi guarda
     if (p.pacchetto === "contrabbandiere") tracce *= 0.7;
     if (s.leggi.includes("polizia_doppia_" + isola)) tracce *= 1.5;
     p.tracce += tracce; segnaTraccia(s, p, tracce, O.nome + " (" + nomeLuogo(o.luogo) + ")");
@@ -2145,15 +2147,162 @@
   }
 
   // ------------------------------------------------------------ sette
+  // Il livello della setta dipende da cosa FA, non da quanti sono: punti Influenza guadagnati usando il Tesoro
+  // (operazioni riuscite, riti, personaggi reclutati, soldi ripuliti con la setta, Grandi Opere).
+  function livelloVecchio(s, st) { // il vecchio sistema (membri + Tesoro), serve solo per passare le partite gia' iniziate
+    let lv = 1;
+    const membri = st.grazia != null && st.grazia >= s.ciclo ? Math.max(3, st.membri.length) : st.membri.length;
+    if (st.tesoro >= 3_000_000 && membri >= 3) lv = 2;
+    if (st.tesoro >= 8_000_000 && membri >= 3 && (st.pngReclutati || 0) >= 1) lv = 3;
+    if (st.tesoro >= 20_000_000 && membri >= 3 && (st.pngReclutati || 0) >= 1) lv = 4;
+    if (st.livelloNotificato > lv) lv = Math.min(4, st.livelloNotificato);
+    return lv;
+  }
+  function influenzaDi(s, st) {
+    if (!st) return 0;
+    if (st.influenza != null) return st.influenza;
+    // partita gia' iniziata: l'Influenza parte da Tesoro, operazioni e personaggi, e non e' mai sotto il livello che avevi
+    const base = Math.round((st.tesoro || 0) / 1_000_000 + 5 * (st.operazioni || 0) + 6 * (st.pngReclutati || 0));
+    return Math.max(base, N.settaInfluenza[livelloVecchio(s, st)]);
+  }
   function livelloSetta(s, st) {
     if (!st) return 0;
-    let lv = 1;
-    // se esce un membro la setta non crolla subito: ha tempo fino all'Alba dopo per trovarne un altro
-    const membri = st.grazia != null && st.grazia >= s.ciclo ? Math.max(3, st.membri.length) : st.membri.length;
-    if (st.tesoro >= N.settaLivelli[1] && membri >= 3) lv = 2;
-    if (st.tesoro >= N.settaLivelli[2] && membri >= 3 && (st.pngReclutati || 0) >= 1) lv = 3;
-    if (st.tesoro >= N.settaLivelli[3] && membri >= 3 && (st.pngReclutati || 0) >= 1) lv = 4;
+    const inf = influenzaDi(s, st); let lv = 1;
+    for (let i = 2; i <= 4; i++) if (inf >= N.settaInfluenza[i]) lv = i;
     return lv;
+  }
+  function guadagnaInfluenza(s, st, punti, motivo) {
+    if (!st || !(punti > 0)) return;
+    const prima = livelloSetta(s, st);
+    st.influenza = Math.round((influenzaDi(s, st) + punti) * 10) / 10;
+    st.infLog = st.infLog || []; st.infLog.push({ ciclo: s.ciclo, punti: Math.round(punti * 10) / 10, motivo }); if (st.infLog.length > 10) st.infLog.splice(0, st.infLog.length - 10);
+    const dopo = livelloSetta(s, st);
+    if (dopo > prima) { st.livelloNotificato = dopo; for (const id of st.membri) privato(s, giocatore(s, id), "La setta \"" + st.nome + "\" sale al livello " + dopo + " (" + Math.round(st.influenza) + " punti Influenza)."); }
+  }
+  // ---- le Grandi Opere: costano tanto dal Tesoro e si fanno solo se i membri votano a favore
+  const OPERE = {
+    amnistia: { nome: "L'Amnistia", costo: 12_000_000, lv: 2,
+      fa: "Tutti i membri: condanne cancellate (si riparte senza precedenti), indagini chiuse, chi è al Faro esce, il 70% delle Tracce sparisce.",
+      rischio: "Tutta la Laguna ne parla: ogni membro perde 8 di fama, e per 2 Cicli la Procura vi guarda: ogni Traccia nuova pesa il 30% in più." },
+    porto: { nome: "Il Porto è nostro", costo: 10_000_000, lv: 2,
+      fa: "Per 3 Cicli, di notte al Porto Container i membri fanno affari senza nessun pericolo (niente pattuglie, niente guardie).",
+      rischio: "Alla fine, 1 volta su 4 il doganiere comprato parla: ogni membro prende +15 Tracce e la polizia lo tiene d'occhio." },
+    colpo: { nome: "Il Grande Colpo", costo: 15_000_000, lv: 3,
+      fa: "All'Alba la setta assalta il caveau della Banca della Laguna. Se riesce: 60 milioni sporchi divisi in parti uguali tra i membri.",
+      rischio: "Riesce 1 volta su 2 (di più con il Commissario e con più membri). Se fallisce: il Tesoro speso è perso, ogni membro +35 Tracce e finisce Indagato. Anche se riesce: +12 Tracce a testa." },
+    giudice: { nome: "Il Giudice supremo", costo: 20_000_000, lv: 3,
+      fa: "Per tutta la partita: ogni condanna dei membri scende di un gradino in più e metà degli sporchi si salva dalla confisca.",
+      rischio: "A ogni Alba, 1 volta su 15 un giornalista lo scopre: il Giudice cade, ogni membro prende +15 Tracce e perde 10 di fama." },
+    isola: { nome: "L'Isola della setta", costo: 30_000_000, lv: 3,
+      fa: "Un'isola privata con i suoi traffici: a ogni Alba ogni membro riceve 800.000 € sporchi e il Tesoro 1,5 milioni.",
+      rischio: "A ogni Alba, 1 volta su 8, blitz della Finanza: niente soldi quell'Alba e +10 Tracce a ogni membro. Al secondo blitz l'isola è sequestrata." },
+  };
+  function costoOpera(st, id) { return round(OPERE[id].costo * (st.membri.length <= 1 ? 1.5 : 1)); }
+  function operaAttiva(s, p, id) {
+    for (const sid of p.sette || []) { const st = s.sette.find((x) => x.id === sid); if (st && st.attive && st.attive[id] && (st.attive[id].fino == null || st.attive[id].fino >= s.ciclo)) return st; }
+    return null;
+  }
+  function proponiOpera(s, p, idSetta, id) {
+    const st = settaMia(s, p, idSetta), O = OPERE[id]; if (!O) err("Grande Opera sconosciuta.");
+    if (st.opera) err("C'è già una Grande Opera da votare: \"" + OPERE[st.opera.id].nome + "\".");
+    if ((st.opereFatte || []).includes(id)) err("La setta ha già fatto " + O.nome + ".");
+    if (livelloSetta(s, st) < O.lv) err(O.nome + " richiede una setta di livello " + O.lv + ".");
+    const costo = costoOpera(st, id); if (st.tesoro < costo) err("Il Tesoro non basta: servono " + euro(costo) + ".");
+    st.opera = { id, ciclo: s.ciclo, voti: {}, costo, solo: st.membri.length <= 1 };
+    if (st.opera.solo) privato(s, p, "Sei l'unico membro: decidi da solo. " + O.nome + " parte all'Alba e costa " + euro(costo) + " (il 50% in più).");
+    else for (const id2 of st.membri) privato(s, giocatore(s, id2), id2 === p.id ? "Hai proposto " + O.nome + " (" + euro(costo) + " dal Tesoro). I membri votano fino all'Alba." : "Il Gran Maestro propone una Grande Opera: " + O.nome + " (" + euro(costo) + " dal Tesoro). Vota sì o no dall'app Setta entro l'Alba.");
+  }
+  function ritiraOpera(s, p, idSetta) { const st = settaMia(s, p, idSetta); if (!st.opera) err("Nessuna proposta."); st.opera = null; for (const id of st.membri) privato(s, giocatore(s, id), "Il Gran Maestro ha ritirato la proposta della Grande Opera."); }
+  function votaOpera(s, p, idSetta, si, motivo) {
+    const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id)) err("Non sei in questa setta.");
+    if (!st.opera) err("Non c'è niente da votare.");
+    if (st.gm === p.id) err("Il Gran Maestro propone: votano gli altri membri (a parità decide lui).");
+    st.opera.voti[p.id] = !!si;
+    if (motivo) msgSetta(s, p, idSetta, (si ? "Voto SÌ: " : "Voto NO: ") + String(motivo).slice(0, 120));
+  }
+  function contaVoti(st) {
+    let si = 0, no = 0;
+    for (const id of st.membri) { if (id === st.gm) continue; const v = st.opera.voti[id]; if (v === true) si++; else if (v === false) no++; }
+    return { si, no, passa: st.opera.solo || si >= no };
+  }
+  function albaOpere(s, r) {
+    for (const st of s.sette) {
+      // le opere gia' attive
+      const at = st.attive || {};
+      const membri = st.membri.map((id) => giocatore(s, id));
+      if (at.porto && at.porto.fino <= s.ciclo && !at.porto.chiuso) {
+        at.porto.chiuso = true;
+        if (rng(s) < 0.25) { for (const m of membri) { m.tracce += 15; m.stato = Math.max(m.stato, 1); privato(s, m, "Il Porto non è più vostro, e il doganiere ha parlato: +15 Tracce, la polizia ti tiene d'occhio."); } notizia(s, "Il doganiere del Porto Container parla con la Procura: \"Per settimane certe navi non le ho controllate.\"", "scandalo"); }
+        else for (const m of membri) privato(s, m, "Il Porto è nostro: i 3 Cicli sono finiti. Il doganiere tiene la bocca chiusa.");
+      }
+      if (at.giudice && !at.giudice.caduto && rng(s) < 1 / 15) {
+        at.giudice.caduto = true; at.giudice.fino = s.ciclo - 1;
+        for (const m of membri) { m.tracce += 15; m.fama = Math.max(0, m.fama - 10); privato(s, m, "Un giornalista ha scoperto il Giudice supremo della setta. Il Giudice cade: +15 Tracce e −10 fama."); }
+        notizia(s, "Scandalo in tribunale: un giudice prendeva ordini da una setta segreta.", "scandalo");
+      }
+      if (at.isola && !at.isola.sequestrata) {
+        if (rng(s) < 1 / 8) {
+          at.isola.blitz = (at.isola.blitz || 0) + 1;
+          for (const m of membri) { m.tracce += 10; privato(s, m, at.isola.blitz >= 2 ? "Secondo blitz della Finanza: l'Isola della setta è sequestrata. +10 Tracce." : "Blitz della Finanza sull'Isola della setta: stanotte niente traffici, +10 Tracce. Al prossimo blitz la perdete."); }
+          if (at.isola.blitz >= 2) { at.isola.sequestrata = true; at.isola.fino = s.ciclo - 1; }
+          notizia(s, "Blitz della Finanza su un'isola privata della Laguna. Nessuno sa di chi sia.", "scandalo");
+        } else {
+          st.tesoro += 1_500_000;
+          for (const m of membri) { m.sporchi += 800_000; m.pulitoCiclo = false; if (r[m.id]) r[m.id].isolaSetta = 800_000; }
+        }
+      }
+      // la proposta da votare
+      const op = st.opera; if (!op) continue;
+      st.opera = null;
+      const O = OPERE[op.id], gm = giocatore(s, st.gm), v = contaVoti({ ...st, opera: op });
+      const dire = (t) => { for (const m of membri) privato(s, m, t); };
+      if (!v.passa) { st.opBocciate = (st.opBocciate || 0) + 1; dire("Grande Opera \"" + O.nome + "\": bocciata (" + v.si + " sì, " + v.no + " no). Il Tesoro resta com'è."); continue; }
+      if (st.tesoro < op.costo) { dire("Grande Opera \"" + O.nome + "\": approvata, ma nel Tesoro non ci sono più " + euro(op.costo) + ". Non si fa."); continue; }
+      st.tesoro -= op.costo; st.opereFatte = st.opereFatte || []; st.opereFatte.push(op.id); st.opPassate = (st.opPassate || 0) + 1;
+      st.attive = st.attive || {};
+      const voti = op.solo ? "decisa dal Gran Maestro" : v.si + " sì, " + v.no + " no" + (v.si === v.no ? ", decide il Gran Maestro" : "");
+      guadagnaInfluenza(s, st, op.costo / 1_000_000, O.nome);
+      if (op.id === "amnistia") {
+        st.attive.amnistia = { dal: s.ciclo, fino: s.ciclo + 2 };
+        for (const m of membri) { m.condanne = 0; m.stato = 0; m.peggiorReato = null; m.tracce = round(m.tracce * 0.3); m.faro = 0; m.fama = Math.max(0, m.fama - 8); privato(s, m, "L'Amnistia (" + voti + "): fedina pulita, indagini chiuse, il 70% delle Tracce sparisce. Ma per 2 Cicli la Procura vi guarda: ogni Traccia nuova pesa il 30% in più."); }
+        notizia(s, "Amnistia a sorpresa: cancellate le condanne di alcuni nomi illustri. La Laguna mormora.", "politica");
+      } else if (op.id === "porto") {
+        st.attive.porto = { dal: s.ciclo + 1, fino: s.ciclo + 3 };
+        dire("Il Porto è nostro (" + voti + "): per i prossimi 3 Cicli, di notte al Porto Container, i membri lavorano senza pericoli.");
+        notizia(s, "Al Porto Container cambiano i turni dei doganieri. Nessuno sa chi l'abbia deciso.", "voce");
+      } else if (op.id === "colpo") {
+        const commiss = st.commissario ? 0.1 : 0, piu = Math.min(0.1, 0.05 * Math.max(0, st.membri.length - 2));
+        const ok = rng(s) < 0.5 + commiss + piu;
+        if (ok) {
+          const parte = round(60_000_000 / membri.length);
+          for (const m of membri) { m.sporchi += parte; m.tracce += 12; m.pulitoCiclo = false; m.peggiorReato = peggio(m.peggiorReato, "grave"); privato(s, m, "IL GRANDE COLPO (" + voti + ") è riuscito! Il caveau della Banca della Laguna è vuoto. La tua parte: " + euro(parte) + " sporchi. +12 Tracce."); }
+          notizia(s, "SVALIGIATO IL CAVEAU DELLA BANCA DELLA LAGUNA. Spariti 60 milioni. La polizia brancola nel buio.", "scandalo");
+        } else {
+          for (const m of membri) { m.tracce += 35; m.stato = Math.max(m.stato, 3); m.peggiorReato = peggio(m.peggiorReato, "grave"); privato(s, m, "Il Grande Colpo (" + voti + ") è fallito: allarmi, sirene, fuga a mani vuote. Il Tesoro speso è perso. +35 Tracce e sei Indagato."); }
+          notizia(s, "Assalto fallito al caveau della Banca della Laguna. La polizia ha dei nomi.", "scandalo");
+        }
+      } else if (op.id === "giudice") {
+        st.attive.giudice = { dal: s.ciclo, fino: null };
+        dire("Il Giudice supremo (" + voti + ") ora è della setta: condanne più leggere di un gradino in più, e metà degli sporchi si salva dalla confisca.");
+      } else if (op.id === "isola") {
+        st.attive.isola = { dal: s.ciclo, fino: null, blitz: 0 };
+        dire("L'Isola della setta (" + voti + ") è vostra. Da domani, a ogni Alba: 800.000 € sporchi a ogni membro e 1,5 milioni al Tesoro.");
+        notizia(s, "Un'isola privata della Laguna è stata venduta a una società senza nome.", "voce");
+      }
+    }
+  }
+  // la Lavanderia della setta: un membro passa i suoi sporchi alla setta, la setta gli rende il 70% puliti dal Tesoro
+  function lavaSetta(s, p, idSetta, importo) {
+    const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id)) err("Non sei in questa setta.");
+    const max = 1_000_000 * livelloSetta(s, st), gia = p.lavatoCiclo === s.ciclo ? p.lavato || 0 : 0;
+    importo = round(Number(importo) || 0); if (importo < 100_000) err("Almeno 100.000 €.");
+    if (gia + importo > max) err("Con una setta di livello " + livelloSetta(s, st) + " ripulisci al massimo " + euro(max) + " per Ciclo (ti restano " + euro(Math.max(0, max - gia)) + ").");
+    if (p.sporchi < importo) err("Non hai " + euro(importo) + " sporchi.");
+    const resa = round(importo * 0.7); if (st.tesoro < resa) err("Il Tesoro non ha " + euro(resa) + " puliti da darti in cambio.");
+    p.sporchi -= importo; st.tesoro += importo - resa; p.cash += resa; p.lavato = gia + importo; p.lavatoCiclo = s.ciclo;
+    p.tracce += 2 * importo / 1_000_000; p.riciclTot = (p.riciclTot || 0) + importo; p.pulitoCiclo = false;
+    guadagnaInfluenza(s, st, importo / 1_000_000, "Lavanderia (" + p.nome + ")");
+    privato(s, p, "La setta ha ripulito " + euro(importo) + ": a te " + euro(resa) + " puliti, " + euro(importo - resa) + " restano nel Tesoro.");
   }
   function fondaSetta(s, p, nome, motto) {
     inNotte(s, p);
@@ -2261,7 +2410,10 @@
     if (N2.ora < c.ora) err("È presto: hai convocato la setta alle " + ORE[c.ora] + ".");
     const presenti = [p, ...quiConMe(s, p).filter((x) => st.membri.includes(x.id))];
     if (presenti.length < 2) err("Non è ancora arrivato nessun confratello.");
-    c.fatto = true;
+    const costoRito = 250_000 * presenti.length;
+    if (st.tesoro < costoRito) err("Il rito costa " + euro(costoRito) + " dal Tesoro (250.000 € a persona): nel Tesoro non bastano.");
+    st.tesoro -= costoRito; c.fatto = true;
+    guadagnaInfluenza(s, st, Math.min(7, 1 + presenti.length), "Rito (" + presenti.length + " presenti)");
     N2.rito = N2.rito || {};
     for (const m of presenti) {
       m.tracce = Math.max(0, m.tracce - 8); m.fama += 2; N2.rito[m.id] = true;
@@ -2344,13 +2496,15 @@
   function recluta(s, p, idSetta, chi) {
     inNotte(s, p);
     const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro recluta.");
-    if (livelloSetta(s, st) < 2) err("Per reclutare personaggi serve una setta di livello 2.");
     const prezzi = { commissario: 3_000_000, giudice: 3_500_000, banchiere: 2_500_000 };
     if (!prezzi[chi]) err("Personaggio sconosciuto.");
+    if (st[chi]) err("È già della setta.");
+    if (chi !== "banchiere" && livelloSetta(s, st) < 2) err("Il Commissario e il Giudice si reclutano dal livello 2. Il Banchiere già dal livello 1.");
     if (st.tesoro < prezzi[chi]) err("Il Tesoro non basta (" + euro(prezzi[chi]) + ").");
     st.tesoro -= prezzi[chi]; st.pngReclutati = (st.pngReclutati || 0) + 1; st[chi] = true;
     for (const id of st.membri) giocatore(s, id).tracce += 3;
-    privato(s, p, "Il " + chi + " ora appartiene alla setta.");
+    privato(s, p, "Il " + chi + " ora appartiene alla setta. +6 Influenza.");
+    guadagnaInfluenza(s, st, 6, "Reclutato il " + chi);
   }
   function operazione(s, p, idSetta, tipo, bersaglio, direzione) {
     inNotte(s, p);
@@ -2370,7 +2524,7 @@
     st.tesoro -= O.costo; st.operazioni += 1;
     const riuscita = rng(s) < 0.75;
     for (const id of st.membri) { const m = giocatore(s, id); m.tracce += 5; m.pulitoCiclo = false; }
-    if (!riuscita) { privato(s, p, O.nome + ": l'operazione è fallita."); notizia(s, "Fallito un misterioso piano nella Laguna.", "voce"); return; }
+    if (!riuscita) { privato(s, p, O.nome + ": l'operazione è fallita. +1 Influenza (almeno ci avete provato)."); guadagnaInfluenza(s, st, 1, O.nome + " (fallita)"); notizia(s, "Fallito un misterioso piano nella Laguna.", "voce"); return; }
     if (tipo === "manipola") {
       if (!AZIENDE.includes(bersaglio)) err("Scegli un titolo.");
       const f = lv >= 3 ? 0.4 : 0.15;
@@ -2392,7 +2546,9 @@
     } else if (tipo === "fantoccio") {
       s.sindaco = p.id; s.sindacoFino = s.ciclo + 2; notizia(s, "Colpo di scena al Municipio: il Sindaco si dimette. Il nuovo Sindaco sembra sapere già cosa fare.", "politica");
     }
-    privato(s, p, O.nome + ": riuscita.");
+    const pt = 3 + O.costo / 1_000_000;
+    privato(s, p, O.nome + ": riuscita. +" + pt + " Influenza.");
+    guadagnaInfluenza(s, st, pt, O.nome);
   }
 
   // ------------------------------------------------------------ articoli e contratti
@@ -2556,6 +2712,7 @@
       if (rng(s) >= rischioResa(s, p)) { privato(s, p, "Resa dei conti: la Procura non trova niente su di te."); continue; }
       let gravita = p.peggiorReato || "lieve";
       if (inSetta(p) && gravita !== "lieve") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1];
+      if (operaAttiva(s, p, "giudice") && gravita !== "lieve") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1];
       if (haOggetto(p, "avvocato") && gravita !== "lieve") { togliOggetto(p, "avvocato"); gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; }
       const multa = round(Math.min(0.6, PENE[gravita].multa * N.resaMulta) * Math.max(0, patrimonio(s, p, false)) * (haAttivita(s, p, "legale") ? 0.7 : 1));
       const protetti = Math.min(p.sporchi, (haPiano(p, "caveau") && gravita !== "gravissima" ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0));
@@ -2652,6 +2809,8 @@
     gravita = gravita || "lieve";
     if (p.condanne > 0 && gravita !== "gravissima") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) + 1];
     if (inSetta(p) && gravita !== "lieve") { gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; privato(s, p, "Gli avvocati della setta lavorano nell'ombra: la condanna scende di un gradino."); }
+    const supremo = operaAttiva(s, p, "giudice");
+    if (supremo && gravita !== "lieve") { gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; privato(s, p, "Il Giudice supremo della setta firma la sentenza: scende di un altro gradino."); }
     if (haOggetto(p, "avvocato")) { togliOggetto(p, "avvocato"); if (gravita !== "lieve") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; privato(s, p, "Il tuo avvocato fa il suo lavoro: la pena scende di un gradino."); }
     const pena = PENE[gravita];
     let protGiudice = false;
@@ -2662,7 +2821,7 @@
       p.stato = 0; p.tracce *= 0.5; p.peggiorReato = null; return;
     }
     const confiscati = p.sporchi; p.sporchi = 0;
-    const protetto = Math.min(confiscati, (haPiano(p, "caveau") && gravita !== "gravissima" ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0));
+    const protetto = Math.min(confiscati, (haPiano(p, "caveau") && gravita !== "gravissima" ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0) + (supremo ? round(confiscati * 0.5) : 0));
     p.sporchi = protetto;
     const multa = round(pena.multa * Math.max(0, p.cash + valoreInvestimenti(s, p)) * (haAttivita(s, p, "legale") ? 0.7 : 1));
     paga(s, p, multa, null);
@@ -2732,6 +2891,7 @@
       p.cash += rend - evasa - tassa - decima;
       if ((p.sette || []).some((id) => { const st = s.sette.find((x) => x.id === id); return st && st.banchiere; }) && p.sporchi > 0) {
         const q = Math.min(500_000, round(p.sporchi * 0.1)); p.sporchi -= q; p.cash += q; r.banchiereSetta = q; // il Banchiere della setta ripulisce un po' ogni Alba
+        const stB = s.sette.find((x) => p.sette.includes(x.id) && x.banchiere); guadagnaInfluenza(s, stB, q / 1_000_000, "Il Banchiere ripulisce");
       }
       for (const st of s.sette) if (st.gm === p.id && st.tesoro > 0) { const quota = round(st.tesoro * 0.05); st.tesoro -= quota; p.sporchi += quota; r.tesoroSetta = quota; }
       r.rendite = round(rend); r.tasse = round(tassa); r.evasa = round(evasa); r.decima = round(decima);
@@ -2795,6 +2955,7 @@
       // chi sta nell'ombra troppo a lungo perde i bonus
       for (const id of st.membri) { const m = giocatore(s, id); if (m.ombraCicli >= 3 && id !== st.gm) privato(s, giocatore(s, st.gm), m.nome + " sta nell'ombra da 3 Cicli e non lavora per la setta: puoi cacciarlo dall'app Setta."); }
     }
+    albaOpere(s, riepilogo);
     // elezioni ogni 2 cicli
     if (s.ciclo % 2 === 1) elezioni(s);
     albaGrandi(s, riepilogo, lussoAltri);
@@ -2988,8 +3149,8 @@
       indizio: "Si dice che i più sporchi si riuniscano al Faro.", spiega: "Con 8 milioni sporchi fondi una setta: meno Tracce, condanne più leggere, affari solo per i membri.",
       quando: (s, p) => p.sporchi >= N.settaSporchi && !p.settaFondata, consiglio: "Hai abbastanza soldi sporchi per fondare una setta. Stanotte, dall'app Setta. Meno Tracce, condanne più leggere, affari segreti." },
     { id: "invita_setta", gruppo: "potere", lv: 1, nome: "Portare qualcuno nella setta", fatto: (a) => a.tipo === "invita_setta",
-      indizio: "Una setta da soli non sale di livello.", spiega: "Con 3 membri la setta sale di livello. L'invito è senza firma; puoi offrire soldi o chiedere una quota.",
-      quando: (s, p) => s.sette.some((st) => st.gm === p.id && st.membri.length < 3), consiglio: "La tua setta sale al livello 2 solo con 3 membri. Invita qualcuno dall'app Setta: puoi anche offrirgli soldi." },
+      indizio: "Una setta con più membri ha più decima e più voti.", spiega: "Più membri = più decima nel Tesoro, riti più forti e più voti sulle Grandi Opere. Il livello sale con l'Influenza. L'invito è senza firma; puoi offrire soldi o chiedere una quota.",
+      quando: (s, p) => s.sette.some((st) => st.gm === p.id && st.membri.length < 3), consiglio: "Da solo la setta guadagna poco: ogni membro versa il 15% delle sue rendite nel Tesoro. Invita qualcuno dall'app Setta: puoi anche offrirgli soldi." },
   ];
   function primaVolta(s, p, a) {
     p.scoperte = p.scoperte || {};
@@ -3032,7 +3193,7 @@
   function applica0(s, idGiocatore, a) {
     if (s.fine && a.tipo !== "nulla") err("La partita è finita.");
     const p = giocatore(s, idGiocatore);
-    const giorniAzioniTelefono = ["investi", "vendi", "restituisci", "ipoteca", "riscatta", "articolo", "contratto", "rispondi_contratto", "regala", "versa_setta", "rispondi_invito", "invita_setta", "espelli_setta", "lascia_setta", "campagna", "legge", "tasse", "evasione", "denuncia"];
+    const giorniAzioniTelefono = ["investi", "vendi", "restituisci", "ipoteca", "riscatta", "articolo", "contratto", "rispondi_contratto", "regala", "versa_setta", "lava_setta", "proponi_opera", "vota_opera", "rispondi_invito", "invita_setta", "espelli_setta", "lascia_setta", "campagna", "legge", "tasse", "evasione", "denuncia"];
     if (p.faro > 0 && s.fase === "giorno" && corrente(s).id === p.id && giorniAzioniTelefono.includes(a.tipo)) {
       if (p.telefonataUsata === s.ciclo * 10 + s.giorno) err("Al Faro hai una sola telefonata per turno.");
       p.telefonataUsata = s.ciclo * 10 + s.giorno;
@@ -3104,6 +3265,10 @@
       case "seppellisci": return seppellisci(s, p, a.setta, a.importo, !!a.indietro);
       case "scava": return scava(s, p, a.setta);
       case "tradisci": return tradisci(s, p, a.setta);
+      case "proponi_opera": return proponiOpera(s, p, a.setta, a.opera);
+      case "ritira_opera": return ritiraOpera(s, p, a.setta);
+      case "vota_opera": return votaOpera(s, p, a.setta, !!a.si, a.motivo);
+      case "lava_setta": return lavaSetta(s, p, a.setta, a.importo);
       case "prova_fedelta": return provaFedelta(s, p, a.setta, a.membro);
       case "convoca": return convoca(s, p, a.setta, a.luogo, a.ora);
       case "rito": return rito(s, p, a.setta);
@@ -3192,7 +3357,7 @@
     SCOPERTE: SCOPERTE.map(({ id, gruppo, lv, nome, indizio, spiega }) => ({ id, gruppo, lv, nome, indizio, spiega })),
     rischioResa, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
-    haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
+    haSerie, propri, corrente, casella, livelloSetta, influenzaDi, OPERE, costoOpera, euro, giocatore,
     ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, rischioContatto, nomeContatto, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, costoPiani, haAttivita, GRANDI, ORDINE_GRANDI, tassoPrestiti, partitaLunga, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
