@@ -277,6 +277,8 @@
       s.cicli = modo === "cicli" ? (N.durataCicli.includes(c) ? c : N.cicli) : null;
       s.obiettivo = modo === "obiettivo" ? (N.obiettivi.includes(o) ? o : N.obiettivi[1]) : null;
       s.chiusura = false; }
+    // partita guidata: Vera da' consigli e spiega le cose nuove; senza consigli per chi conosce gia' il gioco
+    s.consigli = opz.consigli !== undefined ? !!opz.consigli : true;
     OUTER.forEach((c, i) => s.lotti.push(cella(s, c, "o", i)));
     for (const i of ISOLE) s.valore[i] = 5;
     for (const a of AZIENDE) s.borsa[a] = 100;
@@ -2544,9 +2546,9 @@
       if (p.scoperte[sc.id] !== undefined || !sc.fatto(a)) continue;
       p.scoperte[sc.id] = s.ciclo + 1;
       p.fama += 1;
-      privato(s, p, "Nuova scoperta (+1 fama): " + sc.nome + ". " + sc.spiega);
+      if (s.consigli !== false) privato(s, p, "Nuova scoperta (+1 fama): " + sc.nome + ". " + sc.spiega);
       // chi non l'ha mai fatto lo vede fare (solo le cose che si vedono in pubblico)
-      if (sc.pubblico) for (const q of s.players) if (q.id !== p.id && !q.bot && !(q.scoperte || {})[sc.id] && !(q.visteFare || {})[sc.id]) {
+      if (sc.pubblico && s.consigli !== false) for (const q of s.players) if (q.id !== p.id && !q.bot && !(q.scoperte || {})[sc.id] && !(q.visteFare || {})[sc.id]) {
         q.visteFare = q.visteFare || {}; q.visteFare[sc.id] = true;
         privato(s, q, "Vera: \"Hai visto? " + p.nome + " " + sc.pubblico + ". Anche tu puoi: " + sc.spiega + "\"");
       }
@@ -2554,7 +2556,7 @@
   }
   // all'Alba: un consiglio di Vera su una cosa mai fatta che adesso si puo' fare
   function consiglioVera(s, p) {
-    if (p.bot) return null;
+    if (p.bot || s.consigli === false) return null;
     p.scoperte = p.scoperte || {}; p.consigliati = p.consigliati || {};
     const lv = livelloSblocco(s, p);
     const ok = SCOPERTE.filter((sc) => sc.lv <= lv && p.scoperte[sc.id] === undefined && (p.consigliati[sc.id] || 0) < 2 && (() => { try { return sc.quando(s, p); } catch (e) { return false; } })());

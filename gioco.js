@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=38";
+import { ico } from "./icone.js?v=39";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,18 +11,18 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=38";
-import * as Pano from "./panorama.js?v=38";
+import * as Tre from "./tre.js?v=39";
+import * as Pano from "./panorama.js?v=39";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=38";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=39";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
 
 let utente = null, partita = null, mioId = null, S = null, canale = null;
-let telAperto = false, app = null, saldoNascosto = false, attesa = false, principianti = true, timerSala = null, durata = leggiDurata();
+let telAperto = false, app = null, saldoNascosto = false, attesa = false, principianti = (() => { try { return localStorage.getItem("laguna_guidata") !== "0"; } catch (e) { return true; } })(), timerSala = null, durata = leggiDurata();
 const visti = new Set();
 // come finisce la partita: { modo: "cicli", cicli } · { modo: "obiettivo", obiettivo } · { modo: "libera" }
 function leggiDurata() {
@@ -206,12 +206,14 @@ function schermataProvaLocale(seed) {
       <span class="kick" style="color:var(--oro)">Prova da solo</span>
       <span class="serif" style="font-size:44px;line-height:1">Re della Laguna</span>
       <span class="sub">Tu contro Rocco, Vera e Dario (giocatori-computer).</span>
-      <div class="campo"><label for="nomeLoc">Come ti chiami?</label><input id="nomeLoc" maxlength="24" placeholder="Il tuo nome" value="${esc(nomeLocale())}"></div>
-      <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">${sceltaDurataHtml()}</div>
+      <div class="campo"><label for="nomeLoc">Come ti chiami?</label><input id="nomeLoc" maxlength="24" placeholder="Scrivi il tuo nome" value="${esc(nomeLocale() === "Tu" ? "" : nomeLocale())}"></div>
+      <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">${sceltaDurataHtml()}
+        <label class="check"><input type="checkbox" id="princL" ${principianti ? "checked" : ""}> Partita guidata: Vera ti dà consigli e le cose si scoprono piano piano (consigliata la prima volta)</label></div>
       <button class="oro grande" id="via">Inizia</button></div>`);
+    $("#princL").onchange = (e) => { principianti = e.target.checked; try { localStorage.setItem("laguna_guidata", principianti ? "1" : "0"); } catch (er) { } };
     collegaDurata(disegna);
     $("#nomeLoc").oninput = (e) => { try { localStorage.setItem("laguna_nome_locale", e.target.value.trim()); } catch (er) { } };
-    $("#via").onclick = () => { Loc.nuova(nomeLocale(), seed, durata); history.replaceState(null, "", location.pathname + "?locale"); caricaVista(); };
+    $("#via").onclick = () => { Loc.nuova(nomeLocale(), seed, durata, principianti); history.replaceState(null, "", location.pathname + "?locale"); caricaVista(); };
   };
   disegna();
 }
@@ -245,7 +247,7 @@ function schermataCasa() {
           <select data-i="${i}" class="tipo" style="flex:1"><option value="amico" ${r.tipo === "amico" ? "selected" : ""}>Posto per un amico</option>${STR.map((s) => `<option value="${s}" ${r.tipo === "computer" && r.strat === s ? "selected" : ""}>Computer: ${s}</option>`).join("")}</select></div>`).join("")}
         <div class="riga"><button class="piccolo" id="piu">+ posto</button><button class="piccolo" id="meno">− posto</button></div>
         ${sceltaDurataHtml()}
-        <label class="check"><input type="checkbox" id="princ" ${principianti ? "checked" : ""}> Partita guidata: le cose si scoprono piano piano (consigliata)</label>
+        <label class="check"><input type="checkbox" id="princ" ${principianti ? "checked" : ""}> Partita guidata: Vera dà consigli e le cose si scoprono piano piano. Togli la spunta se conoscete già il gioco.</label>
         <button class="oro grande" id="crea">Crea la partita</button>
         <a class="piccolo" href="?locale&nuova" style="align-self:center;color:var(--muted)">Oppure prova da solo contro 3 giocatori-computer (senza internet)</a>
       </div>
@@ -254,7 +256,7 @@ function schermataCasa() {
         <div class="riga"><input id="codice" placeholder="es. PALMA-4821" style="flex:1;text-transform:uppercase"><button class="bianco" id="unisciti">Entra</button></div>
       </div></div>`);
     document.querySelectorAll(".tipo").forEach((s) => s.onchange = () => { const r = righe[s.dataset.i]; if (s.value === "amico") { r.tipo = "amico"; r.strat = null; } else { r.tipo = "computer"; r.strat = s.value; } });
-    $("#princ").onchange = (e) => principianti = e.target.checked;
+    $("#princ").onchange = (e) => { principianti = e.target.checked; try { localStorage.setItem("laguna_guidata", principianti ? "1" : "0"); } catch (er) { } };
     collegaDurata(disegnaCasa);
     $("#piu").onclick = () => { if (righe.length < 7) { righe.push({ tipo: "amico" }); disegnaCasa(); } };
     $("#meno").onclick = () => { if (righe.length > 1) { righe.pop(); disegnaCasa(); } };
@@ -297,7 +299,7 @@ async function sala() {
     if ($("#inizia")) $("#inizia").onclick = async () => {
       clearInterval(timerSala);
       const d = leggiDurata();
-      const r = await chiama({ comando: "inizia", partita, principianti, durata: d, cicli: d.cicli || 8 });
+      const r = await chiama({ comando: "inizia", partita, principianti, consigli: principianti, durata: d, cicli: d.cicli || 8 });
       if (r.errore) { toast(r.errore); timerSala = setInterval(disegnaSala, 3000); return; }
       await caricaVista(); ascolta();
     };
@@ -1453,7 +1455,7 @@ function adessoPuoi(me, nuovi) {
   if (caldo && caldo[1] >= 2) out.push({ testo: "Al " + (L.LUOGHI[caldo[0]] || {}).nome + " ti conoscono: stanotte cambia posto.", app: "sporchi" });
   if (nuovi) out.push({ testo: nuovi === 1 ? "Hai un messaggio nuovo." : "Hai " + nuovi + " messaggi nuovi.", app: "messaggi" });
   const cons = ((S.ultimaAlba || {}).riepilogo || {})[mioId]?.consiglio;
-  if (cons && (me.scoperte || {})[cons.id] === undefined) out.push({ testo: "Vera: " + cons.testo, app: APP_DI_SCOPERTA[cons.id] || "scoperte" });
+  if (S.consigli !== false && cons && (me.scoperte || {})[cons.id] === undefined) out.push({ testo: "Vera: " + cons.testo, app: APP_DI_SCOPERTA[cons.id] || "scoperte" });
   return out.slice(0, 3);
 }
 function homeTelefono(me, nuovi) {
@@ -1633,7 +1635,7 @@ function contenutoApp(me, k) {
     const GRUPPI = [["giorno", "Di giorno"], ["notte", "Di notte"], ["potere", "Potere e rivali"]];
     return `<div class="scheda"><h4>${ico("stella")} Hai scoperto ${n} cose su ${tutte.length}</h4>
         <div style="height:8px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden;margin:6px 0"><div style="height:100%;width:${Math.round(n / tutte.length * 100)}%;background:var(--oro)"></div></div>
-        <span class="sub">Ogni cosa nuova che provi ti dà +1 fama. Vera, a ogni Alba, ti suggerisce una cosa che puoi fare subito.</span></div>` +
+        <span class="sub">Ogni cosa nuova che provi ti dà +1 fama.${S.consigli !== false ? " Vera, a ogni Alba, ti suggerisce una cosa che puoi fare subito." : " Partita senza consigli: tocca a te scoprire tutto."}</span></div>` +
       GRUPPI.map(([g, titolo]) => `<div class="scheda"><h4>${titolo}</h4>${tutte.filter((x) => x.gruppo === g).map((x) => {
         const ok = fatte[x.id] !== undefined, aperta = x.lv <= S.sblocco;
         return `<div class="liv"><span class="liv-n" style="${ok ? "background:#2e7d4f" : ""}">${ok ? "✓" : aperta ? "?" : x.lv}</span><div><b>${ok ? esc(x.nome) : aperta ? "Da scoprire" : "Livello " + x.lv}</b><div class="sub" style="font-size:12px">${ok ? esc(x.spiega) : aperta ? esc(x.indizio) : "Si apre quando sali al Livello " + x.lv + "."}</div></div></div>`;

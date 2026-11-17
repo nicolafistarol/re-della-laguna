@@ -145,6 +145,7 @@ Deno.serve(async (req) => {
         // deno-lint-ignore no-explicit-any
         giocatori: gioc!.map((g: any) => ({ nome: g.nome, bot: g.bot, strat: g.strategia })),
         principianti: !!body.principianti,
+        consigli: body.consigli !== undefined ? !!body.consigli : !!body.principianti,
         durata: durataPulita(body),
       });
       giocaBot(stato);
