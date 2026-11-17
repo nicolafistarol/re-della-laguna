@@ -2899,7 +2899,7 @@
     if (s.notte) {
       const me = s.players.find((x) => x.id === idGiocatore);
       v.notte = {
-        ora: s.notte.ora, dove: s.notte.dove,
+        ora: s.notte.ora, dove: { ...s.notte.dove },
         viaggio: Object.fromEntries(Object.entries(s.notte.viaggio).map(([k, x]) => [k, { verso: k === idGiocatore ? x.verso : null, restano: k === idGiocatore ? x.restano : null, serata: k === idGiocatore ? x.serata || null : null }])),
         chiuso: s.notte.chiuso, racconto: s.notte.racconto[idGiocatore] || [],
         pronto: s.notte.pronto, inizio: s.notte.inizio, tempo: TEMPO_ORA, adesso: adesso(),
