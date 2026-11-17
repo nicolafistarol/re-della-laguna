@@ -237,3 +237,12 @@ button .lic{margin-right:2px}
 .legenda #legTasto .lic{width:14px;height:14px}
 
 .esci-partita{display:block;margin:14px auto 4px;opacity:.75;font-size:12px}
+
+.chip.tratta{cursor:pointer}.chip.tratta:hover{outline:2px solid var(--oro)}
+.moneta{position:fixed;z-index:9000;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3b0,#e8b931 55%,#a7740e);box-shadow:0 0 8px rgba(255,210,90,.8);pointer-events:none}
+.flusso-etichetta{position:fixed;z-index:9001;left:50%;top:76px;transform:translateX(-50%);background:rgba(8,14,26,.92);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:7px 14px;display:flex;gap:8px;align-items:baseline;font-size:14px;pointer-events:none;transition:opacity .5s}
+.flusso-etichetta.mio{border-color:var(--oro);font-size:16px}
+.flusso-etichetta span{color:var(--oro);font-weight:800}.flusso-etichetta i{color:var(--muted);font-style:normal;font-size:12.5px}
+.flusso-etichetta.via{opacity:0}
+.riepilogo-giro{margin:4px 0 8px;font-size:13px;display:flex;flex-direction:column;gap:3px}
+.riepilogo-giro .p{color:var(--pulito)}.riepilogo-giro .m{color:var(--sporco)}
