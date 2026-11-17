@@ -29,7 +29,7 @@
     affVuoto: 0.15, affLvl: [1, 1, 4, 12, 26, 45], rendLvl: [0, 1, 2.2, 3.6, 5.2, 7.0],
     costLvl: [0, 0.5, 0.5, 0.75, 1.0, 1.5], R: 0.95,
     moloFee: [0, 25_000, 50_000, 100_000, 200_000],
-    pianoCost: 400_000, pianoGrow: 1.08, pianoRend: 0.62, pianiMax: 60,
+    pianoCost: 400_000, pianoGrow: 1.08, pianoRend: 0.62, pianiMax: 60, cantiereGrande: 6,
     bonusIllegale: 1.4, // gli affari della notte rendono il 40% in piu': tanto premio, tanto rischio
     borsaMu: 0.21, borsaSd: 0.16, criptoMu: 0.40, criptoSd: 0.50, criptoCrash: 0.12,
     caricoBase: 350_000, caricoGrow: 150_000, caricoMax: 3_000_000, caricoMagazzino: 1.5,
@@ -651,7 +651,7 @@
     piani_segreti: { nome: "Piani segreti", costo: 3_500_000, quando: "notte", descr: "Nelle retate la polizia non trova la tua valigetta.", esempio: "Ti perquisiscono: gli oggetti illegali restano tuoi." },
     suite: { nome: "Suite presidenziale", costo: 4_000_000, quando: "giorno", descr: "Ospiti potenti dormono da te: +3 fama ogni Ciclo.", esempio: "In 5 Cicli sono +15 fama." },
   };
-  const SOVRAPPREZZO_PIANI = [1, 1.25, 1.5]; // piu' piani nella stessa mossa: il 2° e il 3° costano di piu'
+  const SOVRAPPREZZO_PIANI = [1, 1.5, 2]; // piu' piani nella stessa mossa: il 2° e il 3° costano di piu'
   function stanzeDi(p) { if (!p.stanze) p.stanze = (p.funzioniPiani || []).filter((f) => STANZE[f]); return p.stanze; }
   function fasciaPalazzo(n) { return FASCE_PALAZZO.reduce((r, f, i) => (n >= f.da ? i : r), 0); }
   function baseRendPiano(i) { return N.pianoCost * Math.pow(N.pianoGrow, i) * N.pianoRend * FASCE_PALAZZO[fasciaPalazzo(i + 1)].rend; }
@@ -671,7 +671,8 @@
   }
   function piano(s, p, quanti) {
     azioneGiorno(s, p);
-    quanti = 1; // un solo piano per mossa: ogni piano costa una percentuale in piu' del precedente
+    // un piano per mossa; dall'Attico (6 piani) in su c'e' il Cantiere grande: 2 o 3 piani insieme, ma il 2° costa +50% e il 3° +100%
+    quanti = Math.max(1, Math.min(Math.floor(Number(quanti) || 1), p.piani >= N.cantiereGrande ? 3 : 1));
     if (p.piani + quanti > N.pianiMax) err("Il Palazzo arriva al massimo a " + N.pianiMax + " piani.");
     if (p.piani === 0 && !condizioniPalazzo(s, p).ok) err("Per il Palazzo servono almeno 2 attività aperte sul tabellone.");
     const permesso = p.piani === 0 && !p.permessoPalazzo && p.pacchetto !== "costruttore" ? 300_000 : 0;

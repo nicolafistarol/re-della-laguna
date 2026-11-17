@@ -2180,10 +2180,17 @@ function appPalazzo(me, miTurno) {
     if (n >= 60) return `<span class="sub">Hai raggiunto i 60 piani.</span>`;
     const costo = L.costoPiano(me) + (n === 0 && !cond.permesso ? 300_000 : 0), piu = L.renditaPiani(n + 1) - L.renditaPiani(n);
     const no = !cond.ok ? "mancano le attività" : me.cash < costo ? "non hai abbastanza" : "";
-    return `<button class="pal-opz ${no ? "" : "oro"}" data-piani="1" ${possono && !no ? "" : "disabled"}><b>Piano ${n + 1}</b><span class="pal-conto"><span>Costa <b>${euro(costo)}</b>${n === 0 && !cond.permesso ? " (con il permesso)" : ""}</span><span>Rende <b>+ ${euro(piu)}</b> a ogni Alba</span><span class="sub">si ripaga ${cicliRipaga(costo, piu)}${no ? ` · <span class="pal-no">${no}</span>` : ""}</span></span></button>`;
+    const uno = `<button class="pal-opz ${no ? "" : "oro"}" data-piani="1" ${possono && !no ? "" : "disabled"}><b>Piano ${n + 1}</b><span class="pal-conto"><span>Costa <b>${euro(costo)}</b>${n === 0 && !cond.permesso ? " (con il permesso)" : ""}</span><span>Rende <b>+ ${euro(piu)}</b> a ogni Alba</span><span class="sub">si ripaga ${cicliRipaga(costo, piu)}${no ? ` · <span class="pal-no">${no}</span>` : ""}</span></span></button>`;
+    // Cantiere grande: dall'Attico in su, 2 o 3 piani in una mossa, pagando un sovrapprezzo
+    const grande = [2, 3].filter((q) => n + q <= 60).map((q) => {
+      const c = L.costoPiani(me, q), r = L.renditaPiani(n + q) - L.renditaPiani(n), extra = c - Array.from({ length: q }, (_, k) => L.costoPiani({ ...me, piani: n + k }, 1)).reduce((a, b) => a + b, 0);
+      const nq = n < 6 ? "dall'Attico (6 piani)" : me.cash < c ? "non hai abbastanza" : "";
+      return `<button class="pal-opz" data-piani="${q}" ${possono && !nq ? "" : "disabled"}><b>Cantiere grande: +${q} piani</b><span class="pal-conto"><span>Costa <b>${euro(c)}</b> <span class="sub">(${euro(extra)} di sovrapprezzo)</span></span><span>Rende <b>+ ${euro(r)}</b> a ogni Alba</span>${nq ? `<span class="sub"><span class="pal-no">${nq}</span></span>` : ""}</span></button>`;
+    }).join("");
+    return uno + grande;
   })();
   const costruisci = `<div class="scheda"><h4>Alza il Palazzo</h4><div class="pal-opzioni">${opz}</div>
-    <span class="sub">${possono ? "Un piano per mossa del giorno. Ogni piano costa l'8% in più del precedente." : miTurno ? "Hai già fatto la mossa di oggi: riprova domani." : mioTurno() && !me.haTirato ? "Prima tira i dadi: poi puoi costruire, con la mossa del giorno." : "Si costruisce durante il tuo turno: un piano per mossa del giorno."}</span></div>`;
+    <span class="sub">${possono ? "Un piano per mossa del giorno. Ogni piano costa l'8% in più del precedente. Dall'Attico puoi fare il Cantiere grande: 2 o 3 piani insieme, pagando di più." : miTurno ? "Hai già fatto la mossa di oggi: riprova domani." : mioTurno() && !me.haTirato ? "Prima tira i dadi: poi puoi costruire, con la mossa del giorno." : "Si costruisce durante il tuo turno: un piano per mossa del giorno."}</span></div>`;
   // 4. traguardo: barra
   const meta = prossima ? (() => { const prima = F.filter((f) => f.da <= n).slice(-1)[0], da0 = prima ? prima.da : 0, perc = Math.round(((n - da0) / (prossima.da - da0)) * 100);
     return `<div class="scheda" style="border-color:${COL_FASCE[F.indexOf(prossima)]}"><h4 style="color:${COL_FASCE[F.indexOf(prossima)]}">Prossimo traguardo: ${prossima.nome} (${prossima.da} piani)</h4><div class="pal-barra"><i style="width:${Math.max(4, perc)}%;background:${COL_FASCE[F.indexOf(prossima)]}"></i></div><span class="sub">${prossima.da - n === 1 ? "Manca 1 piano" : "Mancano " + (prossima.da - n) + " piani"}. Premio: +${prossima.fama} fama, i piani nuovi rendono il ${Math.round((prossima.rend - 1) * 100)}% in più, e si aprono ${prossima.fun.length} stanze nuove. Di notte la vista da casa tua sale.</span></div>`; })()

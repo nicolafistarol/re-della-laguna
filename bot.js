@@ -231,7 +231,7 @@ function grandiBot(o, i, n) {
             }
             // con tanti contanti fermi chiunque costruisce piani: si ripagano in pochi Cicli
             if (("Costruttore" === i ? t.cash > 15e5 && Math.random() < 0.6 : t.cash > 8e6 || (t.cash > 4e6 && Math.random() < 0.15)) && LL.condizioniPalazzo(o, t).ok) {
-              const q = 1;
+              const q = t.piani >= 6 && t.cash > 2 * LL.costoPiani(t, 3) ? 3 : t.piani >= 6 && t.cash > 2 * LL.costoPiani(t, 2) ? 2 : 1;
               if (LL.costoPiani(t, q) + (t.piani ? 0 : 3e5) < t.cash) return { tipo: "piano", quanti: q };
             }
             const r = e(o, t, !0),
