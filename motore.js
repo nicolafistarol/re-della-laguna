@@ -2273,7 +2273,7 @@
       rischio: "Alla fine, 1 volta su 4 il doganiere comprato parla: ogni membro prende +15 Tracce e la polizia lo tiene d'occhio." },
     colpo: { nome: "Il Grande Colpo", costo: 15_000_000, lv: 3, bottino: 45_000_000,
       fa: "All'Alba la setta assalta il caveau della Banca della Laguna. Se riesce: 45 milioni sporchi divisi in parti uguali tra i membri.",
-      rischio: "Riesce poco meno di 1 volta su 2 (di più con il Commissario e con più membri). Se fallisce: il Tesoro speso è perso, ogni membro +35 Tracce e finisce Indagato. Anche se riesce: +12 Tracce a testa." },
+      rischio: "Riesce 45 volte su 100 (fino a 65 con il Commissario e 4 membri). Se fallisce: il Tesoro speso è perso, ogni membro +35 Tracce e finisce Indagato. Anche se riesce: +12 Tracce a testa." },
     giudice: { nome: "Il Giudice supremo", costo: 20_000_000, lv: 3,
       fa: "Per tutta la partita: ogni condanna dei membri scende di un gradino in più e metà degli sporchi si salva dalla confisca.",
       rischio: "A ogni Alba, 1 volta su 15 un giornalista lo scopre: il Giudice cade, ogni membro prende +15 Tracce e perde 10 di fama." },
