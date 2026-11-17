@@ -1247,7 +1247,7 @@ const ICO_FISSA = { giro: "gala", yacht: "marina", chiedi: "soffiata", carte: "b
 function finestraPuntata(me, c) {
   const puntate = [50_000, 100_000, 250_000, 500_000, 1_000_000].filter((x) => x <= (c.id === "roulette" ? me.cash : me.cash + me.sporchi));
   finestra(`<span class="kick" style="color:var(--cielo)">${ico(ICO_FISSA[c.id])} ${esc(nomeLuogo(S.notte.dove[mioId], true))}</span><h2>${esc(c.titolo)}</h2><p class="storia">${esc(c.testo)}</p>
-    <p class="sub">${c.id === "tavolo" ? "Se vinci, il padrone di casa ti paga il doppio. Se perdi, i soldi vanno a lui." : c.id === "carte" ? "Se vinci, ti danno il doppio in contanti sporchi. Lascia qualche Traccia." : "Se vinci, ti danno il doppio, tutto pulito. Qui si gioca solo con soldi puliti."}${c.id === "carte" ? " Si paga prima con i soldi sporchi." : ""}</p>
+    <p class="sub">${c.id === "tavolo" ? "Sette e mezzo contro il banco del padrone di casa: giochi tu la mano. Se vinci ti paga il doppio, se perdi i soldi vanno a lui." : c.id === "carte" ? "Sette e mezzo contro il banco: giochi tu la mano. Se vinci ti danno il doppio in contanti sporchi. Lascia qualche Traccia." : "Se vinci, ti danno il doppio, tutto pulito. Qui si gioca solo con soldi puliti."}${c.id === "carte" ? " Si paga prima con i soldi sporchi." : ""}</p>
     ${puntate.length ? `<div class="riga" style="flex-wrap:wrap">${puntate.map((x) => `<button class="oro" data-p="${x}">${euro(x)}</button>`).join("")}</div>` : `<p>Non hai abbastanza soldi per puntare.</p>`}
     <div class="pulsanti"><button id="no">Lascio stare</button></div>`, (d, chiudi) => {
     d.querySelector("#no").onclick = chiudi;
@@ -1264,7 +1264,7 @@ function finestraIncontro(me, id) {
     <p class="sub">${esc(q.fascia || "")}. ${libero ? "Cosa fai? Ogni scelta usa la tua ora." : "Hai già deciso cosa fare in quest'ora."}</p>
     <div class="lista-luoghi">
       ${riga("drink", "gala", "Offrigli da bere", "20.000 €. Se accetta: +2 fama a tutti e due, e capisci quanti soldi sporchi ha.")}
-      ${riga("sfida", "bisca", "Sfidalo a carte", "Una mano sola, chi vince prende tutto. Se rifiuta, ti riprendi i soldi.")}
+      ${riga("sfida", "bisca", "Sfidalo a Sette e mezzo", "Giochi la tua mano, poi lui gioca la sua senza vedere le tue carte. Puoi rilanciare per bluffare. Se rifiuta, ti riprendi i soldi.")}
       ${riga("segui", "setta", "Seguilo", "Non se ne accorge. Alla fine dell'ora sai dove è andato.")}
       ${foto ? riga("foto", "macchina", "Fotografalo", "Se fa qualcosa di losco, hai una Prova.") : ""}
     </div>
@@ -1273,7 +1273,7 @@ function finestraIncontro(me, id) {
     d.querySelectorAll("[data-i]").forEach((b) => b.onclick = () => {
       const k = b.dataset.i; c();
       if (k === "foto") return agisci({ tipo: "foto", bersaglio: id });
-      if (k === "sfida") return finestra(`<h2>Quanto metti sul tavolo?</h2><p class="sub">Una mano sola a carte: chi vince prende tutto. La puntata minima è ${euro(50_000)}. Hai ${euro(me.cash + (me.sporchi || 0))} (puliti + sporchi).</p>${me.cash + (me.sporchi || 0) < 50_000 ? `<p style="color:#ff9a9a">Non hai abbastanza soldi per sfidarlo: servono almeno ${euro(50_000)}.</p>` : ""}<div class="riga" style="flex-wrap:wrap">${[50_000, 100_000, 250_000, 500_000, 1_000_000].map((x) => `<button class="oro" data-p="${x}" ${x <= me.cash + (me.sporchi || 0) ? "" : "disabled"}>${euro(x)}</button>`).join("")}</div><div class="pulsanti"><button id="no">Lascia stare</button></div>`, (d2, c2) => { d2.querySelector("#no").onclick = c2; d2.querySelectorAll("[data-p]").forEach((x) => x.onclick = () => { c2(); agisci({ tipo: "incontro", a: id, cosa: "sfida", importo: +x.dataset.p }); }); });
+      if (k === "sfida") return finestra(`<h2>Quanto metti sul tavolo?</h2><p class="sub">Sette e mezzo: chi si avvicina di più a 7 e mezzo senza superarlo prende tutto. Dopo la prima carta puoi rilanciare e raddoppiare. La puntata minima è ${euro(50_000)}. Hai ${euro(me.cash + (me.sporchi || 0))} (puliti + sporchi).</p>${me.cash + (me.sporchi || 0) < 50_000 ? `<p style="color:#ff9a9a">Non hai abbastanza soldi per sfidarlo: servono almeno ${euro(50_000)}.</p>` : ""}<div class="riga" style="flex-wrap:wrap">${[50_000, 100_000, 250_000, 500_000, 1_000_000].map((x) => `<button class="oro" data-p="${x}" ${x <= me.cash + (me.sporchi || 0) ? "" : "disabled"}>${euro(x)}</button>`).join("")}</div><div class="pulsanti"><button id="no">Lascia stare</button></div>`, (d2, c2) => { d2.querySelector("#no").onclick = c2; d2.querySelectorAll("[data-p]").forEach((x) => x.onclick = () => { c2(); agisci({ tipo: "incontro", a: id, cosa: "sfida", importo: +x.dataset.p }); }); });
       agisci({ tipo: "incontro", a: id, cosa: k });
     });
   });
@@ -1284,8 +1284,8 @@ function finestraProposteNotte(me) {
   visti.add("pn" + S.ciclo + "_" + pr.id);
   const da = S.players.find((x) => x.id === pr.da);
   finestra(`<span class="kick" style="color:var(--cielo)">${ico("luna")} ${esc(nomeLuogo(S.notte.dove[mioId], true))}</span>
-    <h2>${pr.tipo === "drink" ? esc(da.nome) + " ti offre da bere" : esc(da.nome) + " ti sfida a carte"}</h2>
-    <p>${pr.tipo === "drink" ? "Un cameriere posa due bicchieri sul tuo tavolo. Se accetti: +2 fama, ma potresti parlare troppo." : "Ha messo <b>" + euro(pr.importo) + "</b> sul tavolo. Per accettare devi metterne altrettanti. Una mano sola: chi vince prende tutto."}</p>
+    <h2>${pr.tipo === "drink" ? esc(da.nome) + " ti offre da bere" : esc(da.nome) + " ti sfida a Sette e mezzo"}</h2>
+    <p>${pr.tipo === "drink" ? "Un cameriere posa due bicchieri sul tuo tavolo. Se accetti: +2 fama, ma potresti parlare troppo." : "Ha già giocato la sua mano a Sette e mezzo, coperta, e ha messo <b>" + euro(pr.importo) + "</b> sul tavolo." + (pr.rilancio ? " <b>Ha rilanciato</b>: ha una mano forte, o sta bluffando." : "") + " Per accettare metti altrettanto e giochi la tua mano."}</p>
     <p class="sub">Rispondere non usa la tua ora.</p>
     <div class="pulsanti"><button id="no">No, grazie</button><button class="oro" id="si">${pr.tipo === "drink" ? "Brindo" : "Accetto"}</button></div>`, (d, c) => {
     d.querySelector("#no").onclick = () => { c(); agisci({ tipo: "rispondi_incontro", id: pr.id, si: false }); };
@@ -1678,7 +1678,8 @@ function contenutoApp(me, k) {
   if (k === "valigetta") {
     const v = me.valigetta || [], posti = S.postiValigetta;
     return `<p class="sub">${v.length} posti usati su ${posti}. Gli oggetti si comprano di notte, nei posti giusti.</p>` +
-      v.map((o) => { const O = L.OGGETTI[o.id]; return `<div class="ogg"><span class="ic">${ICO_OGG[o.id]}</span><div><b>${esc(O.nome)}</b><div class="sub" style="font-size:12px">${esc(O.descr)}${o.notti ? " Ancora " + o.notti + (o.notti === 1 ? " notte." : " notti.") : ""}</div></div></div>`; }).join("") +
+      v.map((o) => { const O = L.OGGETTI[o.id]; return `<div class="ogg"><span class="ic">${ICO_OGG[o.id]}</span><div><b>${esc(O.nome)}</b><div class="sub" style="font-size:12px">${esc(O.descr)}${o.notti ? " Ancora " + o.notti + (o.notti === 1 ? " notte." : " notti.") : ""}${(O.salva || []).length || ["motoscafo", "furgone"].includes(o.id) ? ` <b style="color:${(me.trucchi || {})[o.id] >= 2 ? "#ff9a9a" : "var(--pulito)"}">Funziona circa ${Math.round(100 - Math.min(55, 15 + 10 * ((me.trucchi || {})[o.id] || 0)))}% delle volte.</b>` : ""}</div></div></div>`; }).join("") +
+      `<p class="sub" style="margin-top:8px">Ogni volta che un oggetto ti salva, la polizia impara il trucco: la volta dopo funziona di meno. Col passare dei Cicli se ne dimentica.</p>` +
       Array.from({ length: Math.max(0, posti - v.length) }, () => `<div class="ogg vuoto"><span class="ic">·</span><span class="sub">Posto libero</span></div>`).join("");
   }
   if (k === "palazzo") return appPalazzo(me, miTurno);
@@ -1903,8 +1904,66 @@ function finestra(html, collega) {
   collega && collega(d, chiudi);
   return chiudi;
 }
+// ---------------------------------------------------------------- Sette e mezzo
+const SEMI_SM = [["denari", "🪙", "#d4a017"], ["coppe", "🏆", "#c0392b"], ["spade", "⚔️", "#34495e"], ["bastoni", "🪵", "#6b4f2a"]];
+function cartaSM(c, coperta) {
+  if (coperta) return `<span class="carta-sm coperta"></span>`;
+  const v = c % 10, [nome, simbolo, col] = SEMI_SM[Math.floor(c / 10)];
+  const fig = ["Fante", "Cavallo", "Re"][v - 7];
+  return `<span class="carta-sm" style="--c:${col}"><b>${v < 7 ? v + 1 : fig[0]}</b><i>${simbolo}</i><small>${v < 7 ? nome : fig}</small></span>`;
+}
+const puntiSM = (t) => t === 0.5 ? "½" : String(t).replace(".5", "½");
+let chiaveSM = "";
+function tavoloSM(me) {
+  const m = S.notte && S.notte.manoSM;
+  const aperto = document.querySelector(".velo.sm");
+  if (!m) { if (aperto) aperto.remove(); chiaveSM = ""; return false; }
+  const chiave = m.carte.join(".") + "_" + m.rilancio + "_" + m.posta;
+  if (aperto && chiave === chiaveSM) return true;
+  if (aperto) aperto.remove();
+  if (document.querySelector(".velo")) return false;
+  chiaveSM = chiave;
+  const avv = m.tipo === "sfida" || m.tipo === "risposta" ? (() => { const pr = (S.notte.proposte || []).find((x) => x.id === m.prop); const id = pr && (pr.da === mioId ? pr.a : pr.da); const q = S.players.find((x) => x.id === id); return q ? q.nome : "l'avversario"; })() : m.tipo === "serata" ? "il banco di " + ((S.players.find((x) => x.id === m.host) || {}).nome || "") : "il banco della Bisca";
+  const tot = m.totale, sballo = tot > 7.5;
+  const spiega = m.tipo === "sfida" ? `Giochi tu per primo. ${esc(avv)} non vedrà le tue carte: vedrà solo quanto c'è sul tavolo.` : m.tipo === "risposta" ? `${esc(avv)} ha già giocato la sua mano, coperta. Avvicinati a 7 e mezzo senza superarlo.` : `Il banco gioca dopo di te e si ferma a 5 e mezzo. A pari punti vince il banco. Sette e mezzo con 2 carte paga il triplo.`;
+  const d = document.createElement("div"); d.className = "velo sm";
+  d.innerHTML = `<div class="fin vetro tavolo-sm">
+    <span class="kick" style="color:var(--oro)">♠ Sette e mezzo · contro ${esc(avv)}</span>
+    <h2>Sul tavolo: ${euro(m.posta)}</h2>
+    <p class="sub">${spiega}</p>
+    <div class="mano-sm">${m.carte.map((c) => cartaSM(c)).join("")}</div>
+    <div class="tot-sm ${sballo ? "sballo" : tot === 7.5 ? "sette" : ""}">${puntiSM(tot)} <span>${tot > 7.5 ? "sballato" : tot === 7.5 ? "sette e mezzo!" : "punti"}</span></div>
+    <div class="pulsanti">
+      <button id="smSto">Sto</button>
+      <button class="oro" id="smCarta">Un'altra carta</button>
+    </div>
+    ${m.puoRilanciare && !m.rilancio ? `<button class="piccolo rilancio-sm" id="smRil">Rilancia: metti altri ${euro(m.posta)} (bluff o mano buona?)</button>` : ""}
+    <p class="sub">Asso–7 valgono il loro numero. Fante, Cavallo e Re valgono mezzo punto. Sopra 7 e mezzo hai perso.</p>
+  </div>`;
+  document.body.appendChild(d);
+  const mossa = (x) => { d.querySelectorAll("button").forEach((b) => b.disabled = true); agisci({ tipo: "sm", mossa: x }); };
+  d.querySelector("#smSto").onclick = () => mossa("sto");
+  d.querySelector("#smCarta").onclick = () => mossa("carta");
+  if (d.querySelector("#smRil")) d.querySelector("#smRil").onclick = () => mossa("rilancia");
+  return true;
+}
+function esitoSM() {
+  const u = S.notte && S.notte.ultimaMano;
+  if (!u || u.gioco !== "sm" || visti.has("sm" + S.ciclo + u.id)) return false;
+  try { if (sessionStorage.getItem("laguna_sm_" + partita + "_" + S.ciclo + u.id)) return false; sessionStorage.setItem("laguna_sm_" + partita + "_" + S.ciclo + u.id, "1"); } catch (e) { }
+  visti.add("sm" + S.ciclo + u.id);
+  const tit = u.esito === "vinto" ? (u.sette ? "Sette e mezzo reale! Hai vinto" : "Hai vinto") : u.esito === "pari" ? "Pari" : "Hai perso";
+  finestra(`<span class="kick" style="color:var(--oro)">♠ Sette e mezzo · ${euro(u.importo)} sul tavolo</span>
+    <h2 style="color:${u.esito === "vinto" ? "var(--pulito)" : u.esito === "pari" ? "var(--oro)" : "#ff8a8a"}">${tit}</h2>
+    <div class="esito-sm"><span class="sub">Tu</span><div class="mano-sm">${u.mie.map((c) => cartaSM(c)).join("")}</div><b>${puntiSM(u.totMie)}${u.totMie > 7.5 ? " · sballato" : ""}</b></div>
+    <div class="esito-sm"><span class="sub">${esc(u.avv)}</span><div class="mano-sm">${u.sue.map((c) => cartaSM(c)).join("")}</div><b>${puntiSM(u.totSue)}${u.totSue > 7.5 ? " · sballato" : ""}</b></div>
+    <div class="pulsanti"><button class="oro" id="ok">Avanti</button></div>`, (d, c) => d.querySelector("#ok").onclick = c);
+  return true;
+}
 function finestreAutomatiche(me) {
+  if (S.fase === "notte" && S.notte && tavoloSM(me)) return;
   if (document.querySelector(".velo")) return;
+  if (S.fase === "notte" && S.notte && esitoSM()) return;
   // 1. cose a cui rispondere subito
   if (S.fase === "notte" && S.notte && finestraProposteNotte(me)) return;
   // 2. livello nuovo: una finestra sola, con la voce di Vera e le app nuove

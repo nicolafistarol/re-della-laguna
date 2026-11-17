@@ -542,3 +542,15 @@ button .lic{margin-right:2px}
 .app.spenta{opacity:.35;filter:grayscale(1)}
 .faro-tel{background:#1e293b;border:1px solid #f5c84c;border-radius:12px;padding:10px 12px;margin:6px 0 10px;display:flex;flex-direction:column;gap:4px;font-size:13px;color:#e2e8f0}
 .faro-tel b:first-child{color:#f5c84c}
+
+/* Sette e mezzo */
+.tavolo-sm{background:radial-gradient(circle at 50% 30%,#1f6b45,#0d3b26)!important;border:2px solid #d4a017}
+.mano-sm{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0}
+.carta-sm{width:58px;height:86px;border-radius:8px;background:#fdf8ec;color:var(--c);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:5px 2px;box-shadow:0 4px 10px rgba(0,0,0,.4);animation:smEntra .35s ease-out}
+.carta-sm b{font-size:22px;line-height:1}.carta-sm i{font-style:normal;font-size:22px}.carta-sm small{font-size:9px;color:#555}
+.carta-sm.coperta{background:repeating-linear-gradient(45deg,#7a1f2b,#7a1f2b 6px,#5c1520 6px,#5c1520 12px);border:2px solid #fdf8ec}
+@keyframes smEntra{from{transform:translateY(-30px) rotate(-8deg);opacity:0}to{transform:none;opacity:1}}
+.tot-sm{text-align:center;font-size:34px;font-weight:700;color:#fff}.tot-sm span{font-size:14px;font-weight:400;opacity:.8}
+.tot-sm.sballo{color:#ff8a8a}.tot-sm.sette{color:#f5c84c}
+.rilancio-sm{display:block;margin:8px auto 0;border-color:#f5c84c!important;color:#f5c84c!important}
+.esito-sm{display:flex;flex-direction:column;align-items:center;margin:6px 0}

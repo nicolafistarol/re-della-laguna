@@ -1419,12 +1419,16 @@
         // alla roulette si gioca solo con soldi puliti: altrimenti sarebbe un modo facile di ripulire gli sporchi
         if (A.id === "roulette") { if (p.cash < importo) err("Al Casinò Reale si gioca solo con soldi puliti."); p.cash -= importo; }
         else pagaMisto(s, p, importo);
-        const vinto = rng(s) < (A.id === "carte" ? 0.47 : 0.46);
         if (A.id === "carte") {
+          // alla Bisca si gioca a Sette e mezzo contro il banco: la mano la giochi tu
+          if (s.manoSM && s.manoSM[p.id]) err("Finisci prima la mano che hai in corso.");
           p.tracce += 1;
-          if (vinto) { p.sporchi += importo * 2; racconta(s, p, "Scopri le carte: hai vinto. Ti porti via " + euro(importo * 2) + " in contanti sporchi."); }
-          else racconta(s, p, "L'ultima carta gira male. Perdi " + euro(importo) + ".");
-        } else {
+          apriManoSM(s, p, { tipo: "bisca", posta: importo, puoRilanciare: false });
+          racconta(s, p, "Ti siedi al tavolo della Bisca. Si gioca a Sette e mezzo, il banco è il padrone del locale.");
+          break;
+        }
+        const vinto = rng(s) < 0.46;
+        {
           if (vinto) { p.cash += importo * 2; racconta(s, p, "La pallina si ferma sul tuo colore. Vinci " + euro(importo * 2) + ", tutto pulito."); }
           else racconta(s, p, "La pallina rimbalza e si ferma sul colore sbagliato. Perdi " + euro(importo) + ".");
         }
@@ -1528,25 +1532,107 @@
     oraLibera(s, p);
     const N2 = s.notte, idHost = N2.ospite && N2.ospite[p.id], host = idHost && giocatore(s, idHost);
     if (!host) err("Non sei a una serata.");
+    if (s.manoSM && s.manoSM[p.id]) err("Finisci prima la mano che hai in corso.");
     importo = round(Number(importo) || 0);
     if (importo < 10_000) err("La puntata minima è 10.000 €.");
-    if (importo > Math.max(0, host.cash)) err("Il banco di " + host.nome + " non copre una puntata così alta.");
+    if (importo * 2 > Math.max(0, host.cash)) err("Il banco di " + host.nome + " non copre una puntata così alta.");
     pagaMisto(s, p, importo);
-    const mazzo = [...Array(52).keys()], mia = mano(s, mazzo), sua = mano(s, mazzo);
-    const pm = punteggio(mia), ps = punteggio(sua), vinco = confronta(pm, ps) > 0;
-    const descr = "Le tue carte: " + testoMano(mia) + " (" + NOMI_MANI[pm[0]] + "). " + host.nome + ": " + testoMano(sua) + " (" + NOMI_MANI[ps[0]] + ").";
-    (N2.ultimaMano = N2.ultimaMano || {})[p.id] = { mia, sua, nomeMia: NOMI_MANI[pm[0]], nomeSua: NOMI_MANI[ps[0]], vinco, importo, banco: host.nome };
-    if (vinco) {
-      host.cash -= importo; p.cash += importo * 2; N2.serate[idHost].banco -= importo;
-      racconta(s, p, descr + " Vinci " + euro(importo * 2) + ".");
-      racconta(s, host, p.nome + " ti batte a poker con " + NOMI_MANI[pm[0]].toLowerCase() + ": il banco paga " + euro(importo) + ".");
-    } else {
-      host.cash += importo; N2.serate[idHost].banco += importo;
-      racconta(s, p, descr + " Vince il banco: perdi " + euro(importo) + ".");
-      racconta(s, host, p.nome + " perde " + euro(importo) + " al tuo tavolo di poker.");
-    }
-    N2.chiuso[p.id] = true; controllaOra(s);
+    apriManoSM(s, p, { tipo: "serata", host: idHost, posta: importo, puoRilanciare: false });
   }
+  // ------------------------------------------------------------ Sette e mezzo
+  // 40 carte: in ogni seme 1..7 valgono il loro numero, Fante, Cavallo e Re valgono mezzo punto.
+  const SEMI_SM = ["denari", "coppe", "spade", "bastoni"], FIGURE_SM = ["Fante", "Cavallo", "Re"];
+  function mazzoSM(s) { const m = [...Array(40).keys()]; for (let i = m.length - 1; i > 0; i--) { const j = Math.floor(rng(s) * (i + 1)); [m[i], m[j]] = [m[j], m[i]]; } return m; }
+  function valoreSM(c) { const v = c % 10; return v < 7 ? v + 1 : 0.5; }
+  function totaleSM(m) { return m.reduce((a, c) => a + valoreSM(c), 0); }
+  function nomeCartaSM(c) { const v = c % 10; return (v < 7 ? String(v + 1) : FIGURE_SM[v - 7]) + " di " + SEMI_SM[Math.floor(c / 10)]; }
+  function puntiSM(t) { return t === 0.5 ? "mezzo" : String(t).replace(".5", " e mezzo"); }
+  function testoSM(m) { const t = totaleSM(m); return m.map(nomeCartaSM).join(", ") + " = " + puntiSM(t) + (t > 7.5 ? " (sballato)" : ""); }
+  // chi vince: >0 vince a, <0 vince b, 0 pari. Chi sballa perde; se sballano tutti e due e' pari.
+  function confrontaSM(a, b) {
+    const ta = totaleSM(a), tb = totaleSM(b), sa = ta > 7.5, sb = tb > 7.5;
+    if (sa && sb) return 0; if (sa) return -1; if (sb) return 1;
+    if (ta !== tb) return ta - tb;
+    return b.length - a.length; // a pari punti vince chi ha usato meno carte
+  }
+  // il banco (Casino privato) pesca finche' non arriva almeno a 5 e mezzo
+  function giocaBancoSM(mazzo) { const m = [mazzo.pop()]; while (totaleSM(m) < 5.5) m.push(mazzo.pop()); return m; }
+  function apriManoSM(s, p, dati) {
+    const mazzo = dati.mazzo || mazzoSM(s);
+    (s.manoSM = s.manoSM || {})[p.id] = { ...dati, mazzo, carte: [mazzo.pop()], rilancio: false };
+  }
+  function mossaSM(s, p, mossa) {
+    const m = s.manoSM && s.manoSM[p.id];
+    if (!m) err("Non hai una mano di carte aperta.");
+    if (mossa === "carta") {
+      m.carte.push(m.mazzo.pop());
+      if (totaleSM(m.carte) > 7.5) return chiudiManoSM(s, p);
+      if (totaleSM(m.carte) === 7.5) return chiudiManoSM(s, p);
+      return;
+    }
+    if (mossa === "rilancia") {
+      if (!m.puoRilanciare || m.rilancio) err("Non puoi rilanciare adesso.");
+      const sp0 = p.sporchi; pagaMisto(s, p, m.posta); m.sporchiExtra = (m.sporchiExtra || 0) + sp0 - p.sporchi; m.posta *= 2; m.rilancio = true;
+      return;
+    }
+    if (mossa === "sto") return chiudiManoSM(s, p);
+    err("Mossa sconosciuta.");
+  }
+  function chiudiManoSM(s, p, fine) {
+    const m = s.manoSM[p.id]; delete s.manoSM[p.id];
+    const N2 = s.notte;
+    if (m.tipo === "sfida") { // chi sfida ha finito: ora l'altro vede la proposta (non le carte)
+      const pr = N2 && (N2.proposte || []).find((x) => x.id === m.prop);
+      if (!pr) return;
+      pr.manoDa = m.carte; pr.mazzo = m.mazzo; pr.sporchiDa = (pr.sporchiDa || 0) + (m.sporchiExtra || 0);
+      pr.importo = m.posta; pr.rilancio = m.rilancio;
+      if (fine) { pr.stato = "scaduta"; restituisci_(p, pr); racconta(s, p, "È l'alba: la sfida non parte. Ti riprendi i soldi."); return; }
+      pr.stato = "attesa";
+      racconta(s, p, "Guardi le tue carte: " + testoSM(m.carte) + ". " + (m.rilancio ? "Rilanci: sul tavolo ora ci sono " + euro(m.posta) + ". " : "") + "Copri la mano e aspetti la risposta di " + giocatore(s, pr.a).nome + ".");
+      N2.chiuso[p.id] = true; controllaOra(s);
+      return;
+    }
+    if (m.tipo === "risposta") {
+      const pr = (N2.proposte || []).find((x) => x.id === m.prop); const da = giocatore(s, pr.da);
+      pr.stato = "finita"; pr.manoA = m.carte; delete pr.mazzo;
+      const esito = confrontaSM(pr.manoDa, m.carte); // >0 vince chi ha sfidato
+      const piatto = pr.importo * 2, sporchiPiatto = (pr.sporchiDa || 0) + (m.sporchiMiei || 0);
+      const vince = esito > 0 ? da : esito < 0 ? p : null, perde = vince === da ? p : vince === p ? da : null;
+      const dett = da.nome + ": " + testoSM(pr.manoDa) + " · " + p.nome + ": " + testoSM(m.carte) + ".";
+      if (vince) { vince.sporchi += sporchiPiatto; vince.cash += piatto - sporchiPiatto; }
+      else { restituisci_(da, pr); p.sporchi += m.sporchiMiei || 0; p.cash += pr.importo - (m.sporchiMiei || 0); }
+      for (const [x, y] of [[da, p], [p, da]]) {
+        const mie = x === da ? pr.manoDa : m.carte, sue = x === da ? m.carte : pr.manoDa;
+        (N2.ultimaMano = N2.ultimaMano || {})[x.id] = { gioco: "sm", id: "sf" + pr.id, mie, sue, totMie: totaleSM(mie), totSue: totaleSM(sue), avv: y.nome, importo: pr.importo, esito: !vince ? "pari" : vince === x ? "vinto" : "perso" };
+        racconta(s, x, "Sette e mezzo con " + y.nome + ". " + dett + " " + (!vince ? "Pari: ognuno si riprende i suoi soldi." : vince === x ? "Hai vinto " + euro(piatto) + "." : "Hai perso " + euro(pr.importo) + "."));
+      }
+      notizia(s, "Al " + nomeLuogo(N2.dove[p.id]) + " sette e mezzo tra " + da.nome + " e " + p.nome + ": " + (vince ? "vince " + vince.nome : "finisce pari") + ".", "voce");
+      return;
+    }
+    if (m.tipo === "bisca") {
+      const banco = giocaBancoSM(m.mazzo), esito = confrontaSM(m.carte, banco), sette = totaleSM(m.carte) === 7.5 && m.carte.length === 2;
+      const vinto = esito > 0, pari = esito === 0 && totaleSM(m.carte) <= 7.5;
+      const premio = vinto ? m.posta * (sette ? 3 : 2) : pari ? m.posta : 0;
+      p.sporchi += premio; // alla Bisca si paga in contanti sporchi
+      (N2.ultimaMano = N2.ultimaMano || {})[p.id] = { gioco: "sm", id: "bi" + s.ciclo + "_" + m.carte.join("."), mie: m.carte, sue: banco, totMie: totaleSM(m.carte), totSue: totaleSM(banco), avv: "il banco della Bisca", importo: m.posta, esito: vinto ? "vinto" : pari ? "pari" : "perso", sette };
+      racconta(s, p, "Tu: " + testoSM(m.carte) + ". Il banco: " + testoSM(banco) + ". " + (vinto ? (sette ? "Sette e mezzo reale! " : "") + "Ti porti via " + euro(premio) + " in contanti sporchi." : pari ? "Pari: ti riprendi la puntata." : "Vince il banco: perdi " + euro(m.posta) + "."));
+      return;
+    }
+    if (m.tipo === "serata") {
+      const host = giocatore(s, m.host), banco = giocaBancoSM(m.mazzo);
+      const esito = confrontaSM(m.carte, banco), sette = totaleSM(m.carte) === 7.5 && m.carte.length === 2;
+      const vinto = esito > 0, pari = esito === 0 && totaleSM(m.carte) <= 7.5; // a pari punti vince il banco, tranne se sballano tutti e due
+      const premio = vinto ? (sette ? m.posta * 3 : m.posta * 2) : pari ? m.posta : 0;
+      const netto = premio - m.posta;
+      host.cash -= netto; p.cash += premio; if (N2.serate[m.host]) N2.serate[m.host].banco -= netto;
+      (N2.ultimaMano = N2.ultimaMano || {})[p.id] = { gioco: "sm", id: "se" + s.ciclo + "_" + (N2.ora || 0) + "_" + m.carte.join("."), mie: m.carte, sue: banco, totMie: totaleSM(m.carte), totSue: totaleSM(banco), avv: "il banco di " + host.nome, importo: m.posta, esito: vinto ? "vinto" : pari ? "pari" : "perso", sette };
+      racconta(s, p, "Sette e mezzo al tavolo di " + host.nome + ". Tu: " + testoSM(m.carte) + ". Il banco: " + testoSM(banco) + ". " + (vinto ? (sette ? "Sette e mezzo reale! Vinci " : "Vinci ") + euro(premio) + "." : pari ? "Pari: ti riprendi la puntata." : "Vince il banco: perdi " + euro(m.posta) + "."));
+      racconta(s, host, p.nome + (netto > 0 ? " batte il tuo banco: paghi " + euro(netto) + "." : netto < 0 ? " perde " + euro(-netto) + " al tuo tavolo." : " pareggia al tuo tavolo."));
+      if (!fine) { N2.chiuso[p.id] = true; controllaOra(s); }
+    }
+  }
+  // all'Alba nessuna mano resta a meta': chi non ha finito, sta
+  function chiudiTutteSM(s) { for (const id of Object.keys(s.manoSM || {})) { try { chiudiManoSM(s, giocatore(s, id), true); } catch (e) { delete s.manoSM[id]; } } }
   // Gli incontri: se un altro giocatore e' nello stesso posto, puoi offrirgli da bere, sfidarlo o seguirlo
   function quiConMe(s, p) {
     const N2 = s.notte; if (!N2 || N2.viaggio[p.id]) return [];
@@ -1570,9 +1656,13 @@
     } else if (tipo === "sfida") {
       importo = round(Number(importo) || 0);
       if (importo < 50_000) err("La sfida minima è 50.000 €.");
+      if (s.manoSM && s.manoSM[p.id]) err("Finisci prima la mano che hai in corso.");
       const sp0 = p.sporchi; pagaMisto(s, p, importo);
-      N2.proposte.push({ id: (N2.prossimaProposta = (N2.prossimaProposta || 0) + 1), da: p.id, a: q.id, tipo, importo, sporchiDa: sp0 - p.sporchi, stato: "attesa" });
-      racconta(s, p, "Butti " + euro(importo) + " sul tavolo davanti a " + q.nome + ": \"Una mano sola. Chi vince prende tutto.\"");
+      const id = (N2.prossimaProposta = (N2.prossimaProposta || 0) + 1);
+      N2.proposte.push({ id, da: p.id, a: q.id, tipo, importo, sporchiDa: sp0 - p.sporchi, stato: "preparazione" });
+      racconta(s, p, "Butti " + euro(importo) + " sul tavolo davanti a " + q.nome + ": \"Sette e mezzo. Chi si avvicina di più vince tutto.\"");
+      apriManoSM(s, p, { tipo: "sfida", prop: id, posta: importo, puoRilanciare: true });
+      return; // l'ora si chiude quando hai finito di giocare la mano
     } else err("Incontro sconosciuto.");
     N2.chiuso[p.id] = true;
     controllaOra(s);
@@ -1596,14 +1686,10 @@
       racconta(s, da, p.nome + " accetta il bicchiere. Si parla, si ride. Tra una frase e l'altra capisci che " + tasche + ". +2 fama.");
       racconta(s, p, "Bevi con " + da.nome + ". Una bella serata: +2 fama. Forse hai parlato un po' troppo.");
     } else {
+      if (s.manoSM && s.manoSM[p.id]) err("Finisci prima la mano che hai in corso.");
       const sp0 = p.sporchi; pagaMisto(s, p, pr.importo);
-      pr.stato = "si";
-      const vince = rng(s) < 0.5 ? da : p, perde = vince === da ? p : da;
-      const sporchiPiatto = (pr.sporchiDa || 0) + (sp0 - p.sporchi); // i soldi sporchi restano sporchi anche se cambiano tasca
-      vince.sporchi += sporchiPiatto; vince.cash += pr.importo * 2 - sporchiPiatto;
-      racconta(s, vince, "Una mano sola contro " + perde.nome + ". Hai vinto: " + euro(pr.importo * 2) + ".");
-      racconta(s, perde, "Una mano sola contro " + vince.nome + ". Hai perso " + euro(pr.importo) + ".");
-      notizia(s, "Al " + nomeLuogo(N2.dove[p.id]) + " sfida a carte tra " + da.nome + " e " + p.nome + ": vince " + vince.nome + ".", "voce");
+      pr.stato = "in_gioco";
+      apriManoSM(s, p, { tipo: "risposta", prop: pr.id, posta: pr.importo, puoRilanciare: false, mazzo: pr.mazzo, sporchiMiei: sp0 - p.sporchi });
     }
   }
   // Le scelte dell'ora: al massimo 3, decise dal luogo e dall'ora
@@ -1811,8 +1897,14 @@
     if (guaio) {
       const G = PERICOLI[guaio];
       const salvatore = usati.find((id) => (OGGETTI[id].salva || []).includes(guaio)) || (guaio === "guardia" && haOggetto(p, "motoscafo") ? "motoscafo" : null) || (guaio === "pattuglia" && haOggetto(p, "furgone") ? "furgone" : null);
-      const falla = salvatore && rng(s) < N.oggettoFalla;
-      if (salvatore && !falla) racconta(s, p, "Mentre lavori " + G.arriva + ", ma " + G.salvo + ".");
+      // la polizia impara i tuoi trucchi: ogni volta che lo stesso oggetto ti salva, la volta dopo funziona di meno
+      p.trucchi = p.trucchi || {};
+      const usiTrucco = salvatore ? p.trucchi[salvatore] || 0 : 0;
+      const falla = salvatore && rng(s) < Math.min(0.55, N.oggettoFalla + 0.1 * usiTrucco);
+      if (salvatore && !falla) {
+        p.trucchi[salvatore] = usiTrucco + 1; p.tracce += 2; // ti salvi, ma qualcuno ha notato qualcosa
+        racconta(s, p, "Mentre lavori " + G.arriva + ", ma " + G.salvo + "." + (usiTrucco >= 1 ? " Però la polizia comincia a conoscere questo trucco: la prossima volta funzionerà di meno." : ""));
+      }
       else {
         racconta(s, p, "Mentre lavori " + G.arriva + "." + (falla ? " Contavi su: " + (OGGETTI[salvatore] ? OGGETTI[salvatore].nome.toLowerCase() : salvatore) + ", ma stavolta non basta." : ""));
         if (G.danno === "perso") { guadagno = 0; tracce += 6; racconta(s, p, "Molli tutto e scappi. Il carico è perso, e con lui i soldi che ci avevi messo."); }
@@ -1917,6 +2009,7 @@
     controllaOra(s);
   }
   function fineNotte(s) {
+    chiudiTutteSM(s);
     for (const p of s.players) {
       if (s.notte.dove[p.id] !== "palazzo" && !p.faro) racconta(s, p, "Alle 4 torni a casa, mentre il cielo schiarisce.");
       p.raccontoNotte = s.notte.racconto[p.id] || [];
@@ -2455,6 +2548,7 @@
 
   // ------------------------------------------------------------ alba
   function alba(s) {
+    for (const p of s.players) if (p.trucchi) for (const k of Object.keys(p.trucchi)) p.trucchi[k] = Math.max(0, p.trucchi[k] - 0.5); // col tempo la polizia dimentica
     s.fase = "alba";
     const riepilogo = {};
     const lussoAltri = {}; for (const p of s.players) lussoAltri[p.id] = p.lussoCiclo || 0; // per la pubblicita' della TV
@@ -2839,6 +2933,7 @@
       case "serata": return apriSerata(s, p, a.ingresso);
       case "vai_serata": return vaiSerata(s, p, a.host);
       case "gioca_serata": return giocaSerata(s, p, a.importo);
+      case "sm": return mossaSM(s, p, a.mossa);
       case "incontro": return incontro(s, p, a.a, a.cosa, a.importo);
       case "rispondi_incontro": return rispondiIncontro(s, p, a.id, !!a.si);
       case "tempo_scaduto": return tempoScaduto(s);
@@ -2912,7 +3007,8 @@
         protezione: me ? (me.corrotti && me.corrotti["agente_" + (LUOGHI[s.notte.dove[idGiocatore]] || {}).isola] ? 0.6 : 1) * (me.corrotti && me.corrotti.commissario ? 0.8 : 1) * (poliziaOccupata(s, me) ? N.occupata : 1) : 1,
         ospite: s.notte.ospite ? s.notte.ospite[idGiocatore] || null : null,
         serate: Object.entries(s.notte.serate || {}).map(([id, se]) => { const h = s.players.find((x) => x.id === id); return { host: id, nome: h.nome, piani: h.piani, livello: livelloPalazzo(h), ingresso: se.ingresso, ospiti: se.ospiti.length, banco: id === idGiocatore ? se.banco : undefined }; }),
-        proposte: (s.notte.proposte || []).filter((x) => x.a === idGiocatore || x.da === idGiocatore),
+        proposte: (s.notte.proposte || []).filter((x) => (x.a === idGiocatore && x.stato !== "preparazione") || x.da === idGiocatore).map((x) => { const y = { ...x }; delete y.mazzo; if (y.da !== idGiocatore && y.stato !== "finita") delete y.manoDa; return y; }),
+        manoSM: s.manoSM && s.manoSM[idGiocatore] ? (({ mazzo, ...r }) => ({ ...r, totale: totaleSM(r.carte) }))(s.manoSM[idGiocatore]) : null,
         ultimaMano: s.notte.ultimaMano ? s.notte.ultimaMano[idGiocatore] || null : null,
         occasioni: me ? occasioniVisibili(s, me).map((o) => ({ ...o, ...OCCASIONI.find((x) => x.id === o.id), n: o.n })) : [],
         piuTardi: me && !s.notte.viaggio[idGiocatore] ? s.notte.occasioni.filter((o) => !o.preso && o.luogo === s.notte.dove[idGiocatore] && o.dalle > s.notte.ora && (!o.riservata || o.riservata === idGiocatore)).length : 0,

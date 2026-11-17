@@ -129,6 +129,14 @@ function grandiBot(o, i, n) {
   const n = {
     prossima: function (o, i) {
       const n = i.strat || "Legale";
+      // Sette e mezzo: ogni carattere ha il suo coraggio
+      const sm = o.manoSM && o.manoSM[i.id];
+      if (sm) {
+        const tot = sm.carte.reduce((a, c) => a + (c % 10 < 7 ? (c % 10) + 1 : 0.5), 0);
+        if (sm.puoRilanciare && !sm.rilancio && sm.carte.length === 1 && i.cash + i.sporchi > sm.posta * 4 && ((tot >= 6 && "Legale" !== n) || ("Spavaldo" === n && Math.random() < 0.3))) return { tipo: "sm", mossa: "rilancia" };
+        const soglia = { Spavaldo: 6, Furbo: 5.5, Esperto: 5.5, Investitore: 5, Costruttore: 5, Legale: 4.5 }[n] || 5;
+        return { tipo: "sm", mossa: tot < soglia ? "carta" : "sto" };
+      }
       if ("pacchetti" === o.fase) {
         if (o.players[o.sceltaPacchetti[0]].id !== i.id) return null;
         const t = {
