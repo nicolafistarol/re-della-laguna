@@ -795,7 +795,7 @@
         privato(s, b, "La TV della Laguna ha fatto un'inchiesta su di te: -15 fama, e la polizia ora ti guarda di più.");
       } else if (rng(s) < 0.5) {
         p.fama = Math.max(0, p.fama - 10);
-        notizia(s, "Smentita in diretta: l'inchiesta della TV su " + b.nome + " era falsa. Figuraccia per " + p.nome + ".", "fama");
+        notizia(s, "Smentita in diretta: l'inchiesta della TV su " + b.nome + " era falsa. Figuraccia per la TV.", "fama");
         privato(s, p, "Vera: \"" + b.nome + " era pulito: lo scandalo ti si è rivoltato contro. -10 fama.\"");
       } else {
         b.fama = Math.max(0, b.fama - 6);
