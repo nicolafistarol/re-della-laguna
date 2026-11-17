@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=44";
+import { ico } from "./icone.js?v=45";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=44";
-import * as Pano from "./panorama.js?v=44";
+import * as Tre from "./tre.js?v=45";
+import * as Pano from "./panorama.js?v=45";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=44";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=45";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -1244,7 +1244,7 @@ function finestraIncontro(me, id) {
     d.querySelectorAll("[data-i]").forEach((b) => b.onclick = () => {
       const k = b.dataset.i; c();
       if (k === "foto") return agisci({ tipo: "foto", bersaglio: id });
-      if (k === "sfida") return finestra(`<h2>Quanto metti sul tavolo?</h2><div class="riga" style="flex-wrap:wrap">${[50_000, 100_000, 250_000, 500_000, 1_000_000].filter((x) => x <= me.cash + me.sporchi).map((x) => `<button class="oro" data-p="${x}">${euro(x)}</button>`).join("")}</div><div class="pulsanti"><button id="no">Lascia stare</button></div>`, (d2, c2) => { d2.querySelector("#no").onclick = c2; d2.querySelectorAll("[data-p]").forEach((x) => x.onclick = () => { c2(); agisci({ tipo: "incontro", a: id, cosa: "sfida", importo: +x.dataset.p }); }); });
+      if (k === "sfida") return finestra(`<h2>Quanto metti sul tavolo?</h2><p class="sub">Una mano sola a carte: chi vince prende tutto. La puntata minima è ${euro(50_000)}. Hai ${euro(me.cash + (me.sporchi || 0))} (puliti + sporchi).</p>${me.cash + (me.sporchi || 0) < 50_000 ? `<p style="color:#ff9a9a">Non hai abbastanza soldi per sfidarlo: servono almeno ${euro(50_000)}.</p>` : ""}<div class="riga" style="flex-wrap:wrap">${[50_000, 100_000, 250_000, 500_000, 1_000_000].map((x) => `<button class="oro" data-p="${x}" ${x <= me.cash + (me.sporchi || 0) ? "" : "disabled"}>${euro(x)}</button>`).join("")}</div><div class="pulsanti"><button id="no">Lascia stare</button></div>`, (d2, c2) => { d2.querySelector("#no").onclick = c2; d2.querySelectorAll("[data-p]").forEach((x) => x.onclick = () => { c2(); agisci({ tipo: "incontro", a: id, cosa: "sfida", importo: +x.dataset.p }); }); });
       agisci({ tipo: "incontro", a: id, cosa: k });
     });
   });
@@ -1608,11 +1608,12 @@ function contenutoApp(me, k) {
         else if (!l.permesso) azioni = `<button class="piccolo oro" data-permesso="${l.id}">Chiedi il permesso al Municipio</button>`;
         else if (!me.azioneGiornoFatta) {
           const ok = next < 3 || L.haSerie(S, me, l.serie);
-          azioni = !ok ? `<span class="sub">Per il livello ${next} serve avere tutte le vie del gruppo «${esc(l.serie)}».</span>` : `${l.lvl === 0 ? `<select id="t_${l.id}">${Object.entries(L.ATTIVITA).filter(([kk, t]) => (!t.isole || t.isole.includes(l.isola)) && !t.serie).map(([kk, t]) => `<option value="${kk}">${esc(t.nome)}</option>`).join("")}</select>` : ""}<button class="piccolo oro" data-cantiere="${l.id}" ${me.cash < costo ? "disabled" : ""}>Apri il cantiere · ${euro(costo)}</button>`;
+          azioni = !ok ? `<span class="sub">Per il livello ${next} serve avere tutte le vie del gruppo «${esc(l.serie)}».</span>` : l.lvl === 0 ? sceltaAttivita(l, me, costo) : `<button class="piccolo oro" data-cantiere="${l.id}" ${me.cash < costo ? "disabled" : ""}>Apri il cantiere · ${euro(costo)}</button>`;
         }
       }
       return `<div class="scheda"><h4>${esc(l.nome)} <span class="tag" style="background:${COL_SERIE[l.serie] || "#555"}">gruppo ${esc(l.serie || "")}</span></h4>
         <span class="sub">${l.cantiere ? "🚧 Cantiere: " + esc(L.ATTIVITA[l.cantiere.tipo].nome) + " livello " + l.cantiere.lvl + ", apre all'Alba." : l.tipo ? esc(L.ATTIVITA[l.tipo].nome) + " · rende " + euro(L.rendita(S, l)) + " a Ciclo" : "Terreno vuoto"}</span>
+        ${l.tipo && L.ATTIVITA[l.tipo].perk ? `<span class="sub">⭐ ${esc(L.ATTIVITA[l.tipo].perk)}${L.ATTIVITA[l.tipo].rischio !== "Nessuno." ? ` · <span style="color:#ff9a9a">⚠ ${esc(L.ATTIVITA[l.tipo].rischio)}</span>` : ""}</span>` : ""}
         ${l.tipoCasella === "lotto" ? tappe(l) : ""}${azioni ? `<div class="riga">${azioni}</div>` : ""}</div>`;
     }).join("");
   }
@@ -1830,7 +1831,7 @@ function collegaApp(me) {
   on('[data-a2="licenza"]', () => agisci({ tipo: "licenza" }));
   on('[data-a2="bustaLicenza"]', () => agisci({ tipo: "busta_licenza" }));
   on("[data-regalo]", (b) => agisci({ tipo: "regalo_assessore", lotto: b.dataset.regalo }));
-  on("[data-cantiere]", (b) => agisci({ tipo: "costruisci", lotto: b.dataset.cantiere, attivita: v("#t_" + b.dataset.cantiere) }));
+  on("[data-cantiere]", (b) => agisci({ tipo: "costruisci", lotto: b.dataset.cantiere, attivita: b.dataset.tipo || undefined }));
   on('[data-a2="restituisci"]', () => agisci({ tipo: "restituisci", importo: me.debito }));
   on('[data-a2="prestito"]', () => finestraPrestito(me));
   on('[data-a2="regala"]', () => agisci({ tipo: "regala", a: v("#regA"), importo: Number(v("#regImp")), sporchi: !!box.querySelector("#regSp")?.checked }));
@@ -2341,4 +2342,20 @@ function collegaTV(box, me) {
   box.querySelectorAll("[data-tv-off]").forEach((b) => b.onclick = () => { const v = b.dataset.tvOff === "campo" ? Number(box.querySelector("#tvOff").value) : Number(b.dataset.tvOff); agisci({ tipo: "offerta_grande", affare: "tv", importo: v }); });
   box.querySelectorAll("[data-tv-quote]").forEach((b) => b.onclick = () => agisci({ tipo: "quote_grande", affare: "tv", n: +b.dataset.tvQuote }));
   box.querySelectorAll("[data-tv-tit]").forEach((b) => b.onclick = () => { const sc = b.dataset.tvTit; agisci(sc === "scandalo" ? { tipo: "titolone", scelta: sc, bersaglio: box.querySelector("#tvBers").value } : sc === "borsa" ? { tipo: "titolone", scelta: sc, azienda: box.querySelector("#tvAz").value, su: box.querySelector("#tvVerso").value === "1" } : { tipo: "titolone", scelta: sc }); });
+}
+
+// ------------------------------------------------------------ scegliere un'attivita': schede chiare (rende, affitto, vantaggio, rischio)
+const ICO_ATT = { residenze: "🏠", ristorante: "🍽️", hotel: "🏨", boutique: "👜", uffici: "💼", yachtclub: "⛵", agenzia: "🔑", legale: "⚖️", lavanderia: "🧺", galleria: "🖼️", magazzino: "📦", discoteca: "🪩", beachclub: "🏖️", casino: "🎰", bancaprivata: "🏦" };
+function sceltaAttivita(l, me, costo) {
+  const tipi = Object.entries(L.ATTIVITA).filter(([k, t]) => (!t.isole || t.isole.includes(l.isola)) && !t.serie);
+  const pallini = (n) => "●".repeat(n) + "○".repeat(5 - n);
+  return `<div class="att-scelte"><span class="sub">Scegli cosa aprire. Il cantiere costa ${euro(costo)} e apre all'Alba.</span>${tipi.map(([k, t]) => {
+    const prova = { ...l, tipo: k, lvl: 1, cantiere: null, chiuso: 0, owner: mioId };
+    const rend = L.rendita(S, prova), aff = L.affitto(S, prova), polizia = Math.min(5, t.att || 0);
+    const serveLic = t.licenza && !(S.licenze || []).includes(mioId);
+    return `<div class="att-carta ${serveLic ? "chiusa" : ""}"><div class="riga"><b style="flex:1">${ICO_ATT[k] || ""} ${esc(t.nome)}</b>${t.lusso ? `<span class="tag">lusso</span>` : ""}</div>
+      <div class="att-num"><span>Rende <b style="color:var(--pulito)">${euro(rend)}</b><br><span class="sub">a ogni Alba</span></span><span>Affitto <b>${euro(aff)}</b><br><span class="sub">chi ci finisce</span></span><span>Polizia <b style="color:${polizia >= 2 ? "#ff7a7a" : polizia ? "#f3c56b" : "var(--pulito)"}">${polizia ? pallini(polizia) : "nessuna"}</b></span></div>
+      <span class="sub">⭐ ${esc(t.perk || "")}</span>${t.rischio && t.rischio !== "Nessuno." ? `<span class="sub" style="color:#ff9a9a">⚠ ${esc(t.rischio)}</span>` : ""}
+      ${serveLic ? `<span class="sub">🔒 Serve la licenza del casinò (Municipio).</span>` : `<button class="piccolo oro" data-cantiere="${l.id}" data-tipo="${k}" ${me.cash < costo ? "disabled" : ""}>Apri ${esc(t.nome)}</button>`}</div>`;
+  }).join("")}</div>`;
 }

@@ -519,3 +519,10 @@ button .lic{margin-right:2px}
 .home2{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .app-corpo{min-height:0;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .schermo{min-height:0}
+
+/* schede delle attivita' */
+.att-scelte{display:flex;flex-direction:column;gap:6px;width:100%}
+.att-carta{border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,.04)}
+.att-carta.chiusa{opacity:.55}
+.att-num{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:12px;line-height:1.25}
+.att-carta>button{align-self:flex-start}

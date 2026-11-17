@@ -63,21 +63,21 @@
 
   // Tipi di attivita': rendita (x R), affitto (x), copertura (quota prezzo x livello), attenzione
   const ATTIVITA = {
-    residenze: { nome: "Residenze", gruppo: "residenze", r: 0.45, a: 2.0, c: 0, att: 0, isole: null },
-    ristorante: { nome: "Ristorante", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Ambra", "Palma", "Corona"] },
-    hotel: { nome: "Hotel di lusso", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma", "Flamingo", "Corona"], lusso: true },
-    boutique: { nome: "Boutique di lusso", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Flamingo", "Corona"], lusso: true },
-    uffici: { nome: "Uffici e hub tech", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Sole", "Corona"] },
-    yachtclub: { nome: "Yacht club", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma"] },
-    agenzia: { nome: "Agenzia immobiliare", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: null },
-    legale: { nome: "Studio legale", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: ["Corona", "Sole"] },
-    lavanderia: { nome: "Lavanderia", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Ambra", "Sole"] },
-    galleria: { nome: "Galleria d'arte", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Flamingo", "Corona"] },
-    magazzino: { nome: "Magazzino portuale", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Sole", "Ambra"] },
-    discoteca: { nome: "Discoteca", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Flamingo", "Palma"], lusso: true },
-    beachclub: { nome: "Beach club", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Palma"] },
-    casino: { nome: "Casinò", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 4, isole: ["Flamingo", "Corona"], licenza: true, lusso: true },
-    bancaprivata: { nome: "Banca privata", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 3, isole: ["Corona"], serie: true },
+    residenze: { nome: "Residenze", perk: "Rende poco, ma chi ci finisce sopra paga il doppio d'affitto.", rischio: "Nessuno.", gruppo: "residenze", r: 0.45, a: 2.0, c: 0, att: 0, isole: null },
+    ristorante: { nome: "Ristorante", perk: "Rende bene, sempre. È l'attività normale.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Ambra", "Palma", "Corona"] },
+    hotel: { nome: "Hotel di lusso", perk: "Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma", "Flamingo", "Corona"], lusso: true },
+    boutique: { nome: "Boutique di lusso", perk: "Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Flamingo", "Corona"], lusso: true },
+    uffici: { nome: "Uffici e hub tech", perk: "Fa salire SoleTech in Borsa.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Sole", "Corona"] },
+    yachtclub: { nome: "Yacht club", perk: "I tuoi mezzi a noleggio rendono il 25% in più.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma"] },
+    agenzia: { nome: "Agenzia immobiliare", perk: "All'Agenzia compri i terreni senza il 20% in più.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: null },
+    legale: { nome: "Studio legale", perk: "Se ti condannano, la multa è più bassa del 30%.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: ["Corona", "Sole"] },
+    lavanderia: { nome: "Lavanderia", perk: "Ti fa ripulire i soldi sporchi al Casinò Reale.", rischio: "Se fai affari sporchi, attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Ambra", "Sole"] },
+    galleria: { nome: "Galleria d'arte", perk: "Ripulisce soldi sporchi e apre l'affare «Falsi d'autore».", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Flamingo", "Corona"] },
+    magazzino: { nome: "Magazzino portuale", perk: "Ripulisce soldi sporchi e al Porto carichi il 50% in più.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Sole", "Ambra"] },
+    discoteca: { nome: "Discoteca", perk: "Rende tanto e apre la bisca clandestina. È anche lusso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Flamingo", "Palma"], lusso: true },
+    beachclub: { nome: "Beach club", perk: "Rende tanto, apre la bisca clandestina e ti dà +2 fama a ogni Alba.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Palma"] },
+    casino: { nome: "Casinò", perk: "Rende più di tutte e ripulisce tanto. Serve la licenza.", rischio: "La polizia lo guarda moltissimo.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 4, isole: ["Flamingo", "Corona"], licenza: true, lusso: true },
+    bancaprivata: { nome: "Banca privata", perk: "Rende più di tutte e ripulisce tanto. Serve tutto il gruppo di vie.", rischio: "La polizia la guarda molto.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 3, isole: ["Corona"], serie: true },
   };
 
   const AFFARI = {
@@ -1904,7 +1904,8 @@
   }
   // Agenzia immobiliare (app del telefono): una volta per turno compri un terreno libero
   // dell'isola dove sei, anche senza fermarti sopra. Costa il 20% in più (prezzo pieno se sei passato da un'Agenzia).
-  function prezzoAgenzia(s, p, l) { return p.agenziaSconto ? l.prezzo : round(l.prezzo * 1.2); }
+  function prezzoAgenzia(s, p, l) { return p.agenziaSconto || haAttivita(s, p, "agenzia") ? l.prezzo : round(l.prezzo * 1.2); }
+  function haAttivita(s, p, tipo) { return propri(s, p).some((l) => l.tipo === tipo && l.lvl >= 1 && !l.chiuso && !l.cantiere); }
   function agenzia(s, p, idLotto) {
     if (s.fase !== "giorno" || corrente(s).id !== p.id) err("L'Agenzia si usa di giorno, nel tuo turno.");
     if (!p.haTirato) err("Prima tira i dadi: l'Agenzia lavora sull'isola dove arrivi.");
@@ -2274,7 +2275,7 @@
       let gravita = p.peggiorReato || "lieve";
       if (inSetta(p) && gravita !== "lieve") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1];
       if (haOggetto(p, "avvocato") && gravita !== "lieve") { togliOggetto(p, "avvocato"); gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; }
-      const multa = round(Math.min(0.6, PENE[gravita].multa * N.resaMulta) * Math.max(0, patrimonio(s, p, false)));
+      const multa = round(Math.min(0.6, PENE[gravita].multa * N.resaMulta) * Math.max(0, patrimonio(s, p, false)) * (haAttivita(s, p, "legale") ? 0.7 : 1));
       const protetti = Math.min(p.sporchi, (haPiano(p, "caveau") && gravita !== "gravissima" ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0));
       const sporchiPersi = round(p.sporchi - protetti);
       p.sporchi = protetti; p.cash -= multa; p.fama = Math.max(0, p.fama - PENE[gravita].fama);
@@ -2381,7 +2382,7 @@
     const confiscati = p.sporchi; p.sporchi = 0;
     const protetto = Math.min(confiscati, (haPiano(p, "caveau") && gravita !== "gravissima" ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0));
     p.sporchi = protetto;
-    const multa = round(pena.multa * Math.max(0, p.cash + valoreInvestimenti(s, p)));
+    const multa = round(pena.multa * Math.max(0, p.cash + valoreInvestimenti(s, p)) * (haAttivita(s, p, "legale") ? 0.7 : 1));
     paga(s, p, multa, null);
     const coinvolte = propri(s, p).filter((l) => l.tipo && ["copertura", "notte", "rischio"].includes(ATTIVITA[l.tipo].gruppo));
     if (pena.attivita && (p.riciclTot > 0 || gravita !== "media")) {
@@ -2430,7 +2431,9 @@
       const pal = renditaPalazzo(p);
       r.palazzo = round(pal);
       // veicoli a noleggio
-      for (const v of p.veicoli) r.veicoli += N.veicoli[v].prezzo * N.veicoli[v].rend * (haPiano(p, "garage") ? 1.5 : 1);
+      const yc = haAttivita(s, p, "yachtclub") ? 1.25 : 1;
+      for (const v of p.veicoli) r.veicoli += N.veicoli[v].prezzo * N.veicoli[v].rend * (haPiano(p, "garage") ? 1.5 : 1) * yc;
+      if (haAttivita(s, p, "beachclub")) p.fama += 2;
       if (haPiano(p, "ristorante_panoramico")) p.fama += 1;
       if (haPiano(p, "suite")) p.fama += 3;
       rend += pal + r.veicoli;
@@ -2877,7 +2880,7 @@
     rischioResa, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
-    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, rischioContatto, nomeContatto, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, costoPiani, GRANDI, partitaLunga, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, oreViaggio, luogoAperto,
+    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, rischioContatto, nomeContatto, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, costoPiani, haAttivita, GRANDI, partitaLunga, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;
