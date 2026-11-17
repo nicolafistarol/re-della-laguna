@@ -823,8 +823,13 @@ function scenaNotte(me) {
     corpo = `<div class="righe grandi">${storia.length ? righeNotte(storia) : v ? `<p>Arrivi tra ${v.restano === 1 ? "un'ora" : v.restano + " ore"}.</p>` : ""}</div>
       ${pronto ? `<div class="attesa">${mancano.length ? "Aspetti " + mancano.map((p) => esc(p.nome)).join(", ") + "…" : "L'ora sta finendo…"}</div>` : `<button class="oro grande avanti" data-a="avanti">Avanti</button>`}`;
   }
-  return `<div class="scena" style="background-image:url('${img}')"><div class="scena-velo"></div><div class="scena-dentro">${testa}${corpo}</div></div>`;
+  // le animazioni non devono ripartire a ogni aggiornamento: ricordo quando e' iniziata questa scena
+  const chiave = img + "|" + S.ciclo, nuova = !inizioScena[chiave];
+  if (nuova) inizioScena[chiave] = Date.now();
+  const da = (Date.now() - inizioScena[chiave]) / 1000;
+  return `<div class="scena ${nuova ? "entra" : ""}"><div class="scena-foto" style="background-image:url('${img}');animation-delay:-${da.toFixed(1)}s"></div><div class="scena-nebbia" style="animation-delay:-${da.toFixed(1)}s"></div><div class="scena-velo"></div><div class="scena-dentro">${testa}${corpo}</div></div>`;
 }
+const inizioScena = {};
 function testoTempo(r) { return r > 0 ? "Restano " + r + " secondi per quest'ora" : "Tempo finito: chi non ha scelto resta dov'è"; }
 let orologioNotte = null, scadutoInviato = "";
 function collegaScena(me) {

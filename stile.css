@@ -261,7 +261,14 @@ button .lic{margin-right:2px}
 #mondo{isolation:isolate}
 
 /* ---------- la notte: scena del luogo a tutto schermo ---------- */
-.scena{position:fixed;inset:0;z-index:17;background-size:cover;background-position:center;animation:scenaEntra .6s ease-out}
+.scena{position:fixed;inset:0;z-index:17;overflow:hidden;background:#05070f}
+.scena.entra{animation:scenaEntra .7s ease-out}
+.scena-foto{position:absolute;inset:-4%;background-size:cover;background-position:center;animation:kenburns 48s ease-in-out infinite alternate,tremola 7s steps(1) infinite}
+@keyframes kenburns{from{transform:scale(1) translate(0,0)}to{transform:scale(1.12) translate(-2.5%,-1.5%)}}
+@keyframes tremola{0%,100%{filter:brightness(1)}43%{filter:brightness(1.06)}45%{filter:brightness(.93)}47%{filter:brightness(1.04)}80%{filter:brightness(.97)}}
+.scena-nebbia{position:absolute;inset:-20%;pointer-events:none;opacity:.55;background:radial-gradient(ellipse 40% 18% at 20% 70%,rgba(180,200,255,.16),transparent 70%),radial-gradient(ellipse 35% 14% at 70% 60%,rgba(200,210,255,.12),transparent 70%),radial-gradient(ellipse 50% 20% at 50% 85%,rgba(160,180,240,.14),transparent 70%);animation:nebbia 36s linear infinite alternate}
+@keyframes nebbia{from{transform:translateX(-8%)}to{transform:translateX(8%)}}
+@media(prefers-reduced-motion:reduce){.scena-foto,.scena-nebbia,.scena.entra{animation:none}}
 @keyframes scenaEntra{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:none}}
 .scena-velo{position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,7,20,.55) 0%,rgba(4,7,20,.15) 35%,rgba(4,7,20,.75) 62%,rgba(4,7,20,.96) 100%)}
 .scena-dentro{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;top:110px;width:min(860px,calc(100vw - 32px));display:flex;flex-direction:column;justify-content:flex-end;gap:14px}
