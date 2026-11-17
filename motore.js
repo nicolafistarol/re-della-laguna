@@ -227,6 +227,14 @@
 
   function log(s, testo, chi) { s.log.push({ c: s.ciclo + 1, g: s.giorno + 1, testo, chi: chi ?? null }); if (s.log.length > 400) s.log.shift(); }
   function notizia(s, testo, tipo) { s.gazzetta.push({ ciclo: s.ciclo + 1, testo, tipo: tipo || "notizia" }); if (s.gazzetta.length > 120) s.gazzetta.shift(); }
+  // Ogni passaggio di soldi viene scritto qui con il motivo.
+  // pubblico = lo vedono tutti (affitti, aste, stipendi...); privato = solo chi paga e chi riceve.
+  function flusso(s, da, a, importo, motivo, pubblico) {
+    importo = round(importo); if (!importo) return;
+    s.flussi = s.flussi || [];
+    s.flussi.push({ n: (s.nFlussi = (s.nFlussi || 0) + 1), c: s.ciclo + 1, g: s.giorno + 1, da: da ? da.id : null, a: a ? a.id : null, importo, motivo, pubblico: !!pubblico });
+    if (s.flussi.length > 160) s.flussi.shift();
+  }
   function privato(s, p, testo) { p.messaggi.push({ ciclo: s.ciclo + 1, testo }); if (p.messaggi.length > 60) p.messaggi.shift(); }
 
   // ------------------------------------------------------------ nuova partita
@@ -237,7 +245,7 @@
       ordine: [], players: [], lotti: [], valore: {}, borsa: {}, cripto: {}, sette: [], contratti: [], inviti: [],
       gazzetta: [], log: [], sindaco: null, candidati: {}, leggi: [], tassa: N.tassa, licenze: [],
       pending: null, notteFatti: {}, prossimoId: 1, principianti: !!opz.principianti, fine: false,
-      cicli: [6, 8, 10].includes(opz.cicli) ? opz.cicli : N.cicli,
+      cicli: [6, 8, 10].includes(opz.cicli) ? opz.cicli : N.cicli, flussi: [], proposte: [],
     };
     OUTER.forEach((c, i) => s.lotti.push(cella(s, c, "o", i)));
     for (const i of ISOLE) s.valore[i] = 5;
@@ -335,7 +343,7 @@
     p.pos = (p.pos + 1) % CASELLE;
     if (p.pos === 0) {
       if (p.blocco > 0) { log(s, p.nome + " passa dal Via ma lo Stipendio è bloccato dal Giudice.", p.id); }
-      else { p.cash += N.stipendio; log(s, p.nome + " passa dal Ponte Sud e incassa lo Stipendio (" + euro(N.stipendio) + ").", p.id); }
+      else { p.cash += N.stipendio; flusso(s, null, p, N.stipendio, "Stipendio al Ponte Sud", true); log(s, p.nome + " passa dal Ponte Sud e incassa lo Stipendio (" + euro(N.stipendio) + ").", p.id); }
     }
   }
   function casella(s, p) { return s.lotti.find((l) => l.giro === "o" && l.idx === p.pos); }
@@ -350,6 +358,7 @@
       else dovuto = affitto(s, c);
       if (dovuto > 0) {
         paga(s, p, dovuto, owner);
+        flusso(s, p, owner, dovuto, (c.tipoCasella === "molo" ? "Pedaggio del " : "Affitto di ") + c.nome, true);
         log(s, p.nome + " paga " + euro(dovuto) + " di affitto a " + owner.nome + " (" + c.nome + ").", p.id);
       }
       return;
@@ -397,7 +406,9 @@
   function cartaGazzetta(s, p) {
     const i = Math.floor(rng(s) * CARTE.length);
     const [testo, f] = CARTE[i];
+    const prima = p.cash;
     f(s, p);
+    if (p.cash !== prima) flusso(s, p.cash < prima ? p : null, p.cash > prima ? p : null, Math.abs(p.cash - prima), "Gazzetta: " + testo, true);
     log(s, p.nome + " pesca una Gazzetta: " + testo, p.id);
     s.ultimaCarta = { giocatore: p.id, testo };
   }
@@ -416,7 +427,7 @@
     const l = lotto(s, pd.lotto);
     if (si) {
       if (p.cash < l.prezzo) err("Non hai abbastanza soldi puliti. Puoi rifiutare e andare all'asta.");
-      p.cash -= l.prezzo; l.owner = p.id; s.pending = null;
+      p.cash -= l.prezzo; l.owner = p.id; s.pending = null; flusso(s, p, null, l.prezzo, "Acquisto di " + l.nome, true);
       log(s, p.nome + " compra " + l.nome + " per " + euro(l.prezzo) + ".", p.id);
       notizia(s, p.nome + " compra " + l.nome + ".", "affari");
       controllaValoreLusso(s, l);
@@ -441,7 +452,7 @@
     s.pending = null;
     if (best && bid > 0) {
       const w = giocatore(s, best);
-      w.cash -= bid; l.owner = w.id;
+      w.cash -= bid; l.owner = w.id; flusso(s, w, null, bid, "Asta vinta: " + l.nome, true);
       log(s, "Asta: " + w.nome + " vince " + l.nome + " con " + euro(bid) + ".", w.id);
       notizia(s, "Asta per " + l.nome + ": se la aggiudica " + w.nome + ".", "affari");
     } else log(s, "Asta per " + l.nome + ": nessuna offerta. Il lotto resta libero.");
@@ -1208,7 +1219,7 @@
     if (l.isola !== isola) err("L'Agenzia vende solo terreni di " + NOMI_ISOLE[isola] + ", l'isola dove sei.");
     const costo = prezzoAgenzia(s, p, l);
     if (p.cash < costo) err("Non hai abbastanza soldi puliti: serve " + euro(costo) + ".");
-    p.cash -= costo; l.owner = p.id; p.agenziaUsata = true;
+    p.cash -= costo; l.owner = p.id; p.agenziaUsata = true; flusso(s, p, null, costo, "Agenzia: " + l.nome, true);
     log(s, p.nome + " compra " + l.nome + " tramite l'Agenzia per " + euro(costo) + ".", p.id);
     notizia(s, p.nome + " compra " + l.nome + ".", "affari");
     controllaValoreLusso(s, l);
@@ -1411,7 +1422,7 @@
     const pagatore = k.chiPagaOra === "da" ? da : a, ricevente = k.chiPagaOra === "da" ? a : da;
     if (k.pagoOra > pagatore.cash) err(pagatore.nome + " non ha abbastanza soldi per il pagamento iniziale.");
     if (k.tipo === "notarile") { const fee = round(0.02 * (k.pagoOra + k.pagoDopo)); da.cash -= fee / 2; a.cash -= fee / 2; }
-    pagatore.cash -= k.pagoOra; ricevente.cash += k.pagoOra;
+    pagatore.cash -= k.pagoOra; ricevente.cash += k.pagoOra; flusso(s, pagatore, ricevente, k.pagoOra, "Patto: pagamento iniziale", k.tipo === "notarile");
     if (k.lottoCeduto) { const l = lotto(s, k.lottoCeduto); if (l.owner === da.id) l.owner = a.id; else if (l.owner === a.id) l.owner = da.id; }
     k.stato = "attivo";
     if (k.tipo === "notarile") notizia(s, "Firmato dal notaio un contratto tra " + da.nome + " e " + a.nome + ".", "affari");
@@ -1436,11 +1447,43 @@
       }
     }
   }
+  // Proposte dirette tra giocatori: compro un tuo terreno / ti vendo un mio terreno.
+  function proponiLotto(s, p, idA, idLotto, prezzo, compro) {
+    if (s.fase === "pacchetti" || s.fine) err("Adesso non si tratta.");
+    const a = giocatore(s, idA); if (!a || a.id === p.id) err("Scegli un altro giocatore.");
+    const l = lotto(s, idLotto);
+    prezzo = Math.floor(prezzo || 0); if (prezzo <= 0) err("Scrivi un prezzo.");
+    if (compro) { if (l.owner !== a.id) err("Quel terreno non è suo."); if (p.cash < prezzo) err("Non hai abbastanza soldi puliti per offrire " + euro(prezzo) + "."); }
+    else { if (l.owner !== p.id) err("Quel terreno non è tuo."); if (l.cantiere) err("C'è un cantiere aperto: aspetta l'Alba."); }
+    s.proposte = (s.proposte || []).filter((x) => !(x.da === p.id && x.lotto === idLotto && x.stato === "proposta"));
+    const pr = { id: "q" + s.prossimoId++, da: p.id, a: a.id, lotto: idLotto, prezzo, compro: !!compro, stato: "proposta", ciclo: s.ciclo };
+    s.proposte.push(pr);
+    privato(s, a, p.nome + (compro ? " vuole comprare il tuo " + l.nome + " per " : " ti offre il suo " + l.nome + " per ") + euro(prezzo) + ". Rispondi dalla finestra o dall'app Contratti.");
+    log(s, p.nome + " fa una proposta a " + a.nome + " per " + l.nome + ".", p.id);
+    return pr.id;
+  }
+  function rispondiProposta(s, p, idP, si) {
+    const pr = (s.proposte || []).find((x) => x.id === idP);
+    if (!pr || pr.a !== p.id || pr.stato !== "proposta") err("Proposta non trovata.");
+    const da = giocatore(s, pr.da), l = lotto(s, pr.lotto);
+    if (!si) { pr.stato = "rifiutata"; privato(s, da, p.nome + " ha rifiutato la tua proposta per " + l.nome + "."); log(s, p.nome + " rifiuta la proposta di " + da.nome + " per " + l.nome + ".", p.id); return; }
+    const compratore = pr.compro ? da : p, venditore = pr.compro ? p : da;
+    if (l.owner !== venditore.id) { pr.stato = "scaduta"; err("Il terreno non è più di " + venditore.nome + "."); }
+    if (l.cantiere) err("C'è un cantiere aperto su quel terreno: aspetta l'Alba.");
+    if (compratore.cash < pr.prezzo) { pr.stato = "scaduta"; err(compratore.nome + " non ha più abbastanza soldi."); }
+    compratore.cash -= pr.prezzo; venditore.cash += pr.prezzo; l.owner = compratore.id; l.permesso = false; l.negato = false;
+    pr.stato = "accettata";
+    flusso(s, compratore, venditore, pr.prezzo, "Compravendita: " + l.nome, true);
+    log(s, venditore.nome + " vende " + l.nome + " a " + compratore.nome + " per " + euro(pr.prezzo) + ".", p.id);
+    notizia(s, venditore.nome + " vende " + l.nome + " a " + compratore.nome + ".", "affari");
+    controllaValoreLusso(s, l);
+  }
   function regala(s, p, idA, importo, sporchi) {
     importo = Math.floor(importo || 0); const a = giocatore(s, idA);
     if (importo <= 0) err("Importo non valido.");
     if (sporchi) { if (p.sporchi < importo) err("Non hai abbastanza sporchi."); p.sporchi -= importo; a.sporchi += importo; }
     else { if (p.cash < importo) err("Non hai abbastanza soldi."); p.cash -= importo; a.cash += importo; }
+    flusso(s, p, a, importo, sporchi ? "Regalo in contanti sporchi" : "Regalo", false);
     privato(s, a, p.nome + " ti ha dato " + euro(importo) + (sporchi ? " in contanti sporchi." : "."));
   }
 
@@ -1539,9 +1582,12 @@
       const r = { rendite: 0, tasse: 0, evasa: 0, stipendioSindaco: 0, interessi: 0, corruzione: 0, veicoli: 0, palazzo: 0, decima: 0 };
       // rendite
       let rend = 0;
+      r.dettaglio = [];
       for (const l of propri(s, p)) {
-        if (l.chiuso > 0) { l.chiuso -= 1; continue; }
-        rend += rendita(s, l);
+        if (l.chiuso > 0) { l.chiuso -= 1; r.dettaglio.push({ nome: l.nome, cosa: "chiusa", importo: 0 }); continue; }
+        const rl = rendita(s, l);
+        rend += rl;
+        r.dettaglio.push({ nome: l.nome, cosa: l.tipo ? ATTIVITA[l.tipo].nome + " · livello " + l.lvl : l.cantiere ? "cantiere in corso" : "terreno vuoto: non rende, costruisci!", importo: round(rl) });
         if (l.tipo) { const t = ATTIVITA[l.tipo]; if (t.att && (p.affariStanotte.length || p.riciclTot)) p.tracce += t.att * 0.5 * (l.lvl / 2); }
         if (l.ipoteca && s.ciclo - l.ipotecaCiclo >= 4) { notizia(s, "La Banca mette all'asta " + l.nome + ": ipoteca non riscattata.", "affari"); l.owner = null; l.lvl = 0; l.tipo = null; l.ipoteca = 0; }
       }
@@ -1721,6 +1767,8 @@
       case "tira": return tira(s, p);
       case "compra": return compra(s, p, !!a.si);
       case "agenzia": return agenzia(s, p, a.lotto);
+      case "proponi_lotto": return proponiLotto(s, p, a.a, a.lotto, a.prezzo, a.compro);
+      case "rispondi_proposta": return rispondiProposta(s, p, a.id, !!a.si);
       case "licenza": return chiediLicenza(s, p);
       case "busta_licenza": return bustaLicenza(s, p);
       case "offerta": return offerta(s, p, a.importo);
@@ -1783,6 +1831,8 @@
     }
     v.sette = s.sette.filter((st) => st.membri.includes(idGiocatore));
     v.inviti = s.inviti.filter((x) => x.a === idGiocatore);
+    v.flussi = (s.flussi || []).filter((f) => f.pubblico || f.da === idGiocatore || f.a === idGiocatore);
+    v.proposte = (s.proposte || []).filter((x) => x.da === idGiocatore || x.a === idGiocatore);
     v.contratti = s.contratti.filter((k) => k.da === idGiocatore || k.a === idGiocatore || (k.tipo === "notarile" && k.stato !== "proposto")).map((k) => (k.da === idGiocatore || k.a === idGiocatore) ? k : { id: k.id, da: k.da, a: k.a, tipo: k.tipo, stato: k.stato });
     if (v.pending && v.pending.tipo === "asta") v.pending.offerte = Object.fromEntries(Object.keys(s.pending.offerte).map((k) => [k, k === idGiocatore ? s.pending.offerte[k] : "segreta"]));
     if (v.ultimaAlba) v.ultimaAlba.riepilogo = { [idGiocatore]: s.ultimaAlba.riepilogo[idGiocatore] };

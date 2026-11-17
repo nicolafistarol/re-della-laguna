@@ -58,6 +58,18 @@
           r = 3e5;
         return { tipo: "offerta", importo: Math.max(0, Math.min(i.cash - r, Math.round(t.prezzo * e))) };
       }
+      const prop = (o.proposte || []).find((x) => x.a === i.id && "proposta" === x.stato);
+      if (prop) {
+        const l = o.lotti.find((x) => x.id === prop.lotto);
+        const valore = l.prezzo * (1 + 0.6 * (l.lvl || 0));
+        let si;
+        if (prop.compro) si = prop.prezzo >= valore * 1.5 && !t.haSerie(o, i, l.serie);
+        else {
+          const completa = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id).every((x) => x.owner === i.id);
+          si = i.cash - prop.prezzo > 3e5 && (completa ? prop.prezzo <= valore * 1.8 : prop.prezzo <= valore * 0.9);
+        }
+        return { tipo: "rispondi_proposta", id: prop.id, si };
+      }
       const a = o.inviti.find((o) => o.a === i.id);
       if (a)
         return {

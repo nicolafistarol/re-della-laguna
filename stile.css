@@ -235,3 +235,5 @@ button .lic{margin-right:2px}
 .legenda .lg.ang{width:26px;height:26px}.legenda .lg.ang .lic{width:14px;height:14px}
 .legenda #legTasto{display:flex;align-items:center;gap:6px}
 .legenda #legTasto .lic{width:14px;height:14px}
+
+.esci-partita{display:block;margin:14px auto 4px;opacity:.75;font-size:12px}

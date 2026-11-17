@@ -3,14 +3,14 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=14";
+import { ico } from "./icone.js?v=15";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
 const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const VELOCE = location.search.includes("veloce");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Loc from "./locale.js?v=14";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=15";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -20,6 +20,14 @@ let telAperto = false, app = null, saldoNascosto = false, attesa = false, princi
 const visti = new Set();
 
 function toast(t) { let box = $("#toasts"); if (!box) { box = document.createElement("div"); box.id = "toasts"; document.body.appendChild(box); } const d = document.createElement("div"); d.className = "toast"; d.textContent = t; box.appendChild(d); Suono.avviso(); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => d.remove(), 4500); }
+function esciDallaPartita(msg) {
+  try { localStorage.removeItem("laguna_online"); } catch (e) { }
+  if (canale) { sb.removeChannel(canale); canale = null; }
+  clearInterval(timerVista); S = null; partita = null; mioId = null; telAperto = false; app = null;
+  document.querySelectorAll(".velo").forEach((x) => x.remove());
+  if (LOCALE) { location.href = location.pathname; return; }
+  schermataCasa(); if (msg) toast(msg);
+}
 function salvaLocale() { try { localStorage.setItem("laguna_online", JSON.stringify({ partita, mioId })); } catch (e) { } }
 function leggiLocale() { try { return JSON.parse(localStorage.getItem("laguna_online") || "{}"); } catch (e) { return {}; } }
 function sfondo(img) { $("#sfondo").style.backgroundImage = `url('${img}')`; }
@@ -138,7 +146,12 @@ async function avvio() {
   if (loc.partita && loc.mioId) {
     partita = loc.partita; mioId = loc.mioId;
     const { data } = await db.from("partite_pubbliche").select("*").eq("id", partita).maybeSingle();
-    if (data && data.in_corso) { await caricaVista(); ascolta(); return; }
+    if (data && data.in_corso && !data.finita) {
+      await caricaVista();
+      // partita della versione vecchia (tabellone piccolo): si torna alla schermata iniziale
+      if (S && S.lotti && S.lotti.length !== L.CASELLE) { esciDallaPartita("Quella partita era della versione vecchia del gioco. Creane una nuova."); return; }
+      ascolta(); return;
+    }
     if (data && !data.finita) return sala();
   }
   schermataCasa();
@@ -784,7 +797,7 @@ function disegnaTelefono(me) {
   const ora = S.fase === "notte" && S.notte ? L.ORE[S.notte.ora] : ["9:00", "13:00", "18:00"][S.giorno] || "9:00";
   let dentro;
   if (!app) {
-    dentro = `<div class="home">${APPS.filter((a) => a.lv <= S.sblocco || (a.k === "prove" && (me.prove || []).length) || (a.k === "setta" && S.sette.length)).map((a) => `<button class="app" data-app="${a.k}"><span class="ico" style="background:${a.col}">${a.ico}${a.k === "messaggi" && nuovi ? `<span class="badge">${nuovi}</span>` : ""}</span>${a.nome}</button>`).join("")}</div>`;
+    dentro = `<div class="home">${APPS.filter((a) => a.lv <= S.sblocco || (a.k === "prove" && (me.prove || []).length) || (a.k === "setta" && S.sette.length)).map((a) => `<button class="app" data-app="${a.k}"><span class="ico" style="background:${a.col}">${a.ico}${a.k === "messaggi" && nuovi ? `<span class="badge">${nuovi}</span>` : ""}</span>${a.nome}</button>`).join("")}</div><button class="piccolo esci-partita" id="esciPartita">Esci dalla partita</button>`;
   } else {
     const A = APPS.find((a) => a.k === app);
     dentro = `<div class="app-testa"><button id="indietro">‹ Home</button><b>${A.ico} ${A.nome}</b></div><div class="app-corpo">${contenutoApp(me, app)}</div>`;
@@ -792,6 +805,7 @@ function disegnaTelefono(me) {
   box.innerHTML = `<div class="tel"><div class="schermo"><div class="barra"><span>${ora}</span><button class="piccolo" id="chiudiTel2" aria-label="Chiudi il telefono" style="padding:3px 10px">✕ Chiudi</button></div>${dentro}</div><button class="tel-chiudi" id="chiudiTel" aria-label="Chiudi il telefono"></button></div>`;
   $("#chiudiTel").onclick = $("#chiudiTel2").onclick = () => { telAperto = false; disegnaTelefono(me); };
   box.querySelectorAll("[data-app]").forEach((b) => b.onclick = () => apriApp(b.dataset.app));
+  if ($("#esciPartita")) $("#esciPartita").onclick = () => finestra(`<h2>Esci dalla partita?</h2><p>Torni alla schermata iniziale, dove puoi crearne una nuova. ${LOCALE ? "La partita di prova si cancella." : "Potrai rientrare solo se qualcuno ti manda di nuovo il codice."}</p><div class="pulsanti"><button id="no">Resto</button><button class="oro" id="si">Esco</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); if (LOCALE) { try { localStorage.removeItem("laguna_locale"); } catch (e) { } } esciDallaPartita(); }; });
   if ($("#indietro")) $("#indietro").onclick = () => { app = null; chatAperta = null; disegnaTelefono(me); };
   collegaApp(me);
 }
