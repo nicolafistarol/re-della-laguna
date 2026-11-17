@@ -66,13 +66,14 @@ export function avvia(mondo, mappaDom, urlMappa) {
   controlli.enableDamping = true; controlli.dampingFactor = 0.08;
   controlli.screenSpacePanning = false;
   controlli.minDistance = 16; controlli.maxDistance = 200;
-  controlli.minPolarAngle = 0.15; controlli.maxPolarAngle = 1.2;
+  controlli.minPolarAngle = 0.15; controlli.maxPolarAngle = 0.9;
   controlli.zoomToCursor = true;
   controlli.target.set(0, 0, 4);
   controlli.update();
+  adattaVista();
   vistaIniziale = { pos: camera.position.clone(), target: controlli.target.clone() };
 
-  addEventListener("resize", () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+  addEventListener("resize", () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); adattaVista(); vistaIniziale = { pos: camera.position.clone(), target: controlli.target.clone() }; });
   attivo = true;
   renderer.setAnimationLoop(frame);
   return true;
@@ -102,7 +103,6 @@ export function ruota(gradi) {
 }
 export function centraSu(x, y) {
   const t = daMappa(x, y), dir = camera.position.clone().sub(controlli.target);
-  dir.setLength(Math.min(dir.length(), 45));
   vola(t.clone().add(dir), t);
 }
 
@@ -211,11 +211,33 @@ export function aggiorna({ caselle, torri: tt, giocatori }) {
 
 // ---------------------------------------------------------------- ogni frame
 const v = new THREE.Vector3();
+// Il tabellone deve riempire sempre tutto lo schermo: i 4 angoli dello schermo devono cadere sulla foto.
+// Se escono, la vista si sposta; se lo schermo vede piu' della foto, la camera si avvicina.
+const raggio = new THREE.Raycaster(), suolo = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), ANGOLI = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+function angoliSulPiano() {
+  camera.updateMatrixWorld();
+  const pts = [];
+  for (const [x, y] of ANGOLI) { raggio.setFromCamera({ x, y }, camera); const p = new THREE.Vector3(); if (!raggio.ray.intersectPlane(suolo, p)) return null; pts.push(p); }
+  return pts;
+}
+function avvicinaDi(f) { const dir = camera.position.clone().sub(controlli.target).multiplyScalar(f); camera.position.copy(controlli.target).add(dir); }
+function adattaVista() {
+  for (let k = 0; k < 60; k++) {
+    const pts = angoliSulPiano();
+    if (!pts) { avvicinaDi(0.96); continue; }
+    const xs = pts.map((p) => p.x), zs = pts.map((p) => p.z);
+    const minx = Math.min(...xs), maxx = Math.max(...xs), minz = Math.min(...zs), maxz = Math.max(...zs);
+    if (maxx - minx > W * 0.995 || maxz - minz > H * 0.995) { avvicinaDi(0.97); continue; }
+    let dx = 0, dz = 0;
+    if (minx < -W / 2) dx = -W / 2 - minx; else if (maxx > W / 2) dx = W / 2 - maxx;
+    if (minz < -H / 2) dz = -H / 2 - minz; else if (maxz > H / 2) dz = H / 2 - maxz;
+    if (!dx && !dz) return;
+    camera.position.x += dx; camera.position.z += dz; controlli.target.x += dx; controlli.target.z += dz;
+  }
+}
 function frame() {
   controlli.update();
-  // il centro della vista resta sempre sopra la laguna
-  controlli.target.x = THREE.MathUtils.clamp(controlli.target.x, -W / 2, W / 2);
-  controlli.target.z = THREE.MathUtils.clamp(controlli.target.z, -H / 2, H / 2);
+  adattaVista();
   // le pedine seguono la pedina HTML (che il gioco sposta casella per casella) e saltano a ogni passo
   for (const [id, ped] of pedine) {
     const el = strato.querySelector(`.ped[data-id="${id}"]`);
