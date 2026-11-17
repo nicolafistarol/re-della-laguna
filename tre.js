@@ -101,6 +101,21 @@ export function ruota(gradi) {
   v.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(gradi));
   vola(t.clone().add(v), t.clone(), 450);
 }
+// scorrere la mappa (bordo dello schermo): dx, dy in pixel dello schermo
+export function sposta(dx, dy) {
+  if (!attivo) return;
+  const dist = camera.position.distanceTo(controlli.target), k = dist / 700;
+  const avanti = controlli.target.clone().sub(camera.position); avanti.y = 0; avanti.normalize();
+  const destra = new THREE.Vector3().crossVectors(avanti, new THREE.Vector3(0, 1, 0)).normalize();
+  const m = destra.multiplyScalar(dx * k).add(avanti.multiplyScalar(-dy * k));
+  camera.position.add(m); controlli.target.add(m);
+}
+// all'inizio la mappa si apre piu' vicina (il tasto "vista intera" la mostra tutta)
+export function apriVicino(x, y) {
+  if (!attivo) return;
+  const t = daMappa(x, y), dir = camera.position.clone().sub(controlli.target).multiplyScalar(0.62);
+  camera.position.copy(t).add(dir); controlli.target.copy(t); controlli.update();
+}
 export function centraSu(x, y) {
   const t = daMappa(x, y), dir = camera.position.clone().sub(controlli.target);
   vola(t.clone().add(dir), t);
@@ -276,7 +291,7 @@ function proiettaHtml() {
     // la pedina HTML resta invisibile: in 3D si vede la pedina vera
     el.style.translate = `${sx - x / 100 * larg}px ${sy - y / 100 * alt}px`;
     const d = camera.position.distanceTo(daMappa(x, y));
-    el.style.scale = String(THREE.MathUtils.clamp(125 / d, 0.75, 1.45));
+    el.style.scale = String(THREE.MathUtils.clamp(140 / d, 0.95, 1.6));
     el.style.zIndex = String(1000 - Math.round(d));
   }
   contenitore.style.setProperty("--dist", dist.toFixed(1));

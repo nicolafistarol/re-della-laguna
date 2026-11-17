@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=50";
+import { ico } from "./icone.js?v=51";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=50";
-import * as Pano from "./panorama.js?v=50";
+import * as Tre from "./tre.js?v=51";
+import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=50";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=51";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -574,7 +574,7 @@ function disegna() {
   ${notte ? "" : `<div class="carta vetro">${animando ? `<div class="sub">…</div>` : cartaGiorno(me)}</div>`}`;
   $("#occhio").onclick = () => { saldoNascosto = !saldoNascosto; disegna(); };
   document.querySelectorAll(".chip.tratta").forEach((c) => c.onclick = () => finestraTratta(me, c.dataset.gioc));
-  if (!notte) collegaComandiVista(me); applicaVista();
+  if (!notte) collegaComandiVista(me); applicaVista(); if (!notte) apriMappaVicino(me);
   $("#audio").onclick = () => { Suono.cambia(); $("#audio").textContent = Suono.acceso() ? "🔊" : "🔇"; };
   const rc = document.querySelector(".scena .righe"); if (rc) rc.scrollTop = rc.scrollHeight;
   disegnaTelefono(me);
@@ -790,6 +790,33 @@ function centraSu(px, py) {
   const m = $("#mappa"); const w = m.offsetWidth, h = m.offsetHeight;
   if (vista.z < 1.8) vista.z = 2;
   vista.x = -(px / 100 - 0.5) * w * vista.z; vista.y = -(py / 100 - 0.5) * h * vista.z; applicaVista();
+}
+// muovendo il mouse verso il bordo dello schermo la mappa scorre (come nei giochi di strategia)
+const bordo = { x: 0, y: 0, attivo: false };
+function scorriAlBordo() {
+  requestAnimationFrame(scorriAlBordo);
+  if (!bordo.attivo || !S || (S.fase === "notte" && S.notte) || document.querySelector(".velo,#guida")) return;
+  const Z = 56, W = innerWidth, H = innerHeight;
+  const fx = bordo.x < Z ? -(Z - bordo.x) / Z : bordo.x > W - Z ? (bordo.x - (W - Z)) / Z : 0;
+  const fy = bordo.y < Z ? -(Z - bordo.y) / Z : bordo.y > H - Z ? (bordo.y - (H - Z)) / Z : 0;
+  if (!fx && !fy) return;
+  const v = 16;
+  if (TRE3D) Tre.sposta(fx * v, fy * v);
+  else { vista.x -= fx * v; vista.y -= fy * v; $("#mondo").classList.add("trascino"); applicaVista(); clearTimeout(bordo.t); bordo.t = setTimeout(() => $("#mondo").classList.remove("trascino"), 150); }
+}
+addEventListener("mousemove", (e) => {
+  bordo.x = e.clientX; bordo.y = e.clientY;
+  // sopra i pannelli (soldi, carta, telefono, legenda...) non scorre
+  bordo.attivo = e.pointerType !== "touch" && !!e.target.closest && !!e.target.closest("#mondo") && !e.target.closest(".scheda-cas");
+});
+document.addEventListener("mouseleave", () => { bordo.attivo = false; });
+requestAnimationFrame(scorriAlBordo);
+let apertaVicino = false;
+function apriMappaVicino(me) {
+  if (apertaVicino || !S || S.fase === "notte") return;
+  apertaVicino = true;
+  const [x, y] = puntoMappa(disp[mioId] || me);
+  if (TRE3D) Tre.apriVicino(x, y); else { vista.z = 1.6; centraSu(x, y); }
 }
 function collegaEsplora() {
   const mondo = $("#mondo");

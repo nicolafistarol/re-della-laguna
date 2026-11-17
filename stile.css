@@ -526,3 +526,14 @@ button .lic{margin-right:2px}
 .att-carta.chiusa{opacity:.55}
 .att-num{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:12px;line-height:1.25}
 .att-carta>button{align-self:flex-start}
+/* mappa: icone piu' grandi e leggibili */
+.cas.terreno i,.lg.terreno{min-width:44px;height:30px;border-width:2px;box-shadow:0 0 0 2px rgba(0,0,0,.55),0 4px 10px rgba(0,0,0,.6)}
+.cas.terreno em,.lg em{font-size:14.5px}
+.cas.terreno.pres b,.lg b{font-size:16px}
+.cas.spec i,.lg.spec{width:42px;height:42px;border-width:2.5px;box-shadow:0 0 0 2px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.65)}
+.cas.spec i .lic,.lg.spec .lic{width:23px;height:23px}
+.cas.ang i,.lg.ang{width:50px;height:50px}
+.cas.ang i .lic,.lg.ang .lic{width:28px;height:28px}
+.cas .cn{font-size:12.5px;padding:2px 6px;text-shadow:0 1px 2px #000}
+.livc u{width:6px;height:6px}
+.isola-nome{text-shadow:0 2px 6px #000,0 0 14px rgba(0,0,0,.8)}
