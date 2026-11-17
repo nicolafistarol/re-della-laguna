@@ -14,9 +14,9 @@
   // ------------------------------------------------------------ numeri del gioco
   const N = {
     cicli: 8, giorni: 4,
-    cashStart: 1_000_000, stipendio: 400_000, tassa: 0.20,
+    cashStart: 1_500_000, stipendio: 600_000, valoreSporchi: 0.25, tassa: 0.20,
     affVuoto: 0.15, affLvl: [1, 1, 4, 12, 26, 45], rendLvl: [0, 1, 2.2, 3.6, 5.2, 7.0],
-    costLvl: [0, 0.5, 0.5, 0.75, 1.0, 1.5], R: 0.75,
+    costLvl: [0, 0.5, 0.5, 0.75, 1.0, 1.5], R: 0.95,
     moloFee: [0, 25_000, 50_000, 100_000, 200_000],
     pianoCost: 400_000, pianoGrow: 1.08, pianoRend: 0.62, pianiMax: 60,
     bonusIllegale: 1.4, // gli affari della notte rendono il 40% in piu': tanto premio, tanto rischio
@@ -77,23 +77,25 @@
     colpo: { nome: "Il Colpo", profitto: 2.5, tracce: 30, gravita: "gravissima", descr: "Furto al caveau. Serve una setta di livello 3." },
   };
 
+  // Le classi: tutti partono con gli stessi soldi e un terreno a sorte; ogni classe ha un vantaggio suo.
   const PACCHETTI = [
-    { id: "commerciante", nome: "Il Commerciante", lotti: [["Via delle Onde", "ristorante"], ["Golf delle Palme", "ristorante"]], extra: {} },
-    { id: "costruttore", nome: "Il Costruttore", lotti: [["Vicolo dei Pescatori", "residenze"], ["Via dei Cantieri", "residenze"]], extra: { piani: 1, cash: 100_000 } },
-    { id: "investitore", nome: "L'Investitore", lotti: [["Via delle Spezie", "agenzia"], ["Corso Industria", "agenzia"]], extra: { azioni: 400_000 } },
-    { id: "playboy", nome: "Il Playboy", lotti: [["Viale Neon", "discoteca"], ["Lungomare Cocco", "beachclub"]], extra: { veicolo: "motoscafo", fama: 25, cash: 200_000 } },
-    { id: "contrabbandiere", nome: "Il Contrabbandiere", lotti: [["Piazzetta Ambra", "lavanderia"], ["Darsena Container", "magazzino"]], extra: { reputazione: 20 } },
-    { id: "politico", nome: "Il Politico", lotti: [["Baia Turchese", "hotel"], ["Flamingo Drive", "boutique"]], extra: { fama: 30, cash: 100_000 } },
-    { id: "ereditiera", nome: "L'Ereditiera", lotti: [["Viale dei Resort", "hotel"], ["Villa Rosa", "galleria"]], extra: { cash: 200_000 } },
-    { id: "speculatore", nome: "Lo Speculatore", lotti: [["Via delle Lanterne", "lavanderia"], ["Viale Solare", "uffici"]], extra: { cripto: 250_000 } },
+    { id: "commerciante", nome: "Il Commerciante", perk: "Tutti i tuoi affitti rendono il 25% in più.", extra: {} },
+    { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 25% in meno. Il permesso del Palazzo è gratis.", extra: {} },
+    { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo del 4%.", extra: {} },
+    { id: "playboy", nome: "Il Playboy", perk: "+3 fama ogni Alba. Parti con il motoscafo e gli amici dello yacht.", extra: { veicolo: "motoscafo" } },
+    { id: "contrabbandiere", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta.", extra: {} },
+    { id: "politico", nome: "Il Politico", perk: "Parti con fama 30. Candidarti a Sindaco costa metà e la licenza del casinò te la danno sempre.", extra: { fama: 30 } },
+    { id: "ereditiera", nome: "L'Ereditiera", perk: "La banca ti presta il doppio e senza interessi.", extra: {} },
+    { id: "speculatore", nome: "Lo Speculatore", perk: "Ogni Alba le tue cripto crescono del 5% in più.", extra: {} },
   ];
+
 
 
   const AZIENDE = ["Corona Bank", "Laguna Energy", "Flamingo Luxury", "SoleTech", "Palma Resorts", "Marina Shipping"];
   const MONETE = ["LagunaCoin", "FlamingoToken", "ShadowCoin"];
 
   // Il tabellone: un unico giro da 80 caselle che entra in tutte e 5 le isole.
-  // Ogni isola ha 16 caselle: un ponte (o ingresso), 3 gruppi di vie da 3, un molo, un'Agenzia, Gazzette e luoghi speciali.
+  // Ogni isola ha 20 caselle: un ponte (o ingresso), 4 gruppi di vie da 3, l'Asta del Comune, un molo, un'Agenzia, Gazzette e luoghi speciali.
   const OUTER = [
     // Borgo Ambra (0-15)
     ["Ponte Sud — Partenza", "angolo"], ["Vicolo del Mercato", "Spezie", "Ambra", 60], ["Via delle Spezie", "Spezie", "Ambra", 70],
@@ -101,17 +103,22 @@
     ["Vicolo dei Pescatori", "Lanterne", "Ambra", 100], ["Mercato Nero", "speciale"], ["Via delle Lanterne", "Lanterne", "Ambra", 110],
     ["Scalinata dei Gatti", "Lanterne", "Ambra", 120], ["Agenzia di Borgo Ambra", "agenzia"],
     ["Corte dei Mosaici", "Terracotta", "Ambra", 140], ["Via dei Vasai", "Terracotta", "Ambra", 150], ["Gazzetta", "gazzetta"],
-    ["Piazza del Campanile", "Terracotta", "Ambra", 170], ["Bisca del Vicolo", "speciale"],
+    ["Piazza del Campanile", "Terracotta", "Ambra", 170],
+    ["Riva del Sale", "Salina", "Ambra", 180], ["Calle dei Salinari", "Salina", "Ambra", 190], ["Asta del Comune", "asta"], ["Piazza della Salina", "Salina", "Ambra", 200],
+    ["Bisca del Vicolo", "speciale"],
     // Costa Palma (16-31)
     ["Ponte Ovest — Il Faro", "angolo"], ["Lungomare Cocco", "Sabbia", "Palma", 190], ["Via delle Onde", "Sabbia", "Palma", 200],
     ["Gazzetta", "gazzetta"], ["Spiaggia dei Gabbiani", "Sabbia", "Palma", 220], ["Molo Palma", "Moli", "Palma", 150],
     ["Baia Turchese", "Corallo", "Palma", 240], ["Spiaggia VIP", "speciale"], ["Viale dei Resort", "Corallo", "Palma", 260],
     ["Punta Palma", "Corallo", "Palma", 280], ["Agenzia di Costa Palma", "agenzia"],
     ["Sentiero delle Palme", "Giungla", "Palma", 300], ["Belvedere delle Palme", "Giungla", "Palma", 310], ["Gazzetta", "gazzetta"],
-    ["Golf delle Palme", "Giungla", "Palma", 330], ["Ponte Nord", "libero"],
+    ["Golf delle Palme", "Giungla", "Palma", 330],
+    ["Sentiero delle Mangrovie", "Mangrovie", "Palma", 340], ["Asta del Comune", "asta"], ["Approdo delle Mangrovie", "Mangrovie", "Palma", 345], ["Laguna delle Mangrovie", "Mangrovie", "Palma", 350],
+    ["Ponte Nord", "libero"],
     // Isola Corona (32-47)
     ["Ingresso di Isola Corona", "angolo"], ["Viale dei Diamanti", "Oro", "Corona", 900], ["Galleria Imperiale", "Oro", "Corona", 950],
     ["La Borsa", "speciale"], ["Piazza Corona", "Oro", "Corona", 1000], ["Il Municipio", "speciale"],
+    ["Via degli Smeraldi", "Smeraldo", "Corona", 1100], ["Piazza Smeraldo", "Smeraldo", "Corona", 1150], ["Asta del Comune", "asta"], ["Loggia degli Smeraldi", "Smeraldo", "Corona", 1180],
     ["Corso della Borsa", "Platino", "Corona", 1200], ["Banca Centrale", "speciale"], ["Skyline Avenue", "Platino", "Corona", 1300],
     ["Piazza dei Re", "Platino", "Corona", 1400], ["Gazzetta", "gazzetta"], ["Casinò Reale", "speciale"],
     ["Torre Sovrana", "Diamante", "Corona", 1600], ["Corona Tower", "Diamante", "Corona", 1800],
@@ -122,19 +129,23 @@
     ["Ocean Boulevard", "Velluto", "Flamingo", 440], ["Gala Flamingo", "speciale"], ["Villa Rosa", "Velluto", "Flamingo", 460],
     ["Belvedere Flamingo", "Velluto", "Flamingo", 480], ["Agenzia di Baia Flamingo", "agenzia"],
     ["Passeggiata Rosa", "Perla", "Flamingo", 500], ["Piazza dei Fenicotteri", "Perla", "Flamingo", 520], ["Gazzetta", "gazzetta"],
-    ["Lungolago delle Ninfee", "Perla", "Flamingo", 550], ["Spiaggia Libera", "libero"],
+    ["Lungolago delle Ninfee", "Perla", "Flamingo", 550],
+    ["Viale del Tramonto", "Tramonto", "Flamingo", 560], ["Terrazza del Tramonto", "Tramonto", "Flamingo", 570], ["Asta del Comune", "asta"], ["Pontile del Tramonto", "Tramonto", "Flamingo", 575],
+    ["Spiaggia Libera", "libero"],
     // Distretto Sole (64-79)
     ["Ponte Est — Posto di blocco", "angolo"], ["Via dei Cantieri", "Acciaio", "Sole", 580], ["Corso Industria", "Acciaio", "Sole", 600],
     ["Gazzetta", "gazzetta"], ["Viale Solare", "Acciaio", "Sole", 640], ["Molo Sole", "Moli", "Sole", 150],
     ["Darsena Container", "Vetro", "Sole", 680], ["Porto Container", "speciale"], ["Piazza dell'Innovazione", "Vetro", "Sole", 720],
     ["Torre del Sole", "Vetro", "Sole", 760], ["Agenzia del Distretto Sole", "agenzia"],
     ["Viale dei Pannelli", "Rame", "Sole", 800], ["Hub delle Gru", "Rame", "Sole", 820], ["Gazzetta", "gazzetta"],
-    ["Lungomare Solare", "Rame", "Sole", 850], ["Rampa del Ponte Sud", "libero"],
+    ["Lungomare Solare", "Rame", "Sole", 850],
+    ["Via del Cobalto", "Cobalto", "Sole", 870], ["Piazza Fotovoltaica", "Cobalto", "Sole", 880], ["Asta del Comune", "asta"], ["Torre Eolica", "Cobalto", "Sole", 900],
+    ["Rampa del Ponte Sud", "libero"],
   ];
-  const CASELLE = OUTER.length; // 80
-  const SEZIONE = 16;
+  const CASELLE = OUTER.length; // 100
+  const SEZIONE = 20;
   const ORDINE_ISOLE = ["Ambra", "Palma", "Corona", "Flamingo", "Sole"];
-  const POS_FARO = 16;
+  const POS_FARO = 20;
   function isolaDiPos(pos) { return ORDINE_ISOLE[Math.floor((((pos % CASELLE) + CASELLE) % CASELLE) / SEZIONE)]; }
   const ISOLE = ["Ambra", "Palma", "Flamingo", "Sole", "Corona"];
   const NOMI_ISOLE = { Ambra: "Borgo Ambra", Palma: "Costa Palma", Flamingo: "Baia Flamingo", Sole: "Distretto Sole", Corona: "Isola Corona" };
@@ -198,7 +209,7 @@
   function patrimonio(s, p, conSporchi) {
     let v = p.cash + valoreInvestimenti(s, p) + valorePalazzo(p) - p.debito;
     for (const l of s.lotti) if (l.owner === p.id) v += valoreLotto(l) - (l.ipoteca || 0);
-    if (conSporchi) v += 0.5 * p.sporchi;
+    if (conSporchi) v += N.valoreSporchi * p.sporchi;
     return v;
   }
   function fascia(s, p) { const v = patrimonio(s, p, false); return N.fasce.find((f) => v < f[0])[1]; }
@@ -208,9 +219,9 @@
     const owner = giocatore(s, l.owner);
     if (owner.faro > 0 && l.lvl === 0) return 0;
     const base = N.affVuoto * l.prezzo;
-    if (l.lvl === 0) return round(base * (haSerie(s, owner, l.serie) ? 2 : 1) * vmult(s, l.isola));
+    if (l.lvl === 0) return round(base * (haSerie(s, owner, l.serie) ? 2 : 1) * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1));
     const t = ATTIVITA[l.tipo];
-    return round(base * t.a * N.affLvl[l.lvl] * vmult(s, l.isola));
+    return round(base * t.a * N.affLvl[l.lvl] * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1));
   }
   function rendita(s, l) {
     if (!l.tipo || l.lvl === 0 || l.chiuso > 0 || l.cantiere) return 0;
@@ -283,24 +294,16 @@
     if (s.players[s.sceltaPacchetti[0]].id !== p.id) err("Non tocca a te scegliere.");
     if (!s.pacchettiDisponibili.includes(idPacchetto)) err("Pacchetto non disponibile.");
     const pk = PACCHETTI.find((x) => x.id === idPacchetto);
-    for (const [nome, tipo] of pk.lotti) {
-      const l = s.lotti.find((x) => x.nome === nome);
-      l.owner = p.id; l.lvl = 1; l.tipo = tipo;
-    }
     const e = pk.extra;
-    if (e.cash) p.cash += e.cash;
-    if (e.piani) p.piani = e.piani, p.funzioniPiani = Array(e.piani).fill("appartamenti");
-    if (e.azioni) { for (const a of ["SoleTech", "Corona Bank"]) p.azioni[a] = (e.azioni / 2) / s.borsa[a]; }
-    if (e.cripto) p.cripto.FlamingoToken = e.cripto / s.cripto.FlamingoToken;
     if (e.veicolo) p.veicoli.push(e.veicolo);
     if (e.fama) p.fama = e.fama;
-    if (e.reputazione) p.reputazione = e.reputazione;
     if (pk.id === "playboy") p.cerchie = ["yacht"];
     p.pacchetto = pk.id;
     s.pacchettiDisponibili = s.pacchettiDisponibili.filter((x) => x !== idPacchetto);
     s.sceltaPacchetti.shift();
     log(s, p.nome + " sceglie il pacchetto " + pk.nome + ".", p.id);
     if (s.sceltaPacchetti.length === 0) {
+      terreniIniziali(s);
       s.fase = "giorno"; s.turno = 0;
       notizia(s, "Si apre la stagione degli affari nella Laguna. Che vinca il più furbo.", "evento");
       iniziaTurno(s);
@@ -308,6 +311,33 @@
   }
 
   // ------------------------------------------------------------ giorno
+  // ogni giocatore riceve un terreno a sorte; chi ne riceve uno più economico ha la differenza in contanti
+  function terreniIniziali(s) {
+    const TETTO = 600_000;
+    const pool = s.lotti.filter((l) => l.tipoCasella === "lotto" && !l.owner && l.prezzo >= 150_000 && l.prezzo <= TETTO);
+    for (const p of s.players) {
+      const i = Math.floor(rng(s) * pool.length); const l = pool.splice(i, 1)[0]; if (!l) continue;
+      const tipo = ["ristorante", "hotel", "uffici", "boutique"].find((k) => ATTIVITA[k].isole.includes(l.isola));
+      l.owner = p.id; l.lvl = 1; l.tipo = tipo; p.cash += TETTO - l.prezzo;
+      privato(s, p, "Ti tocca in sorte " + l.nome + " (" + NOMI_ISOLE[l.isola] + "), con un " + ATTIVITA[tipo].nome.toLowerCase() + " già aperto" + (TETTO - l.prezzo > 0 ? ", più " + euro(TETTO - l.prezzo) + " per pareggiare il valore" : "") + ".");
+      log(s, p.nome + " riceve " + l.nome + ".", p.id);
+    }
+  }
+  // terreni sequestrati dal Giudice o dalla Banca: vanno all'asta, i soldi alla banca, l'ex padrone non partecipa
+  function sequestra(s, l, ex) {
+    l.owner = null; l.lvl = 0; l.tipo = null; l.ipoteca = 0; l.chiuso = 0; l.cantiere = null;
+    (s.sequestrati = s.sequestrati || []).push({ lotto: l.id, escluso: ex ? ex.id : null });
+    notizia(s, "Il Comune sequestra " + l.nome + ": andrà all'Asta del Comune.", "affari");
+  }
+  function avviaAstaSequestro(s) {
+    if (s.pending || s.fase !== "giorno" || !(s.sequestrati || []).length) return;
+    const q = s.sequestrati.shift(), l = lotto(s, q.lotto);
+    if (l.owner) return avviaAstaSequestro(s);
+    const part = s.players.filter((x) => !x.fallito && x.faro === 0 && x.id !== q.escluso).map((x) => x.id);
+    if (!part.length) return;
+    s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: corrente(s).id, partecipanti: part, sequestro: true, minimo: round(l.prezzo * 0.5), escluso: q.escluso };
+    notizia(s, "Asta del Comune: si vende " + l.nome + " (sequestrato). Base d'asta " + euro(round(l.prezzo * 0.5)) + ".", "affari");
+  }
   function iniziaTurno(s) {
     const p = corrente(s);
     p.haTirato = false; p.azioneGiornoFatta = false; p.doppi = 0; p.dadi = null; p.agenziaUsata = false; p.agenziaSconto = false; p.municipioOggi = false;
@@ -317,6 +347,7 @@
       log(s, p.nome + " è al Faro (ancora " + p.faro + " turni). Ha diritto a una telefonata.", p.id);
       p.haTirato = true; // non si muove; puo' fare 1 azione
     } else chiamataLampo(s, p);
+    avviaAstaSequestro(s);
   }
 
   function tira(s, p) {
@@ -370,6 +401,13 @@
       log(s, p.nome + " passa dall'" + c.nome + ".", p.id);
       return;
     }
+    if (c.tipoCasella === "asta") {
+      p.agenziaSconto = true;
+      if ((s.sequestrati || []).length) privato(s, p, "All'Asta del Comune c'è un terreno sequestrato in vendita: l'asta parte subito dopo questo turno.");
+      privato(s, p, "Asta del Comune: in questo turno puoi comprare un terreno libero di " + NOMI_ISOLE[isolaDiPos(p.pos)] + " a prezzo pieno, senza il 20% in più. Apri l'app Agenzia.");
+      log(s, p.nome + " passa dall'Asta del Comune.", p.id);
+      return;
+    }
     switch (c.nome) {
       case "Gazzetta": cartaGazzetta(s, p); break;
       case "Ponte Est — Posto di blocco": postoDiBlocco(s, p); break;
@@ -416,7 +454,7 @@
 
   function postoDiBlocco(s, p) {
     if (haOggetto(p, "documenti")) { togliOggetto(p, "documenti"); log(s, p.nome + " passa il Posto di blocco senza problemi.", p.id); privato(s, p, "Al Posto di blocco mostri i documenti falsi. L'agente ti fa cenno di passare."); return; }
-    if (p.stato >= 2 || (p.tracce > 30 && rng(s) < p.tracce / 250)) {
+    if (p.stato >= 2 || (p.tracce > 25 && rng(s) < p.tracce / 180)) {
       log(s, p.nome + " viene fermato al Posto di blocco e controllato.", p.id);
       condanna(s, p, p.peggiorReato || "lieve", "Posto di blocco");
     } else log(s, p.nome + " passa il Posto di blocco senza problemi.", p.id);
@@ -443,6 +481,7 @@
     if (!pd.partecipanti.includes(p.id)) err("Non partecipi a questa asta.");
     importo = Math.max(0, Math.floor(importo || 0));
     if (importo > p.cash) err("Non puoi offrire più dei tuoi soldi puliti.");
+    if (pd.minimo && importo > 0 && importo < pd.minimo) err("All'Asta del Comune l'offerta minima è " + euro(pd.minimo) + " (oppure 0 per non partecipare).");
     pd.offerte[p.id] = importo;
     if (Object.keys(pd.offerte).length >= pd.partecipanti.length) chiudiAsta(s);
   }
@@ -457,6 +496,7 @@
       log(s, "Asta: " + w.nome + " vince " + l.nome + " con " + euro(bid) + ".", w.id);
       notizia(s, "Asta per " + l.nome + ": se la aggiudica " + w.nome + ".", "affari");
     } else log(s, "Asta per " + l.nome + ": nessuna offerta. Il lotto resta libero.");
+    if (pd.sequestro) avviaAstaSequestro(s);
   }
 
   function gala(s, p, dono) {
@@ -494,8 +534,9 @@
   function candidati(s, p) {
     if (p.fama < 40) err("Per candidarti serve fama 40.");
     if (s.candidati[p.id]) err("Sei già candidato.");
-    if (p.cash < N.candidatura) err("La candidatura costa " + euro(N.candidatura) + ".");
-    p.cash -= N.candidatura; s.candidati[p.id] = 0;
+    const cand = N.candidatura * (p.pacchetto === "politico" ? 0.5 : 1);
+    if (p.cash < cand) err("La candidatura costa " + euro(cand) + ".");
+    p.cash -= cand; s.candidati[p.id] = 0;
     notizia(s, p.nome + " si candida a Sindaco della Laguna.", "politica");
   }
 
@@ -530,6 +571,7 @@
     let costo = N.costLvl[next] * l.prezzo;
     if (s.leggi.includes("condono")) costo *= 0.5;
     if (casella(s, p).id === l.id) costo *= 0.9;
+    if (p.pacchetto === "costruttore") costo *= 0.75;
     costo = round(costo);
     if (p.cash < costo) err("Ti servono " + euro(costo) + " puliti.");
     p.cash -= costo; l.cantiere = { tipo: nuovoTipo, lvl: next }; l.permesso = false; p.azioneGiornoFatta = true;
@@ -550,13 +592,14 @@
     }
     if (p.piani >= N.pianiMax) err("Il Palazzo ha già 60 piani.");
     if (funzione === "casino_privato" && !s.licenze.includes(p.id)) err("Serve la licenza per il casinò.");
-    const costo = round(N.pianoCost * Math.pow(N.pianoGrow, p.piani));
+    const costo = costoPiano(p);
     if (p.cash < costo) err("Il prossimo piano costa " + euro(costo) + ".");
     p.cash -= costo; p.piani += 1; p.funzioniPiani.push(funzione); p.azioneGiornoFatta = true;
     if (p.piani % 5 === 0) p.fama += 1;
     log(s, p.nome + " aggiunge il piano " + p.piani + " al suo Palazzo (" + funzione.replace(/_/g, " ") + ").", p.id);
     aggiornaSkyline(s);
   }
+  function costoPiano(p) { return round(N.pianoCost * Math.pow(N.pianoGrow, p.piani) * (p.pacchetto === "costruttore" ? 0.75 : 1)); }
   function aggiornaSkyline(s) {
     let best = null;
     for (const p of s.players) if (p.piani > 0 && (!best || p.piani > best.piani)) best = p;
@@ -576,7 +619,7 @@
   function prestito(s, p, importo) {
     azioneGiorno(s, p);
     importo = Math.floor(importo || 0);
-    const cap = N.prestitoQuota * propri(s, p).reduce((a, l) => a + valoreLotto(l), 0) - p.debito;
+    const cap = N.prestitoQuota * (p.pacchetto === "ereditiera" ? 2 : 1) * propri(s, p).reduce((a, l) => a + valoreLotto(l), 0) - p.debito;
     if (importo <= 0 || importo > cap) err("Puoi chiedere al massimo " + euro(Math.max(0, cap)) + ".");
     p.debito += importo; p.cash += importo; p.azioneGiornoFatta = true;
     p.prestiti.push({ importo, inizio: s.ciclo, scadenza: s.ciclo + 3 });
@@ -888,7 +931,7 @@
     return p.livello || 0;
   }
   function livelloSblocco(s, p) { return p ? p.livello || 0 : 3; }
-  function postiValigetta(s, p) { return [2, 4, 4, 6][livelloSblocco(s, p)]; }
+  function postiValigetta(s, p) { return [2, 4, 4, 6][livelloSblocco(s, p)] + (p && p.pacchetto === "contrabbandiere" ? 1 : 0); }
   function luogoAperto(s, l, p) { return LUOGHI[l] && (LUOGHI[l].sblocco <= livelloSblocco(s, p) || (l === "faro" && p && inSetta(p))); }
   function isolaCasa(s, p) { const l = s.lotti.find((x) => x.owner === p.id && x.isola); return l ? l.isola : "Corona"; }
   function isolaLuogo(s, p, l) { return l === "palazzo" ? isolaCasa(s, p) : LUOGHI[l].isola; }
@@ -1447,6 +1490,7 @@
     }
     if (o.riservata === p.id && usati.includes("telefono")) tracce *= 0.5;
     if (inSetta(p)) tracce *= 0.7; // la setta copre i suoi
+    if (p.pacchetto === "contrabbandiere") tracce *= 0.7;
     if (s.leggi.includes("polizia_doppia_" + isola)) tracce *= 1.5;
     p.tracce += tracce;
     if (guadagno > 0) {
@@ -1596,7 +1640,7 @@
     if (p.licenzaTurno === turno) err("La domanda di licenza si fa una volta per turno.");
     p.licenzaTurno = turno;
     const x = rng(s) - Math.min(0.2, p.fama / 400);
-    if (x < 0.45) { p.cash -= 500_000; s.licenze.push(p.id); p.licenzaNegata = false; log(s, p.nome + " ottiene la licenza per aprire un casinò.", p.id); privato(s, p, "Municipio: licenza del casinò APPROVATA. Pagati 500.000 €. Ora puoi costruire un casinò a Baia Flamingo o a Isola Corona."); return "approvato"; }
+    if (x < 0.45 || p.pacchetto === "politico") { p.cash -= 500_000; s.licenze.push(p.id); p.licenzaNegata = false; log(s, p.nome + " ottiene la licenza per aprire un casinò.", p.id); privato(s, p, "Municipio: licenza del casinò APPROVATA. Pagati 500.000 €. Ora puoi costruire un casinò a Baia Flamingo o a Isola Corona."); return "approvato"; }
     if (x < 0.8) { privato(s, p, "Municipio: la domanda di licenza è rimandata. Riprova al prossimo turno (più fama hai, più è facile)."); return "rimandato"; }
     p.licenzaNegata = true;
     privato(s, p, "Municipio: licenza NEGATA. L'assessore però ti guarda e dice: \"Con una busta, tutto si sistema.\"");
@@ -1916,11 +1960,11 @@
     if (pena.attivita && (p.riciclTot > 0 || gravita !== "media")) {
       for (const l of coinvolte) {
         if (pena.attivita === "chiusa") l.chiuso = 1;
-        else { l.owner = null; l.lvl = 0; l.tipo = null; l.ipoteca = 0; }
+        else sequestra(s, l, p);
       }
       if (pena.attivita === "confisca+") {
         const altri = propri(s, p).sort((a, b) => valoreLotto(b) - valoreLotto(a)).slice(0, 1);
-        for (const l of altri) { l.owner = null; l.lvl = 0; l.tipo = null; }
+        for (const l of altri) sequestra(s, l, p);
         if (p.piani > 4) { p.piani -= 4; p.funzioniPiani.splice(-4); }
       }
     }
@@ -1952,7 +1996,7 @@
         rend += rl;
         r.dettaglio.push({ nome: l.nome, cosa: l.tipo ? ATTIVITA[l.tipo].nome + " · livello " + l.lvl : l.cantiere ? "cantiere in corso" : "terreno vuoto: non rende, costruisci!", importo: round(rl) });
         if (l.tipo) { const t = ATTIVITA[l.tipo]; if (t.att && (p.affariStanotte.length || p.riciclTot)) p.tracce += t.att * 0.5 * (l.lvl / 2); }
-        if (l.ipoteca && s.ciclo - l.ipotecaCiclo >= 4) { notizia(s, "La Banca mette all'asta " + l.nome + ": ipoteca non riscattata.", "affari"); l.owner = null; l.lvl = 0; l.tipo = null; l.ipoteca = 0; }
+        if (l.ipoteca && s.ciclo - l.ipotecaCiclo >= 4) { notizia(s, "La Banca si riprende " + l.nome + ": ipoteca non riscattata.", "affari"); sequestra(s, l, giocatore(s, l.owner)); }
       }
       // palazzo
       let pal = 0;
@@ -1980,9 +2024,13 @@
       r.rendite = round(rend); r.tasse = round(tassa); r.evasa = round(evasa); r.decima = round(decima);
       // sindaco
       if (s.sindaco === p.id) { p.cash += N.stipendioSindaco; r.stipendioSindaco = N.stipendioSindaco; }
+      // vantaggi delle classi
+      if (p.pacchetto === "investitore") { const div = round(0.04 * Object.entries(p.azioni).reduce((t, [k, q]) => t + q * s.borsa[k], 0)); if (div > 0) { p.cash += div; r.dividendo = div; } }
+      if (p.pacchetto === "playboy") p.fama += 3;
+      if (p.pacchetto === "speculatore") for (const m of Object.keys(p.cripto)) p.cripto[m] *= 1.05;
       // debiti
       if (p.debito > 0) {
-        const tasso = p.emergenza ? N.emergenzaInt : N.prestitoInt;
+        const tasso = p.emergenza ? N.emergenzaInt : p.pacchetto === "ereditiera" ? 0 : N.prestitoInt;
         const int = p.debito * tasso; p.debito += int; r.interessi = round(int);
         const pagabile = Math.min(p.cash * 0.5, p.debito); p.cash -= pagabile; p.debito -= pagabile;
         if (p.debito < 1) { p.debito = 0; p.emergenza = false; }
@@ -2249,7 +2297,7 @@
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE,
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
-    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, oreViaggio, luogoAperto,
+    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;

@@ -7,7 +7,7 @@
       (
         {
           Legale: ["hotel", "ristorante", "uffici", "boutique", "residenze"],
-          Costruttore: ["residenze", "hotel", "ristorante"],
+          Costruttore: ["hotel", "ristorante", "uffici", "boutique", "residenze"],
           Investitore: ["uffici", "hotel", "boutique", "ristorante", "residenze"],
           Furbo: ["lavanderia", "discoteca", "galleria", "ristorante", "residenze"],
           Spavaldo: ["discoteca", "beachclub", "magazzino", "ristorante", "residenze"],
@@ -48,7 +48,7 @@
           Investitore: "investitore",
           Furbo: "contrabbandiere",
           Spavaldo: "playboy",
-          Esperto: "contrabbandiere",
+          Esperto: "politico",
         }[n];
         return { tipo: "pacchetto", id: o.pacchettiDisponibili.includes(t) ? t : o.pacchettiDisponibili[0] };
       }
@@ -56,7 +56,7 @@
         const t = o.lotti.find((t) => t.id === o.pending.lotto),
           e = 0.7 + 0.5 * Math.random(),
           r = 3e5;
-        return { tipo: "offerta", importo: Math.max(0, Math.min(i.cash - r, Math.round(t.prezzo * e))) };
+        { const v = Math.max(0, Math.min(i.cash - r, Math.round(t.prezzo * e))); return { tipo: "offerta", importo: o.pending.minimo && v < o.pending.minimo ? 0 : v }; }
       }
       const prop = (o.proposte || []).find((x) => x.a === i.id && "proposta" === x.stato);
       if (prop) {
@@ -118,7 +118,7 @@
           const a = (function (o, t, i) {
             const casinoOk = (o.licenze || []).includes(t.id) && !(t.funzioniPiani || []).includes("casino_privato");
             if (t.piani > 0 && casinoOk && ["Costruttore", "Spavaldo", "Furbo"].includes(i) && t.cash > 15e5 && Math.random() < 0.4) return { tipo: "piano", funzione: "casino_privato" };
-            if ("Costruttore" === i && t.cash > 12e5 && Math.random() < 0.5) return { tipo: "piano", funzione: "appartamenti" };
+            if ("Costruttore" === i && t.cash > 25e5 && Math.random() < 0.3 && (t.piani > 0 || o.lotti.filter((l) => l.owner === t.id && l.lvl >= 1).length >= 2)) return { tipo: "piano", funzione: "appartamenti" };
             const r = e(o, t, !0),
               n = r ? { tipo: "costruisci", lotto: r.l.id, attivita: 0 === r.l.lvl ? r.tipo : void 0 } : null;
             return (

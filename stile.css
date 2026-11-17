@@ -386,3 +386,12 @@ button .lic{margin-right:2px}
 
 .rischio-box{margin-top:10px;padding:12px;border-radius:14px;background:rgba(255,80,80,.07);border:1px solid rgba(255,120,120,.25);display:flex;flex-direction:column;gap:6px}
 .rischio-box svg{width:16px;height:16px;vertical-align:-3px}
+
+/* Rubrica dei personaggi */
+.volto{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.85);box-shadow:0 2px 6px rgba(0,0,0,.5);color:#fff;flex:none}
+.volto .lic{width:13px;height:13px;color:#fff}
+.volto.grande{width:44px;height:44px;border-width:2px}
+.volto.grande .lic{width:24px;height:24px}
+.luogo .volti{display:flex;gap:2px;margin-top:-10px;z-index:2}
+.scheda.pg{display:flex;gap:10px;align-items:flex-start}
+.volti-riga{display:flex;gap:3px;margin-right:10px}
