@@ -978,6 +978,86 @@
     }
     controllaOra(s);
   }
+  // Ogni luogo ha un'attivita' fissa, sempre presente
+  const ATTIVITA_NOTTE = {
+    club: { id: "giro", titolo: "Offri un giro a tutto il locale", testo: "Champagne per tutti. Domani tutti sapranno il tuo nome.", costo: 30_000 },
+    marina: { id: "yacht", titolo: "Passeggia tra gli yacht", testo: "I marinai parlano. Qualcuno sa che aria tira altrove." },
+    mercato: { id: "chiedi", titolo: "Chiedi in giro", testo: "Un vecchio al banco sa sempre dove gira la roba stanotte." },
+    bisca: { id: "carte", titolo: "Una mano a carte", testo: "Si punta forte. Puoi raddoppiare o perdere tutto.", puntata: true },
+    porto: { id: "gruisti", titolo: "Parla con i gruisti", testo: "Sanno quali navi arrivano più tardi, e cosa portano." },
+    casino: { id: "roulette", titolo: "Gioca alla roulette", testo: "Tutto in regola, niente Tracce. Rosso o nero?", puntata: true },
+    redazione: { id: "bozze", titolo: "Leggi le bozze di domani", testo: "Sul tavolo del caporedattore c'è la prima pagina di domani." },
+    villa: { id: "osserva", titolo: "Osserva la villa dal buio", testo: "Dal bosco si vedono finestre, guardie e telecamere." },
+    faro: { id: "mare", titolo: "Guarda chi arriva dal mare", testo: "Dall'alto del Faro si vedono tutte le luci della Laguna." },
+  };
+  function attivitaNotte(s, p, importo) {
+    oraLibera(s, p);
+    const N2 = s.notte, dove = N2.dove[p.id], A = ATTIVITA_NOTTE[dove];
+    if (!A) err("Qui non c'è niente di speciale da fare.");
+    const altroLuogo = () => { const ls = Object.keys(LUOGHI).filter((l) => l !== "palazzo" && l !== dove && luogoAperto(s, l)); return ls[Math.floor(rng(s) * ls.length)]; };
+    if (A.puntata) {
+      importo = round(Number(importo) || 0);
+      if (importo < 10_000) err("La puntata minima è 10.000 €.");
+      if (importo > 2_000_000) err("Il banco non accetta più di 2 milioni a puntata.");
+    }
+    switch (A.id) {
+      case "giro": {
+        pagaMisto(s, p, A.costo); p.fama += 2;
+        racconta(s, p, "Alzi il bicchiere e il DJ dice il tuo nome al microfono. Tutto il locale brinda con te. +2 fama.");
+        break;
+      }
+      case "yacht": {
+        const l = altroLuogo(); const lv = N2.pericolo[l];
+        racconta(s, p, "Un marinaio ti dice che a " + LUOGHI[l].nome + " stanotte " + { tranquillo: "è tutto tranquillo", agitato: "c'è movimento, meglio stare attenti", pericoloso: "è pieno di polizia" }[lv] + ".");
+        break;
+      }
+      case "chiedi": {
+        const o = N2.occasioni.find((x) => !x.preso && !x.riservata && x.luogo !== "mercato" && x.alle > N2.ora && luogoAperto(s, x.luogo) && !OCCASIONI.find((y) => y.id === x.id).legale);
+        if (o) racconta(s, p, "Il vecchio abbassa la voce: \"" + OCCASIONI.find((y) => y.id === o.id).nome + ", a " + LUOGHI[o.luogo].nome + ", tra le " + ORE[Math.max(o.dalle, N2.ora)] + " e le " + ORE[o.alle] + ".\"");
+        else racconta(s, p, "Il vecchio scuote la testa: stanotte non gira niente di buono.");
+        break;
+      }
+      case "carte": case "roulette": {
+        // alla roulette si gioca solo con soldi puliti: altrimenti sarebbe un modo facile di ripulire gli sporchi
+        if (A.id === "roulette") { if (p.cash < importo) err("Al Casinò Reale si gioca solo con soldi puliti."); p.cash -= importo; }
+        else pagaMisto(s, p, importo);
+        const vinto = rng(s) < (A.id === "carte" ? 0.47 : 0.46);
+        if (A.id === "carte") {
+          p.tracce += 1;
+          if (vinto) { p.sporchi += importo * 2; racconta(s, p, "Scopri le carte: hai vinto. Ti porti via " + euro(importo * 2) + " in contanti sporchi."); }
+          else racconta(s, p, "L'ultima carta gira male. Perdi " + euro(importo) + ".");
+        } else {
+          if (vinto) { p.cash += importo * 2; racconta(s, p, "La pallina si ferma sul tuo colore. Vinci " + euro(importo * 2) + ", tutto pulito."); }
+          else racconta(s, p, "La pallina rimbalza e si ferma sul colore sbagliato. Perdi " + euro(importo) + ".");
+        }
+        break;
+      }
+      case "gruisti": {
+        const o = N2.occasioni.filter((x) => !x.preso && x.luogo === "porto" && x.dalle > N2.ora && (!x.riservata || x.riservata === p.id));
+        racconta(s, p, o.length ? "Un gruista guarda l'orologio: \"Alle " + ORE[o[0].dalle] + " arriva qualcosa di interessante. " + OCCASIONI.find((y) => y.id === o[0].id).nome + ".\"" : "I gruisti dicono che stanotte non arriva più niente.");
+        break;
+      }
+      case "bozze": {
+        const altri = s.players.filter((x) => x.id !== p.id).sort((a, b) => b.tracce - a.tracce);
+        const b = altri[0];
+        racconta(s, p, b && b.tracce > 15 ? "In prima pagina c'è un pezzo ancora senza titolo. Il nome che compare di più è " + b.nome + "." : "Domani in prima pagina c'è solo il meteo e la regata. Nessuno nei guai, per ora.");
+        break;
+      }
+      case "osserva": {
+        const lv = N2.pericolo.villa;
+        const o = N2.occasioni.find((x) => !x.preso && x.luogo === "villa" && x.alle > N2.ora);
+        racconta(s, p, (lv === "tranquillo" ? "Le guardie dormono e le telecamere sono spente." : lv === "agitato" ? "Una guardia fa il giro ogni mezz'ora." : "Ci sono auto della vigilanza ovunque: stanotte è una trappola.") + (o ? " E qualcuno ha lasciato una finestra aperta fino alle " + ORE[o.alle] + "." : " Ma stanotte non c'è un modo per entrare."));
+        break;
+      }
+      case "mare": {
+        const visti = s.players.filter((x) => x.id !== p.id && !s.notteFatti[x.id] && x.faro === 0).map((x) => x.nome + (N2.viaggio[x.id] ? " è in viaggio" : (N2.dove[x.id] === "palazzo" ? " è nel suo Palazzo" : " è a " + nomeLuogo(N2.dove[x.id]))));
+        racconta(s, p, visti.length ? "Dal Faro vedi tutto: " + visti.join(", ") + "." : "Dal Faro vedi solo il mare. Gli altri sono già a casa.");
+        break;
+      }
+    }
+    N2.chiuso[p.id] = true;
+    controllaOra(s);
+  }
   // Le scelte dell'ora: al massimo 3, decise dal luogo e dall'ora
   function scelteNotte(s, p) {
     const N2 = s.notte;
@@ -998,7 +1078,8 @@
       const q = s.players.find((x) => x.id !== p.id && N2.dove[x.id] === dove && !N2.viaggio[x.id] && !s.notteFatti[x.id]);
       if (q) sp.push({ k: "foto", bersaglio: q.id, titolo: "Fotografa " + q.nome, testo: q.nome + " è qui. Se fa qualcosa di strano, avrai una Prova." });
     }
-    const tutte = [...occ, ...sp].slice(0, 3);
+    const fissa = ATTIVITA_NOTTE[dove] ? { k: "fissa", ...ATTIVITA_NOTTE[dove] } : null;
+    const tutte = fissa ? [...[...occ, ...sp].slice(0, 2), fissa] : [...occ, ...sp].slice(0, 3);
     if (tutte.length < 3) {
       const tardi = s.notte.occasioni.some((o) => !o.preso && o.luogo === dove && o.dalle > N2.ora && (!o.riservata || o.riservata === p.id));
       tutte.push({ k: "aspetta", titolo: dove === "palazzo" ? "Resta a casa un'ora" : "Resta qui e guardati intorno", testo: tardi ? "Si dice che più tardi qui arrivi qualcuno." : dove === "palazzo" ? "Ti versi da bere e guardi le luci della Laguna." : "Passi un'ora a osservare chi entra e chi esce." });
@@ -1878,6 +1959,7 @@
       case "vai": return vai(s, p, a.luogo);
       case "aspetta": return aspetta(s, p);
       case "avanti": return avanti(s, p);
+      case "attivita": return attivitaNotte(s, p, a.importo);
       case "tempo_scaduto": return tempoScaduto(s);
       case "pronto": case "torna_a_casa": return tornaACasa(s, p);
       case "compra_oggetto": return compraOggetto(s, p, a.oggetto);

@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=18";
+import { ico } from "./icone.js?v=19";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,11 +11,11 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=18";
+import * as Tre from "./tre.js?v=19";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=18";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=19";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -815,8 +815,8 @@ function scenaNotte(me) {
     corpo = `${intro.length ? `<div class="righe">${righeNotte(intro)}</div>` : ""}
       ${appuntamenti(me, dove)}
       <div class="scelte">${scelte.map((c, i) => `<button class="scelta ${c.k === "occ" && !c.legale ? "losca" : c.k === "occ" ? "legale" : c.k === "aspetta" ? "calma" : ""}" data-scelta="${i}">
-        <span class="ic">${ico(c.k === "occ" ? (c.legale ? "stella" : "maschera") : ICO_SCELTA[c.k] || "orologio")}</span><b>${esc(c.titolo)}</b><span class="t">${esc(c.testo)}</span>${c.k === "occ" ? `<span class="costo">${c.costo ? "Ci metti " + euro(c.costo) : "Non costa niente"}${c.riservata ? " · è l'appuntamento" : ""}</span>` : ""}</button>`).join("")}</div>
-      <div class="scena-barra">${negozio ? `<button data-a="negozio">${ico("mercato")} Guarda la merce</button>` : ""}${dove === "mercato" ? `<button data-a="soffiata">${ico("soffiata")} Soffiata</button>` : ""}<button data-a="altrove">${ico("mappa")} Vai altrove</button><button data-a="casa">${ico("casa")} Torna a casa</button></div>`;
+        <span class="ic">${ico(c.k === "occ" ? (c.legale ? "stella" : "maschera") : c.k === "fissa" ? ICO_FISSA[c.id] || "stella" : ICO_SCELTA[c.k] || "orologio")}</span><b>${esc(c.titolo)}</b><span class="t">${esc(c.testo)}</span>${c.k === "occ" ? `<span class="costo">${c.costo ? "Ci metti " + euro(c.costo) : "Non costa niente"}${c.riservata ? " · è l'appuntamento" : ""}</span>` : c.k === "fissa" ? `<span class="costo">${c.costo ? euro(c.costo) : c.puntata ? "Scegli la puntata" : "Non costa niente"}</span>` : ""}</button>`).join("")}</div>
+      <div class="scena-barra">${negozio ? `<button data-a="negozio">${ico("mercato")} Guarda la merce</button>` : ""}${dove === "mercato" ? `<button data-a="soffiata">${ico("soffiata")} Soffiata</button>` : ""}${scelte.some((c) => c.k === "aspetta") ? "" : `<button data-a="aspetta">${ico("orologio")} Resta qui</button>`}<button data-a="altrove">${ico("mappa")} Vai altrove</button><button data-a="casa">${ico("casa")} Torna a casa</button></div>`;
   } else {
     const da = v && N2.daScelta === undefined ? N2.inizioRacc || 0 : N2.daScelta !== undefined ? N2.daScelta : N2.inizioRacc || 0;
     const storia = racc.slice(da);
@@ -851,7 +851,9 @@ function collegaScena(me) {
     if (c.k === "setta") return finestraSetta(me);
     if (c.k === "foto") return agisci({ tipo: "foto", bersaglio: c.bersaglio });
     if (c.k === "aspetta") return agisci({ tipo: "aspetta" });
+    if (c.k === "fissa") return c.puntata ? finestraPuntata(me, c) : agisci({ tipo: "attivita" });
   });
+  on("aspetta", () => agisci({ tipo: "aspetta" }));
   // l'orologio dell'ora: scorre ogni secondo; se il tempo finisce e io ho gia' finito, lo dico al server
   clearInterval(orologioNotte);
   orologioNotte = setInterval(() => {
@@ -865,6 +867,17 @@ function collegaScena(me) {
     const chiave = S.ciclo + "_" + N2.ora;
     if (r <= 0 && hoFinito && scadutoInviato !== chiave && !LOCALE) { scadutoInviato = chiave; chiama({ comando: "azione", partita, azione: { tipo: "tempo_scaduto" } }).then(() => caricaVista()).catch(() => { }); }
   }, 1000);
+}
+const ICO_FISSA = { giro: "gala", yacht: "marina", chiedi: "soffiata", carte: "bisca", gruisti: "porto", roulette: "casino", bozze: "gazzetta", osserva: "villa", mare: "faro" };
+function finestraPuntata(me, c) {
+  const puntate = [50_000, 100_000, 250_000, 500_000, 1_000_000].filter((x) => x <= (c.id === "roulette" ? me.cash : me.cash + me.sporchi));
+  finestra(`<span class="kick" style="color:var(--cielo)">${ico(ICO_FISSA[c.id])} ${esc(nomeLuogo(S.notte.dove[mioId], true))}</span><h2>${esc(c.titolo)}</h2><p class="storia">${esc(c.testo)}</p>
+    <p class="sub">${c.id === "carte" ? "Se vinci, ti danno il doppio in contanti sporchi. Lascia qualche Traccia." : "Se vinci, ti danno il doppio, tutto pulito. Qui si gioca solo con soldi puliti."}${c.id === "carte" ? " Si paga prima con i soldi sporchi." : ""}</p>
+    ${puntate.length ? `<div class="riga" style="flex-wrap:wrap">${puntate.map((x) => `<button class="oro" data-p="${x}">${euro(x)}</button>`).join("")}</div>` : `<p>Non hai abbastanza soldi per puntare.</p>`}
+    <div class="pulsanti"><button id="no">Lascio stare</button></div>`, (d, chiudi) => {
+    d.querySelector("#no").onclick = chiudi;
+    d.querySelectorAll("[data-p]").forEach((b) => b.onclick = () => { chiudi(); agisci({ tipo: "attivita", importo: +b.dataset.p }); });
+  });
 }
 function finestraAltrove(me) {
   const N2 = S.notte, dove = N2.dove[mioId], restano = 6 - N2.ora;
