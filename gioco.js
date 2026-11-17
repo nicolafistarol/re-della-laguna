@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=23";
+import { ico } from "./icone.js?v=24";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=23";
-import * as Pano from "./panorama.js?v=23";
+import * as Tre from "./tre.js?v=24";
+import * as Pano from "./panorama.js?v=24";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=23";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=24";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -142,7 +142,8 @@ async function avvio() {
   if (LOCALE) {
     partita = "locale"; mioId = "g1";
     const m = /seed=(\d+)/.exec(location.search);
-    if (location.search.includes("nuova") || !Loc.carica()) Loc.nuova("Tu", m ? +m[1] : undefined);
+    if (location.search.includes("prova")) { Loc.nuovaProva("Tu"); history.replaceState(null, "", location.pathname + "?locale"); }
+    else if (location.search.includes("nuova") || !Loc.carica()) Loc.nuova("Tu", m ? +m[1] : undefined);
     return caricaVista();
   }
   const { data: { session } } = await sb.auth.getSession();

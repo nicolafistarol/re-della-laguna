@@ -943,6 +943,7 @@
       }
     }
     log(s, "Cala la Notte sul Ciclo " + (s.ciclo + 1) + ".");
+    for (const b of s.players) if (b.bot && b.faro === 0 && haPiano(b, "casino_privato") && rng(s) < 0.5) apriSerataSenzaOra(s, b, [50_000, 100_000][Math.floor(rng(s) * 2)]);
     apriOra(s, true);
     controllaOra(s);
   }
@@ -1089,6 +1090,12 @@
     notizia(s, p.nome + " apre il suo Casinò privato: stanotte si gioca al piano " + p.piani + ".", "voce");
     N2.chiuso[p.id] = true; controllaOra(s);
   }
+  function apriSerataSenzaOra(s, p, ingresso) {
+    const N2 = s.notte; N2.serate = N2.serate || {};
+    N2.serate[p.id] = { ingresso, dalle: N2.ora, ospiti: [], banco: 0 };
+    for (const q of s.players) if (q.id !== p.id) privato(s, q, "Invito da " + p.nome + ": stanotte poker nel Casinò privato del suo Palazzo, al piano " + p.piani + ". Ingresso " + euro(ingresso) + ".");
+    notizia(s, p.nome + " apre il suo Casinò privato: stanotte si gioca a poker al piano " + p.piani + ".", "voce");
+  }
   function vaiSerata(s, p, idHost) {
     oraLibera(s, p);
     const N2 = s.notte, host = giocatore(s, idHost), se = N2.serate && N2.serate[idHost];
@@ -1110,23 +1117,43 @@
     racconta(s, p, "Sali fino al piano " + host.piani + " del Palazzo di " + host.nome + ". Paghi l'ingresso (" + euro(paga) + ") e ti siedi al tavolo.", true);
     racconta(s, host, p.nome + " arriva alla tua serata e paga " + euro(paga) + " di ingresso.", true);
   }
+  // Poker a 5 carte contro il banco: vince la mano migliore, a parita' vince il banco
+  const SEMI = ["♠", "♥", "♦", "♣"], VALORI = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+  const NOMI_MANI = ["Carta alta", "Coppia", "Doppia coppia", "Tris", "Scala", "Colore", "Full", "Poker", "Scala colore"];
+  function mano(s, mazzo) { const m = []; for (let i = 0; i < 5; i++) m.push(mazzo.splice(Math.floor(rng(s) * mazzo.length), 1)[0]); return m; }
+  function punteggio(m) {
+    const v = m.map((c) => c % 13).sort((a, b) => b - a), colore = m.every((c) => Math.floor(c / 13) === Math.floor(m[0] / 13));
+    const conta = {}; for (const x of v) conta[x] = (conta[x] || 0) + 1;
+    const gruppi = Object.entries(conta).map(([x, n]) => [n, +x]).sort((a, b) => b[0] - a[0] || b[1] - a[1]);
+    const u = [...new Set(v)]; let scala = u.length === 5 && (u[0] - u[4] === 4);
+    if (u.join() === "12,3,2,1,0") scala = true; // A-2-3-4-5
+    let tipo = 0;
+    if (scala && colore) tipo = 8; else if (gruppi[0][0] === 4) tipo = 7; else if (gruppi[0][0] === 3 && gruppi[1][0] === 2) tipo = 6;
+    else if (colore) tipo = 5; else if (scala) tipo = 4; else if (gruppi[0][0] === 3) tipo = 3; else if (gruppi[0][0] === 2 && gruppi[1][0] === 2) tipo = 2; else if (gruppi[0][0] === 2) tipo = 1;
+    return [tipo, ...gruppi.map((g) => g[1])];
+  }
+  function confronta(a, b) { for (let i = 0; i < Math.max(a.length, b.length); i++) { const d = (a[i] || 0) - (b[i] || 0); if (d) return d; } return 0; }
+  function testoMano(m) { return m.map((c) => VALORI[c % 13] + SEMI[Math.floor(c / 13)]).join(" "); }
   function giocaSerata(s, p, importo) {
     oraLibera(s, p);
     const N2 = s.notte, idHost = N2.ospite && N2.ospite[p.id], host = idHost && giocatore(s, idHost);
     if (!host) err("Non sei a una serata.");
     importo = round(Number(importo) || 0);
     if (importo < 10_000) err("La puntata minima è 10.000 €.");
-    const max = Math.max(0, host.cash);
-    if (importo > max) err("Il banco di " + host.nome + " non copre una puntata così alta.");
+    if (importo > Math.max(0, host.cash)) err("Il banco di " + host.nome + " non copre una puntata così alta.");
     pagaMisto(s, p, importo);
-    if (rng(s) < 0.45) {
+    const mazzo = [...Array(52).keys()], mia = mano(s, mazzo), sua = mano(s, mazzo);
+    const pm = punteggio(mia), ps = punteggio(sua), vinco = confronta(pm, ps) > 0;
+    const descr = "Le tue carte: " + testoMano(mia) + " (" + NOMI_MANI[pm[0]] + "). " + host.nome + ": " + testoMano(sua) + " (" + NOMI_MANI[ps[0]] + ").";
+    (N2.ultimaMano = N2.ultimaMano || {})[p.id] = { mia, sua, nomeMia: NOMI_MANI[pm[0]], nomeSua: NOMI_MANI[ps[0]], vinco, importo, banco: host.nome };
+    if (vinco) {
       host.cash -= importo; p.cash += importo * 2; N2.serate[idHost].banco -= importo;
-      racconta(s, p, "Al tavolo di " + host.nome + " la fortuna è tua: vinci " + euro(importo * 2) + ".");
-      racconta(s, host, p.nome + " sbanca un giro al tuo tavolo: il banco paga " + euro(importo) + ".");
+      racconta(s, p, descr + " Vinci " + euro(importo * 2) + ".");
+      racconta(s, host, p.nome + " ti batte a poker con " + NOMI_MANI[pm[0]].toLowerCase() + ": il banco paga " + euro(importo) + ".");
     } else {
       host.cash += importo; N2.serate[idHost].banco += importo;
-      racconta(s, p, "Il banco di " + host.nome + " vince. Perdi " + euro(importo) + ".");
-      racconta(s, host, p.nome + " perde " + euro(importo) + " al tuo tavolo. Il banco vince.");
+      racconta(s, p, descr + " Vince il banco: perdi " + euro(importo) + ".");
+      racconta(s, host, p.nome + " perde " + euro(importo) + " al tuo tavolo di poker.");
     }
     N2.chiuso[p.id] = true; controllaOra(s);
   }
@@ -1207,7 +1234,7 @@
     const ospiteDi = N2.ospite && N2.ospite[p.id];
     if (ospiteDi) {
       const h = giocatore(s, ospiteDi);
-      return [{ k: "tavolo", titolo: "Gioca al tavolo di " + h.nome, testo: "Il banco è suo. Se vinci, ti paga il doppio.", puntata: true },
+      return [{ k: "tavolo", titolo: "Una mano di poker con " + h.nome, testo: "5 carte a te, 5 al banco. Vince la mano migliore: ti paga il doppio.", puntata: true },
         { k: "brinda", a: ospiteDi, titolo: "Brinda con " + h.nome, testo: "Un bicchiere con chi ti ospita: +2 fama se accetta.", costo: 20_000 },
         { k: "aspetta", titolo: "Goditi la vista", testo: "Dal piano " + h.piani + " la Laguna sembra piccola." }];
     }
@@ -2186,6 +2213,7 @@
         ospite: s.notte.ospite ? s.notte.ospite[idGiocatore] || null : null,
         serate: Object.entries(s.notte.serate || {}).map(([id, se]) => { const h = s.players.find((x) => x.id === id); return { host: id, nome: h.nome, piani: h.piani, livello: livelloPalazzo(h), ingresso: se.ingresso, ospiti: se.ospiti.length, banco: id === idGiocatore ? se.banco : undefined }; }),
         proposte: (s.notte.proposte || []).filter((x) => x.a === idGiocatore || x.da === idGiocatore),
+        ultimaMano: s.notte.ultimaMano ? s.notte.ultimaMano[idGiocatore] || null : null,
         occasioni: me ? occasioniVisibili(s, me).map((o) => ({ ...o, ...OCCASIONI.find((x) => x.id === o.id), n: o.n })) : [],
         piuTardi: me && !s.notte.viaggio[idGiocatore] ? s.notte.occasioni.filter((o) => !o.preso && o.luogo === s.notte.dove[idGiocatore] && o.dalle > s.notte.ora && (!o.riservata || o.riservata === idGiocatore)).length : 0,
         chiamate: s.notte.occasioni.filter((o) => o.riservata === idGiocatore && !o.preso).map((o) => ({ n: o.n, luogo: o.luogo, alle: o.alle, nome: OCCASIONI.find((x) => x.id === o.id).nome })),
@@ -2201,7 +2229,7 @@
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE,
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
-    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, lustro, livelloPalazzo, livelloSblocco, postiValigetta, oreViaggio, luogoAperto,
+    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;

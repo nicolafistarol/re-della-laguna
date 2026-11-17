@@ -44,6 +44,29 @@ export function nuova(nome, seed) {
   });
   giocaBot(stato); salva();
 }
+// Prova veloce: si salta subito alla prima notte, Rocco apre una serata di poker nel suo grattacielo
+export function nuovaProva(nome) {
+  nuova(nome);
+  const s = stato, me = s.players[0];
+  for (let i = 0; i < 4000 && s.fase !== "notte" && !s.fine; i++) {
+    try {
+      if (s.fase === "pacchetti") L.applica(s, "g1", { tipo: "pacchetto", id: L.PACCHETTI[0].id });
+      else if (s.pending?.tipo === "asta") L.applica(s, "g1", { tipo: "offerta", importo: 0 });
+      else if (s.pending && s.pending.giocatore === "g1") L.applica(s, "g1", { tipo: s.pending.tipo, si: false, importo: 0 });
+      else if (L.corrente(s).id === "g1") L.applica(s, "g1", me.haTirato ? { tipo: "fine_turno" } : { tipo: "tira" });
+    } catch (e) { }
+    giocaBot(s);
+  }
+  const rocco = s.players[1];
+  rocco.piani = 32; rocco.funzioniPiani = Array(32).fill("appartamenti"); rocco.funzioniPiani[7] = "casino_privato"; rocco.cash += 8_000_000;
+  me.cash += 2_000_000;
+  if (s.notte) {
+    if (s.notte.serate) delete s.notte.serate[rocco.id];
+    L.apriSerataProva(s, rocco.id, 50_000);
+    s.notte.dove[rocco.id] = "palazzo"; delete s.notte.viaggio[rocco.id]; delete s.notteFatti[rocco.id];
+  }
+  salva();
+}
 export function carica() {
   if (stato) return true;
   try { const j = localStorage.getItem(CHIAVE); if (j) { stato = JSON.parse(j); return true; } } catch (e) { }
