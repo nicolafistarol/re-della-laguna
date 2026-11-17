@@ -10,8 +10,8 @@
 // Il saldo segreto resta qui: ai giocatori arriva solo la loro "vista".
 // =====================================================================
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@1111e75c885cbc707c926188f63c8bfe2631220e/server/motore.js";
-import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@1111e75c885cbc707c926188f63c8bfe2631220e/server/bot.js";
+import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@f7dc33d190ef6e0911b9d66be9e4bedefe547e6a/server/motore.js";
+import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@f7dc33d190ef6e0911b9d66be9e4bedefe547e6a/server/bot.js";
 
 // deno-lint-ignore no-explicit-any
 const L = (globalThis as any).Laguna;
