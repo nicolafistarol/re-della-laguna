@@ -476,8 +476,8 @@ function disegnaTelefono(me) {
     const A = APPS.find((a) => a.k === app);
     dentro = `<div class="app-testa"><button id="indietro">‹ Home</button><b>${A.ico} ${A.nome}</b></div><div class="app-corpo">${contenutoApp(me, app)}</div>`;
   }
-  box.innerHTML = `<div class="tel"><div class="schermo"><div class="barra"><span>${ora}</span><span>Laguna 5G</span></div>${dentro}</div><button class="tel-chiudi" id="chiudiTel" aria-label="Chiudi il telefono"></button></div>`;
-  $("#chiudiTel").onclick = () => { telAperto = false; disegnaTelefono(me); };
+  box.innerHTML = `<div class="tel"><div class="schermo"><div class="barra"><span>${ora}</span><button class="piccolo" id="chiudiTel2" aria-label="Chiudi il telefono" style="padding:3px 10px">✕ Chiudi</button></div>${dentro}</div><button class="tel-chiudi" id="chiudiTel" aria-label="Chiudi il telefono"></button></div>`;
+  $("#chiudiTel").onclick = $("#chiudiTel2").onclick = () => { telAperto = false; disegnaTelefono(me); };
   box.querySelectorAll("[data-app]").forEach((b) => b.onclick = () => apriApp(b.dataset.app));
   if ($("#indietro")) $("#indietro").onclick = () => { app = null; disegnaTelefono(me); };
   collegaApp(me);
@@ -766,4 +766,7 @@ function fine() {
 }
 
 for (const f of ["laguna", "marina", "mappa", ...Object.values(SCENE).map((x) => x.slice(4, -4))]) { const i = new Image(); i.src = "img/" + f + ".jpg"; }
+// il telefono si chiude anche con Esc o toccando fuori
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && telAperto && !document.querySelector(".velo")) { telAperto = false; if (S) disegnaTelefono(io()); } });
+document.addEventListener("pointerdown", (e) => { if (telAperto && S && !document.querySelector(".velo") && !e.target.closest("#telefonoBox") && !e.target.closest("[data-a=\"imprese\"]")) { telAperto = false; disegnaTelefono(io()); } });
 avvio();
