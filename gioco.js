@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=17";
+import { ico } from "./icone.js?v=18";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,11 +11,11 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=17";
+import * as Tre from "./tre.js?v=18";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=17";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=18";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -460,7 +460,7 @@ function disegna() {
   if (!S) return;
   const me = io(); if (!me) return;
   const notte = S.fase === "notte" && S.notte;
-  $("#mondo").style.display = "block";
+  $("#mondo").style.display = notte && !S.fine ? "none" : "block";
   $("#mondo").classList.toggle("notte", !!notte);
   if (!TRE3D && vuole3D() && !VELOCE_2D) { try { TRE3D = Tre.avvia($("#mondo"), $("#mappa"), "img/mappa-hd.jpg"); } catch (e) { console.error(e); TRE3D = false; } }
   $("#mondo").classList.toggle("tre", TRE3D);
@@ -485,19 +485,19 @@ function disegna() {
       <div style="font-size:12px;margin-top:4px;color:${(me.stato || 0) >= 2 ? "#ffb3b3" : "var(--muted)"}">${segn}</div>
     </div>
   </div>
-  ${notte ? `<div class="racconto vetro"><span class="kick" style="color:var(--cielo)">La tua notte</span>${S.notte.racconto.map((r) => { const [o, t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t)}</p>`; }).join("")}</div>`
+  ${notte ? scenaNotte(me)
       : `<div class="ticker">${cron.map((r) => `<div class="${r.chi === mioId ? "mia" : ""}">${esc(r.testo)}</div>`).join("")}</div>`}
-  ${comandiVista()}${notteOra() ? "" : legenda()}
+  ${notte ? "" : comandiVista() + legenda()}
   <button class="vetro audio" id="audio" aria-label="${Suono.acceso() ? "Spegni" : "Accendi"} i suoni">${Suono.acceso() ? "🔊" : "🔇"}</button>
-  <div class="carta vetro">${animando ? `<div class="sub">…</div>` : notte ? cartaNotte(me) : cartaGiorno(me)}</div>`;
+  ${notte ? "" : `<div class="carta vetro">${animando ? `<div class="sub">…</div>` : cartaGiorno(me)}</div>`}`;
   $("#occhio").onclick = () => { saldoNascosto = !saldoNascosto; disegna(); };
   document.querySelectorAll(".chip.tratta").forEach((c) => c.onclick = () => finestraTratta(me, c.dataset.gioc));
-  collegaComandiVista(me); applicaVista();
+  if (!notte) collegaComandiVista(me); applicaVista();
   $("#audio").onclick = () => { Suono.cambia(); $("#audio").textContent = Suono.acceso() ? "🔊" : "🔇"; };
-  const rc = document.querySelector(".racconto"); if (rc) rc.scrollTop = rc.scrollHeight;
+  const rc = document.querySelector(".scena .righe"); if (rc) rc.scrollTop = rc.scrollHeight;
   disegnaTelefono(me);
   if (animando) return;
-  collegaCarta(me);
+  if (notte) collegaScena(me); else collegaCarta(me);
   if (S.fine) return fine();
   finestreAutomatiche(me);
 }
@@ -782,6 +782,110 @@ function cartaNotte(me) {
     ${occ || (dove !== "palazzo" ? `<div class="sub">${N2.piuTardi ? "Per ora non succede niente. Si dice che più tardi qui arrivi qualcuno: puoi restare ad aspettare." : "Stanotte qui non c'è niente per te. Prova un altro posto."}</div>` : "")}
     ${extra.length ? `<div class="riga">${extra.join("")}</div>` : ""}
     <div class="riga"><span class="sub" style="flex:1">${dove === "palazzo" ? "Tocca un luogo sulla mappa per uscire." : "Tocca un luogo sulla mappa per spostarti."}</span><button data-a="aspetta">${ico("orologio")} Resta qui un'ora</button><button data-a="casa">${ico("casa")} Torna a casa</button></div>`;
+}
+
+// ------------------------------------------------------------ la notte: una scena per ogni luogo
+const SCENA_NOTTE = { palazzo: "img/notte-palazzo.jpg", club: "img/notte-club.jpg", marina: "img/notte-marina.jpg", mercato: "img/notte-mercato.jpg", bisca: "img/notte-bisca.jpg", porto: "img/notte-porto.jpg", casino: "img/notte-casino.jpg", redazione: "img/notte-redazione.jpg", villa: "img/notte-villa.jpg", faro: "img/notte-faro.jpg", viaggio: "img/notte-viaggio.jpg" };
+const ICO_SCELTA = { occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
+function righeNotte(lista) { return lista.map((r) => { const [o, ...t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t.join(" — "))}</p>`; }).join(""); }
+function restoOra() { const N2 = S.notte; if (!N2 || !N2.inizio) return null; return Math.max(0, Math.ceil((N2.tempo || 120) - (Date.now() - N2.inizio) / 1000)); }
+function scenaNotte(me) {
+  const N2 = S.notte, dove = N2.dove[mioId], v = N2.viaggio[mioId];
+  const aCasa = S.notteFatti[mioId], scelto = N2.chiuso[mioId], pronto = N2.pronto && N2.pronto[mioId];
+  const img = me.faro ? SCENA_NOTTE.faro : v ? SCENA_NOTTE.viaggio : SCENA_NOTTE[aCasa ? "palazzo" : dove] || SCENA_NOTTE.palazzo;
+  const nome = me.faro ? "In cella, al Faro" : aCasa ? "Il tuo Palazzo" : v ? "In viaggio verso " + nomeLuogo(v.verso) : nomeLuogo(dove, true);
+  const isola = !v && !aCasa && dove !== "palazzo" && L.LUOGHI[dove] ? L.NOMI_ISOLE[L.LUOGHI[dove].isola] || "" : "";
+  const quiAltri = v || aCasa || dove === "palazzo" ? [] : S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !N2.viaggio[p.id] && N2.dove[p.id] === dove);
+  const mancano = S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !(N2.pronto && N2.pronto[p.id]));
+  const resto = restoOra();
+  const testa = `<div class="scena-testa">
+      <div class="kick" style="color:var(--cielo)">${ico("luna")} ore ${L.ORE[N2.ora]} · ${6 - N2.ora} ${6 - N2.ora === 1 ? "ora" : "ore"} all'alba${isola ? " · " + esc(isola) : ""}</div>
+      <h1>${esc(nome)}</h1>
+      ${quiAltri.length ? `<div class="qui-altri">${quiAltri.map((p) => `<span class="pall" style="background:${p.colore}">${esc(p.nome[0])}</span>${esc(p.nome)}`).join(" ")} <span class="sub">${quiAltri.length === 1 ? "è qui con te" : "sono qui con te"}</span></div>` : ""}
+      ${resto !== null && !aCasa && !me.faro ? `<div class="tempo"><div class="barra" id="barraTempo" style="width:${(resto / (N2.tempo || 120)) * 100}%"></div></div><div class="sub" id="contoTempo">${testoTempo(resto)}</div>` : ""}
+    </div>`;
+  let corpo = "";
+  const racc = N2.racconto || [];
+  if (me.faro) corpo = `<div class="storia">Sei in cella. Fuori la Laguna si muove senza di te.</div>`;
+  else if (aCasa) corpo = `<div class="storia">Per te la notte è finita. ${mancano.length ? "Sono ancora in giro: " + mancano.map((p) => esc(p.nome)).join(", ") + "." : ""} All'alba si scopre tutto.</div>`;
+  else if (!scelto && !v) {
+    const intro = racc.slice(N2.inizioRacc || 0);
+    const scelte = N2.scelte || [];
+    const negozio = Object.values(L.OGGETTI).some((O) => O.dove === dove);
+    corpo = `${intro.length ? `<div class="righe">${righeNotte(intro)}</div>` : ""}
+      ${appuntamenti(me, dove)}
+      <div class="scelte">${scelte.map((c, i) => `<button class="scelta ${c.k === "occ" && !c.legale ? "losca" : c.k === "occ" ? "legale" : c.k === "aspetta" ? "calma" : ""}" data-scelta="${i}">
+        <span class="ic">${ico(c.k === "occ" ? (c.legale ? "stella" : "maschera") : ICO_SCELTA[c.k] || "orologio")}</span><b>${esc(c.titolo)}</b><span class="t">${esc(c.testo)}</span>${c.k === "occ" ? `<span class="costo">${c.costo ? "Ci metti " + euro(c.costo) : "Non costa niente"}${c.riservata ? " · è l'appuntamento" : ""}</span>` : ""}</button>`).join("")}</div>
+      <div class="scena-barra">${negozio ? `<button data-a="negozio">${ico("mercato")} Guarda la merce</button>` : ""}${dove === "mercato" ? `<button data-a="soffiata">${ico("soffiata")} Soffiata</button>` : ""}<button data-a="altrove">${ico("mappa")} Vai altrove</button><button data-a="casa">${ico("casa")} Torna a casa</button></div>`;
+  } else {
+    const da = v && N2.daScelta === undefined ? N2.inizioRacc || 0 : N2.daScelta !== undefined ? N2.daScelta : N2.inizioRacc || 0;
+    const storia = racc.slice(da);
+    corpo = `<div class="righe grandi">${storia.length ? righeNotte(storia) : v ? `<p>Arrivi tra ${v.restano === 1 ? "un'ora" : v.restano + " ore"}.</p>` : ""}</div>
+      ${pronto ? `<div class="attesa">${mancano.length ? "Aspetti " + mancano.map((p) => esc(p.nome)).join(", ") + "…" : "L'ora sta finendo…"}</div>` : `<button class="oro grande avanti" data-a="avanti">Avanti</button>`}`;
+  }
+  return `<div class="scena" style="background-image:url('${img}')"><div class="scena-velo"></div><div class="scena-dentro">${testa}${corpo}</div></div>`;
+}
+function testoTempo(r) { return r > 0 ? "Restano " + r + " secondi per quest'ora" : "Tempo finito: chi non ha scelto resta dov'è"; }
+let orologioNotte = null, scadutoInviato = "";
+function collegaScena(me) {
+  const on = (a, f) => document.querySelectorAll(`.scena [data-a="${a}"]`).forEach((b) => b.onclick = f);
+  document.querySelectorAll(".scena [data-vai]").forEach((b) => b.onclick = () => chiediViaggio(me, b.dataset.vai));
+  on("avanti", () => agisci({ tipo: "avanti" }));
+  on("negozio", () => finestraNegozio(me));
+  on("soffiata", () => finestraSoffiata(me));
+  on("altrove", () => finestraAltrove(me));
+  on("casa", () => finestra(`<h2>Torni a casa?</h2><p>Per te la notte finisce qui. Non potrai più uscire fino all'alba.</p><div class="pulsanti"><button id="no">Resto fuori</button><button class="notte" id="si">Torno a casa</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "torna_a_casa" }); }; }));
+  const scelte = S.notte.scelte || [];
+  document.querySelectorAll(".scena [data-scelta]").forEach((b) => b.onclick = () => {
+    const c = scelte[+b.dataset.scelta]; if (!c) return;
+    if (c.k === "occ") return finestraOccasione(me, c.n);
+    if (c.k === "ricicla") return finestraRicicla(me, false);
+    if (c.k === "paradiso") return finestraRicicla(me, true);
+    if (c.k === "banchiere" || c.k === "polizia") return finestraCorrompi(me);
+    if (c.k === "articolo") return finestraArticolo(me);
+    if (c.k === "setta") return finestraSetta(me);
+    if (c.k === "foto") return agisci({ tipo: "foto", bersaglio: c.bersaglio });
+    if (c.k === "aspetta") return agisci({ tipo: "aspetta" });
+  });
+  // l'orologio dell'ora: scorre ogni secondo; se il tempo finisce e io ho gia' finito, lo dico al server
+  clearInterval(orologioNotte);
+  orologioNotte = setInterval(() => {
+    if (!notteOra()) return clearInterval(orologioNotte);
+    const r = restoOra(); if (r === null) return;
+    const b = $("#barraTempo"), t = $("#contoTempo");
+    if (b) b.style.width = (r / (S.notte.tempo || 120)) * 100 + "%";
+    if (t) t.textContent = testoTempo(r);
+    const io_ = io(), N2 = S.notte;
+    const hoFinito = S.notteFatti[mioId] || io_.faro || (N2.pronto && N2.pronto[mioId]);
+    const chiave = S.ciclo + "_" + N2.ora;
+    if (r <= 0 && hoFinito && scadutoInviato !== chiave && !LOCALE) { scadutoInviato = chiave; chiama({ comando: "azione", partita, azione: { tipo: "tempo_scaduto" } }).then(() => caricaVista()).catch(() => { }); }
+  }, 1000);
+}
+function finestraAltrove(me) {
+  const N2 = S.notte, dove = N2.dove[mioId], restano = 6 - N2.ora;
+  const luoghi = Object.keys(L.LUOGHI).filter((l) => L.LUOGHI[l].sblocco <= S.sblocco && l !== dove);
+  const chiamate = new Set((N2.chiamate || []).filter((c) => !c.scaduta).map((x) => x.luogo));
+  finestra(`<span class="kick" style="color:var(--cielo)">Ore ${L.ORE[N2.ora]} · ${restano} ${restano === 1 ? "ora" : "ore"} all'alba</span><h2>Dove vai?</h2>
+    <div class="lista-luoghi">${luoghi.map((l) => { const ore = L.oreViaggio(S, me, dove, l); const gente = S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && N2.dove[p.id] === l && l !== "palazzo").length; return `<button class="luogo-riga" data-l="${l}" ${ore > restano ? "disabled" : ""} style="background-image:linear-gradient(90deg,rgba(6,10,24,.92),rgba(6,10,24,.55)),url('${SCENA_NOTTE[l]}')"><span class="ic">${ICO_LUOGO[l]}</span><span style="flex:1;text-align:left"><b>${esc(nomeLuogo(l, true))}</b><br><span class="sub">${l === "palazzo" ? "Casa tua" : esc(L.NOMI_ISOLE[L.LUOGHI[l].isola] || "")}${gente ? " · " + gente + (gente === 1 ? " persona" : " persone") + " ci sono già" : ""}${chiamate.has(l) ? " · appuntamento" : ""}</span></span><span class="ore">${ore === 1 ? "1 ora" : "2 ore"}</span></button>`; }).join("")}</div>
+    <div class="pulsanti"><button id="no">Resto qui</button></div>`, (d, c) => {
+    d.querySelector("#no").onclick = c;
+    d.querySelectorAll("[data-l]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "vai", luogo: b.dataset.l }); });
+  });
+}
+function finestraRiepilogo(R) {
+  const m = R.mio;
+  const RISCHIO = ["Nessun rischio", "Poco rischio", "Rischio alto", "Rischio altissimo"];
+  const col = ["#7bd88f", "#f3c56b", "#ff9a5c", "#ff5c5c"];
+  const segno = (x) => (x > 0 ? "+" : x < 0 ? "−" : "") + euro(Math.abs(x));
+  finestra(`<span class="kick" style="color:var(--cielo)">${ico("luna")} Dalle ${esc(R.da)} alle ${esc(R.a)}</span><h2>Com'è andata quest'ora</h2>
+    <div class="riep">
+      <div><span class="sub">Dov'eri</span><b>${esc(m.dove)}</b></div>
+      <div><span class="sub">Chi hai visto</span><b>${m.visti.length ? m.visti.map(esc).join(", ") : "Nessuno"}</b></div>
+      <div><span class="sub">Soldi</span><b style="color:${m.soldi > 0 ? "#7bd88f" : m.soldi < 0 ? "#ff9a9a" : "inherit"}">${m.soldi ? segno(m.soldi) : "Niente"}</b>${m.sporchi > 0 ? `<span class="sub" style="color:var(--sporco)">di cui sporchi ${euro(m.sporchi)}</span>` : ""}</div>
+      <div><span class="sub">Fama</span><b>${m.fama ? (m.fama > 0 ? "+" : "") + m.fama : "Uguale"}</b></div>
+      <div class="largo"><span class="sub">Rischio preso</span><div class="rischio">${[0, 1, 2].map((i) => `<i style="background:${i < m.rischio ? col[m.rischio] : "rgba(255,255,255,.15)"}"></i>`).join("")}</div><b style="color:${col[m.rischio]}">${RISCHIO[m.rischio]}</b></div>
+    </div>
+    <div class="pulsanti"><button class="oro" id="ok">Continua</button></div>`, (d, c) => { d.querySelector("#ok").onclick = () => { c(); finestreAutomatiche(io()); }; });
 }
 function appuntamenti(me, dove) {
   const ora = S.notte.ora;
@@ -1099,6 +1203,8 @@ function finestra(html, collega) {
 }
 function finestreAutomatiche(me) {
   if (document.querySelector(".velo")) return;
+  const rm = S.riepOra && S.riepOra.mio, vuoto = rm && !rm.soldi && !rm.fama && !rm.rischio && !rm.visti.length;
+  if (rm && !rm.aCasa && !vuoto && !visti.has("riep" + S.riepOra.ciclo + "_" + S.riepOra.n)) { visti.add("riep" + S.riepOra.ciclo + "_" + S.riepOra.n); if (S.riepOra.ciclo === S.ciclo || S.fase !== "notte") return finestraRiepilogo(S.riepOra); }
   if (S.fase === "pacchetti" && tocca() && !visti.has("pk")) { visti.add("pk"); return finestraPacchetti(); }
   if (S.pending && S.pending.tipo === "asta" && tocca()) { const k = "asta" + S.pending.lotto + S.ciclo + S.giorno; if (!visti.has(k)) { visti.add(k); return finestraAsta(me); } }
   if (S.pending && S.pending.giocatore === mioId && S.pending.tipo !== "asta") { const k = "p" + S.pending.tipo + (S.pending.lotto || "") + S.ciclo + S.giorno; if (!visti.has(k)) { visti.add(k); return finestraPending(me); } }

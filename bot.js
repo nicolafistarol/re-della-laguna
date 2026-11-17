@@ -139,7 +139,9 @@
       return "notte" === o.fase
         ? (function (o, i, e) {
             const n = o.notte;
-            if (!n || o.notteFatti[i.id] || i.faro > 0 || n.chiuso[i.id] || n.viaggio[i.id]) return null;
+            if (!n || o.notteFatti[i.id] || i.faro > 0) return null;
+            if (n.pronto && n.pronto[i.id]) return null;
+            if (n.chiuso[i.id] || n.viaggio[i.id]) return { tipo: "avanti" };
             const a = t.livelloSblocco(o),
               s = n.dove[i.id],
               c = n.ora;
