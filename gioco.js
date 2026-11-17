@@ -3,14 +3,14 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=13";
+import { ico } from "./icone.js?v=14";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
 const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const VELOCE = location.search.includes("veloce");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Loc from "./locale.js?v=13";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=14";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -1052,7 +1052,7 @@ function finestraOccasione(me, n) {
   const scelti = new Set();
   finestra(`<span class="kick" style="color:var(--cielo)">${esc(nomeLuogo(o.luogo))} · ore ${L.ORE[S.notte.ora]}</span><h2>${esc(o.nome)}</h2><p class="storia">${esc(o.testo)}</p>
     <p>${o.costo ? "Ci metti <b>" + euro(o.costo) + "</b> (prima i soldi sporchi)." : "Non ci metti niente."} ${o.legale ? "" : "Se va bene, torni con contanti sporchi."}</p>
-    ${o.legale ? "" : v.length ? `<p class="kick" style="color:var(--muted);margin-top:12px">Cosa porti con te?</p><p class="sub">Scegli gli oggetti della valigetta. Se qualcosa va storto, quello giusto può salvarti. Quelli che si consumano li perdi.</p><div style="display:flex;flex-direction:column;gap:6px">${v.map((x, i) => `<button class="ogg" data-i="${i}" data-id="${x.id}" style="text-align:left;color:#fff"><span class="ic">${ICO_OGG[x.id]}</span><div><b>${esc(L.OGGETTI[x.id].nome)}</b><div class="sub" style="font-size:12px">${esc(L.OGGETTI[x.id].descr)}</div></div></button>`).join("")}</div>` : `<p class="sub">La valigetta è vuota: vai a mani nude.</p>`}
+    ${o.legale ? "" : v.length ? `<p class="kick" style="color:var(--muted);margin-top:12px">Cosa porti con te?</p><p class="sub">Scegli gli oggetti della valigetta. Se qualcosa va storto, quello giusto può salvarti. Quelli che si consumano li perdi.</p><div style="display:flex;flex-direction:column;gap:6px">${[...new Set(v.map((x) => x.id))].map((id) => { const quanti = v.filter((x) => x.id === id).length; return `<button class="ogg" data-id="${id}" style="text-align:left;color:#fff"><span class="ic">${ICO_OGG[id]}</span><div><b>${esc(L.OGGETTI[id].nome)}${quanti > 1 ? ` <span class="tag">ne hai ${quanti}: ne usi 1</span>` : ""}</b><div class="sub" style="font-size:12px">${esc(L.OGGETTI[id].descr)}</div></div></button>`; }).join("")}</div>` : `<p class="sub">La valigetta è vuota: vai a mani nude.</p>`}
     <div class="pulsanti"><button id="no">Lascio stare</button><button class="${o.legale ? "oro" : "notte"}" id="si">${o.legale ? "Ci sto" : "Accetto"}</button></div>`, (d, c) => {
     d.querySelectorAll(".ogg[data-id]").forEach((b) => b.onclick = () => { const id = b.dataset.id; if (scelti.has(id)) scelti.delete(id); else scelti.add(id); d.querySelectorAll(`.ogg[data-id="${id}"]`).forEach((x) => x.classList.toggle("sel", scelti.has(id))); });
     d.querySelector("#no").onclick = c;
