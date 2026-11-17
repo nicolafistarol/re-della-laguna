@@ -871,7 +871,7 @@
   }
   function haOggetto(p, id) { return (p.valigetta || []).some((o) => o.id === id); }
   function togliOggetto(p, id) { const i = (p.valigetta || []).findIndex((o) => o.id === id); if (i >= 0) p.valigetta.splice(i, 1); }
-  function racconta(s, p, testo) { if (!s.notte) return; (s.notte.racconto[p.id] = s.notte.racconto[p.id] || []).push(ORE[s.notte.ora] + " — " + testo); }
+  function racconta(s, p, testo, dopo) { if (!s.notte) return; (s.notte.racconto[p.id] = s.notte.racconto[p.id] || []).push(ORE[s.notte.ora + (dopo ? 1 : 0)] + " — " + testo); }
   function indizio(s, l) { const lv = LIVELLI_PERICOLO.indexOf(s.notte.pericolo[l]); const arr = INDIZI[l] && INDIZI[l][lv]; return arr ? arr[Math.floor(rng(s) * arr.length)] : ""; }
   function pagaMisto(s, p, costo) { // prima gli sporchi, poi i puliti
     if (p.sporchi + p.cash < costo) err("Non hai abbastanza soldi: servono " + euro(costo) + ".");
@@ -1119,8 +1119,8 @@
       v.restano -= 1;
       if (v.restano <= 0) {
         N2.dove[p.id] = v.verso; delete N2.viaggio[p.id];
-        if (v.verso === "palazzo") racconta(s, p, "Sei di nuovo nel tuo palazzo.");
-        else racconta(s, p, "Arrivi a " + LUOGHI[v.verso].nome + ". " + indizio(s, v.verso));
+        if (v.verso === "palazzo") racconta(s, p, "Sei di nuovo nel tuo palazzo.", true);
+        else racconta(s, p, "Arrivi a " + LUOGHI[v.verso].nome + ". " + indizio(s, v.verso), true);
       }
     }
     // 3. gli incontri
@@ -1134,7 +1134,7 @@
       if (g.length < 2) continue;
       for (const p of g) {
         const altri = g.filter((x) => x.id !== p.id);
-        racconta(s, p, "A " + LUOGHI[d].nome + " incroci " + altri.map((x) => x.nome).join(" e ") + ". Vi guardate un attimo.");
+        racconta(s, p, "A " + LUOGHI[d].nome + " incroci " + altri.map((x) => x.nome).join(" e ") + ". Vi guardate un attimo.", true);
       }
     }
     for (const p of s.players) {
