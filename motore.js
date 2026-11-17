@@ -14,6 +14,9 @@
   // ------------------------------------------------------------ numeri del gioco
   const N = {
     cicli: 8, giorni: 4,
+    // come finisce la partita: a Cicli, a obiettivo (patrimonio) o libera (la chiude chi l'ha creata)
+    durataCicli: [6, 8, 10, 12, 16, 20], obiettivi: [50_000_000, 100_000_000, 200_000_000], quasiTraguardo: 0.75,
+    settaOffertaMax: 10_000_000,
     cashStart: 1_500_000, stipendio: 600_000, valoreSporchi: 0.25, tassa: 0.20,
     affVuoto: 0.15, affLvl: [1, 1, 4, 12, 26, 45], rendLvl: [0, 1, 2.2, 3.6, 5.2, 7.0],
     costLvl: [0, 0.5, 0.5, 0.75, 1.0, 1.5], R: 0.95,
@@ -257,8 +260,15 @@
       ordine: [], players: [], lotti: [], valore: {}, borsa: {}, cripto: {}, sette: [], contratti: [], inviti: [],
       gazzetta: [], log: [], sindaco: null, candidati: {}, leggi: [], tassa: N.tassa, licenze: [],
       pending: null, notteFatti: {}, prossimoId: 1, principianti: !!opz.principianti, fine: false,
-      cicli: [6, 8, 10].includes(opz.cicli) ? opz.cicli : N.cicli, flussi: [], proposte: [],
+      flussi: [], proposte: [],
     };
+    // durata: { modo: "cicli", cicli } · { modo: "obiettivo", obiettivo } · { modo: "libera" }
+    { const d = opz.durata || {}; const modo = ["cicli", "obiettivo", "libera"].includes(d.modo) ? d.modo : "cicli";
+      const c = Number(d.cicli ?? opz.cicli), o = Number(d.obiettivo);
+      s.modoFine = modo;
+      s.cicli = modo === "cicli" ? (N.durataCicli.includes(c) ? c : N.cicli) : null;
+      s.obiettivo = modo === "obiettivo" ? (N.obiettivi.includes(o) ? o : N.obiettivi[1]) : null;
+      s.chiusura = false; }
     OUTER.forEach((c, i) => s.lotti.push(cella(s, c, "o", i)));
     for (const i of ISOLE) s.valore[i] = 5;
     for (const a of AZIENDE) s.borsa[a] = 100;
@@ -1826,17 +1836,51 @@
     privato(s, p, "Hai fondato la setta \"" + st.nome + "\". Sei il Gran Maestro. Invita altri membri.");
     notizia(s, "Strani simboli compaiono sui muri della Laguna. Qualcuno dice che è nata una nuova setta.", "voce");
   }
-  function invitaSetta(s, p, idSetta, idInvitato) {
+  // offerta > 0: regalo dal Tesoro a chi entra · offerta < 0: quota d'ingresso che paga chi entra
+  function invitaSetta(s, p, idSetta, idInvitato, offerta) {
     const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro invita.");
+    const q = giocatore(s, idInvitato); if (!q || q.id === p.id) err("Scegli chi invitare.");
     if (st.membri.includes(idInvitato)) err("È già un membro.");
-    s.inviti.push({ setta: idSetta, a: idInvitato, da: p.id });
-    privato(s, giocatore(s, idInvitato), "Hai ricevuto un invito segreto da una setta: \"" + st.nome + "\".");
+    offerta = Math.round(Number(offerta) || 0);
+    if (Math.abs(offerta) > N.settaOffertaMax) err("L'offerta può essere al massimo di " + euro(N.settaOffertaMax) + ".");
+    if (offerta > st.tesoro) err("Il Tesoro della setta non ha " + euro(offerta) + " da regalare.");
+    s.inviti = s.inviti.filter((x) => !(x.setta === idSetta && x.a === idInvitato)); // un nuovo invito sostituisce il vecchio
+    s.inviti.push({ setta: idSetta, a: idInvitato, da: p.id, offerta, ciclo: s.ciclo });
+    const patto = offerta > 0 ? " Se entri, ricevi " + euro(offerta) + " in soldi sporchi." : offerta < 0 ? " Per entrare chiedono una quota di " + euro(-offerta) + "." : "";
+    privato(s, q, "Hai ricevuto un invito segreto da una setta: \"" + st.nome + "\"." + patto + " Rispondi dall'app Setta.");
   }
   function rispondiInvito(s, p, idSetta, si) {
     const i = s.inviti.findIndex((x) => x.setta === idSetta && x.a === p.id); if (i < 0) err("Nessun invito.");
-    s.inviti.splice(i, 1);
+    const inv = s.inviti[i];
     const st = s.sette.find((x) => x.id === idSetta);
-    if (si) { st.membri.push(p.id); p.sette.push(idSetta); privato(s, p, "Sei entrato nella setta \"" + st.nome + "\"."); privato(s, giocatore(s, st.gm), p.nome + " è entrato nella tua setta."); }
+    const gm = st ? giocatore(s, st.gm) : null;
+    if (!si || !st) { s.inviti.splice(i, 1); if (gm && st) privato(s, gm, p.nome + " ha rifiutato l'invito nella tua setta."); return; }
+    const off = inv.offerta || 0;
+    if (off > 0 && st.tesoro < off) { s.inviti.splice(i, 1); privato(s, p, "Il Tesoro della setta non ha più i soldi promessi: l'invito non vale più."); privato(s, gm, "L'invito a " + p.nome + " è saltato: nel Tesoro mancano i soldi promessi."); return; }
+    if (off < 0 && p.sporchi + p.cash < -off) err("Non hai abbastanza soldi per la quota d'ingresso (" + euro(-off) + ").");
+    s.inviti.splice(i, 1);
+    if (off > 0) { st.tesoro -= off; p.sporchi += off; }
+    if (off < 0) { const daSporchi = Math.min(p.sporchi, -off); p.sporchi -= daSporchi; p.cash -= -off - daSporchi; st.tesoro += -off; }
+    st.membri.push(p.id); p.sette.push(idSetta);
+    privato(s, p, "Sei entrato nella setta \"" + st.nome + "\"." + (off > 0 ? " Ricevi " + euro(off) + " in soldi sporchi." : off < 0 ? " Hai pagato la quota di " + euro(-off) + "." : "") + " Da ora il " + Math.round(N.decima * 100) + "% delle tue rendite va al Tesoro.");
+    privato(s, gm, p.nome + " è entrato nella tua setta." + (off < 0 ? " La quota di " + euro(-off) + " è nel Tesoro." : ""));
+  }
+  function espelliSetta(s, p, idSetta, idMembro) {
+    const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro caccia i membri.");
+    if (idMembro === p.id) err("Il Gran Maestro non può cacciare se stesso.");
+    if (!st.membri.includes(idMembro)) err("Non è un membro.");
+    const m = giocatore(s, idMembro);
+    st.membri = st.membri.filter((x) => x !== idMembro); m.sette = m.sette.filter((x) => x !== idSetta);
+    privato(s, m, "Sei stato cacciato dalla setta \"" + st.nome + "\". Perdi tutti i suoi privilegi.");
+    privato(s, p, m.nome + " non fa più parte della setta.");
+    for (const id of st.membri) if (id !== p.id) privato(s, giocatore(s, id), m.nome + " è stato cacciato dalla setta.");
+  }
+  function lasciaSetta(s, p, idSetta) {
+    const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id)) err("Non sei in questa setta.");
+    if (st.gm === p.id) err("Il Gran Maestro non può lasciare la sua setta.");
+    st.membri = st.membri.filter((x) => x !== p.id); p.sette = p.sette.filter((x) => x !== idSetta);
+    privato(s, p, "Hai lasciato la setta \"" + st.nome + "\".");
+    privato(s, giocatore(s, st.gm), p.nome + " ha lasciato la tua setta.");
   }
   function versaSetta(s, p, idSetta, importo, sporchi) {
     const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id)) err("Non sei in questa setta.");
@@ -2181,7 +2225,7 @@
       const lv = livelloSetta(s, st);
       if (lv > (st.livelloNotificato || 1)) { st.livelloNotificato = lv; privato(s, giocatore(s, st.gm), "La tua setta sale al livello " + lv + "."); }
       // chi sta nell'ombra troppo a lungo perde i bonus
-      for (const id of st.membri) { const m = giocatore(s, id); if (m.ombraCicli >= 3 && id !== st.gm) privato(s, giocatore(s, st.gm), m.nome + " sta nell'ombra da 3 Cicli: puoi cacciarlo."); }
+      for (const id of st.membri) { const m = giocatore(s, id); if (m.ombraCicli >= 3 && id !== st.gm) privato(s, giocatore(s, st.gm), m.nome + " sta nell'ombra da 3 Cicli e non lavora per la setta: puoi cacciarlo dall'app Setta."); }
     }
     // elezioni ogni 2 cicli
     if (s.ciclo % 2 === 1) elezioni(s);
@@ -2190,7 +2234,7 @@
     s.leggi = s.leggi.filter((x) => !x.startsWith("giro_cripto"));
     // cicli
     s.ciclo += 1;
-    if (s.ciclo >= (s.cicli || N.cicli)) return fine(s);
+    if (finisceQui(s)) return fine(s);
     s.fase = "giorno"; s.giorno = 0; s.turno = 0;
     notizia(s, "Sorge il sole sul Ciclo " + (s.ciclo + 1) + ".", "evento");
     iniziaTurno(s);
@@ -2256,10 +2300,39 @@
     }
   }
 
+  // all'Alba: la partita finisce qui?
+  function finisceQui(s) {
+    const modo = s.modoFine || "cicli";
+    if (modo === "libera") return !!s.chiusura;
+    if (modo === "obiettivo") {
+      const vivi = s.players.filter((p) => !p.fallito);
+      if (vivi.some((p) => patrimonio(s, p, true) >= s.obiettivo)) return true;
+      // chi si avvicina al traguardo finisce sulla Gazzetta: gli altri hanno tempo per reagire
+      s.quasi = s.quasi || {};
+      for (const p of vivi) if (!s.quasi[p.id] && patrimonio(s, p, true) >= s.obiettivo * N.quasiTraguardo) {
+        s.quasi[p.id] = true;
+        notizia(s, "In Laguna si dice che " + p.nome + " sia vicino ai " + euro(s.obiettivo) + ". Se ci arriva, la partita finisce.", "evento");
+        for (const q of vivi) if (q.id !== p.id) privato(s, q, p.nome + " è vicino al traguardo dei " + euro(s.obiettivo) + ". Se vuoi fermarlo, è il momento.");
+      }
+      return false;
+    }
+    return s.ciclo >= (s.cicli || N.cicli);
+  }
+  // partita libera: chi l'ha creata (il primo giocatore) la chiude; la classifica arriva all'Alba dopo
+  function chiudiPartita(s, p, si) {
+    if ((s.modoFine || "cicli") !== "libera") err("Questa partita finisce da sola: non si può chiudere a mano.");
+    if (p.id !== s.players[0].id) err("Solo chi ha creato la partita la può chiudere.");
+    if (s.chiusura === !!si) return;
+    s.chiusura = !!si;
+    if (si) notizia(s, p.nome + " ha deciso: questa è l'ultima notte della Laguna. All'Alba la classifica finale.", "evento");
+    else notizia(s, "Contrordine: la Laguna non chiude. Si va avanti.", "evento");
+  }
+
   function fine(s) {
     s.fase = "fine"; s.fine = true;
     const cl = s.players.map((p) => ({ id: p.id, nome: p.nome, patrimonio: round(patrimonio(s, p, true)), fama: p.fama, arresti: p.arresti, tracce: round(p.tracce), piani: p.piani, riciclTot: p.riciclTot }))
       .sort((a, b) => b.patrimonio - a.patrimonio);
+    s.motivoFine = s.modoFine === "obiettivo" ? cl[0].nome + " ha superato i " + euro(s.obiettivo) + "." : s.modoFine === "libera" ? "La partita è stata chiusa dopo " + s.ciclo + " Cicli." : "Sono finiti i " + (s.cicli || N.cicli) + " Cicli.";
     const titoli = [];
     titoli.push({ titolo: "Re della Laguna", a: cl[0].nome });
     const stella = [...cl].sort((a, b) => b.fama - a.fama)[0]; titoli.push({ titolo: "La Stella", a: stella.nome });
@@ -2282,7 +2355,7 @@
   function applica0(s, idGiocatore, a) {
     if (s.fine && a.tipo !== "nulla") err("La partita è finita.");
     const p = giocatore(s, idGiocatore);
-    const giorniAzioniTelefono = ["investi", "vendi", "restituisci", "ipoteca", "riscatta", "articolo", "contratto", "rispondi_contratto", "regala", "versa_setta", "rispondi_invito", "invita_setta", "campagna", "legge", "tasse", "evasione", "denuncia"];
+    const giorniAzioniTelefono = ["investi", "vendi", "restituisci", "ipoteca", "riscatta", "articolo", "contratto", "rispondi_contratto", "regala", "versa_setta", "rispondi_invito", "invita_setta", "espelli_setta", "lascia_setta", "campagna", "legge", "tasse", "evasione", "denuncia"];
     if (p.faro > 0 && s.fase === "giorno" && corrente(s).id === p.id && giorniAzioniTelefono.includes(a.tipo)) {
       if (p.telefonataUsata === s.ciclo * 10 + s.giorno) err("Al Faro hai una sola telefonata per turno.");
       p.telefonataUsata = s.ciclo * 10 + s.giorno;
@@ -2335,7 +2408,10 @@
       case "ricicla": return ricicla2(s, p, a.metodo, a.importo);
       case "denuncia": return denuncia(s, p, a.prova);
       case "fonda_setta": return fondaSetta(s, p, a.nome, a.motto);
-      case "invita_setta": return invitaSetta(s, p, a.setta, a.invitato);
+      case "invita_setta": return invitaSetta(s, p, a.setta, a.invitato, a.offerta);
+      case "espelli_setta": return espelliSetta(s, p, a.setta, a.membro);
+      case "lascia_setta": return lasciaSetta(s, p, a.setta);
+      case "chiudi_partita": return chiudiPartita(s, p, a.si !== false);
       case "rispondi_invito": return rispondiInvito(s, p, a.setta, !!a.si);
       case "versa_setta": return versaSetta(s, p, a.setta, a.importo, !!a.sporchi);
       case "recluta": return settaAlFaro(s, p, () => recluta(s, p, a.setta, a.chi));
@@ -2366,7 +2442,8 @@
       p.fascia = fasciaPubblica;
     }
     v.sette = s.sette.filter((st) => st.membri.includes(idGiocatore));
-    v.inviti = s.inviti.filter((x) => x.a === idGiocatore);
+    // l'invito non ha firma: chi lo riceve vede la setta e il patto, non chi lo manda
+    v.inviti = s.inviti.filter((x) => x.a === idGiocatore).map((x) => { const st = s.sette.find((y) => y.id === x.setta); return { setta: x.setta, offerta: x.offerta || 0, nome: st ? st.nome : "?", motto: st ? st.motto : "", livello: livelloSetta(s, st), membri: st ? st.membri.length : 0 }; });
     v.flussi = (s.flussi || []).filter((f) => f.pubblico || f.da === idGiocatore || f.a === idGiocatore);
     v.proposte = (s.proposte || []).filter((x) => x.da === idGiocatore || x.a === idGiocatore);
     v.contratti = s.contratti.filter((k) => k.da === idGiocatore || k.a === idGiocatore || (k.tipo === "notarile" && k.stato !== "proposto")).map((k) => (k.da === idGiocatore || k.a === idGiocatore) ? k : { id: k.id, da: k.da, a: k.a, tipo: k.tipo, stato: k.stato });

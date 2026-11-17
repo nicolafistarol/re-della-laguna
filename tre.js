@@ -170,11 +170,16 @@ function torre(colore, piani) {
 }
 function pedina(colore) {
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: colore, roughness: 0.35, metalness: 0.25 });
+  // colore pieno che si accende un po' da solo, cosi' la pedina si vede anche sopra gli edifici
+  const mat = new THREE.MeshStandardMaterial({ color: colore, roughness: 0.35, metalness: 0.15, emissive: colore, emissiveIntensity: 0.35 });
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1, 0.4, 24), mat); base.position.y = 0.2;
   const corpo = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.75, 2, 24), mat); corpo.position.y = 1.3;
   const testa = new THREE.Mesh(new THREE.SphereGeometry(0.55, 24, 16), mat); testa.position.y = 2.65;
   [base, corpo, testa].forEach((m) => { m.castShadow = true; g.add(m); });
+  // anello bianco per terra: si vede sempre dove sta la pedina
+  const anello = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.5, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+  anello.rotation.x = -Math.PI / 2; anello.position.y = 0.06; g.add(anello);
+  g.scale.setScalar(1.8);
   return g;
 }
 function svuota(gr) { while (gr.children.length) { const c = gr.children.pop(); c.traverse((m) => { if (m.geometry && m.geometry !== geoBox) m.geometry.dispose(); }); } }
@@ -242,7 +247,7 @@ function frame() {
   for (const [id, ped] of pedine) {
     const el = strato.querySelector(`.ped[data-id="${id}"]`);
     if (el) {
-      const t = daMappa(parseFloat(el.style.left), parseFloat(el.style.top)); t.x += (ped.offset || 0) * 1.3;
+      const t = daMappa(parseFloat(el.style.left), parseFloat(el.style.top)); t.x += (ped.offset || 0) * 2.4;
       if (t.distanceTo(ped.target) > 0.05) { ped.target.copy(t); ped.salto = 1; }
     }
     ped.mesh.position.x += (ped.target.x - ped.mesh.position.x) * 0.25;

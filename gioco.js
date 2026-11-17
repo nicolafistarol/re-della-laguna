@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=34";
+import { ico } from "./icone.js?v=35";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,19 +11,50 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=34";
-import * as Pano from "./panorama.js?v=34";
+import * as Tre from "./tre.js?v=35";
+import * as Pano from "./panorama.js?v=35";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=34";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=35";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
 
 let utente = null, partita = null, mioId = null, S = null, canale = null;
-let telAperto = false, app = null, saldoNascosto = false, attesa = false, principianti = true, timerSala = null, durata = 8;
+let telAperto = false, app = null, saldoNascosto = false, attesa = false, principianti = true, timerSala = null, durata = leggiDurata();
 const visti = new Set();
+// come finisce la partita: { modo: "cicli", cicli } · { modo: "obiettivo", obiettivo } · { modo: "libera" }
+function leggiDurata() {
+  try { const j = JSON.parse(localStorage.getItem("laguna_durata2") || "null"); if (j && j.modo) return j; } catch (e) { }
+  return { modo: "cicli", cicli: 8 };
+}
+function salvaDurata() { try { localStorage.setItem("laguna_durata2", JSON.stringify(durata)); } catch (e) { } }
+const ORE_CICLO = 15; // minuti circa per Ciclo
+function sceltaDurataHtml() {
+  const d = durata;
+  const sec = d.modo === "cicli"
+    ? `<select id="durN" style="flex:2">${L.N.durataCicli.filter((n) => n !== 10).map((n) => `<option value="${n}" ${d.cicli === n ? "selected" : ""}>${n} Cicli · circa ${testoOre(n * ORE_CICLO)}</option>`).join("")}</select>`
+    : d.modo === "obiettivo"
+      ? `<select id="durN" style="flex:2">${L.N.obiettivi.map((n) => `<option value="${n}" ${d.obiettivo === n ? "selected" : ""}>Vince il primo a ${euro(n)}</option>`).join("")}</select>`
+      : `<span class="sub" style="flex:2">Non finisce da sola. Solo tu, che la crei, la chiudi dal telefono quando volete.</span>`;
+  return `<div class="posto" style="flex-wrap:wrap"><span style="flex:1">Come finisce</span><select id="durModo" style="flex:2">
+      <option value="cicli" ${d.modo === "cicli" ? "selected" : ""}>Dopo un numero di Cicli</option>
+      <option value="obiettivo" ${d.modo === "obiettivo" ? "selected" : ""}>A obiettivo: il primo che arriva a…</option>
+      <option value="libera" ${d.modo === "libera" ? "selected" : ""}>Libera: la chiudo io</option></select></div>
+    <div class="posto">${d.modo === "libera" ? "" : `<span style="flex:1"></span>`}${sec}</div>`;
+}
+function testoOre(min) { const h = Math.floor(min / 60), m = min % 60; return (h ? h + (h === 1 ? " ora" : " ore") : "") + (m ? (h ? " e " : "") + m + " minuti" : ""); }
+function collegaDurata(ridisegna) {
+  $("#durModo").onchange = (e) => { const m = e.target.value; durata = m === "cicli" ? { modo: m, cicli: 8 } : m === "obiettivo" ? { modo: m, obiettivo: L.N.obiettivi[1] } : { modo: m }; salvaDurata(); ridisegna(); };
+  if ($("#durN")) $("#durN").onchange = (e) => { if (durata.modo === "cicli") durata.cicli = +e.target.value; else durata.obiettivo = +e.target.value; salvaDurata(); };
+}
+function testoDurata(s) {
+  const m = s.modoFine || "cicli";
+  if (m === "obiettivo") return "Vince il primo a " + euro(s.obiettivo);
+  if (m === "libera") return "Partita libera" + (s.chiusura ? ": ultima notte" : "");
+  return (s.cicli || L.N.cicli) + " Cicli";
+}
 
 function toast(t) { let box = $("#toasts"); if (!box) { box = document.createElement("div"); box.id = "toasts"; document.body.appendChild(box); } const d = document.createElement("div"); d.className = "toast"; d.textContent = t; box.appendChild(d); Suono.avviso(); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => d.remove(), 4500); }
 function esciDallaPartita(msg) {
@@ -142,8 +173,12 @@ async function avvio() {
   if (LOCALE) {
     partita = "locale"; mioId = "g1";
     const m = /seed=(\d+)/.exec(location.search);
-    if (location.search.includes("prova")) { Loc.nuovaProva("Tu"); history.replaceState(null, "", location.pathname + "?locale"); }
-    else if (location.search.includes("nuova") || !Loc.carica()) Loc.nuova("Tu", m ? +m[1] : undefined);
+    if (location.search.includes("prova")) { Loc.nuovaProva(nomeLocale()); history.replaceState(null, "", location.pathname + "?locale"); }
+    else if (location.search.includes("nuova") || !Loc.carica()) {
+      const seed = m ? +m[1] : undefined;
+      if (VELOCE || location.search.includes("subito")) Loc.nuova(nomeLocale(), seed, durata);
+      else return schermataProvaLocale(seed);
+    }
     return caricaVista();
   }
   const { data: { session } } = await sb.auth.getSession();
@@ -162,6 +197,23 @@ async function avvio() {
     if (data && !data.finita) return sala();
   }
   schermataCasa();
+}
+function nomeLocale() { try { return localStorage.getItem("laguna_nome_locale") || "Tu"; } catch (e) { return "Tu"; } }
+// prova da soli: prima di partire si sceglie come finisce
+function schermataProvaLocale(seed) {
+  const disegna = () => {
+    schermoIngresso(`<div class="cartaI vetro" style="width:min(560px,94vw)">
+      <span class="kick" style="color:var(--oro)">Prova da solo</span>
+      <span class="serif" style="font-size:44px;line-height:1">Re della Laguna</span>
+      <span class="sub">Tu contro Rocco, Vera e Dario (giocatori-computer).</span>
+      <div class="campo"><label for="nomeLoc">Come ti chiami?</label><input id="nomeLoc" maxlength="24" placeholder="Il tuo nome" value="${esc(nomeLocale())}"></div>
+      <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">${sceltaDurataHtml()}</div>
+      <button class="oro grande" id="via">Inizia</button></div>`);
+    collegaDurata(disegna);
+    $("#nomeLoc").oninput = (e) => { try { localStorage.setItem("laguna_nome_locale", e.target.value.trim()); } catch (er) { } };
+    $("#via").onclick = () => { Loc.nuova(nomeLocale(), seed, durata); history.replaceState(null, "", location.pathname + "?locale"); caricaVista(); };
+  };
+  disegna();
 }
 function schermoIngresso(html) { $("#mondo").style.display = "none"; $("#telefonoBox").innerHTML = ""; sfondo("img/laguna.jpg"); $("#sfondo").style.filter = "none"; $("#radice").innerHTML = `<div class="ingresso">${html}</div>`; }
 function schermataNome() {
@@ -192,7 +244,7 @@ function schermataCasa() {
         ${righe.map((r, i) => `<div class="posto"><div class="pall" style="background:${r.tipo === "amico" ? "#4fc3f7" : "#8a8a8a"}">${i + 2}</div>
           <select data-i="${i}" class="tipo" style="flex:1"><option value="amico" ${r.tipo === "amico" ? "selected" : ""}>Posto per un amico</option>${STR.map((s) => `<option value="${s}" ${r.tipo === "computer" && r.strat === s ? "selected" : ""}>Computer: ${s}</option>`).join("")}</select></div>`).join("")}
         <div class="riga"><button class="piccolo" id="piu">+ posto</button><button class="piccolo" id="meno">− posto</button></div>
-        <div class="posto"><span style="flex:1">Durata</span><select id="durata" style="flex:2">${[[6, "Breve · 6 cicli (circa 1 ora e mezza)"], [8, "Normale · 8 cicli (circa 2 ore)"], [10, "Lunga · 10 cicli (circa 2 ore e mezza)"]].map(([v, n]) => `<option value="${v}" ${durata === v ? "selected" : ""}>${n}</option>`).join("")}</select></div>
+        ${sceltaDurataHtml()}
         <label class="check"><input type="checkbox" id="princ" ${principianti ? "checked" : ""}> Partita guidata: le cose si scoprono piano piano (consigliata)</label>
         <button class="oro grande" id="crea">Crea la partita</button>
         <a class="piccolo" href="?locale&nuova" style="align-self:center;color:var(--muted)">Oppure prova da solo contro 3 giocatori-computer (senza internet)</a>
@@ -203,7 +255,7 @@ function schermataCasa() {
       </div></div>`);
     document.querySelectorAll(".tipo").forEach((s) => s.onchange = () => { const r = righe[s.dataset.i]; if (s.value === "amico") { r.tipo = "amico"; r.strat = null; } else { r.tipo = "computer"; r.strat = s.value; } });
     $("#princ").onchange = (e) => principianti = e.target.checked;
-    $("#durata").onchange = (e) => { durata = +e.target.value; try { localStorage.setItem("laguna_durata", String(durata)); } catch (er) { } };
+    collegaDurata(disegnaCasa);
     $("#piu").onclick = () => { if (righe.length < 7) { righe.push({ tipo: "amico" }); disegnaCasa(); } };
     $("#meno").onclick = () => { if (righe.length > 1) { righe.pop(); disegnaCasa(); } };
     $("#crea").onclick = async () => {
@@ -244,8 +296,8 @@ async function sala() {
     $("#esci").onclick = () => { clearInterval(timerSala); try { localStorage.removeItem("laguna_online"); } catch (e) { } partita = null; schermataCasa(); };
     if ($("#inizia")) $("#inizia").onclick = async () => {
       clearInterval(timerSala);
-      let cicli = 8; try { cicli = +(localStorage.getItem("laguna_durata") || 8); } catch (er) { }
-      const r = await chiama({ comando: "inizia", partita, principianti, cicli });
+      const d = leggiDurata();
+      const r = await chiama({ comando: "inizia", partita, principianti, durata: d, cicli: d.cicli || 8 });
       if (r.errore) { toast(r.errore); timerSala = setInterval(disegnaSala, 3000); return; }
       await caricaVista(); ascolta();
     };
@@ -254,6 +306,12 @@ async function sala() {
   timerSala = setInterval(disegnaSala, 3000);
 }
 
+function testoCiclo() {
+  const m = S.modoFine || "cicli";
+  if (m === "obiettivo") { const me = io(); const pct = me && me.cash !== undefined ? Math.max(0, Math.min(99, Math.floor(L.patrimonio(S, me, true) / S.obiettivo * 100))) : null; return `Ciclo ${S.ciclo + 1} · Traguardo ${euro(S.obiettivo)}${pct !== null ? ` (tu al ${pct}%)` : ""}`; }
+  if (m === "libera") return `Ciclo ${S.ciclo + 1}${S.chiusura ? ' · <span style="color:var(--oro)">ultima notte</span>' : " · partita libera"}`;
+  return `Ciclo ${S.ciclo + 1} di ${S.cicli || L.N.cicli}`;
+}
 // ------------------------------------------------------------ chi deve agire
 window.__S = () => S; // per le prove automatiche
 function io() { return S.players.find((p) => p.id === mioId); }
@@ -474,7 +532,7 @@ function disegna() {
   sfondo(notte ? "img/marina.jpg" : c && c.isola ? SCENE[c.isola] : "img/laguna.jpg");
   disegnaMappa(me, notte);
   const turno = S.fase === "giorno" ? L.corrente(S) : null;
-  const faseTesto = S.fine ? "Partita finita" : S.fase === "pacchetti" ? "Si sceglie come iniziare" : notte ? `${ico("luna")} Notte · ${L.ORE[S.notte.ora]}` : `Ciclo ${S.ciclo + 1} di ${S.cicli || L.N.cicli} · Giorno ${S.giorno + 1} di ${L.N.giorni} · ${turno.id === mioId ? '<span style="color:var(--oro)">Tocca a te</span>' : "Turno di " + esc(turno.nome)}`;
+  const faseTesto = S.fine ? "Partita finita" : S.fase === "pacchetti" ? "Si sceglie come iniziare" : notte ? `${ico("luna")} Notte · ${L.ORE[S.notte.ora]}` : `${testoCiclo()} · Giorno ${S.giorno + 1} di ${L.N.giorni} · ${turno.id === mioId ? '<span style="color:var(--oro)">Tocca a te</span>' : "Turno di " + esc(turno.nome)}`;
   const segn = ["Nessuno parla di te.", "Voci: si parla di te, in giro.", "Osservato: la polizia ti tiene d'occhio.", "Indagato: la Gazzetta fa il tuo nome.", "Processo: convocazione del Giudice all'Alba."][me.stato || 0];
   const cron = S.log.filter((r) => !/ tira \d( e \d)+\.$/.test(r.testo) && !(r.chi && r.chi !== mioId && PRIVATI.test(r.testo))).slice(-4);
   $("#radice").innerHTML = `
@@ -514,7 +572,7 @@ function disegnaMappa(me, notte) {
     const pedine = S.players.map((p) => {
       const q = disp[p.id] || copiaPos(p); const key = "o" + q.pos; const k = (gruppi[key] = (gruppi[key] || 0) + 1) - 1;
       const [x, y] = puntoMappa(q);
-      return `<div class="ped ${p.id === mioId ? "io" : ""}" data-id="${p.id}" title="${esc(p.nome)}" style="left:${x}%;top:${y}%;margin-left:${(p.id === mioId ? -14 : -11) + k * 8}px;background:${p.colore}${p.faro ? ";opacity:.45" : ""}"><b>${esc(p.nome[0])}</b></div>`;
+      return `<div class="ped ${p.id === mioId ? "io" : ""}" data-id="${p.id}" title="${esc(p.nome)}" style="left:${x}%;top:${y}%;margin-left:${(p.id === mioId ? -21 : -17) + k * 16}px;background:${p.colore}${p.faro ? ";opacity:.45" : ""}"><b>${esc(p.nome[0])}</b><span class="nomeped">${esc(p.nome.slice(0, 12))}</span></div>`;
     }).join("");
     const c = casellaDi(me);
     const [mx, my] = puntoMappa(disp[mioId] || me);
@@ -1293,7 +1351,7 @@ function disegnaTelefono(me) {
   const ora = S.fase === "notte" && S.notte ? L.ORE[S.notte.ora] : ["9:00", "13:00", "18:00"][S.giorno] || "9:00";
   let dentro;
   if (!app) {
-    dentro = `<div class="home">${APPS.filter((a) => appVisibile(me, a)).map((a) => `<button class="app" data-app="${a.k}"><span class="ico" style="background:${a.col}">${a.ico}${a.k === "messaggi" && nuovi ? `<span class="badge">${nuovi}</span>` : ""}</span>${a.nome}</button>`).join("")}</div><button class="piccolo esci-partita" id="esciPartita">Esci dalla partita</button>`;
+    dentro = `<div class="home">${APPS.filter((a) => appVisibile(me, a)).map((a) => `<button class="app" data-app="${a.k}"><span class="ico" style="background:${a.col}">${a.ico}${a.k === "messaggi" && nuovi ? `<span class="badge">${nuovi}</span>` : ""}</span>${a.nome}</button>`).join("")}</div>${S.modoFine === "libera" && mioId === S.players[0].id && !S.fine ? `<button class="piccolo esci-partita" id="chiudiPartita">${S.chiusura ? "Non chiudere più la partita" : "Chiudi la partita"}</button>` : ""}${LOCALE ? `<button class="piccolo esci-partita" id="cambiaNome">Cambia nome</button>` : ""}<button class="piccolo esci-partita" id="esciPartita">Esci dalla partita</button>`;
   } else {
     const A = APPS.find((a) => a.k === app);
     dentro = `<div class="app-testa"><button id="indietro">‹ Home</button><b>${A.ico} ${A.nome}</b></div><div class="app-corpo">${contenutoApp(me, app)}</div>`;
@@ -1301,6 +1359,9 @@ function disegnaTelefono(me) {
   box.innerHTML = `<div class="tel"><div class="schermo"><div class="barra"><span>${ora}</span><button class="piccolo" id="chiudiTel2" aria-label="Chiudi il telefono" style="padding:3px 10px">✕ Chiudi</button></div>${dentro}</div><button class="tel-chiudi" id="chiudiTel" aria-label="Chiudi il telefono"></button></div>`;
   $("#chiudiTel").onclick = $("#chiudiTel2").onclick = () => { telAperto = false; disegnaTelefono(me); };
   box.querySelectorAll("[data-app]").forEach((b) => b.onclick = () => apriApp(b.dataset.app));
+  if ($("#cambiaNome")) $("#cambiaNome").onclick = () => finestra(`<h2>Come ti chiami?</h2><input id="nuovoNome" maxlength="24" value="${esc(me.nome)}"><div class="pulsanti"><button id="no">Annulla</button><button class="oro" id="si">Salva</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { const n = d.querySelector("#nuovoNome").value.trim(); if (!n) return toast("Scrivi un nome."); try { localStorage.setItem("laguna_nome_locale", n); } catch (e) { } Loc.rinomina(n); c(); caricaVista(); }; });
+  if ($("#chiudiPartita")) $("#chiudiPartita").onclick = () => S.chiusura ? agisci({ tipo: "chiudi_partita", si: false })
+    : finestra(`<h2>Chiudi la partita?</h2><p>Questa diventa l'ultima notte. All'Alba arriva la classifica finale e si scopre chi è il Re della Laguna. Fino all'Alba puoi ancora cambiare idea.</p><div class="pulsanti"><button id="no">Continuiamo</button><button class="oro" id="si">Chiudo</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "chiudi_partita", si: true }); }; });
   if ($("#esciPartita")) $("#esciPartita").onclick = () => finestra(`<h2>Esci dalla partita?</h2><p>Torni alla schermata iniziale, dove puoi crearne una nuova. ${LOCALE ? "La partita di prova si cancella." : "Potrai rientrare solo se qualcuno ti manda di nuovo il codice."}</p><div class="pulsanti"><button id="no">Resto</button><button class="oro" id="si">Esco</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); if (LOCALE) { try { localStorage.removeItem("laguna_locale"); } catch (e) { } } esciDallaPartita(); }; });
   if ($("#indietro")) $("#indietro").onclick = () => { app = null; chatAperta = null; disegnaTelefono(me); };
   collegaApp(me);
@@ -1438,10 +1499,20 @@ function contenutoApp(me, k) {
       <div class="scheda"><h4 style="color:var(--setta)">La setta</h4><span class="sub">${sp >= L.N.settaSporchi ? "Hai abbastanza soldi sporchi: puoi fondare una setta, di notte, dall'app Setta." : "Si apre quando hai " + euro(L.N.settaSporchi) + " sporchi. Fondarla costa " + euro(L.N.settaCosto) + " (di cui " + euro(L.N.settaTesoroIniziale) + " diventano il tesoro)."}</span></div>`;
   }
   if (k === "setta") {
-    return (S.inviti || []).map((x) => `<div class="scheda"><h4>Un invito senza firma</h4><div class="riga"><button class="piccolo oro" data-invito="${x.setta}|1">Entro</button><button class="piccolo" data-invito="${x.setta}|0">Rifiuto</button></div></div>`).join("") +
+    const pct = Math.round(L.N.decima * 100);
+    return (S.inviti || []).map((x) => `<div class="scheda"><h4>Un invito senza firma</h4>
+        <span class="sub">La setta <b style="color:var(--setta)">${esc(x.nome || "")}</b>${x.motto ? ` · <i>${esc(x.motto)}</i>` : ""} · livello ${x.livello || 1} · ${x.membri || 1} ${x.membri === 1 ? "membro" : "membri"}</span>
+        <div class="liv"><span class="liv-n">€</span><div class="sub" style="font-size:12px">${x.offerta > 0 ? `<b>Ti regalano ${euro(x.offerta)}</b> in soldi sporchi se entri.` : x.offerta < 0 ? `<b>Quota d'ingresso: ${euro(-x.offerta)}</b> (prima dai tuoi sporchi, poi dai puliti).` : "Nessun regalo e nessuna quota."}<br>Ogni Alba il ${pct}% delle tue rendite va al Tesoro della setta.</div></div>
+        <div class="liv"><span class="liv-n">+</span><div class="sub" style="font-size:12px">In cambio: affari sporchi con il 30% di Tracce in meno, condanne più leggere di un gradino, il Faro sempre aperto con affari solo per i membri.</div></div>
+        <div class="riga"><button class="piccolo oro" data-invito="${x.setta}|1">Entro</button><button class="piccolo" data-invito="${x.setta}|0">Rifiuto</button></div></div>`).join("") +
       (S.sette.length ? S.sette.map((st) => `<div class="scheda"><h4 style="color:var(--setta)">${esc(st.nome)}</h4><i class="sub">${esc(st.motto)}</i><span class="sub">Livello ${L.livelloSetta(S, st)} · membri: ${st.membri.map((id) => esc(S.players.find((x) => x.id === id).nome)).join(", ")} · tesoro ${euro(st.tesoro)}</span>
         <div class="riga"><input type="number" placeholder="versa" id="versa_${st.id}" style="width:100px"><button class="piccolo" data-versa="${st.id}|0">Puliti</button><button class="piccolo" data-versa="${st.id}|1">Sporchi</button></div>
-        ${st.gm === mioId ? `<div class="riga"><select id="inv_${st.id}">${S.players.filter((x) => !st.membri.includes(x.id)).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><button class="piccolo" data-invita="${st.id}">Invita</button></div><span class="sub">Le operazioni si decidono di notte, al Faro.</span>` : ""}</div>`).join("")
+        ${st.membri.filter((id) => id !== st.gm).length ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${st.membri.filter((id) => id !== st.gm).map((id) => { const m = S.players.find((x) => x.id === id); return `<div class="riga" style="justify-content:space-between"><span class="sub">${esc(m.nome)}${id === mioId ? " (tu)" : ""}</span>${st.gm === mioId ? `<button class="piccolo" data-caccia="${st.id}|${id}">Caccia</button>` : id === mioId ? `<button class="piccolo" data-lascia="${st.id}">Esci dalla setta</button>` : ""}</div>`; }).join("")}</div>` : ""}
+        ${st.gm === mioId ? (() => { const fuori = S.players.filter((x) => !st.membri.includes(x.id)); return fuori.length ? `<div class="scheda" style="margin-top:8px;background:rgba(255,255,255,.04)"><h4>Invita qualcuno</h4>
+          <span class="sub">L'invito arriva senza firma: vedono la setta e il patto, non chi lo manda.</span>
+          <select id="inv_${st.id}">${fuori.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select>
+          <div class="riga"><select id="invTipo_${st.id}"><option value="0">Nessun patto</option><option value="1">Gli regalo (dal Tesoro)</option><option value="-1">Gli chiedo una quota</option></select><input type="number" id="invSoldi_${st.id}" placeholder="quanto" min="0" step="100000" style="width:110px"></div>
+          <button class="piccolo oro" data-invita="${st.id}">Manda l'invito</button></div>` : `<span class="sub">Tutti i giocatori sono già nella tua setta.</span>`; })() + `<span class="sub">Le operazioni si decidono di notte, al Faro.</span>` : ""}</div>`).join("")
         : S.fase === "notte" ? `<div class="scheda"><h4>Fonda una setta</h4><span class="sub">Il patto costa ${euro(L.N.settaCosto)} in soldi sporchi: ${euro(L.N.settaTesoroIniziale)} diventano il tesoro della setta, il resto se ne va nel rito.</span><span class="sub" style="display:block;margin-top:6px"><b>Cosa ti dà:</b><br>· i tuoi affari sporchi lasciano il 30% di Tracce in meno<br>· gli avvocati della setta: ogni condanna scende di un gradino<br>· il Faro sempre aperto, con occasioni enormi solo per i membri<br>· al Gran Maestro, ogni Ciclo, il 5% del tesoro in contanti sporchi</span><input id="sNome" placeholder="Nome"><input id="sMotto" placeholder="Motto"><button class="piccolo oro" data-a2="fonda">Fonda</button></div>` : `<p class="sub">Le sette si fondano di notte.</p>`);
   }
   return "";
@@ -1570,7 +1641,9 @@ function collegaApp(me) {
   on("[data-vendi]", (b) => { const [cosa, nome] = b.dataset.vendi.split("|"); agisci({ tipo: "vendi", cosa, nome, quota: 1 }); });
   on("[data-invito]", (b) => { const [st, si] = b.dataset.invito.split("|"); agisci({ tipo: "rispondi_invito", setta: st, si: si === "1" }); });
   on("[data-versa]", (b) => { const [st, sp] = b.dataset.versa.split("|"); agisci({ tipo: "versa_setta", setta: st, importo: Number(v("#versa_" + st)), sporchi: sp === "1" }); });
-  on("[data-invita]", (b) => agisci({ tipo: "invita_setta", setta: b.dataset.invita, invitato: v("#inv_" + b.dataset.invita) }));
+  on("[data-invita]", (b) => { const id = b.dataset.invita; const segno = +v("#invTipo_" + id); const soldi = Math.max(0, Number(v("#invSoldi_" + id)) || 0); if (segno && !soldi) return toast("Scrivi quanto."); agisci({ tipo: "invita_setta", setta: id, invitato: v("#inv_" + id), offerta: segno * soldi }); toast("Invito mandato."); });
+  on("[data-caccia]", (b) => { const [st, id] = b.dataset.caccia.split("|"); const m = S.players.find((x) => x.id === id); finestra(`<h2>Cacci ${esc(m.nome)}?</h2><p>Perde subito tutti i privilegi della setta. Però sa chi sono i membri: potrebbe parlare.</p><div class="pulsanti"><button id="no">No</button><button class="oro" id="si">Caccialo</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "espelli_setta", setta: st, membro: id }); }; }); });
+  on("[data-lascia]", (b) => agisci({ tipo: "lascia_setta", setta: b.dataset.lascia }));
   on("[data-contr]", (b) => { const [kk, si] = b.dataset.contr.split("|"); agisci({ tipo: "rispondi_contratto", id: kk, si: si === "1" }); });
 }
 
@@ -1867,7 +1940,7 @@ function finestraContratto() {
 }
 function fine() {
   if (document.querySelector(".velo")) return;
-  finestra(`<span class="kick" style="color:var(--oro)">Fine della serata</span><h2>La Rivelazione</h2>
+  finestra(`<span class="kick" style="color:var(--oro)">Fine della serata</span><h2>La Rivelazione</h2>${S.motivoFine ? `<p class="sub">${esc(S.motivoFine)}</p>` : ""}
     <table class="cl"><tr><th>#</th><th>Chi</th><th>Patrimonio</th><th>Fama</th></tr>${S.classifica.map((c, i) => `<tr><td>${i + 1}</td><td>${esc(c.nome)}</td><td>${euro(c.patrimonio)}</td><td>${c.fama}</td></tr>`).join("")}</table>
     <p class="kick" style="color:var(--muted);margin-top:14px">I titoli</p>${S.titoli.map((t) => `<p><b>${esc(t.titolo)}:</b> ${esc(t.a)}</p>`).join("")}
     <p class="kick" style="color:var(--muted);margin-top:14px">Le sette</p>${S.rivelazione.length ? S.rivelazione.map((r) => `<p><b style="color:var(--setta)">${esc(r.setta)}</b> — Gran Maestro ${esc(r.gm)}, membri: ${r.membri.map(esc).join(", ")}, tesoro ${euro(r.tesoro)}</p>`).join("") : "<p>Nessuna setta è nata in questa partita.</p>"}

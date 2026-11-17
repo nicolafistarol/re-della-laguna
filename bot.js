@@ -75,7 +75,8 @@
         return {
           tipo: "rispondi_invito",
           setta: a.setta,
-          si: "Legale" !== n,
+          // un bot entra se non e' "Legale" e la quota non gli mangia piu' di un quinto dei soldi
+          si: "Legale" !== n ? !(a.offerta < 0) || -a.offerta <= 0.2 * (i.cash + i.sporchi) : a.offerta >= 2e6,
         };
       const s = o.contratti.find((o) => o.a === i.id && "proposto" === o.stato);
       if (s) return { tipo: "rispondi_contratto", id: s.id, si: !1 };
@@ -128,7 +129,8 @@
           const a = (function (o, t, i) {
             const casinoOk = (globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null)).stanzePossibili(o, t).some((x) => x.id === "casino_privato" && x.ok);
             if (t.piani > 0 && casinoOk && ["Costruttore", "Spavaldo", "Furbo"].includes(i) && t.cash > 15e5 && Math.random() < 0.4) return { tipo: "piano", funzione: "casino_privato" };
-            if (("Costruttore" === i ? t.cash > 15e5 && Math.random() < 0.6 : t.cash > 4e6 && Math.random() < 0.15) && (t.piani > 0 || o.lotti.filter((l) => l.owner === t.id && l.lvl >= 1).length >= 2)) {
+            // con tanti contanti fermi chiunque costruisce piani: si ripagano in pochi Cicli
+            if (("Costruttore" === i ? t.cash > 15e5 && Math.random() < 0.6 : t.cash > 8e6 || (t.cash > 4e6 && Math.random() < 0.15)) && (t.piani > 0 || o.lotti.filter((l) => l.owner === t.id && l.lvl >= 1).length >= 2)) {
               const ok = (globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null)).stanzePossibili(o, t).filter((x) => x.ok).map((x) => x.id);
               const f = ["uffici", t.veicoli.length ? "garage" : null, "ristorante_panoramico", "suite", "appartamenti"].filter(Boolean).find((x) => ok.includes(x)) || ok[0];
               if (f) return { tipo: "piano", funzione: f };
@@ -178,9 +180,15 @@
             const ser = Object.keys(n.serate || {}).find((h) => h !== i.id);
             if (ser && !l.serata && i.cash > 3e6 && Math.random() < 0.35) { l.serata = !0; return { tipo: "vai_serata", host: ser }; }
             l.visti.includes(s) || l.visti.push(s);
+            // prima si ripuliscono i soldi sporchi: tenerli a fine partita vale poco e una confisca li porta via
+            if ("casino" === s && !l.ric && i.sporchi > 3e5)
+              return ((l.ric = !0), { tipo: "ricicla", metodo: t.copertura(o, i) - (i.copUsata || 0) > 0 ? "copertura" : "shadow", importo: i.sporchi });
+            if (i.sporchi > 15e5 && !l.ric && c < 5 && "casino" !== s && t.luogoAperto(o, "casino", i)) return { tipo: "vai", luogo: "casino" };
             const u = t.occasioniVisibili(o, i).map((o) => ({ ...o, O: t.OCCASIONI.find((t) => t.id === o.id) })),
               p = i.cash + i.sporchi,
-              d = ["Legale", "Costruttore", "Investitore"].includes(e) || 0 === a || (i.stato >= 3 && "Spavaldo" !== e),
+              // i furbi si fermano appena la polizia li osserva; lo spavaldo solo quando e' indagato
+              // chi e' gia' molto ricco rischia piu' di quanto guadagna stanotte: lo spavaldo no, lui rischia sempre
+              d = ["Legale", "Costruttore", "Investitore"].includes(e) || 0 === a || i.stato >= ("Spavaldo" === e ? 2 : 1) || (i.arresti >= 2 && i.stato >= 1) || ("Spavaldo" !== e && t.patrimonio(o, i, !1) > 4e7),
               f = u.find((o) => o.O.legale && i.cash > 6e5);
             if (f) return { tipo: "occasione", n: f.n, oggetti: [] };
             if (d)

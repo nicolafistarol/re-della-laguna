@@ -30,9 +30,10 @@ label{font-size:13px;color:var(--muted)}
 #mondo::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(5,10,20,0) 55%,rgba(5,10,20,.55) 100%)}
 .cas{position:absolute;transform:translate(-50%,-50%);z-index:2;display:flex;flex-direction:column;align-items:center;pointer-events:auto}
 #mondo.notte .cas{opacity:.3}
-.ped{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;transition:left .17s ease-out,top .17s ease-out;z-index:4;box-shadow:0 3px 10px rgba(0,0,0,.5)}
-.ped b{font-size:11px;color:#0b1018}
-.ped.io{width:28px;height:28px;margin:-14px 0 0 -14px;z-index:5;animation:pulsa 1.8s infinite}
+.ped{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:3px solid #fff;outline:2px solid rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;transition:left .17s ease-out,top .17s ease-out;z-index:4;box-shadow:0 3px 10px rgba(0,0,0,.5)}
+.ped b{font-size:16px;font-weight:900;color:#0b1018;text-shadow:0 0 3px rgba(255,255,255,.7)}
+.ped .nomeped{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:3px;padding:1px 6px;border-radius:8px;background:rgba(0,0,0,.75);color:#fff;font-size:11px;font-weight:700;white-space:nowrap;pointer-events:none}
+.ped.io{width:42px;height:42px;margin:-21px 0 0 -21px;z-index:5;animation:pulsa 1.8s infinite}
 @keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(243,197,107,.8)}70%{box-shadow:0 0 0 14px rgba(243,197,107,0)}100%{box-shadow:0 0 0 0 rgba(243,197,107,0)}}
 .ped.salto{animation:salto .18s ease-out}
 @keyframes salto{50%{transform:translateY(-8px) scale(1.12)}}
@@ -254,7 +255,11 @@ button .lic{margin-right:2px}
 #mondo.tre::after{background:radial-gradient(ellipse at center,rgba(5,10,20,0) 60%,rgba(5,10,20,.45) 100%)}
 #mondo.tre #mappa>*{pointer-events:auto}
 #mondo.tre #mappa .isola-nome{pointer-events:none}
-#mondo.tre #mappa .ped,#mondo.tre #mappa .edificio,#mondo.tre #mappa .torre,#mondo.tre #mappa .scia{visibility:hidden!important}
+/* in 3D il segnalino rotondo galleggia sopra la testa della pedina vera, sopra tutte le etichette */
+#mondo.tre #mappa .ped{visibility:visible!important;translate:0 -58px;z-index:30}
+#mondo.tre #mappa .ped::after{content:"";position:absolute;top:100%;left:50%;margin-left:-7px;border:7px solid transparent;border-top-color:#fff}
+#mondo.tre #mappa .ped .nomeped{top:auto;bottom:100%;margin:0 0 4px}
+#mondo.tre #mappa .edificio,#mondo.tre #mappa .torre,#mondo.tre #mappa .scia{visibility:hidden!important}
 #mondo.tre #mappa .cas,#mondo.tre #mappa .luogo,#mondo.tre #mappa .luce,#mondo.tre #mappa .etichetta{transition:none}
 #mondo.tre.notte .cas{opacity:.35}
 #mondo.tre ~ .audio,.audio{bottom:auto;top:132px}

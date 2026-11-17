@@ -21,9 +21,10 @@ function vistaSicura(s, id) {
 }
 function giocaBot(s) {
   for (let i = 0; i < 3000 && !s.fine; i++) {
-    const bot = s.players.find((p) => p.bot && B.prossima(s, p));
+    // una sola domanda al bot: le sue scelte ricordano cosa ha gia' deciso (chiederla due volte la cambia)
+    let bot = null, a = null;
+    for (const p of s.players) if (p.bot) { const x = B.prossima(s, p); if (x) { bot = p; a = x; break; } }
     if (!bot) return;
-    const a = B.prossima(s, bot);
     try { L.applica(s, bot.id, a); }
     catch (_e) {
       try {
@@ -37,10 +38,10 @@ function giocaBot(s) {
 }
 function salva() { try { localStorage.setItem(CHIAVE, JSON.stringify(stato)); } catch (e) { } }
 
-export function nuova(nome, seed) {
+export function nuova(nome, seed, durata) {
   stato = L.nuovaPartita({
     giocatori: [{ nome: nome || "Tu" }, { nome: "Rocco", bot: true, strat: "Furbo" }, { nome: "Vera", bot: true, strat: "Legale" }, { nome: "Dario", bot: true, strat: "Costruttore" }],
-    seed,
+    seed, durata,
   });
   giocaBot(stato); salva();
 }
@@ -51,9 +52,10 @@ export function nuovaProva(nome) {
   // fino alla prima notte giochi "in automatico" come un giocatore esperto: compri terreni come gli altri
   me.bot = true; me.strat = "Esperto";
   for (let i = 0; i < 6000 && s.fase !== "notte" && !s.fine; i++) {
-    const bot = s.players.find((p) => p.bot && B.prossima(s, p));
+    let bot = null, mossa = null;
+    for (const p of s.players) if (p.bot) { const x = B.prossima(s, p); if (x) { bot = p; mossa = x; break; } }
     if (!bot) break;
-    try { L.applica(s, bot.id, B.prossima(s, bot)); }
+    try { L.applica(s, bot.id, mossa); }
     catch (e) {
       try {
         if (s.pending?.tipo === "asta") L.applica(s, bot.id, { tipo: "offerta", importo: 0 });
@@ -85,5 +87,7 @@ export function azione(a) {
   giocaBot(stato); salva();
   return { ok: true };
 }
+// nella prova da soli il nome si puo' cambiare quando vuoi
+export function rinomina(nome) { nome = String(nome || "").trim().slice(0, 24); if (!stato || !nome) return; stato.players[0].nome = nome; salva(); }
 export function vista() { return stato ? vistaSicura(stato, "g1") : null; }
 export function grezzo() { return stato; }
