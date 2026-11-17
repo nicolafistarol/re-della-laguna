@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=24";
+import { ico } from "./icone.js?v=25";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=24";
-import * as Pano from "./panorama.js?v=24";
+import * as Tre from "./tre.js?v=25";
+import * as Pano from "./panorama.js?v=25";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=24";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=25";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -1366,7 +1366,8 @@ function contenutoApp(me, k) {
   if (k === "lusso") return `<div class="scheda"><h4>I tuoi mezzi</h4><span class="sub">${me.veicoli.map((x) => L.N.veicoli[x].nome).join(", ") || "Nessuno, per ora."}</span></div>${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="veicolo">Vai in concessionaria</button>` : `<span class="sub">I mezzi si comprano con la mossa del giorno.</span>`}<span class="sub">Un motoscafo o un elicottero ti fanno muovere di notte in 1 ora ovunque.</span>`;
   if (k === "prove") return (me.prove || []).map((pr, i) => `<div class="scheda"><h4>📷 ${esc(S.players.find((x) => x.id === pr.su).nome)}</h4><span class="sub">${esc(pr.cosa)} · Ciclo ${pr.ciclo}</span><button class="piccolo" data-denuncia="${i}">Manda alla polizia</button></div>`).join("") || `<p class="sub">Nessuna prova. Una macchina fotografica aiuta.</p>`;
   if (k === "borsa") return L.AZIENDE.map((a) => `<div class="scheda"><h4>${a} <span class="sub">${S.borsa[a].toFixed(1)}</span></h4><span class="sub">Ne hai per ${euro((me.azioni[a] || 0) * S.borsa[a])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="b_${a}" style="width:100px"><button class="piccolo" data-compra="borsa|${a}">Compra</button><button class="piccolo" data-vendi="borsa|${a}">Vendi</button></div></div>`).join("") +
-    L.MONETE.map((m) => `<div class="scheda"><h4>${m} <span class="sub">${S.cripto[m].toFixed(2)}</span></h4><span class="sub">Ne hai per ${euro((me.cripto[m] || 0) * S.cripto[m])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="c_${m}" style="width:100px"><button class="piccolo" data-compra="cripto|${m}">Compra</button><button class="piccolo" data-vendi="cripto|${m}">Vendi</button></div></div>`).join("");
+    `<p class="sub">Le cripto si comprano con soldi puliti e cambiano prezzo una volta per Ciclo, all'Alba. In media salgono, ma ogni tanto crollano del 70% in una notte.</p>` +
+    L.MONETE.map((m) => `<div class="scheda"><h4>${m} <span class="sub">${S.cripto[m].toFixed(2)}</span></h4><span class="sub" style="display:block;margin-bottom:4px">${{ LagunaCoin: "La più tranquilla: si muove poco e crolla di rado.", FlamingoToken: "La più pazza: può raddoppiare o dimezzarsi in un Ciclo.", ShadowCoin: "Media. Serve anche per ripulire i soldi sporchi. Il Sindaco può bloccarla." }[m] || ""}</span><span class="sub">Ne hai per ${euro((me.cripto[m] || 0) * S.cripto[m])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="c_${m}" style="width:100px"><button class="piccolo" data-compra="cripto|${m}">Compra</button><button class="piccolo" data-vendi="cripto|${m}">Vendi</button></div></div>`).join("");
   if (k === "contratti") {
     const miei = S.contratti.filter((x) => x.da === mioId || x.a === mioId);
     return miei.map((x) => `<div class="scheda"><span><span class="tag">${x.tipo === "notarile" ? "Dal notaio" : "Sulla parola"}</span><span class="tag">${esc(x.stato)}</span></span><span>${esc(S.players.find((y) => y.id === x.da).nome)} ↔ ${esc(S.players.find((y) => y.id === x.a).nome)}: subito ${euro(x.pagoOra)}, poi ${euro(x.pagoDopo)}</span>${x.testo ? `<i class="sub">"${esc(x.testo)}"</i>` : ""}${x.a === mioId && x.stato === "proposto" ? `<div class="riga"><button class="piccolo oro" data-contr="${x.id}|1">Accetta</button><button class="piccolo" data-contr="${x.id}|0">Rifiuta</button></div>` : ""}</div>`).join("") + `<button class="oro" data-a2="nuovoContratto">Proponi un patto</button>`;

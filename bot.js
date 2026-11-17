@@ -8,7 +8,7 @@
         {
           Legale: ["hotel", "ristorante", "uffici", "boutique", "residenze"],
           Costruttore: ["residenze", "hotel", "ristorante"],
-          Investitore: ["uffici", "agenzia", "hotel", "residenze"],
+          Investitore: ["uffici", "hotel", "boutique", "ristorante", "residenze"],
           Furbo: ["lavanderia", "discoteca", "galleria", "ristorante", "residenze"],
           Spavaldo: ["discoteca", "beachclub", "magazzino", "ristorante", "residenze"],
           Esperto: ["magazzino", "lavanderia", "discoteca", "galleria", "residenze"],
