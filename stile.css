@@ -246,3 +246,16 @@ button .lic{margin-right:2px}
 .flusso-etichetta.via{opacity:0}
 .riepilogo-giro{margin:4px 0 8px;font-size:13px;display:flex;flex-direction:column;gap:3px}
 .riepilogo-giro .p{color:var(--pulito)}.riepilogo-giro .m{color:var(--sporco)}
+
+/* ---- tabellone 3D ---- */
+.tre-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#mondo.tre #mappa{left:0;top:0;width:100%;height:100%;aspect-ratio:auto;transform:none!important;background:none;pointer-events:none;transition:none}
+#mondo.tre #mappa::before{display:none}
+#mondo.tre::after{background:radial-gradient(ellipse at center,rgba(5,10,20,0) 60%,rgba(5,10,20,.45) 100%)}
+#mondo.tre #mappa>*{pointer-events:auto}
+#mondo.tre #mappa .isola-nome{pointer-events:none}
+#mondo.tre #mappa .ped,#mondo.tre #mappa .edificio,#mondo.tre #mappa .torre,#mondo.tre #mappa .scia{visibility:hidden!important}
+#mondo.tre #mappa .cas,#mondo.tre #mappa .luogo,#mondo.tre #mappa .luce,#mondo.tre #mappa .etichetta{transition:none}
+#mondo.tre.notte .cas{opacity:.35}
+#mondo.tre ~ .audio,.audio{bottom:auto;top:132px}
+#mondo{isolation:isolate}

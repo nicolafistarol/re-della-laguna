@@ -38,7 +38,7 @@ export function avvia(mondo, mappaDom, urlMappa) {
   scena.fog = new THREE.Fog("#0b2a3a", 170, 330);
 
   camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.5, 900);
-  camera.position.set(0, 88, 78);
+  camera.position.set(0, 112, 92);
 
   // il piano con la foto, piu' un mare largo intorno cosi' non si vede mai il vuoto
   const tex = new THREE.TextureLoader().load(urlMappa);
@@ -65,7 +65,7 @@ export function avvia(mondo, mappaDom, urlMappa) {
   controlli = new MapControls(camera, renderer.domElement);
   controlli.enableDamping = true; controlli.dampingFactor = 0.08;
   controlli.screenSpacePanning = false;
-  controlli.minDistance = 18; controlli.maxDistance = 170;
+  controlli.minDistance = 16; controlli.maxDistance = 200;
   controlli.minPolarAngle = 0.15; controlli.maxPolarAngle = 1.2;
   controlli.zoomToCursor = true;
   controlli.target.set(0, 0, 4);
@@ -249,7 +249,7 @@ function proiettaHtml() {
     // la pedina HTML resta invisibile: in 3D si vede la pedina vera
     el.style.translate = `${sx - x / 100 * larg}px ${sy - y / 100 * alt}px`;
     const d = camera.position.distanceTo(daMappa(x, y));
-    el.style.scale = String(THREE.MathUtils.clamp(70 / d, 0.55, 1.5));
+    el.style.scale = String(THREE.MathUtils.clamp(125 / d, 0.75, 1.45));
     el.style.zIndex = String(1000 - Math.round(d));
   }
   contenitore.style.setProperty("--dist", dist.toFixed(1));

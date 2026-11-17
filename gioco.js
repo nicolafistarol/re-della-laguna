@@ -3,14 +3,19 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=16";
+import { ico } from "./icone.js?v=17";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
 const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const VELOCE = location.search.includes("veloce");
+const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Loc from "./locale.js?v=16";   // ?veloce = senza animazioni (per le prove)
+import * as Tre from "./tre.js?v=17";
+// il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
+let TRE3D = false;
+function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
+import * as Loc from "./locale.js?v=17";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -457,6 +462,9 @@ function disegna() {
   const notte = S.fase === "notte" && S.notte;
   $("#mondo").style.display = "block";
   $("#mondo").classList.toggle("notte", !!notte);
+  if (!TRE3D && vuole3D() && !VELOCE_2D) { try { TRE3D = Tre.avvia($("#mondo"), $("#mappa"), "img/mappa-hd.jpg"); } catch (e) { console.error(e); TRE3D = false; } }
+  $("#mondo").classList.toggle("tre", TRE3D);
+  if (TRE3D) Tre.impostaNotte(!!notte);
   Suono.ambiente(notte ? "notte" : "giorno");
   $("#sfondo").style.filter = "";
   const c = casellaDi(me);
@@ -506,6 +514,7 @@ function disegnaMappa(me, notte) {
     }).join("");
     const c = casellaDi(me);
     const [mx, my] = puntoMappa(disp[mioId] || me);
+    if (TRE3D) aggiorna3D(gruppi);
     m.innerHTML = nomiIsole() + caselle + edifici() + torri() + `<svg class="scia" viewBox="0 0 100 56.25" preserveAspectRatio="none"></svg>` + pedine +
       (c && !animando && S.fase === "giorno" ? `<div class="etichetta" style="left:${mx}%;top:${my}%"><b>${esc(c.nome)}</b>${c.isola ? `<span>${esc(L.NOMI_ISOLE[c.isola])}</span>` : ""}</div>` : "");
     return;
@@ -526,6 +535,7 @@ function disegnaMappa(me, notte) {
     x += 2.2 + k * 1.4; y -= 2.5;
     return `<div class="luce ${N2.viaggio[p.id] ? "viaggio" : ""}" title="${esc(p.nome)}${N2.viaggio[p.id] ? " · in viaggio" : ""}" style="left:${x}%;top:${y}%;background:${p.colore};color:${p.colore};${p.id === mioId ? "width:20px;height:20px;margin:-10px 0 0 -10px" : ""}"></div>`;
   }).join("");
+  if (TRE3D) aggiorna3D({});
   m.innerHTML = nomiIsole() + edifici() + torri() + luoghi + luci;
   m.querySelectorAll(".luogo[data-luogo]").forEach((b) => b.onclick = () => chiediViaggio(me, b.dataset.luogo));
 }
@@ -565,6 +575,17 @@ function legenda() {
     <div><span class="lg spec">${ico("gazzetta")}</span> Posto speciale: il nome è scritto sotto</div>
     <div><span class="lg ang">${ico("flag")}</span> Ponte: Partenza, Faro, Posto di blocco</div>
     <div class="sub">Il colore della striscia indica il gruppo di vie. Tocca una casella per leggere la scheda.</div></div></div>`;
+}
+function aggiorna3D(gruppi) {
+  const conta = {};
+  const caselle = S.lotti.map((l) => {
+    const [x, y] = puntoMappa({ pos: l.idx }); const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
+    return { x, y, tipo: l.tipoCasella, colore: own ? own.colore : COL_SERIE[l.serie] || (l.tipoCasella === "angolo" ? "#c9a24a" : "#28344a"), proprietario: own ? own.colore : null, livello: l.lvl, cantiere: !!l.cantiere };
+  });
+  const cc = {};
+  const torri3 = S.players.filter((p) => p.piani > 0).map((p) => { const isola = isolaCasa(p); const k = (cc[isola] = (cc[isola] || 0) + 1) - 1; const [x, y] = POS_CASA[isola]; return { x: x + k * 2.2, y, colore: p.colore, piani: p.piani }; });
+  const giocatori = S.players.map((p) => { const q = disp[p.id] || copiaPos(p); const key = "o" + q.pos; const k = (conta[key] = (conta[key] || 0) + 1) - 1; const [x, y] = puntoMappa(q); return { id: p.id, colore: p.colore, x, y, offset: k, nascosta: S.fase === "notte" || p.faro > 0 }; });
+  Tre.aggiorna({ caselle, torri: torri3, giocatori });
 }
 // i gruppi di vie: spiegati con parole semplici
 function gruppo(l) {
@@ -628,6 +649,7 @@ function torri() {
 let vista = { z: 1, x: 0, y: 0 };
 function applicaVista() {
   const m = $("#mappa"); if (!m) return;
+  if (TRE3D) { m.style.transform = ""; m.style.setProperty("--z", 1); return; }
   const w = m.offsetWidth, h = m.offsetHeight, W = innerWidth, H = innerHeight;
   const maxX = Math.max(0, (w * vista.z - W) / 2), maxY = Math.max(0, (h * vista.z - H) / 2); // la mappa copre sempre tutto lo schermo
   vista.x = Math.max(-maxX, Math.min(maxX, vista.x)); vista.y = Math.max(-maxY, Math.min(maxY, vista.y));
@@ -650,6 +672,7 @@ function centraSu(px, py) {
 function collegaEsplora() {
   const mondo = $("#mondo");
   mondo.addEventListener("wheel", (e) => {
+    if (TRE3D) return;
     e.preventDefault();
     const rotella = e.deltaMode === 1 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 40 && Number.isInteger(e.deltaY));
     if (e.ctrlKey) zoomA(vista.z * Math.pow(1.012, -e.deltaY), e.clientX, e.clientY);          // pizzico sul trackpad
@@ -659,7 +682,7 @@ function collegaEsplora() {
   // Safari: il pizzico arriva come "gesture"
   let gz = 1;
   mondo.addEventListener("gesturestart", (e) => { e.preventDefault(); gz = vista.z; });
-  mondo.addEventListener("gesturechange", (e) => { e.preventDefault(); zoomA(gz * e.scale, e.clientX || innerWidth / 2, e.clientY || innerHeight / 2); });
+  mondo.addEventListener("gesturechange", (e) => { e.preventDefault(); if (TRE3D) return; zoomA(gz * e.scale, e.clientX || innerWidth / 2, e.clientY || innerHeight / 2); });
   addEventListener("keydown", (e) => {
     if (e.target.closest && e.target.closest("input,textarea,select")) return;
     const passo = 80;
@@ -669,6 +692,7 @@ function collegaEsplora() {
   });
   let trascina = null; const tocchi = new Map();
   mondo.addEventListener("pointerdown", (e) => {
+    if (TRE3D) return;
     if (e.target.closest("button")) return;
     tocchi.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (tocchi.size === 1) trascina = { x: e.clientX, y: e.clientY, vx: vista.x, vy: vista.y };
@@ -692,16 +716,18 @@ function collegaEsplora() {
   addEventListener("resize", applicaVista);
 }
 function comandiVista() {
-  return `<div class="comandi-vista vetro"><button id="zPiu" aria-label="Avvicina">＋</button><button id="zMeno" aria-label="Allontana">−</button><button id="zTutto" aria-label="Vista intera" title="Vista intera">⤢</button><button id="zMio" aria-label="Vai alla tua pedina" title="La tua pedina">◎</button></div>`;
+  return `<div class="comandi-vista vetro"><button id="zPiu" aria-label="Avvicina">＋</button><button id="zMeno" aria-label="Allontana">−</button>${TRE3D ? `<button id="zSx" aria-label="Ruota a sinistra" title="Ruota">⟲</button><button id="zDx" aria-label="Ruota a destra" title="Ruota">⟳</button>` : ""}<button id="zTutto" aria-label="Vista intera" title="Vista intera">⤢</button><button id="zMio" aria-label="Vai alla tua pedina" title="La tua pedina">◎</button><button id="z3d" title="${TRE3D ? "Passa al tabellone piatto" : "Passa al tabellone 3D"}" style="font-size:12px;font-weight:800">${TRE3D ? "2D" : "3D"}</button></div>`;
 }
 function notteOra() { return S && S.fase === "notte" && S.notte; }
 let legendaAperta = false;
 function collegaComandiVista(me) {
   const lt = $("#legTasto"); if (lt) { $(".legenda").classList.toggle("aperta", legendaAperta); lt.onclick = () => { legendaAperta = !legendaAperta; $(".legenda").classList.toggle("aperta", legendaAperta); }; }
-  $("#zPiu").onclick = () => zoomA(vista.z * 1.35);
-  $("#zMeno").onclick = () => zoomA(vista.z / 1.35);
-  $("#zTutto").onclick = () => { vista = { z: 1, x: 0, y: 0 }; applicaVista(); };
-  $("#zMio").onclick = () => { const notte = S.fase === "notte" && S.notte; const [x, y] = notte ? posLuogo(S.notte.dove[mioId], me) : puntoMappa(disp[mioId] || me); centraSu(x, y); };
+  $("#zPiu").onclick = () => TRE3D ? Tre.avvicina(0.7) : zoomA(vista.z * 1.35);
+  $("#zMeno").onclick = () => TRE3D ? Tre.avvicina(1.4) : zoomA(vista.z / 1.35);
+  if ($("#zSx")) { $("#zSx").onclick = () => Tre.ruota(-35); $("#zDx").onclick = () => Tre.ruota(35); }
+  $("#zTutto").onclick = () => { if (TRE3D) return Tre.tutto(); vista = { z: 1, x: 0, y: 0 }; applicaVista(); };
+  $("#zMio").onclick = () => { const notte = S.fase === "notte" && S.notte; const [x, y] = notte ? posLuogo(S.notte.dove[mioId], me) : puntoMappa(disp[mioId] || me); TRE3D ? Tre.centraSu(x, y) : centraSu(x, y); };
+  $("#z3d").onclick = () => { try { localStorage.setItem("laguna_3d", TRE3D ? "0" : "1"); } catch (e) { } location.reload(); };
 }
 
 // ------------------------------------------------------------ la carta principale (in basso)
