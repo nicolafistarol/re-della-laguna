@@ -181,8 +181,10 @@
             if (ser && !l.serata && i.cash > 3e6 && Math.random() < 0.35) { l.serata = !0; return { tipo: "vai_serata", host: ser }; }
             l.visti.includes(s) || l.visti.push(s);
             // prima si ripuliscono i soldi sporchi: tenerli a fine partita vale poco e una confisca li porta via
+            // ripulisce solo quanto i suoi locali possono giustificare, se no la Finanza se ne accorge
+            const giustificabili = Math.max(5e5, 2 * t.propri(o, i).reduce((a, x) => a + t.rendita(o, x), 0));
             if ("casino" === s && !l.ric && i.sporchi > 3e5)
-              return ((l.ric = !0), { tipo: "ricicla", metodo: t.copertura(o, i) - (i.copUsata || 0) > 0 ? "copertura" : "shadow", importo: i.sporchi });
+              return ((l.ric = !0), { tipo: "ricicla", metodo: t.copertura(o, i) - (i.copUsata || 0) > 0 ? "copertura" : "shadow", importo: Math.min(i.sporchi, giustificabili) });
             if (i.sporchi > 15e5 && !l.ric && c < 5 && "casino" !== s && t.luogoAperto(o, "casino", i)) return { tipo: "vai", luogo: "casino" };
             const u = t.occasioniVisibili(o, i).map((o) => ({ ...o, O: t.OCCASIONI.find((t) => t.id === o.id) })),
               p = i.cash + i.sporchi,
@@ -209,7 +211,7 @@
                         : [];
             for (const o of v) if (!r(i, o) && h < g && p > t.OGGETTI[o].prezzo + 4e5) return { tipo: "compra_oggetto", oggetto: o };
             const m = u
-              .filter((o) => !o.O.legale && p > (o.O.costo || 0) + 2e5)
+              .filter((o) => !o.O.legale && p > (o.O.costo || 0) + 2e5 && ((i.calore || {})[s] || 0) < ("Spavaldo" === e ? 2 : 1))
               .sort((o, t) => (t.O.guadagno ? t.O.guadagno[1] : 0) - (o.O.guadagno ? o.O.guadagno[1] : 0))[0];
             if (m && ("Furbo" !== e || !n.racconto[i.id].slice(-1)[0].includes("sbirri"))) {
               const o = (i.valigetta || [])

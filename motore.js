@@ -17,6 +17,12 @@
     // come finisce la partita: a Cicli, a obiettivo (patrimonio) o libera (la chiude chi l'ha creata)
     durataCicli: [6, 8, 10, 12, 16, 20], obiettivi: [50_000_000, 100_000_000, 200_000_000], quasiTraguardo: 0.75,
     settaOffertaMax: 10_000_000,
+    // LE PISTE: la polizia ti scopre sempre per un motivo
+    pistaLuogoNotte: 0.4,   // guai di notte x(1 + 0,4 x calore del posto)
+    pistaLuogo: 6,          // Tracce in piu' all'indagine: 6 x calore^2 per ogni posto
+    pistaSoldi: 8,          // Tracce in piu' per ogni milione di soldi che "non tornano"
+    pistaRivale: 8,         // per ogni Prova che un rivale ha su di te
+    pistaComplice: 12,      // per ogni complice sotto inchiesta che non hai scaricato
     occupata: 0.75, // se la polizia indaga su un altro, per te rischi e controlli x0,75
     resaK: 60, resaStato: 0.1, resaMax: 0.9, resaMulta: 1.5, // la Resa dei conti di fine partita
     cashStart: 1_500_000, stipendio: 600_000, valoreSporchi: 0.25, tassa: 0.20,
@@ -686,7 +692,7 @@
     let prezzo = v.prezzo;
     if (s.leggi.includes("tassa_lusso") && ["yacht", "megayacht", "elicottero", "jet"].includes(tipo)) prezzo *= 1.1;
     if (p.cash < prezzo) err("Ti servono " + euro(prezzo) + ".");
-    p.cash -= prezzo; p.veicoli.push(tipo); p.fama += v.fama; p.azioneGiornoFatta = true;
+    p.cash -= prezzo; p.lussoCiclo = (p.lussoCiclo || 0) + prezzo; p.veicoli.push(tipo); p.fama += v.fama; p.azioneGiornoFatta = true;
     log(s, p.nome + " compra: " + v.nome + ".", p.id);
     notizia(s, "Avvistato alla Marina dei Re: il nuovo " + v.nome.toLowerCase() + " di " + p.nome + ".", "fama");
   }
@@ -836,7 +842,7 @@
     if (!perso) { p.sporchi += carico + profitto; p.affariOk += 1; p.reputazione += 2; }
     let tracce = A.tracce * tMult * (0.6 + 0.8 * rng(s)) * fT * protIsola;
     if (s.leggi.includes("polizia_doppia_" + isola)) tracce *= 2;
-    p.tracce += tracce; p.pulitoCiclo = false;
+    p.tracce += tracce; p.pulitoCiclo = false; segnaTraccia(s, p, tracce, A.nome);
     p.peggiorReato = peggio(p.peggiorReato, intensita === "spavaldo" && A.gravita === "media" ? "grave" : A.gravita);
     p.affariStanotte.push({ tipo, intensita, mosse, isola });
     let colto = N.coltoBase * tMult * fC * (p.corrotti.commissario ? 0.5 : 1);
@@ -903,6 +909,8 @@
       p.tracce += 0.2 * q / 100_000;
       privato(s, p, "Viaggio d'affari: ripuliti " + euro(q) + " in un paradiso fiscale.");
     } else err("Metodo sconosciuto.");
+    p.ripulitiCiclo = (p.ripulitiCiclo || 0) + importo;
+    segnaTraccia(s, p, metodo === "copertura" ? N.ricCopTracce * Math.min(importo, 5e6) / 100_000 : metodo === "shadow" ? N.shadowTracce * importo / 100_000 : 0.2 * Math.min(importo, 5e6) / 100_000, metodo === "paradiso" ? "il viaggio nel paradiso fiscale" : "i soldi ripuliti al Casinò Reale");
     p.pulitoCiclo = false;
     if (p.riciclTot > 8_000_000) p.peggiorReato = peggio(p.peggiorReato, "grave");
   }
@@ -1094,7 +1102,7 @@
       }
     }
     for (const p of s.players) {
-      p.affariStanotte = []; p.pulitoCiclo = true;
+      p.affariStanotte = []; p.pulitoCiclo = true; p.luoghiNotte = {};
       s.notte.dove[p.id] = "palazzo";
       if (p.faro > 0) { s.notteFatti[p.id] = true; racconta(s, p, "Passi la notte al Faro, in cella. Fuori la Laguna si muove senza di te."); continue; }
       racconta(s, p, "Esci dal tuo palazzo. La Laguna è accesa.");
@@ -1505,6 +1513,7 @@
     o.preso = p.id;
     s.notte.fatto[p.id] = { n, oggetti };
     s.notte.chiuso[p.id] = true;
+    if (!O.legale) { p.luoghiNotte = p.luoghiNotte || {}; p.luoghiNotte[o.luogo] = true; }
     racconta(s, p, O.legale ? O.nome + ": ci stai." : O.nome + ": accetti." + (oggetti.length ? " Porti con te: " + oggetti.map((x) => OGGETTI[x].nome.toLowerCase()).join(", ") + "." : ""));
     risolviOccasione(s, p, s.notte.fatto[p.id]);
     controllaOra(s);
@@ -1582,6 +1591,7 @@
     if (o.luogo === "aeroporto" && p.corrotti.doganiere) { pg *= 0.5; p.corrotti.doganiere.usi = (p.corrotti.doganiere.usi || 0) + 1; }
     if (s.leggi.includes("polizia_doppia_" + isola)) pg *= 1.4;
     if (poliziaOccupata(s, p)) pg *= N.occupata;
+    pg *= 1 + N.pistaLuogoNotte * ((p.calore || {})[o.luogo] || 0);
     const guaio = O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
     let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale : 0;
     if (guaio) {
@@ -1608,7 +1618,7 @@
     if (inSetta(p)) tracce *= 0.7; // la setta copre i suoi
     if (p.pacchetto === "contrabbandiere") tracce *= 0.7;
     if (s.leggi.includes("polizia_doppia_" + isola)) tracce *= 1.5;
-    p.tracce += tracce;
+    p.tracce += tracce; segnaTraccia(s, p, tracce, O.nome + " (" + nomeLuogo(o.luogo) + ")");
     if (guadagno > 0) {
       p.sporchi += round(guadagno); // il guadagno e' tutto quello che torna indietro (il costo era gia' stato pagato)
       racconta(s, p, "Torni con " + euro(guadagno) + " in contanti sporchi.");
@@ -2106,10 +2116,62 @@
       notizia(s, "Resa dei conti: la Procura condanna " + p.nome + " (reato " + gravita + "). Multa di " + euro(multa) + ".", "scandalo");
     }
   }
+  // ------------------------------------------------------------ le piste
+  function nomeLuogo(l) { return (LUOGHI[l] || { nome: l }).nome; }
+  // ricordo da cosa vengono le Tracce: quando la polizia sale, sa dirti quale affare ti ha tradito
+  function segnaTraccia(s, p, quanto, cosa) {
+    if (!(quanto > 0)) return;
+    p.storiaTracce = (p.storiaTracce || []).filter((x) => x.ciclo >= s.ciclo - 2);
+    p.storiaTracce.push({ cosa, quanto: Math.round(quanto), ciclo: s.ciclo });
+    if (p.storiaTracce.length > 12) p.storiaTracce.shift();
+  }
+  // all'Alba: i posti dove hai fatto affari stanotte si scaldano, gli altri si raffreddano;
+  // i soldi ripuliti o spesi in lusso oltre quello che rendono i tuoi locali accendono la Finanza.
+  function aggiornaPiste(s, p, renditeLegali) {
+    p.calore = p.calore || {};
+    const stanotte = p.luoghiNotte || {};
+    for (const l of new Set([...Object.keys(p.calore), ...Object.keys(stanotte)])) {
+      p.calore[l] = Math.max(0, (p.calore[l] || 0) + (stanotte[l] ? 1 : -1));
+      if (!p.calore[l]) delete p.calore[l];
+    }
+    for (const l of Object.keys(stanotte)) {
+      const c = p.calore[l];
+      if (c === 1) privato(s, p, "Vera: \"" + nomeLuogo(l) + ": qualcuno ha notato la tua faccia. Se ci torni stanotte, ti riconoscono più facilmente.\"");
+      else if (c === 2) privato(s, p, "Vera: \"" + nomeLuogo(l) + ": c'è una macchina civetta che ieri non c'era. Tornarci adesso è un rischio vero.\"");
+      else if (c >= 3) privato(s, p, "Vera: \"" + nomeLuogo(l) + ": ormai ti conoscono tutti. Tornarci è come firmare.\"");
+    }
+    p.luoghiNotte = {};
+    // la Finanza: soldi ripuliti e lusso comprato contro quello che rendono le attivita' pulite
+    const sporco = p.sporchi > 0 || p.riciclTot > 0 || p.peggiorReato;
+    const eccesso = (p.ripulitiCiclo || 0) + 0.5 * (p.lussoCiclo || 0) - (2 * (renditeLegali || 0) + 500_000);
+    p.calSoldi = (p.calSoldi || 0) * 0.6;
+    if (sporco && eccesso > 0) {
+      p.calSoldi = Math.min(10, p.calSoldi + eccesso / 1_000_000);
+      if (p.calSoldi >= 1) privato(s, p, "Il banchiere Lenz: \"La Finanza guarda i tuoi conti. Hai ripulito e speso più di quanto rendono i tuoi locali. Rallenta, o apri attività che giustifichino quei soldi.\"");
+    }
+    if (p.calSoldi < 0.2) p.calSoldi = 0;
+    p.ripulitiCiclo = 0; p.lussoCiclo = 0;
+  }
+  // le piste che la polizia segue, con il loro peso (in Tracce)
+  function piste(s, p) {
+    const out = [];
+    if (p.tracce > 0) {
+      const st = (p.storiaTracce || []).filter((x) => x.ciclo >= s.ciclo - 2).sort((a, b) => b.quanto - a.quanto)[0];
+      out.push({ k: "voci", peso: p.tracce, testo: st ? "La polizia ha collegato a te " + (st.cosa.startsWith("i ") || st.cosa.startsWith("il ") ? st.cosa : "«" + st.cosa + "»") + (st.ciclo === s.ciclo ? ", di questo Ciclo." : ", del Ciclo " + (st.ciclo + 1) + ".") : "Troppi affari sporchi: in giro si parla di te." });
+    }
+    for (const [l, c] of Object.entries(p.calore || {})) if (c >= 1) out.push({ k: "luogo", luogo: l, calore: c, peso: N.pistaLuogo * c * c, testo: "Ti hanno riconosciuto: troppe notti nello stesso posto (" + nomeLuogo(l) + ")." });
+    if (p.calSoldi > 0) out.push({ k: "soldi", peso: N.pistaSoldi * p.calSoldi, testo: "La Finanza ha visto i tuoi conti: i tuoi soldi non tornano con quello che rendono i tuoi locali." });
+    const prove = s.players.reduce((a, q) => a + (q.id === p.id ? 0 : (q.prove || []).filter((x) => x.su === p.id).length), 0);
+    if (prove) out.push({ k: "rivali", peso: N.pistaRivale * prove, testo: "Qualcuno ha fatto arrivare alla polizia una prova contro di te. Non sai chi." });
+    const nervosi = Object.keys(p.corrotti || {}).filter((k) => p.corrotti[k] && p.corrotti[k].sospetto != null);
+    if (nervosi.length) out.push({ k: "complici", peso: N.pistaComplice * nervosi.length, testo: "Un tuo complice è sotto inchiesta e ha parlato troppo." });
+    return out;
+  }
   function tiroIndagine(s, p) {
     if (p.faro > 0) return;
     const prot = protezione(s, p);
-    let tr = p.tracce;
+    const ps = piste(s, p);
+    let tr = ps.reduce((a, x) => a + x.peso, 0);
     if (p.fama >= 60) tr *= 1.25;
     const pUp = tr / (tr + N.indagineK) * (1 - prot) * (poliziaOccupata(s, p) ? N.occupata : 1);
     const vecchio = p.stato;
@@ -2117,7 +2179,15 @@
     else if (p.pulitoCiclo && p.stato > 0 && rng(s) < N.scendi) p.stato -= 1;
     if (p.stato !== vecchio) {
       const segnali = ["Ti senti più tranquillo: nessuno parla di te.", "Un personaggio ti dice: \"Si parla di te, in giro.\"", "Vedi spesso un'auto della polizia vicino ai tuoi locali.", "La Gazzetta fa il tuo nome. I tuoi conti sono sotto controllo.", "Ricevi una convocazione del Giudice per l'Alba."];
-      privato(s, p, segnali[p.stato]);
+      // quando sali, il gioco ti dice quale pista ti ha tradito
+      let perche = "";
+      if (p.stato > vecchio && ps.length) {
+        let x = rng(s) * ps.reduce((a, y) => a + y.peso, 0), scelta = ps[0];
+        for (const y of ps) { x -= y.peso; if (x <= 0) { scelta = y; break; } }
+        perche = " Perché: " + scelta.testo;
+        p.ultimaPista = { k: scelta.k, testo: scelta.testo, ciclo: s.ciclo + 1 };
+      }
+      privato(s, p, segnali[p.stato] + perche);
       if (p.stato === 1) notizia(s, "Si mormora su certi affari di " + p.nome + ".", "voce");
       if (p.stato === 3) notizia(s, p.nome + " è sotto indagine. Mezzo commissariato lavora solo su di lui: per gli altri, stanotte, le strade sono più libere.", "scandalo");
     }
@@ -2240,6 +2310,7 @@
       if (p.pulitoCiclo) p.ombraCicli = (p.ombraCicli || 0) + 1; else p.ombraCicli = 0;
       p.copUsata = 0;
       riepilogo[p.id] = r;
+      aggiornaPiste(s, p, r.rendite);
       r.consiglio = consiglioVera(s, p);
     }
     // processo per chi e' arrivato allo stato 4
@@ -2590,7 +2661,7 @@
       if (p.id === idGiocatore) continue;
       const vero = s.players.find((x) => x.id === p.id);
       const fasciaPubblica = fascia(s, vero);
-      for (const k of ["cash", "sporchi", "tracce", "stato", "corrotti", "prove", "messaggi", "debito", "azioni", "cripto", "evasione", "affariStanotte", "spiaSu", "sette", "settaFondata", "reputazione", "peggiorReato", "riciclTot", "ultimaSentenza", "offertaBoss", "valigetta", "raccontoNotte", "permessoTurno", "primoPermesso", "scoperte", "consigliati", "visteFare"]) delete p[k];
+      for (const k of ["cash", "sporchi", "tracce", "stato", "corrotti", "prove", "messaggi", "debito", "azioni", "cripto", "evasione", "affariStanotte", "spiaSu", "sette", "settaFondata", "reputazione", "peggiorReato", "riciclTot", "ultimaSentenza", "offertaBoss", "valigetta", "raccontoNotte", "permessoTurno", "primoPermesso", "scoperte", "consigliati", "visteFare", "calore", "calSoldi", "luoghiNotte", "storiaTracce", "ripulitiCiclo", "lussoCiclo", "ultimaPista"]) delete p[k];
       p.fascia = fasciaPubblica;
     }
     v.sette = s.sette.filter((st) => st.membri.includes(idGiocatore));
@@ -2613,6 +2684,7 @@
         daScelta: s.notte.daScelta[idGiocatore], inizioRacc: s.notte.inizioRacc[idGiocatore] || 0,
         scelte: me ? scelteNotte(s, me) : [],
         qui: me ? quiConMe(s, me).map((x) => x.id) : [],
+        caloreQui: me ? ((me.calore || {})[s.notte.dove[idGiocatore]] || 0) : 0,
         pericoloQui: me && !s.notte.viaggio[idGiocatore] && s.notte.dove[idGiocatore] !== "palazzo" ? s.notte.pericolo[s.notte.dove[idGiocatore]] : null,
         protezione: me ? (me.corrotti && me.corrotti["agente_" + (LUOGHI[s.notte.dove[idGiocatore]] || {}).isola] ? 0.6 : 1) * (me.corrotti && me.corrotti.commissario ? 0.8 : 1) * (poliziaOccupata(s, me) ? N.occupata : 1) : 1,
         ospite: s.notte.ospite ? s.notte.ospite[idGiocatore] || null : null,
@@ -2633,7 +2705,7 @@
   const API = {
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE,
     SCOPERTE: SCOPERTE.map(({ id, gruppo, lv, nome, indizio, spiega }) => ({ id, gruppo, lv, nome, indizio, spiega })),
-    rischioResa,
+    rischioResa, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
     ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, rischioContatto, nomeContatto, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, FASCE_PALAZZO, STANZE, stanzePossibili, oreViaggio, luogoAperto,

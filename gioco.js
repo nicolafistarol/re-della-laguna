@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=36";
+import { ico } from "./icone.js?v=37";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=36";
-import * as Pano from "./panorama.js?v=36";
+import * as Tre from "./tre.js?v=37";
+import * as Pano from "./panorama.js?v=37";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=36";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=37";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -588,7 +588,7 @@ function disegnaMappa(me, notte) {
     const qui = dove === l && !N2.viaggio[mioId];
     const ore = !qui && libero ? L.oreViaggio(S, me, dove, l) : null;
     return `<button class="luogo ${qui ? "qui" : ""} ${chiamate.has(l) ? "chiamata" : ""}" data-luogo="${l}" style="left:${x}%;top:${y}%" ${!libero || qui ? "disabled" : ""} aria-label="${esc(nomeLuogo(l))}">
-      <span class="pin">${ICO_LUOGO[l]}</span>${(() => { const v = PERSONAGGI.filter((pg) => pg.dove === l && pg.quando !== "raro" && (pg.lv <= S.sblocco || L.luogoAperto(S, l, me))); return v.length ? `<span class="volti">${v.map((pg) => volto(pg)).join("")}</span>` : ""; })()}<span class="nome">${l === "palazzo" ? "Il tuo Palazzo" : esc(L.LUOGHI[l].nome)}</span>${ore ? `<span class="ore">${ore === 1 ? "1 ora" : "2 ore"}</span>` : qui ? `<span class="ore">sei qui</span>` : ""}</button>`;
+      <span class="pin">${ICO_LUOGO[l]}</span>${(() => { const v = PERSONAGGI.filter((pg) => pg.dove === l && pg.quando !== "raro" && (pg.lv <= S.sblocco || L.luogoAperto(S, l, me))); return v.length ? `<span class="volti">${v.map((pg) => volto(pg)).join("")}</span>` : ""; })()}<span class="nome">${l === "palazzo" ? "Il tuo Palazzo" : esc(L.LUOGHI[l].nome)}${(me.calore || {})[l] ? ` <span title="Qui ti conoscono" style="color:${me.calore[l] >= 2 ? "#ff5c5c" : "#f3c56b"}">${"●".repeat(Math.min(3, me.calore[l]))}</span>` : ""}</span>${ore ? `<span class="ore">${ore === 1 ? "1 ora" : "2 ore"}</span>` : qui ? `<span class="ore">sei qui</span>` : ""}</button>`;
   }).join("");
   const conta = {};
   const luci = S.players.filter((p) => !p.faro).map((p) => {
@@ -1205,7 +1205,7 @@ function finestraAltrove(me) {
   const luoghi = Object.keys(L.LUOGHI).filter((l) => L.LUOGHI[l].sblocco <= S.sblocco && l !== dove);
   const chiamate = new Set((N2.chiamate || []).filter((c) => !c.scaduta).map((x) => x.luogo));
   finestra(`<span class="kick" style="color:var(--cielo)">Ore ${L.ORE[N2.ora]} · ${restano} ${restano === 1 ? "ora" : "ore"} all'alba</span><h2>Dove vai?</h2>
-    <div class="lista-luoghi">${luoghi.map((l) => { const ore = L.oreViaggio(S, me, dove, l); const gente = S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && N2.dove[p.id] === l && l !== "palazzo").length; return `<button class="luogo-riga" data-l="${l}" ${ore > restano ? "disabled" : ""} style="background-image:linear-gradient(90deg,rgba(6,10,24,.92),rgba(6,10,24,.55)),url('${SCENA_NOTTE[l]}')"><span class="ic">${ICO_LUOGO[l]}</span><span style="flex:1;text-align:left"><b>${esc(nomeLuogo(l, true))}</b><br><span class="sub">${l === "palazzo" ? "Casa tua" : esc(L.NOMI_ISOLE[L.LUOGHI[l].isola] || "")}${gente ? " · " + gente + (gente === 1 ? " persona" : " persone") + " ci sono già" : ""}${chiamate.has(l) ? " · appuntamento" : ""}</span></span>${(() => { const v = PERSONAGGI.filter((pg) => pg.dove === l && pg.quando !== "raro"); return v.length ? `<span class="volti-riga" title="${esc(v.map((pg) => pg.nome).join(", "))}">${v.map((pg) => volto(pg)).join("")}</span>` : ""; })()}<span class="ore">${ore === 1 ? "1 ora" : "2 ore"}</span></button>`; }).join("")}</div>
+    <div class="lista-luoghi">${luoghi.map((l) => { const ore = L.oreViaggio(S, me, dove, l); const gente = S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && N2.dove[p.id] === l && l !== "palazzo").length; return `<button class="luogo-riga" data-l="${l}" ${ore > restano ? "disabled" : ""} style="background-image:linear-gradient(90deg,rgba(6,10,24,.92),rgba(6,10,24,.55)),url('${SCENA_NOTTE[l]}')"><span class="ic">${ICO_LUOGO[l]}</span><span style="flex:1;text-align:left"><b>${esc(nomeLuogo(l, true))}</b><br><span class="sub">${l === "palazzo" ? "Casa tua" : esc(L.NOMI_ISOLE[L.LUOGHI[l].isola] || "")}${gente ? " · " + gente + (gente === 1 ? " persona" : " persone") + " ci sono già" : ""}${chiamate.has(l) ? " · appuntamento" : ""}${(me.calore || {})[l] ? ` · <span style="color:${me.calore[l] >= 2 ? "#ff5c5c" : "#f3c56b"}">qui ti conoscono ${"●".repeat(Math.min(3, me.calore[l]))}</span>` : ""}</span></span>${(() => { const v = PERSONAGGI.filter((pg) => pg.dove === l && pg.quando !== "raro"); return v.length ? `<span class="volti-riga" title="${esc(v.map((pg) => pg.nome).join(", "))}">${v.map((pg) => volto(pg)).join("")}</span>` : ""; })()}<span class="ore">${ore === 1 ? "1 ora" : "2 ore"}</span></button>`; }).join("")}</div>
     ${(N2.serate || []).filter((x) => x.host !== mioId && x.host !== N2.ospite).map((x) => `<button class="luogo-riga" data-serata="${x.host}" style="margin-top:8px;border-color:rgba(243,197,107,.6)"><span class="ic">${ico("casino")}</span><span style="flex:1;text-align:left"><b>Serata al Palazzo di ${esc(x.nome)}</b><br><span class="sub">Casinò privato al piano ${x.piani} · ingresso ${x.ingresso ? euro(x.ingresso) : "gratis"} · ${x.ospiti} ${x.ospiti === 1 ? "ospite" : "ospiti"}</span></span><span class="ore">invito</span></button>`).join("")}
     <div class="pulsanti"><button id="no">Resto qui</button></div>`, (d, c) => {
     d.querySelector("#no").onclick = c;
@@ -1492,6 +1492,7 @@ function contenutoApp(me, k) {
         <div class="liv"><span class="liv-n">1</span><div><b>Attività di copertura</b> · al Casinò Reale<div class="sub" style="font-size:12px">Perdi il 15%. Poche tracce. Ne puoi ripulire al massimo ${euro(cop)} a Ciclo con le tue lavanderie, gallerie e magazzini.</div></div></div>
         <div class="liv"><span class="liv-n">2</span><div><b>ShadowCoin</b> · al Casinò Reale<div class="sub" style="font-size:12px">Perdi il 25%. Più tracce. Il Sindaco la può bloccare.</div></div></div>
         <div class="liv"><span class="liv-n">3</span><div><b>Paradiso fiscale</b> · dal tuo Palazzo, serve il jet<div class="sub" style="font-size:12px">Perdi il 30%. Una volta per Ciclo.</div></div></div></div>
+      ${schedaPiste(me)}
       <div class="scheda"><h4>${ico("siren")} Come ti scoprono</h4>
         <span class="sub">Ogni affare sporco lascia <b>Tracce</b>. A ogni Alba la polizia tira i dadi: più Tracce hai, più è facile che tu salga di un gradino. Agenti e commissario corrotti, e la setta, abbassano il rischio. Un Ciclo senza affari sporchi può farti scendere.<br>Se un altro è <b>Indagato</b>, la polizia è occupata con lui: per te rischi e controlli calano di un quarto${S.poliziaSu ? ` (adesso è su <b>${esc(S.poliziaSu)}</b>)` : ""}.<br><b>Resa dei conti:</b> prima della fine la Gazzetta annuncia l'inchiesta finale. All'ultima Alba chi ha lasciato Tracce rischia una multa sul patrimonio${S.resaAnnunciata ? ' — <b style="color:var(--sporco)">è stata annunciata!</b>' : ""}.</span>
         ${["Tranquillo: nessuno parla di te.", "Voci: si parla di te.", "Osservato: la polizia ti tiene d'occhio.", "Indagato: la Gazzetta fa il tuo nome.", "Processo: il Giudice ti condanna per il reato più grave che hai fatto."].map((x, i) => `<div class="liv"><span class="liv-n" style="${(me.stato || 0) === i ? "background:var(--oro);color:#111" : ""}">${i}</span><div class="sub" style="font-size:12px">${x}${(me.stato || 0) === i ? " <b>← tu sei qui</b>" : ""}</div></div>`).join("")}
@@ -1780,6 +1781,19 @@ function finestraAlba(me) {
     <p class="kick" style="color:var(--muted);margin-top:16px">📰 La Gazzetta del mattino</p>${gaz.map((g) => `<p class="serif" style="font-size:16px;margin:4px 0">${esc(g.testo)}</p>`).join("")}
     <div class="pulsanti"><button class="oro" id="ok">Inizia il giorno</button></div>`, (d, c) => d.querySelector("#ok").onclick = c);
 }
+// Le piste: cosa sta seguendo la polizia su di te (le prove dei rivali restano nascoste)
+function schedaPiste(me) {
+  const ps = L.piste(S, me);
+  const cal = Object.entries(me.calore || {});
+  const pall = (n) => `<span style="letter-spacing:2px;color:${n >= 3 ? "var(--sporco)" : n === 2 ? "#ff8a3d" : "#f3c56b"}">${"●".repeat(Math.min(3, n))}${"○".repeat(Math.max(0, 3 - n))}</span>`;
+  return `<div class="scheda"><h4>${ico("siren")} Le tue piste</h4>
+    <span class="sub">La polizia non tira a caso: segue le piste che lasci. Se le conosci, le puoi schivare.</span>
+    <div class="liv"><span class="liv-n">📍</span><div><b>I posti</b><div class="sub" style="font-size:12px">${cal.length ? cal.map(([l, c]) => `${esc(L.LUOGHI[l] ? L.LUOGHI[l].nome : l)} ${pall(c)}`).join(" · ") + "<br>Più torni nello stesso posto, più ti riconoscono. Cambia posto e la pista si raffredda." : "Nessun posto ti conosce. Una notte di affari nello stesso posto basta per farti notare."}</div></div></div>
+    <div class="liv"><span class="liv-n">€</span><div><b>I soldi</b><div class="sub" style="font-size:12px">${me.calSoldi > 0 ? `La Finanza ti guarda ${pall(Math.ceil(me.calSoldi / 2))}. Ripulisci e spendi in lusso solo quanto i tuoi locali possono giustificare.` : "I tuoi conti tornano. Se ripulisci o compri lusso oltre quello che rendono i tuoi locali, la Finanza se ne accorge."}</div></div></div>
+    <div class="liv"><span class="liv-n">🤝</span><div><b>I complici</b><div class="sub" style="font-size:12px">${ps.some((x) => x.k === "complici") ? "Un tuo complice è sotto inchiesta: scaricalo (La tua rete), o può fare il tuo nome." : "Nessun complice nervoso. Più usi lo stesso, più è facile che lo becchino."}</div></div></div>
+    <div class="liv"><span class="liv-n">?</span><div><b>I rivali</b><div class="sub" style="font-size:12px">Non sai mai chi ha una foto o una prova contro di te. È la pista che non vedi.</div></div></div>
+    ${me.ultimaPista ? `<div class="sub" style="font-size:12px;margin-top:6px;color:var(--sporco)">L'ultima volta ti hanno tradito: ${esc(me.ultimaPista.testo)}</div>` : ""}</div>`;
+}
 const NOMI_GRAVITA = { lieve: "Lieve", media: "Media", grave: "Grave", gravissima: "Gravissima" };
 function testoPena(g) {
   const P = L.PENE[g]; if (!P) return "";
@@ -1794,7 +1808,7 @@ function testoPena(g) {
 const COLORE_POLIZIA = { tranquillo: "#7bd88f", agitato: "#f3c56b", pericoloso: "#ff5c5c" };
 function boxRischio(me, o) {
   const N2 = S.notte, lv = N2.pericoloQui, i = ["tranquillo", "agitato", "pericoloso"].indexOf(lv);
-  const prob = i >= 0 ? Math.round(L.P_GUAI[i] * (N2.protezione || 1) * 100) : null;
+  const prob = i >= 0 ? Math.round(Math.min(0.95, L.P_GUAI[i] * (N2.protezione || 1) * (1 + L.N.pistaLuogoNotte * (N2.caloreQui || 0))) * 100) : null;
   const v = (me.valigetta || []).map((x) => x.id);
   const righe = (o.pericoli || []).map((k) => {
     const G = L.PERICOLI[k]; const salva = Object.entries(L.OGGETTI).filter(([id, O]) => (O.salva || []).includes(k));
@@ -1804,6 +1818,7 @@ function boxRischio(me, o) {
   }).join("");
   return `<div class="rischio-box">
     ${S.poliziaSu ? `<div class="sub" style="font-size:12px;color:var(--pulito);margin-bottom:4px">La polizia è tutta su ${esc(S.poliziaSu)}: stanotte rischi un quarto in meno.</div>` : ""}
+    ${N2.caloreQui ? `<div class="sub" style="font-size:12px;color:var(--sporco);margin-bottom:4px">Qui ti conoscono già (${N2.caloreQui === 1 ? "una notte" : N2.caloreQui + " notti"}): guai più probabili del ${Math.round(L.N.pistaLuogoNotte * N2.caloreQui * 100)}%. Un altro posto sarebbe più sicuro.</div>` : ""}
     <div class="riga" style="justify-content:space-between"><b>${ico("siren")} Il rischio</b>${prob !== null ? `<span>Polizia stanotte: <b style="color:${COLORE_POLIZIA[lv]}">${lv}</b> · guai: <b>${prob}%</b></span>` : ""}</div>
     ${righe}
     <div class="sub" style="font-size:12px;margin-top:6px">Reato <b>${NOMI_GRAVITA[o.gravita] || "lieve"}</b>. Lascia circa ${Math.round(o.tracce * 0.75)} Tracce: più Tracce hai, più è facile che all'Alba la polizia salga di un gradino. Se arrivi al Processo: ${esc(testoPena(o.gravita || "lieve"))}.</div>
