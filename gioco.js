@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=40";
+import { ico } from "./icone.js?v=41";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=40";
-import * as Pano from "./panorama.js?v=40";
+import * as Tre from "./tre.js?v=41";
+import * as Pano from "./panorama.js?v=41";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=40";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=41";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -2119,13 +2119,14 @@ function appPalazzo(me, miTurno) {
     ${cond.aperte < 2 ? `<span class="sub">Un'attività si apre dall'app Imprese: permesso del Municipio, poi cantiere.</span>` : ""}</div>`;
   // 3. costruire: 1, 2 o 3 piani con il conto chiaro
   const prossima = F.find((f) => f.da > Math.max(n, 1));
-  const opz = [1, 2, 3].filter((q) => n + q <= 60).map((q) => {
-    const costo = L.costoPiani(me, q) + (n === 0 && !cond.permesso ? 300_000 : 0), piu = L.renditaPiani(n + q) - L.renditaPiani(n);
+  const opz = (() => {
+    if (n >= 60) return `<span class="sub">Hai raggiunto i 60 piani.</span>`;
+    const costo = L.costoPiano(me) + (n === 0 && !cond.permesso ? 300_000 : 0), piu = L.renditaPiani(n + 1) - L.renditaPiani(n);
     const no = !cond.ok ? "mancano le attività" : me.cash < costo ? "non hai abbastanza" : "";
-    return `<button class="pal-opz ${no ? "" : "oro"}" data-piani="${q}" ${possono && !no ? "" : "disabled"}><b>+${q} ${q === 1 ? "piano" : "piani"}</b><span class="pal-conto"><span>Costa <b>${euro(costo)}</b></span><span>Rende <b>+ ${euro(piu)}</b> a ogni Alba</span><span class="sub">si ripaga ${cicliRipaga(costo, piu)}${no ? ` · <span class="pal-no">${no}</span>` : ""}</span></span></button>`;
-  }).join("");
+    return `<button class="pal-opz ${no ? "" : "oro"}" data-piani="1" ${possono && !no ? "" : "disabled"}><b>Piano ${n + 1}</b><span class="pal-conto"><span>Costa <b>${euro(costo)}</b>${n === 0 && !cond.permesso ? " (con il permesso)" : ""}</span><span>Rende <b>+ ${euro(piu)}</b> a ogni Alba</span><span class="sub">si ripaga ${cicliRipaga(costo, piu)}${no ? ` · <span class="pal-no">${no}</span>` : ""}</span></span></button>`;
+  })();
   const costruisci = `<div class="scheda"><h4>Alza il Palazzo</h4><div class="pal-opzioni">${opz}</div>
-    <span class="sub">${possono ? "Costruire usa la mossa del giorno. Più piani insieme costano di più: il 2° +25%, il 3° +50%." : miTurno ? "Hai già fatto la mossa di oggi: riprova domani." : mioTurno() && !me.haTirato ? "Prima tira i dadi: poi puoi costruire, con la mossa del giorno." : "Si costruisce durante il tuo turno, con la mossa del giorno."}</span></div>`;
+    <span class="sub">${possono ? "Un piano per mossa del giorno. Ogni piano costa l'8% in più del precedente." : miTurno ? "Hai già fatto la mossa di oggi: riprova domani." : mioTurno() && !me.haTirato ? "Prima tira i dadi: poi puoi costruire, con la mossa del giorno." : "Si costruisce durante il tuo turno: un piano per mossa del giorno."}</span></div>`;
   // 4. traguardo: barra
   const meta = prossima ? (() => { const prima = F.filter((f) => f.da <= n).slice(-1)[0], da0 = prima ? prima.da : 0, perc = Math.round(((n - da0) / (prossima.da - da0)) * 100);
     return `<div class="scheda" style="border-color:${COL_FASCE[F.indexOf(prossima)]}"><h4 style="color:${COL_FASCE[F.indexOf(prossima)]}">Prossimo traguardo: ${prossima.nome} (${prossima.da} piani)</h4><div class="pal-barra"><i style="width:${Math.max(4, perc)}%;background:${COL_FASCE[F.indexOf(prossima)]}"></i></div><span class="sub">${prossima.da - n === 1 ? "Manca 1 piano" : "Mancano " + (prossima.da - n) + " piani"}. Premio: +${prossima.fama} fama, i piani nuovi rendono il ${Math.round((prossima.rend - 1) * 100)}% in più, e si aprono ${prossima.fun.length} stanze nuove. Di notte la vista da casa tua sale.</span></div>`; })()
@@ -2207,7 +2208,7 @@ function datiGuida() { return [
     "Tasto <b>Cosa ho</b>: vedi solo le tue cose. Tocca una casella per leggere la sua scheda.",
   ], tag: ["Comprare", "Affitti", "Permesso", "Cantiere", "Gruppi di vie", "Agenzia", "Asta", "Moli", "Viaggio rapido", "Cosa ho"] },
   { img: "img/penthouse.jpg", kick: "3 di 6 · Il Palazzo e il lusso", tit: "Il tuo grattacielo", righe: [
-    "<b>Piani</b> = l'altezza: ogni piano ti dà un affitto a ogni Alba. Con una mossa ne fai fino a 3 (il 2° costa +25%, il 3° +50%).",
+    "<b>Piani</b> = l'altezza: ogni piano ti dà un affitto a ogni Alba. Uno per mossa, e ogni piano costa l'8% in più del precedente.",
     "Per iniziare servono <b>2 attività aperte</b> e il permesso (300.000 €).",
     "Traguardi: <b>Attico</b> a 6 piani, <b>Grattacielo</b> a 15. Ti danno fama, piani che rendono di più e stanze nuove.",
     "<b>Stanze speciali</b>, si comprano a parte: Garage, Ristorante, Spa, Sala insonorizzata, Caveau, Casinò privato, Eliporto, Piani segreti, Suite.",

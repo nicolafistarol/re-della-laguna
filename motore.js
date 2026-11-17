@@ -29,7 +29,7 @@
     affVuoto: 0.15, affLvl: [1, 1, 4, 12, 26, 45], rendLvl: [0, 1, 2.2, 3.6, 5.2, 7.0],
     costLvl: [0, 0.5, 0.5, 0.75, 1.0, 1.5], R: 0.95,
     moloFee: [0, 25_000, 50_000, 100_000, 200_000],
-    pianoCost: 400_000, pianoGrow: 1.12, pianoRend: 0.50, pianiMax: 60,
+    pianoCost: 400_000, pianoGrow: 1.08, pianoRend: 0.62, pianiMax: 60,
     bonusIllegale: 1.4, // gli affari della notte rendono il 40% in piu': tanto premio, tanto rischio
     borsaMu: 0.21, borsaSd: 0.16, criptoMu: 0.40, criptoSd: 0.50, criptoCrash: 0.12,
     caricoBase: 350_000, caricoGrow: 150_000, caricoMax: 3_000_000, caricoMagazzino: 1.5,
@@ -670,7 +670,7 @@
   }
   function piano(s, p, quanti) {
     azioneGiorno(s, p);
-    quanti = Math.max(1, Math.min(3, Math.floor(+quanti || 1)));
+    quanti = 1; // un solo piano per mossa: ogni piano costa una percentuale in piu' del precedente
     if (p.piani + quanti > N.pianiMax) err("Il Palazzo arriva al massimo a " + N.pianiMax + " piani.");
     if (p.piani === 0 && !condizioniPalazzo(s, p).ok) err("Per il Palazzo servono almeno 2 attività aperte sul tabellone.");
     const permesso = p.piani === 0 && !p.permessoPalazzo && p.pacchetto !== "costruttore" ? 300_000 : 0;
@@ -2499,7 +2499,7 @@
       indizio: "Un terreno vuoto rende pochissimo.", spiega: "Chiedi il permesso al Municipio, poi apri il cantiere: all'Alba l'attività rende.",
       quando: (s, p) => propri(s, p).some((l) => l.tipoCasella === "lotto" && l.lvl === 0 && !l.cantiere) && p.cash > 400_000, consiglio: "Hai terreni vuoti: così non rendono quasi niente. Dall'app Imprese chiedi il permesso e apri un'attività. Le rendite arrivano a ogni Alba." },
     { id: "piano", gruppo: "giorno", lv: 0, nome: "Alzare il tuo Palazzo", fatto: (a) => a.tipo === "piano", pubblico: "ha alzato un nuovo piano del suo Palazzo",
-      indizio: "Il tuo Palazzo può crescere piano dopo piano.", spiega: "I piani rendono a ogni Alba (puoi farne fino a 3 per mossa). A 6 piani diventa un Attico, a 15 un Grattacielo: si aprono stanze speciali da comprare a parte.",
+      indizio: "Il tuo Palazzo può crescere piano dopo piano.", spiega: "I piani rendono a ogni Alba (uno per mossa, ognuno costa un po' più del precedente). A 6 piani diventa un Attico, a 15 un Grattacielo: si aprono stanze speciali da comprare a parte.",
       quando: (s, p) => p.cash > costoPiano(p) * 3, consiglio: "Hai soldi fermi. I piani del tuo Palazzo rendono a ogni Alba e si ripagano in poco più di due Cicli. Apri l'app Palazzo: vedi subito quanto costano e quanto rendono." },
     { id: "veicolo", gruppo: "giorno", lv: 0, nome: "Comprare un mezzo", fatto: (a) => a.tipo === "veicolo", pubblico: "si è comprato un mezzo di lusso",
       indizio: "Yacht, motoscafi, elicotteri: non sono solo per farsi vedere.", spiega: "I mezzi si noleggiano ai turisti e rendono a ogni Alba. Di notte ti portano più veloce.",
