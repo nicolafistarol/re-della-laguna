@@ -195,17 +195,17 @@ export function aggiorna({ caselle, torri: tt, giocatori }) {
     svuota(gruppoBasi); svuota(gruppoEdifici); svuota(gruppoTorri);
     for (const c of caselle) {
       const p = daMappa(c.x, c.y);
-      const base = new THREE.Mesh(geoBox, new THREE.MeshStandardMaterial({ color: c.colore, roughness: 0.6 }));
+      const base = new THREE.Mesh(geoBox, new THREE.MeshStandardMaterial({ color: c.spento ? "#2a2f3a" : c.colore, roughness: 0.6, transparent: !!c.spento, opacity: c.spento ? 0.35 : 1 }));
       const grande = c.tipo === "angolo";
       base.scale.set(grande ? 3 : 2.2, 0.35, grande ? 3 : 2.2); base.position.set(p.x, 0.17, p.z); base.receiveShadow = true; base.castShadow = true;
       gruppoBasi.add(base);
-      if (c.proprietario && (c.livello > 0 || c.cantiere)) {
+      if (c.proprietario && (c.livello > 0 || c.cantiere) && !c.spento) {
         const e = edificio(c.proprietario, c.livello, c.cantiere);
         // l'edificio sta un po' dietro la casella, cosi' non copre il prezzo
         e.position.set(p.x, 0.35, p.z - 2.4); gruppoEdifici.add(e);
       }
     }
-    for (const t of tt) { const p = daMappa(t.x, t.y); const m = torre(t.colore, t.piani); m.position.set(p.x, 0, p.z); gruppoTorri.add(m); }
+    for (const t of tt) { if (t.spento) continue; const p = daMappa(t.x, t.y); const m = torre(t.colore, t.piani); m.position.set(p.x, 0, p.z); gruppoTorri.add(m); }
   }
   // pedine: create una volta, poi seguono la loro posizione
   for (const g of giocatori) {

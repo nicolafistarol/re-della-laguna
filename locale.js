@@ -68,7 +68,7 @@ export function nuovaProva(nome) {
   const rocco = s.players[1];
   // Rocco ha un palazzo con il casinò privato (per la serata a poker), ma niente soldi regalati
   if (rocco.piani < 12) { rocco.piani = 12; rocco.funzioniPiani = Array(12).fill("appartamenti"); }
-  rocco.funzioniPiani[7] = "casino_privato";
+  rocco.stanze = ["casino_privato"];
   if (s.notte) {
     if (s.notte.serate) delete s.notte.serate[rocco.id];
     L.apriSerataProva(s, rocco.id, 50_000);

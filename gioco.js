@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=39";
+import { ico } from "./icone.js?v=40";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=39";
-import * as Pano from "./panorama.js?v=39";
+import * as Tre from "./tre.js?v=40";
+import * as Pano from "./panorama.js?v=40";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=39";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=40";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -209,7 +209,8 @@ function schermataProvaLocale(seed) {
       <div class="campo"><label for="nomeLoc">Come ti chiami?</label><input id="nomeLoc" maxlength="24" placeholder="Scrivi il tuo nome" value="${esc(nomeLocale() === "Tu" ? "" : nomeLocale())}"></div>
       <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">${sceltaDurataHtml()}
         <label class="check"><input type="checkbox" id="princL" ${principianti ? "checked" : ""}> Partita guidata: Vera ti dà consigli e le cose si scoprono piano piano (consigliata la prima volta)</label></div>
-      <button class="oro grande" id="via">Inizia</button></div>`);
+      <button class="oro grande" id="via">Inizia</button>${tastoGuida()}</div>`);
+    collegaTastoGuida(); if (guidaMaiVista()) apriGuida(0);
     $("#princL").onchange = (e) => { principianti = e.target.checked; try { localStorage.setItem("laguna_guidata", principianti ? "1" : "0"); } catch (er) { } };
     collegaDurata(disegna);
     $("#nomeLoc").oninput = (e) => { try { localStorage.setItem("laguna_nome_locale", e.target.value.trim()); } catch (er) { } };
@@ -250,14 +251,14 @@ function schermataCasa() {
         <label class="check"><input type="checkbox" id="princ" ${principianti ? "checked" : ""}> Partita guidata: Vera dà consigli e le cose si scoprono piano piano. Togli la spunta se conoscete già il gioco.</label>
         <button class="oro grande" id="crea">Crea la partita</button>
         <a class="piccolo" href="?locale&nuova" style="align-self:center;color:var(--muted)">Oppure prova da solo contro 3 giocatori-computer (senza internet)</a>
-      </div>
+      </div>${tastoGuida()}
       <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">
         <b>Hai un codice d'invito?</b>
         <div class="riga"><input id="codice" placeholder="es. PALMA-4821" style="flex:1;text-transform:uppercase"><button class="bianco" id="unisciti">Entra</button></div>
       </div></div>`);
     document.querySelectorAll(".tipo").forEach((s) => s.onchange = () => { const r = righe[s.dataset.i]; if (s.value === "amico") { r.tipo = "amico"; r.strat = null; } else { r.tipo = "computer"; r.strat = s.value; } });
     $("#princ").onchange = (e) => { principianti = e.target.checked; try { localStorage.setItem("laguna_guidata", principianti ? "1" : "0"); } catch (er) { } };
-    collegaDurata(disegnaCasa);
+    collegaDurata(disegnaCasa); collegaTastoGuida(); if (guidaMaiVista()) apriGuida(0);
     $("#piu").onclick = () => { if (righe.length < 7) { righe.push({ tipo: "amico" }); disegnaCasa(); } };
     $("#meno").onclick = () => { if (righe.length > 1) { righe.pop(); disegnaCasa(); } };
     $("#crea").onclick = async () => {
@@ -293,7 +294,8 @@ async function sala() {
         <span style="flex:1"><b>${x.user_id || x.bot ? esc(x.nome) : "Posto libero"}</b>${x.player_id === mioId ? " (tu)" : ""}</span>
         <span style="font-size:12px;color:${x.user_id && !x.bot ? "var(--pulito)" : "var(--muted)"}">${x.bot ? "Computer" : x.user_id ? "Pronto" : "In attesa"}</span></div>`).join("")}
       ${creatore ? `<button class="oro grande" id="inizia" ${manca ? "disabled" : ""}>${manca ? `Mancano ${manca} amici` : "Inizia la partita"}</button>` : `<span class="sub">Aspetta che chi ha creato la partita la faccia iniziare.</span>`}
-      <button class="piccolo" id="esci" style="align-self:flex-start">Esci dalla sala</button></div>`);
+      ${tastoGuida()}<button class="piccolo" id="esci" style="align-self:flex-start">Esci dalla sala</button></div>`);
+    collegaTastoGuida();
     $("#copia").onclick = () => { navigator.clipboard?.writeText(p.codice).then(() => toast("Codice copiato."), () => { }); };
     $("#esci").onclick = () => { clearInterval(timerSala); try { localStorage.removeItem("laguna_online"); } catch (e) { } partita = null; schermataCasa(); };
     if ($("#inizia")) $("#inizia").onclick = async () => {
@@ -620,14 +622,15 @@ function casellaHtml(l) {
   const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
   const tit = `${l.nome}${l.isola ? " · " + L.NOMI_ISOLE[l.isola] : ""}${own ? " · di " + own.nome + (l.tipo ? " (" + L.ATTIVITA[l.tipo].nome + ", livello " + l.lvl + ")" : "") + (l.cantiere ? " · cantiere in corso" : "") : l.prezzo ? " · libero, " + euro(l.prezzo) : ""}`;
   const nomeCorto = l.nome.replace(/ — .*/, "");
-  let cls = "cas", dentro = "", sotto = "", stile = `left:${x}%;top:${y}%;`;
+  let cls = "cas", dentro = "", sotto = "", extra = "", stile = `left:${x}%;top:${y}%;`;
   const terreno = l.tipoCasella === "lotto" || l.tipoCasella === "molo";
   if (terreno) {
     cls += " terreno" + (l.tipoCasella === "molo" ? " molo" : "");
     stile += `--serie:${COL_SERIE[l.serie] || "#888"};`;
-    if (own) { cls += " pres"; stile += `--own:${own.colore};`; dentro = `<b>${esc(own.nome[0].toUpperCase())}</b>`; }
+    if (own) { cls += " pres" + (own.id === mioId ? " mio" : ""); stile += `--own:${own.colore};`; dentro = `<b>${esc(own.nome[0].toUpperCase())}</b>`; }
     else dentro = l.tipoCasella === "molo" ? ico("molo") : `<em>${kEuro(l.prezzo)}</em>`;
     sotto = nomeCorto;
+    if (own && l.tipoCasella === "lotto") extra = l.cantiere ? `<span class="livc cant">${ico("cantiere")}</span>` : l.lvl ? `<span class="livc">${[1, 2, 3, 4, 5].map((k) => `<u class="${k <= l.lvl ? "on" : ""}"></u>`).join("")}</span>` : `<span class="livc vuoto">vuoto</span>`;
   } else if (l.tipoCasella === "angolo") { cls += " ang"; dentro = icoAngolo(l); sotto = nomeCorto; }
   else if (l.tipoCasella === "agenzia") { cls += " spec agz"; dentro = ico("chiave"); sotto = "Agenzia"; }
   else if (l.tipoCasella === "libero") { cls += " lib"; dentro = ico("palma"); sotto = nomeCorto; }
@@ -635,25 +638,46 @@ function casellaHtml(l) {
   else if (l.tipoCasella === "aeroporto") { cls += " spec agz"; dentro = ico("aereo"); sotto = "Aeroporto"; }
   else if (l.tipoCasella === "asta") { cls += " spec agz"; dentro = ico("martello"); sotto = "Asta"; }
   else { cls += " spec"; dentro = ICO_CASELLA[l.nome] || ico("stella"); sotto = NOME_BREVE[l.nome] || nomeCorto; }
-  return `<div class="${cls}" data-cas="${l.id}" title="${esc(tit)}" style="${stile}"><i>${dentro}</i><span class="cn">${esc(sotto)}</span></div>`;
+  return `<div class="${cls}" data-cas="${l.id}" title="${esc(tit)}" style="${stile}"><i>${dentro}</i>${extra}<span class="cn">${esc(sotto)}</span></div>`;
 }
 function legenda() {
-  return `<div class="legenda vetro"><button class="piccolo" id="legTasto">${ico("mappa")} Legenda</button><div class="leg-dentro">
+  return `<div class="legenda vetro"><div class="riga" style="gap:6px"><button class="piccolo" id="legTasto">${ico("mappa")} Legenda</button><button class="piccolo ${soloMiei ? "oro" : ""}" id="mieiTasto">${ico("stella")} Cosa ho</button><button class="piccolo" id="guidaTasto" title="Come si gioca">📖 Guida</button></div><div class="leg-dentro">
     <div><span class="lg terreno"><em>60k</em></span> Terreno libero: il numero è il prezzo</div>
-    <div><span class="lg terreno pres" style="--own:var(--oro)"><b>T</b></span> Terreno di un giocatore (la sua iniziale)</div>
-    <div><span class="lg spec">${ico("chiave")}</span> Agenzia: compri un terreno dell'isola senza sovrapprezzo</div>
+    <div><span class="lg terreno pres mio" style="--own:var(--oro)"><b>T</b></span> Il tuo terreno: bordo d'oro e stellina</div>
+    <div><span class="lg terreno pres" style="--own:#4aa3a2"><b>R</b></span> Terreno di un altro (la sua iniziale)</div>
+    <div><span class="livc vuoto" style="position:static">vuoto</span> Terreno senza attività: rende quasi niente</div>
+    <div><span class="livc" style="position:static;--own:var(--oro)"><u class="on"></u><u class="on"></u><u></u><u></u><u></u></span> Attività aperta: i pallini sono il livello (max 5)</div>
+    <div><span class="livc cant" style="position:static">${ico("cantiere")}</span> Cantiere: l'attività apre all'Alba</div>
+    <div><span class="lg spec">${ico("chiave")}</span> Agenzia: compri un terreno dell'isola</div>
     <div><span class="lg spec">${ico("gazzetta")}</span> Posto speciale: il nome è scritto sotto</div>
     <div><span class="lg ang">${ico("flag")}</span> Ponte: Partenza, Faro, Posto di blocco</div>
-    <div class="sub">Il colore della striscia indica il gruppo di vie. Tocca una casella per leggere la scheda.</div></div></div>`;
+    <div class="sub">Il colore della striscia è il gruppo di vie. Tocca una casella per la sua scheda. «Cosa ho» mostra solo le tue cose.</div></div>${soloMiei ? pannelloMiei() : ""}</div>`;
+}
+// «Cosa ho»: solo le tue cose sul tabellone, con l'elenco
+let soloMiei = false;
+function pannelloMiei() {
+  const me = io(), miei = S.lotti.filter((l) => l.owner === mioId);
+  const riga = (l, testo, col) => `<button class="mieo" data-mio="${l.id}"><span class="mieo-n">${esc(l.nome.replace(/ — .*/, ""))}</span><span class="sub" style="color:${col || "inherit"}">${testo}</span></button>`;
+  const att = miei.filter((l) => l.tipo && !l.cantiere), cant = miei.filter((l) => l.cantiere), vuoti = miei.filter((l) => l.tipoCasella === "lotto" && !l.tipo && !l.cantiere), moli = miei.filter((l) => l.tipoCasella === "molo");
+  const rendTot = att.reduce((a, l) => a + L.rendita(S, l), 0);
+  return `<div class="miei-pannello">
+    <div class="miei-cifre"><div><b>${miei.length}</b>terreni</div><div><b>${att.length}</b>attività</div><div><b style="color:${vuoti.length ? "#ff9a9a" : "inherit"}">${vuoti.length}</b>vuoti</div><div><b>${me.piani}</b>piani</div></div>
+    ${att.length ? `<h5>Attività aperte · rendono ${euro(rendTot)} a ogni Alba</h5>${att.map((l) => riga(l, esc(L.ATTIVITA[l.tipo].nome) + " · livello " + l.lvl + " · " + euro(L.rendita(S, l)))).join("")}` : ""}
+    ${cant.length ? `<h5>Cantieri (aprono all'Alba)</h5>${cant.map((l) => riga(l, esc(L.ATTIVITA[l.cantiere.tipo].nome) + " · livello " + l.cantiere.lvl)).join("")}` : ""}
+    ${vuoti.length ? `<h5 style="color:#ff9a9a">Vuoti: rendono quasi niente</h5>${vuoti.map((l) => riga(l, "apri un'attività", "#ff9a9a")).join("")}` : ""}
+    ${moli.length ? `<h5>Moli</h5>${moli.map((l) => riga(l, "chi ci passa paga il pedaggio")).join("")}` : ""}
+    ${!miei.length ? `<p class="sub">Non hai ancora terreni. Fermati su un terreno libero o passa dall'Agenzia.</p>` : ""}
+    <button class="mieo" data-app="palazzo"><span class="mieo-n">${ico("palazzo")} Il tuo Palazzo</span><span class="sub">${me.piani ? me.piani + " piani · " + euro(L.renditaPalazzo(me)) + " a ogni Alba" : "da costruire"}</span></button>
+  </div>`;
 }
 function aggiorna3D(gruppi) {
   const conta = {};
   const caselle = S.lotti.map((l) => {
     const [x, y] = puntoMappa({ pos: l.idx }); const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
-    return { x, y, tipo: l.tipoCasella, colore: own ? own.colore : COL_SERIE[l.serie] || (l.tipoCasella === "angolo" ? "#c9a24a" : "#28344a"), proprietario: own ? own.colore : null, livello: l.lvl, cantiere: !!l.cantiere };
+    return { x, y, tipo: l.tipoCasella, colore: own ? own.colore : COL_SERIE[l.serie] || (l.tipoCasella === "angolo" ? "#c9a24a" : "#28344a"), proprietario: own ? own.colore : null, livello: l.lvl, cantiere: !!l.cantiere, spento: soloMiei && (!own || own.id !== mioId) };
   });
   const cc = {};
-  const torri3 = S.players.filter((p) => p.piani > 0).map((p) => { const isola = isolaCasa(p); const k = (cc[isola] = (cc[isola] || 0) + 1) - 1; const [x, y] = POS_CASA[isola]; return { x: x + k * 2.2, y, colore: p.colore, piani: p.piani }; });
+  const torri3 = S.players.filter((p) => p.piani > 0).map((p) => { const isola = isolaCasa(p); const k = (cc[isola] = (cc[isola] || 0) + 1) - 1; const [x, y] = POS_CASA[isola]; return { x: x + k * 2.2, y, colore: p.colore, piani: p.piani, spento: soloMiei && p.id !== mioId }; });
   const giocatori = S.players.map((p) => { const q = disp[p.id] || copiaPos(p); const key = "o" + q.pos; const k = (conta[key] = (conta[key] || 0) + 1) - 1; const [x, y] = puntoMappa(q); return { id: p.id, colore: p.colore, x, y, offset: k, nascosta: S.fase === "notte" || p.faro > 0 }; });
   Tre.aggiorna({ caselle, torri: torri3, giocatori });
 }
@@ -675,21 +699,33 @@ function schedaCasella(id, cx, cy) {
   const l = S.lotti.find((x) => x.id === id); if (!l) return;
   const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
   const righe = [];
-  if (l.isola) righe.push(L.NOMI_ISOLE[l.isola]);
-  if (gruppo(l)) righe.push(`<span style="color:${COL_SERIE[l.serie]}">■</span> ${gruppo(l)}`);
+  if (l.isola) righe.push(`<span class="sub">${L.NOMI_ISOLE[l.isola]}</span>`);
+  let tasti = "";
   if (l.tipoCasella === "lotto" || l.tipoCasella === "molo") {
-    if (own) righe.push(`Di <b style="color:${own.colore}">${esc(own.nome)}</b>${own.id === mioId ? " (tua)" : ""}`); else righe.push("Libera · costa " + euro(l.prezzo));
-    if (l.cantiere) righe.push("🚧 Cantiere: " + L.ATTIVITA[l.cantiere.tipo].nome + ", apre all'Alba");
-    else if (l.tipo) righe.push(L.ATTIVITA[l.tipo].nome + " · livello " + l.lvl);
-    if (own && own.id !== mioId) righe.push("Se ci finisci paghi " + euro(L.affitto(S, l)));
-  } else {
+    const pall = (lv) => `<span class="livc" style="position:static;--own:${own ? own.colore : "#888"}">${[1, 2, 3, 4, 5].map((k) => `<u class="${k <= lv ? "on" : ""}"></u>`).join("")}</span>`;
+    if (own) righe.push(own.id === mioId ? `<b style="color:var(--oro)">★ È tuo</b>` : `Di <b style="color:${own.colore}">${esc(own.nome)}</b>`);
+    else righe.push(`<b>Libero</b> · costa ${euro(l.prezzo)}`);
+    if (l.tipoCasella === "molo") righe.push(own ? "Molo: chi ci passa paga il pedaggio a " + (own.id === mioId ? "te" : esc(own.nome)) + "." : "Molo: chi lo possiede incassa un pedaggio da chi ci passa.");
+    else if (l.cantiere) righe.push(`${ico("cantiere")} Cantiere: <b>${esc(L.ATTIVITA[l.cantiere.tipo].nome)}</b> livello ${l.cantiere.lvl}. Apre all'Alba.`);
+    else if (l.tipo) righe.push(`<b>${esc(L.ATTIVITA[l.tipo].nome)}</b> ${pall(l.lvl)} livello ${l.lvl} di 5`);
+    else if (own) righe.push(own.id === mioId ? `<span style="color:#ff9a9a">Terreno vuoto: rende quasi niente. Aprici un'attività.</span>` : "Terreno vuoto (nessuna attività).");
+    if (own && own.id === mioId && l.tipoCasella === "lotto") {
+      if (l.tipo && !l.cantiere) righe.push(`Ti rende <b style="color:var(--pulito)">${euro(L.rendita(S, l))}</b> a ogni Alba`);
+      righe.push(`Chi ci finisce sopra ti paga <b>${euro(L.affitto(S, l))}</b>`);
+      if (!l.cantiere && l.lvl < 5) { const next = l.lvl + 1, costo = Math.round(L.N.costLvl[next] * l.prezzo * (io().pacchetto === "costruttore" ? 0.85 : 1)); righe.push(`<span class="sub">${l.lvl ? "Prossimo livello" : "Aprire l'attività"}: ${euro(costo)} (permesso, poi cantiere)${next >= 3 && !L.haSerie(S, io(), l.serie) ? ". Dal livello 3 serve tutto il gruppo di vie." : ""}</span>`); }
+      tasti = `<button class="piccolo oro" data-cas-app="imprese">${ico("imprese")} ${l.tipo ? "Gestisci" : "Apri un'attività"}</button>`;
+    } else if (own && own.id !== mioId) righe.push(`Se ci finisci sopra paghi <b style="color:#ff9a9a">${euro(L.affitto(S, l))}</b>`);
+    else if (!own) righe.push(`<span class="sub">Lo compri se ti fermi qui coi dadi, oppure dall'app Agenzia quando sei su quest'isola (+20%).</span>`);
+    } else {
     const SPIEGA = { "Gazzetta": "Peschi una notizia: può andarti bene o male.", "Mercato Nero": "Di giorno ti danno una dritta. Di notte ci puoi comprare oggetti.", "Spiaggia VIP": "Incontri gente famosa: più fama.", "Gala Flamingo": "Serata di beneficenza: doni e guadagni fama.", "Porto Container": "Di giorno senti delle voci. Di notte arrivano i carichi.", "La Borsa": "Investimenti senza commissioni.", "Il Municipio": "Candidature a Sindaco e licenza del casinò.", "Banca Centrale": "Prestiti.", "Casinò Reale": "Una puntata al tavolo." };
     const ANG = { 0: "Si parte da qui. Ogni volta che ci passi incassi lo Stipendio.", 16: "La prigione. Se ci finisci per una condanna, stai fermo qualche turno.", 32: "L'ingresso di Isola Corona: le vie più care della Laguna.", 64: "Posto di blocco: se sei sotto indagine ti controllano." };
     SPIEGA["Bisca del Vicolo"] = "Di giorno senti qualche voce. Di notte si gioca forte.";
     righe.push(l.tipoCasella === "angolo" ? ANG[l.idx] : l.tipoCasella === "agenzia" ? "Se ti fermi qui, in questo turno l'app Agenzia ti vende un terreno di quest'isola a prezzo pieno, senza il 20% in più." : l.tipoCasella === "libero" ? "Qui non succede niente: ti riposi." : l.tipoCasella === "eliporto" ? "Eliporto: con un elicottero, l'eliporto nel Palazzo o il jet ci arrivi col Viaggio rapido (una volta per Ciclo, al posto dei dadi)." : l.tipoCasella === "aeroporto" ? "Aeroporto della Laguna: col jet ci arrivi col Viaggio rapido. Di notte, dal Livello 2, qui arrivano i voli cargo e partono le spedizioni." : l.tipoCasella === "asta" ? "Asta del Comune. Se ti fermi qui, in questo turno compri un terreno libero di quest'isola a prezzo pieno. I terreni sequestrati dal Giudice vanno all'asta per tutti (tranne l'ex padrone): i soldi vanno alla banca." : SPIEGA[l.nome] || "");
   }
+  if (gruppo(l)) righe.push(`<span class="sub"><span style="color:${COL_SERIE[l.serie]}">■</span> ${gruppo(l)}</span>`);
   const d = document.createElement("div"); d.className = "scheda-cas vetro";
-  d.innerHTML = `<b>${esc(l.nome)}</b>${righe.map((r) => `<span>${r}</span>`).join("")}`;
+  d.innerHTML = `<b>${esc(l.nome)}</b>${righe.map((r) => `<span>${r}</span>`).join("")}${tasti ? `<div class="riga">${tasti}</div>` : ""}`;
+  d.querySelectorAll("[data-cas-app]").forEach((b) => b.onclick = () => { d.remove(); apriApp(b.dataset.casApp); });
   d.style.left = Math.min(innerWidth - 270, cx + 14) + "px"; d.style.top = Math.max(70, Math.min(innerHeight - 180, cy - 20)) + "px";
   document.body.appendChild(d);
   setTimeout(() => addEventListener("pointerdown", function via(e) { if (!e.target.closest(".scheda-cas")) { d.remove(); removeEventListener("pointerdown", via, true); } }, true), 0);
@@ -702,7 +738,7 @@ function edifici() {
     const [x, y] = puntoMappa({ pos: l.idx });
     const own = S.players.find((p) => p.id === l.owner);
     const lv = l.cantiere ? 0 : l.lvl, size = 18 + lv * 5;
-    return `<div class="edificio ${l.cantiere ? "cant" : ""}" title="${esc(l.nome)}" style="left:${x}%;top:${y}%;--s:${size}px;--col:${own.colore}">${l.cantiere ? ico("cantiere") : ICO_LIV[lv]}</div>`;
+    return `<div class="edificio ${l.cantiere ? "cant" : ""} ${own.id === mioId ? "mio" : ""}" title="${esc(l.nome)}" style="left:${x}%;top:${y}%;--s:${size}px;--col:${own.colore}">${l.cantiere ? ico("cantiere") : ICO_LIV[lv]}</div>`;
   }).join("");
 }
 function torri() {
@@ -791,6 +827,15 @@ function comandiVista() {
 function notteOra() { return S && S.fase === "notte" && S.notte; }
 let legendaAperta = false;
 function collegaComandiVista(me) {
+  const gt = $("#guidaTasto"); if (gt) gt.onclick = () => apriGuida(0);
+  const mt = $("#mieiTasto"); if (mt) {
+    mt.onclick = () => { soloMiei = !soloMiei; disegna(); };
+    document.querySelectorAll("[data-mio]").forEach((b) => b.onclick = (e) => { const l = S.lotti.find((x) => x.id === b.dataset.mio); const [x, y] = puntoMappa({ pos: l.idx }); let r = b.getBoundingClientRect();
+      if (innerWidth < 700) { soloMiei = false; disegna(); r = { right: innerWidth / 2 - 130, top: innerHeight / 2 - 60 }; } // sul telefono l'elenco si chiude, cosi' vedi la casella
+      TRE3D ? Tre.centraSu(x, y) : centraSu(x, y); setTimeout(() => schedaCasella(l.id, r.right, r.top), 80); });
+    document.querySelectorAll(".miei-pannello [data-app]").forEach((b) => b.onclick = () => apriApp(b.dataset.app));
+  }
+  $("#mondo").classList.toggle("solo-miei", soloMiei);
   const lt = $("#legTasto"); if (lt) { $(".legenda").classList.toggle("aperta", legendaAperta); lt.onclick = () => { legendaAperta = !legendaAperta; $(".legenda").classList.toggle("aperta", legendaAperta); }; }
   $("#zPiu").onclick = () => TRE3D ? Tre.avvicina(0.7) : zoomA(vista.z * 1.35);
   $("#zMeno").onclick = () => TRE3D ? Tre.avvicina(1.4) : zoomA(vista.z / 1.35);
@@ -1731,7 +1776,7 @@ const SBLOCCHI = [
   ["Livello 3 · patrimonio 15 milioni", "La Villa sulla scogliera e il Faro. Valigetta da 6 posti. (La setta si apre a parte: servono 8 milioni sporchi.)"],
 ];
 const PAROLE = [
-  ["Ciclo", "Un giro completo: 4 giorni di dadi, una notte, un'Alba. La partita dura 6, 8 o 10 Cicli (si sceglie quando la crei)."],
+  ["Ciclo", "Un giro completo: 4 giorni di dadi, una notte, un'Alba. Come finisce la partita si sceglie quando la crei: a Cicli, a obiettivo o libera."],
   ["Gruppo di vie", "Ogni isola ha 2 gruppi di vie dello stesso colore (es. «Acciaio» a Distretto Sole). Averle tutte raddoppia gli affitti e ti fa costruire più in alto."],
   ["Permesso e cantiere", "Per costruire chiedi il permesso al Municipio, poi apri il cantiere: l'attività apre all'Alba."],
   ["Fama", "Quanto sei famoso. Serve per alcune cose (Sindaco, livello 5, sette)."],
@@ -1772,6 +1817,8 @@ function collegaApp(me) {
   on('[data-a2="prestito"]', () => finestraPrestito(me));
   on('[data-a2="regala"]', () => agisci({ tipo: "regala", a: v("#regA"), importo: Number(v("#regImp")), sporchi: !!box.querySelector("#regSp")?.checked }));
   on('[data-a2="piano"]', () => finestraPalazzo(me));
+  on("[data-piani]", (b) => agisci({ tipo: "piano", quanti: +b.dataset.piani }));
+  on("[data-stanza]", (b) => agisci({ tipo: "stanza", stanza: b.dataset.stanza }));
   on('[data-a2="veicolo"]', () => finestraVeicolo());
   on('[data-a2="nuovoContratto"]', () => finestraContratto());
   on('[data-a2="campagna"]', () => agisci({ tipo: "campagna", importo: Number(v("#campImp")) }));
@@ -2053,25 +2100,49 @@ function finestraSetta(me) {
     d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "operazione", setta: st.id, op: d.querySelector("#op").value, bersaglio: d.querySelector("#ob").value, direzione: d.querySelector("#od").value }); };
   });
 }
-function finestraPalazzo(me) {
-  const costo = L.costoPiano(me), poss = L.stanzePossibili(S, me), primo = poss.find((x) => x.ok);
-  finestra(`<span class="kick" style="color:var(--oro)">${ico("palazzo")} Il tuo Palazzo</span><h2>Il piano ${me.piani + 1}</h2><p>Costa <b>${euro(costo)}</b>${me.piani === 0 && me.pacchetto !== "costruttore" ? ", più il permesso (300.000 €)" : ""}. Scegli la stanza:</p>
-    <div class="lista-luoghi">${poss.map((x) => `<button class="luogo-riga stanza ${x.id === (primo && primo.id) ? "scelta-on" : ""}" data-st="${x.id}" ${x.ok ? "" : "disabled"}><span class="ic">${ico(x.ok ? "palazzo" : "chiave")}</span><span style="flex:1;text-align:left"><b>${esc(L.STANZE[x.id].nome)}</b><br><span class="sub">${esc(L.STANZE[x.id].descr)}</span></span><span class="ore">${x.ok ? x.fascia : esc(x.perche)}</span></button>`).join("")}</div>
-    <div class="pulsanti"><button id="x">Chiudi</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelectorAll("[data-st]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "piano", funzione: b.dataset.st }); }); });
-}
+// IL PALAZZO: i piani (altezza, rendono) e le stanze speciali (si comprano a parte)
+const COL_FASCE = ["#c9a25a", "#e0b23a", "#9a7bff"];
+const ICO_QUANDO = { giorno: ["sole", "di giorno"], notte: ["luna", "di notte, a casa tua"], sempre: ["stella", "sempre"] };
+function cicliRipaga(costo, rend) { if (!rend) return "—"; const c = costo / rend; return c < 1.5 ? "in poco più di un Ciclo" : "in circa " + Math.round(c) + " Cicli"; }
+function finestraPalazzo() { apriApp("palazzo"); }
 function appPalazzo(me, miTurno) {
-  const F = L.FASCE_PALAZZO, n = me.piani, fasciaDi = (num) => F.reduce((r, f, i) => (num >= f.da ? i : r), 0);
-  const prossima = F.find((f) => f.da > n);
-  const meta = prossima ? `<div class="scheda" style="border-color:var(--oro)"><h4 style="color:var(--oro)">Prossimo traguardo: ${prossima.nome}</h4><span class="sub">Ti ${prossima.da - n === 1 ? "manca 1 piano" : "mancano " + (prossima.da - n) + " piani"}${S.sblocco < prossima.lv ? " e il Livello " + prossima.lv : ""}. Si aprono: ${prossima.fun.map((f) => L.STANZE[f].nome).join(", ")}. Premio: +${prossima.da === F[1].da ? 5 : 10} fama e una vista più alta.</span></div>` : `<div class="scheda"><h4 style="color:var(--oro)">Sei in cima: Grattacielo</h4><span class="sub">Più piani costruisci, più rendi. Il palazzo più alto vale il titolo di Padrone dello Skyline.</span></div>`;
-  const COL = ["#8a6d3b", "#b8860b", "#7a5cff"];
-  const torre = Array.from({ length: Math.max(n + 2, Math.min(F[2].da + 1, n + 4)) }, (_, i) => i + 1).reverse().map((num) => {
-    const f = me.funzioniPiani[num - 1], fi = fasciaDi(num), conf = F.some((x) => x.da === num && num > 1);
-    return `${conf ? `<div class="pal-fascia" style="color:${COL[fi]}">— ${F[fi].nome} (dal piano ${F[fi].da}, Livello ${F[fi].lv}) —</div>` : ""}<div class="pal-piano ${f ? "" : "vuoto"}" style="--c:${COL[fi]}"><span class="num">${num}</span><span>${f ? esc(L.STANZE[f]?.nome || f) : num === n + 1 ? "prossimo piano · " + euro(L.costoPiano(me)) : "…"}</span></div>`;
-  }).join("") + `<div class="pal-fascia" style="color:${COL[0]}">— Palazzo (dal piano 1) —</div>`;
-  const stanze = F.map((fa, i) => `<div class="scheda"><h4 style="color:${COL[i]}">${fa.nome} · dal piano ${fa.da}${fa.lv ? " · Livello " + fa.lv : ""}</h4>${fa.fun.map((f) => `<div style="margin-top:4px"><b>${esc(L.STANZE[f].nome)}</b>${me.funzioniPiani.includes(f) ? ` <span class="tag">ce l'hai</span>` : ""}<div class="sub">${esc(L.STANZE[f].descr)}</div></div>`).join("")}</div>`).join("");
-  return `<div class="scheda"><span class="serif" style="font-size:30px">${n} ${n === 1 ? "piano" : "piani"}</span><span class="sub">${n ? "Fascia: " + F[fasciaDi(n)].nome + ". Ogni piano costa un po' più del precedente; i piani che rendono ripagano col tempo." : "Il tuo grattacielo è ancora un sogno. Servono almeno 2 attività aperte per iniziare."}</span>
-    ${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="piano">Costruisci il piano ${n + 1} · ${euro(L.costoPiano(me))}</button>` : `<span class="sub">I piani si costruiscono con la mossa del giorno, durante il tuo turno.</span>`}</div>
-    ${meta}<div class="pal-torre">${torre}</div><h4 style="margin:10px 0 4px">Le stanze</h4>${stanze}`;
+  const F = L.FASCE_PALAZZO, n = me.piani, fi = n ? L.fasciaPalazzo(n) : -1;
+  const cond = L.condizioniPalazzo(S, me), possono = miTurno && !me.azioneGiornoFatta;
+  const rendNow = L.renditaPalazzo(me);
+  // 1. in cima: quanto e' alto e quanto rende
+  const testa = `<div class="scheda pal-testa"><div class="riga" style="align-items:flex-end"><span class="serif" style="font-size:34px;line-height:1">${n}</span><span style="flex:1">${n === 1 ? "piano" : "piani"}${n ? ` · <b style="color:${COL_FASCE[fi]}">${F[fi].nome}</b>` : ""}</span><span style="text-align:right"><b style="color:var(--pulito)">+ ${euro(rendNow)}</b><br><span class="sub">a ogni Alba</span></span></div>
+    <div class="sub" style="margin-top:6px">${ico("palazzo")} <b>Piani</b> = l'altezza: ogni piano ti dà un affitto a ogni Alba. ${ico("chiave")} <b>Stanze</b> = poteri speciali, si comprano a parte quando il Palazzo è abbastanza alto.</div></div>`;
+  // 2. per iniziare: cosa manca
+  const inizia = n ? "" : `<div class="scheda" style="border-color:var(--oro)"><h4 style="color:var(--oro)">Per iniziare il Palazzo ti serve</h4>
+    <div class="pal-cond ${cond.aperte >= 2 ? "si" : "no"}">${cond.aperte >= 2 ? "✔" : "✘"} 2 attività aperte sul tabellone <span class="sub">(ne hai ${cond.aperte})</span></div>
+    <div class="pal-cond ${cond.permesso ? "si" : "attesa"}">${cond.permesso ? "✔ Permesso: ce l'hai" : "● Permesso del Comune: 300.000 € (lo paghi insieme al primo piano)"}</div>
+    ${cond.aperte < 2 ? `<span class="sub">Un'attività si apre dall'app Imprese: permesso del Municipio, poi cantiere.</span>` : ""}</div>`;
+  // 3. costruire: 1, 2 o 3 piani con il conto chiaro
+  const prossima = F.find((f) => f.da > Math.max(n, 1));
+  const opz = [1, 2, 3].filter((q) => n + q <= 60).map((q) => {
+    const costo = L.costoPiani(me, q) + (n === 0 && !cond.permesso ? 300_000 : 0), piu = L.renditaPiani(n + q) - L.renditaPiani(n);
+    const no = !cond.ok ? "mancano le attività" : me.cash < costo ? "non hai abbastanza" : "";
+    return `<button class="pal-opz ${no ? "" : "oro"}" data-piani="${q}" ${possono && !no ? "" : "disabled"}><b>+${q} ${q === 1 ? "piano" : "piani"}</b><span class="pal-conto"><span>Costa <b>${euro(costo)}</b></span><span>Rende <b>+ ${euro(piu)}</b> a ogni Alba</span><span class="sub">si ripaga ${cicliRipaga(costo, piu)}${no ? ` · <span class="pal-no">${no}</span>` : ""}</span></span></button>`;
+  }).join("");
+  const costruisci = `<div class="scheda"><h4>Alza il Palazzo</h4><div class="pal-opzioni">${opz}</div>
+    <span class="sub">${possono ? "Costruire usa la mossa del giorno. Più piani insieme costano di più: il 2° +25%, il 3° +50%." : miTurno ? "Hai già fatto la mossa di oggi: riprova domani." : mioTurno() && !me.haTirato ? "Prima tira i dadi: poi puoi costruire, con la mossa del giorno." : "Si costruisce durante il tuo turno, con la mossa del giorno."}</span></div>`;
+  // 4. traguardo: barra
+  const meta = prossima ? (() => { const prima = F.filter((f) => f.da <= n).slice(-1)[0], da0 = prima ? prima.da : 0, perc = Math.round(((n - da0) / (prossima.da - da0)) * 100);
+    return `<div class="scheda" style="border-color:${COL_FASCE[F.indexOf(prossima)]}"><h4 style="color:${COL_FASCE[F.indexOf(prossima)]}">Prossimo traguardo: ${prossima.nome} (${prossima.da} piani)</h4><div class="pal-barra"><i style="width:${Math.max(4, perc)}%;background:${COL_FASCE[F.indexOf(prossima)]}"></i></div><span class="sub">${prossima.da - n === 1 ? "Manca 1 piano" : "Mancano " + (prossima.da - n) + " piani"}. Premio: +${prossima.fama} fama, i piani nuovi rendono il ${Math.round((prossima.rend - 1) * 100)}% in più, e si aprono ${prossima.fun.length} stanze nuove. Di notte la vista da casa tua sale.</span></div>`; })()
+    : `<div class="scheda"><h4 style="color:${COL_FASCE[2]}">Sei in cima: Grattacielo</h4><span class="sub">Il palazzo più alto della Laguna vale il titolo di Padrone dello Skyline.</span></div>`;
+  // 5. la torre disegnata: blocchi di piani colorati per traguardo, con le stanze
+  const st = me.stanze || [];
+  const blocchi = F.map((f, i) => { const fine = F[i + 1] ? F[i + 1].da - 1 : Math.max(n, f.da + 4); const fatti = Math.max(0, Math.min(n, fine) - f.da + 1), tot = fine - f.da + 1;
+    const mie = f.fun.filter((x) => st.includes(x));
+    return `<div class="pal-blocco ${fatti ? "" : "vuoto"}" style="--c:${COL_FASCE[i]}"><div class="pal-bnome">${f.nome}<span class="sub"> · ${i < 2 ? "piani " + f.da + "–" + fine : "dal piano " + f.da}</span></div><div class="pal-piani">${Array.from({ length: Math.min(tot, 12) }, (_, k) => `<i class="${k < fatti ? "on" : ""}"></i>`).join("")}${tot > 12 ? `<span class="sub">+${fatti > 12 ? fatti - 12 : tot - 12}</span>` : ""}</div>${mie.length ? `<div class="pal-mie">${mie.map((x) => `<span class="tag">${ico("chiave")} ${esc(L.STANZE[x].nome)}</span>`).join("")}</div>` : ""}</div>`; }).reverse().join("");
+  const torre = `<div class="pal-torre">${blocchi}</div>`;
+  // 6. le stanze: schede chiare
+  const poss = L.stanzePossibili(S, me);
+  const stanze = F.map((f, i) => `<div class="pal-gruppo" style="--c:${COL_FASCE[i]}"><h4 style="color:${COL_FASCE[i]}">${f.nome} · da ${f.da} ${f.da === 1 ? "piano" : "piani"}</h4>${f.fun.map((id) => { const x = poss.find((y) => y.id === id), S2 = L.STANZE[id], q = ICO_QUANDO[S2.quando];
+    return `<div class="pal-stanza ${x.ce ? "mia" : x.ok ? "" : "chiusa"}"><div class="riga"><b style="flex:1">${esc(S2.nome)}</b><span class="tag">${ico(q[0])} ${q[1]}</span></div><div>${esc(S2.descr)}</div><div class="sub">Esempio: ${esc(S2.esempio)}</div>
+      <div class="riga" style="margin-top:6px">${x.ce ? `<span class="tag" style="color:var(--pulito)">✔ ce l'hai</span>` : x.ok ? `<button class="oro" data-stanza="${id}" ${possono && me.cash >= x.costo ? "" : "disabled"}>Compra · ${euro(x.costo)}</button>${!possono ? `<span class="sub">${mioTurno() && !me.haTirato ? "dopo i dadi" : "nel tuo turno"}</span>` : me.cash < x.costo ? `<span class="sub">non hai abbastanza</span>` : ""}` : `<span class="sub">${ico("chiave")} ${esc(x.perche)} · ${euro(x.costo)}</span>`}</div></div>`; }).join("")}</div>`).join("");
+  const vera = S.consigli !== false && n < 2 ? `<div class="scheda" style="border:1px solid rgba(255,95,162,.4)"><b style="color:#ff5fa2">${ico("vera")} Vera</b><p style="margin:4px 0 0">Il Palazzo è il tuo salvadanaio: i piani rendono a ogni Alba e non te li tocca nessuno coi dadi. A 6 piani diventa un Attico e si aprono le stanze per la notte, come il Casinò privato.</p></div>` : "";
+  return testa + vera + inizia + costruisci + meta + `<h4 style="margin:12px 0 4px">Com'è il tuo Palazzo</h4>` + torre + `<h4 style="margin:12px 0 4px">Le stanze speciali</h4>` + stanze;
 }
 function finestraVeicolo() {
   finestra(`<span class="kick" style="color:var(--oro)">🛥️ Marina dei Re</span><h2>Mezzi di lusso</h2><div class="griglia">${Object.entries(L.N.veicoli).map(([k, v]) => `<button class="sch" data-v="${k}"><h3>${v.nome}</h3><p>${euro(v.prezzo)}<br>rende ${euro(v.prezzo * v.rend)} a Ciclo · +${v.fama} fama</p></button>`).join("")}</div>
@@ -2114,3 +2185,90 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape" && telApert
 document.addEventListener("pointerdown", (e) => { if (telAperto && S && !document.querySelector(".velo") && !e.target.closest("#telefonoBox") && !e.target.closest("[data-a=\"imprese\"]")) { telAperto = false; disegnaTelefono(io()); } });
 collegaEsplora();
 avvio();
+
+// ------------------------------------------------------------ COME SI GIOCA: 6 slide, prima di giocare e durante
+function datiGuida() { return [
+  { img: "img/laguna.jpg", kick: "1 di 6 · Lo scopo", tit: "Diventa il Re della Laguna", righe: [
+    "Partite tutti uguali: <b>1.500.000 €</b> e <b>un terreno a sorte</b>. Scegli una <b>storia</b>: ognuna ha un vantaggio.",
+    "Un <b>Ciclo</b> = 4 giorni coi dadi, poi <b>la notte</b>, poi <b>l'Alba</b>: all'Alba incassi tutte le rendite.",
+    "Vince chi ha il <b>patrimonio</b> più alto: soldi, terreni, Palazzo, mezzi, azioni. I soldi sporchi valgono solo un quarto.",
+    "Come finisce lo scegliete voi: dopo 6–20 Cicli, a un obiettivo (50, 100 o 200 milioni) o partita libera.",
+    "Prima della fine c'è la <b>Resa dei conti</b>: chi ha lasciato piste paga.",
+    "<b>Livelli</b>: più sei ricco, più cose si aprono (Livello 1 a 3,5 M, 2 a 7 M, 3 a 15 M).",
+    "Il <b>telefono</b> in basso a destra: le app arrivano piano piano. Il pallino rosso vuol dire che c'è qualcosa da fare.",
+  ], tag: ["Storie", "Ciclo", "Alba", "Patrimonio", "Resa dei conti", "Livelli", "Telefono"] },
+  { img: "img/vicolo.jpg", kick: "2 di 6 · Il giorno", tit: "Dadi, terreni, attività", righe: [
+    "Tiri i dadi. Su un terreno <b>libero</b> puoi comprarlo; su quello di un altro <b>paghi l'affitto</b>.",
+    "Ogni giorno hai <b>1 mossa</b>: permesso del Municipio → cantiere → all'Alba l'attività apre. Poi la alzi fino al livello 5.",
+    "Sul tabellone: <b>bordo d'oro e stellina</b> = tuo. I <b>pallini</b> sotto la casella = livello. <b>vuoto</b> = non rende quasi niente.",
+    "<b>Gruppi di vie</b> (stesso colore): se le hai tutte, affitti doppi e livelli 3–5.",
+    "<b>Agenzia</b>: compri un terreno dell'isola dove sei (+20%). <b>Asta</b>: i terreni sequestrati vanno all'asta.",
+    "<b>Moli</b>: chi ci passa ti paga. <b>Viaggio rapido</b>: una volta per Ciclo vai dove vuoi invece dei dadi.",
+    "Tasto <b>Cosa ho</b>: vedi solo le tue cose. Tocca una casella per leggere la sua scheda.",
+  ], tag: ["Comprare", "Affitti", "Permesso", "Cantiere", "Gruppi di vie", "Agenzia", "Asta", "Moli", "Viaggio rapido", "Cosa ho"] },
+  { img: "img/penthouse.jpg", kick: "3 di 6 · Il Palazzo e il lusso", tit: "Il tuo grattacielo", righe: [
+    "<b>Piani</b> = l'altezza: ogni piano ti dà un affitto a ogni Alba. Con una mossa ne fai fino a 3 (il 2° costa +25%, il 3° +50%).",
+    "Per iniziare servono <b>2 attività aperte</b> e il permesso (300.000 €).",
+    "Traguardi: <b>Attico</b> a 6 piani, <b>Grattacielo</b> a 15. Ti danno fama, piani che rendono di più e stanze nuove.",
+    "<b>Stanze speciali</b>, si comprano a parte: Garage, Ristorante, Spa, Sala insonorizzata, Caveau, Casinò privato, Eliporto, Piani segreti, Suite.",
+    "<b>Mezzi di lusso</b> (motoscafo, supercar, yacht, elicottero, megayacht, jet): si noleggiano e rendono, danno fama e fanno viaggiare veloce.",
+    "La <b>fama</b> apre le sale più esclusive di notte e serve per diventare Sindaco.",
+  ], tag: ["Piani", "Attico", "Grattacielo", "Stanze", "Mezzi", "Fama"] },
+  { img: "img/notte-club.jpg", kick: "4 di 6 · La notte", tit: "Tutti in giro, insieme", righe: [
+    "Di notte giocate <b>tutti insieme</b>, dalle 22 alle 4. Tocca un luogo per andarci: ogni viaggio costa 1 o 2 ore.",
+    "Subito: il tuo Palazzo, Club Neon, Marina. Livello 1: Mercato Nero, Bisca, Porto, Casinò. Livello 2: Redazione, Aeroporto. Livello 3: Villa e Faro.",
+    "In ogni luogo: <b>occasioni</b> legali e illegali, <b>personaggi</b> da conoscere, sale più lussuose se hai fama.",
+    "Se incontri un altro giocatore: fate affari, lo sfidi a carte, oppure lo fotografi di nascosto.",
+    "<b>Valigetta</b>: oggetti comprati di notte (maschera, documenti falsi, avvocato, macchina fotografica…). Ti salvano o ti aprono affari.",
+    "<b>Serate</b>: col Casinò privato inviti gli altri a poker. Paga l'ingresso e il banco sei tu.",
+  ], tag: ["Luoghi", "Occasioni", "Personaggi", "Incontri", "Poker", "Valigetta", "Serate"] },
+  { img: "img/notte-porto.jpg", kick: "5 di 6 · Soldi sporchi", tit: "Rischio e polizia", righe: [
+    "Gli affari illegali pagano di più, ma in <b>soldi sporchi</b>: di giorno non comprano quasi niente.",
+    "<b>Ripulirli</b>: al Casinò Reale con le tue attività di copertura (perdi il 15%), con ShadowCoin (25%), o col jet nel paradiso fiscale (30%).",
+    "<b>Le piste</b>: ti scoprono sempre per un motivo. Stesso posto troppe volte, soldi che non tornano, complici nei guai, prove dei rivali.",
+    "Scala: Voci → Osservato → Indagato → Processo. Poi multe, sequestri o il <b>Faro</b> (la prigione).",
+    "Poliziotti e banchieri <b>si comprano</b>. Se la polizia indaga su un altro, tu rischi meno.",
+    "<b>Setta</b>: si apre con 8 M sporchi, fondarla costa 5 M. Inviti gli altri con un patto e puoi cacciarli.",
+  ], tag: ["Soldi sporchi", "Ripulire", "Piste", "Indagine", "Faro", "Corruzione", "Setta"] },
+  { img: "img/corona.jpg", kick: "6 di 6 · Potere e affari", tit: "Tutto il resto", righe: [
+    "<b>Banca</b>: prestiti e ipoteche. <b>Borsa e cripto</b> (Livello 2): salgono e scendono a ogni Alba.",
+    "<b>Contratti</b> con un rivale, sulla parola o dal notaio. Puoi <b>comprare terreni</b> da un altro giocatore.",
+    "<b>Tasse</b>: puoi nasconderle, diventano contante in nero da spendere di notte. Ma lasciano piste.",
+    "<b>Municipio</b>: candidati a <b>Sindaco</b> e fai le leggi. Lì chiedi anche la licenza del casinò.",
+    "<b>Gazzetta</b>: le notizie di ogni Ciclo. Puoi comprare un articolo, o <b>denunciare</b> un rivale con le prove.",
+    "<b>Da scoprire</b>: 22 cose da provare, la prima volta +1 fama. Nella partita guidata <b>Vera</b> ti consiglia.",
+    "Titoli finali: Re della Laguna, La Stella, Mani Pulite, Gran Burattinaio.",
+  ], tag: ["Banca", "Borsa", "Cripto", "Contratti", "Tasse", "Sindaco", "Leggi", "Gazzetta", "Denunce", "Da scoprire", "Vera"] },
+]; }
+function apriGuida(da = 0) {
+  const GUIDA = datiGuida();
+  document.querySelector("#guida")?.remove();
+  try { localStorage.setItem("laguna_guida_vista", "1"); } catch (e) { }
+  let i = da;
+  const g = document.createElement("div"); g.id = "guida"; document.body.appendChild(g);
+  const chiudi = () => { g.remove(); removeEventListener("keydown", tasti); };
+  const tasti = (e) => { if (e.key === "ArrowRight") vai(i + 1); else if (e.key === "ArrowLeft") vai(i - 1); else if (e.key === "Escape") chiudi(); };
+  addEventListener("keydown", tasti);
+  const vai = (n) => { i = Math.max(0, Math.min(GUIDA.length - 1, n)); mostra(); };
+  const mostra = () => {
+    const s = GUIDA[i];
+    g.innerHTML = `<div class="guida-carta vetro">
+      <div class="guida-foto" style="background-image:linear-gradient(180deg,rgba(6,10,24,0) 35%,rgba(6,10,24,.95)),url('${s.img}')"><span class="kick" style="color:var(--oro)">${s.kick}</span><h2>${s.tit}</h2><button class="piccolo guida-x" id="gX">✕ Chiudi</button></div>
+      <ul class="guida-righe">${s.righe.map((r) => `<li>${r}</li>`).join("")}</ul>
+      <div class="guida-tag">${s.tag.map((t) => `<span class="tag">${t}</span>`).join("")}</div>
+      <div class="guida-nav"><button id="gIndietro" ${i ? "" : "disabled"}>‹ Indietro</button><div class="guida-punti">${GUIDA.map((_, k) => `<button class="${k === i ? "on" : ""}" data-g="${k}" aria-label="Slide ${k + 1}"></button>`).join("")}</div>${i < GUIDA.length - 1 ? `<button class="oro" id="gAvanti">Avanti ›</button>` : `<button class="oro" id="gFine">Giochiamo!</button>`}</div></div>`;
+    g.querySelector("#gX").onclick = chiudi;
+    g.querySelector("#gIndietro").onclick = () => vai(i - 1);
+    (g.querySelector("#gAvanti") || g.querySelector("#gFine")).onclick = () => (i < GUIDA.length - 1 ? vai(i + 1) : chiudi());
+    g.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => vai(+b.dataset.g));
+  };
+  // scorrere col dito
+  let x0 = null;
+  g.addEventListener("pointerdown", (e) => { x0 = e.clientX; });
+  g.addEventListener("pointerup", (e) => { if (x0 != null && Math.abs(e.clientX - x0) > 60) vai(i + (e.clientX < x0 ? 1 : -1)); x0 = null; });
+  g.addEventListener("click", (e) => { if (e.target === g) chiudi(); });
+  mostra();
+}
+function guidaMaiVista() { try { return !localStorage.getItem("laguna_guida_vista"); } catch (e) { return false; } }
+function tastoGuida() { return `<button class="bianco" id="apriGuida" style="align-self:stretch">📖 Come si gioca · 6 slide</button>`; }
+function collegaTastoGuida() { const b = $("#apriGuida"); if (b) b.onclick = () => apriGuida(0); }

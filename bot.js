@@ -127,13 +127,17 @@
           })(o, i, n);
           if (r) return r;
           const a = (function (o, t, i) {
-            const casinoOk = (globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null)).stanzePossibili(o, t).some((x) => x.id === "casino_privato" && x.ok);
-            if (t.piani > 0 && casinoOk && ["Costruttore", "Spavaldo", "Furbo"].includes(i) && t.cash > 15e5 && Math.random() < 0.4) return { tipo: "piano", funzione: "casino_privato" };
+            const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null);
+            const poss = LL.stanzePossibili(o, t).filter((x) => x.ok && t.cash > x.costo * 1.6);
+            if (poss.some((x) => x.id === "casino_privato") && ["Costruttore", "Spavaldo", "Furbo"].includes(i) && Math.random() < 0.4) return { tipo: "stanza", stanza: "casino_privato" };
+            if (poss.length && Math.random() < 0.3) {
+              const f = [t.veicoli.length ? "garage" : null, "ristorante_panoramico", t.sporchi > 3e6 ? "caveau" : null, "suite"].filter(Boolean).find((x) => poss.some((y) => y.id === x));
+              if (f) return { tipo: "stanza", stanza: f };
+            }
             // con tanti contanti fermi chiunque costruisce piani: si ripagano in pochi Cicli
-            if (("Costruttore" === i ? t.cash > 15e5 && Math.random() < 0.6 : t.cash > 8e6 || (t.cash > 4e6 && Math.random() < 0.15)) && (t.piani > 0 || o.lotti.filter((l) => l.owner === t.id && l.lvl >= 1).length >= 2)) {
-              const ok = (globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null)).stanzePossibili(o, t).filter((x) => x.ok).map((x) => x.id);
-              const f = ["uffici", t.veicoli.length ? "garage" : null, "ristorante_panoramico", "suite", "appartamenti"].filter(Boolean).find((x) => ok.includes(x)) || ok[0];
-              if (f) return { tipo: "piano", funzione: f };
+            if (("Costruttore" === i ? t.cash > 15e5 && Math.random() < 0.6 : t.cash > 8e6 || (t.cash > 4e6 && Math.random() < 0.15)) && LL.condizioniPalazzo(o, t).ok) {
+              let q = 3; while (q > 1 && LL.costoPiani(t, q) > t.cash * 0.5) q--;
+              if (LL.costoPiani(t, q) + (t.piani ? 0 : 3e5) < t.cash) return { tipo: "piano", quanti: q };
             }
             const r = e(o, t, !0),
               n = r ? { tipo: "costruisci", lotto: r.l.id, attivita: 0 === r.l.lvl ? r.tipo : void 0 } : null;
