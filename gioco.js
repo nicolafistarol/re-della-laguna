@@ -11,7 +11,7 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=57";
+import * as Tre from "./tre.js?v=58";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
@@ -1149,7 +1149,7 @@ function aggiornaPanorama(me) {
   });
   Pano.mostra(V.img, punti, { yaw: 0 });
 }
-const ICO_SCELTA = { rito: "setta", scava: "faro", doganiere: "handshake", tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
+const ICO_SCELTA = { rito: "setta", scava: "faro", jet: "aereo", doganiere: "handshake", tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
 function righeNotte(lista) { return lista.map((r) => { const [o, ...t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t.join(" — "))}</p>`; }).join(""); }
 function restoOra() { const N2 = S.notte; if (!N2 || !N2.inizio) return null; return Math.max(0, Math.ceil((N2.tempo || 120) - (Date.now() - N2.inizio) / 1000)); }
 function scenaNotte(me) {
@@ -1167,7 +1167,9 @@ function scenaNotte(me) {
   const quiAltri = v || aCasa || dove === "palazzo" ? [] : S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !N2.viaggio[p.id] && N2.dove[p.id] === dove);
   const mancano = S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !(N2.pronto && N2.pronto[p.id]));
   const resto = restoOra();
-  const testa = `<div class="scena-testa">
+  const cvN = N2.convocazione, traCv = cvN ? cvN.ora - N2.ora : 0;
+  const bannerCv = cvN && traCv >= -2 ? `<div class="conv-banner">🕯️ <span>Rito della setta: <b>${esc(L.LUOGHI[cvN.luogo].nome)}</b> alle <b>${L.ORE[cvN.ora]}</b> · ${traCv > 0 ? "tra " + traCv + (traCv === 1 ? " ora" : " ore") : traCv === 0 ? "<b>adesso</b>" : "è iniziato"}${N2.dove[mioId] === cvN.luogo ? " · sei qui" : ""}</span>${N2.dove[mioId] !== cvN.luogo && !N2.viaggio[mioId] && !N2.chiuso[mioId] ? `<button class="piccolo oro" data-cvvai="${cvN.luogo}">Vai</button>` : ""}</div>` : "";
+  const testa = bannerCv + `<div class="scena-testa">
       <div class="kick" style="color:var(--cielo)">${ico("luna")} ore ${L.ORE[N2.ora]} · ${6 - N2.ora} ${6 - N2.ora === 1 ? "ora" : "ore"} all'alba${isola ? " · " + esc(isola) : ""}${N2.pericoloQui && !v && !aCasa ? ` · <span style="color:${COLORE_POLIZIA[N2.pericoloQui]}">polizia ${N2.pericoloQui}</span>` : ""}</div>
       <h1>${esc(nome)}</h1>${sala ? `<div class="sala">${ico("stella")} ${esc(sala)}</div>` : ""}
       ${quiAltri.length ? `<div class="qui-altri">${quiAltri.map((p) => `<button class="persona" data-persona="${p.id}"><span class="pall" style="background:${p.colore}">${esc(p.nome[0])}</span>${esc(p.nome)}</button>`).join(" ")} <span class="sub">${quiAltri.length === 1 ? "è qui con te: toccalo" : "sono qui con te: toccali"}</span></div>` : ""}
@@ -1213,7 +1215,7 @@ function collegaScena(me) {
   const scelte = S.notte.scelte || [];
   document.querySelectorAll(".scena [data-scelta]").forEach((b) => b.onclick = () => {
     const c = scelte[+b.dataset.scelta]; if (!c) return;
-    const diretta = ["occ", "ricicla", "paradiso", "banchiere", "polizia", "doganiere", "rito", "scava"].includes(c.k);
+    const diretta = ["occ", "ricicla", "paradiso", "banchiere", "polizia", "doganiere", "rito", "scava", "jet"].includes(c.k);
     if (!diretta && !b.classList.contains("aperta")) { document.querySelectorAll(".scena .scelta.aperta").forEach((x) => x.classList.remove("aperta")); b.classList.add("aperta"); return; }
     if (c.k === "occ") return finestraOccasione(me, c.n);
     if (c.k === "ricicla") return finestraRicicla(me, false);
@@ -1224,6 +1226,7 @@ function collegaScena(me) {
     if (c.k === "setta") return finestraSetta(me);
     if (c.k === "rito") return agisci({ tipo: "rito", setta: c.setta });
     if (c.k === "scava") return agisci({ tipo: "scava", setta: c.setta });
+    if (c.k === "jet") return agisci({ tipo: "jet_setta", setta: c.setta });
     if (c.k === "foto") return agisci({ tipo: "foto", bersaglio: c.bersaglio });
     if (c.k === "aspetta") return agisci({ tipo: "aspetta" });
     if (c.k === "fissa") return c.puntata ? finestraPuntata(me, c) : agisci({ tipo: "attivita" });
@@ -1233,6 +1236,7 @@ function collegaScena(me) {
     if (c.k === "serata") return finestra(`<span class="kick" style="color:var(--oro)">${ico("casino")} Il tuo Casinò privato · piano ${me.piani}</span><h2>Apri una serata</h2><p>Tutti ricevono l'invito. Chi viene sale nel tuo Palazzo e vede la Laguna dal piano ${me.piani}. Paga l'ingresso a te, poi gioca al tuo tavolo: il banco sei tu (vince un po' più spesso, ma se un ospite sbanca paghi tu).</p><p class="sub">Quanto fai pagare l'ingresso?</p><div class="riga" style="flex-wrap:wrap">${[0, 50_000, 100_000, 250_000].map((x) => `<button class="oro" data-ing="${x}">${x ? euro(x) : "Gratis"}</button>`).join("")}</div><div class="pulsanti"><button id="no">Non stanotte</button></div>`, (d, chiudi) => { d.querySelector("#no").onclick = chiudi; d.querySelectorAll("[data-ing]").forEach((b) => b.onclick = () => { chiudi(); agisci({ tipo: "serata", ingresso: +b.dataset.ing }); }); });
   });
   on("aspetta", () => agisci({ tipo: "aspetta" }));
+  document.querySelectorAll("[data-cvvai]").forEach((b) => b.onclick = () => agisci({ tipo: "vai", luogo: b.dataset.cvvai }));
   document.querySelectorAll(".scena [data-persona]").forEach((b) => b.onclick = () => finestraIncontro(me, b.dataset.persona));
   // l'orologio dell'ora: scorre ogni secondo; se il tempo finisce e io ho gia' finito, lo dico al server
   clearInterval(orologioNotte);
@@ -1361,6 +1365,7 @@ function collegaCarta(me) {
   on("imprese", () => apriApp("imprese"));
   on("agenzia", () => apriApp("agenzia"));
   on("aspetta", () => agisci({ tipo: "aspetta" }));
+  document.querySelectorAll("[data-cvvai]").forEach((b) => b.onclick = () => agisci({ tipo: "vai", luogo: b.dataset.cvvai }));
   on("casa", () => finestra(`<h2>Torni a casa?</h2><p>Per te la notte finisce qui. Non potrai più uscire fino all'Alba.</p><div class="pulsanti"><button id="no">Resto fuori</button><button class="notte" id="si">Torno a casa</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "torna_a_casa" }); }; }));
   on("negozio", () => finestraNegozio(me));
   on("soffiata", () => finestraSoffiata(me));

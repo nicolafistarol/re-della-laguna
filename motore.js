@@ -1710,6 +1710,7 @@
     if (dove === "redazione") sp.push({ k: "articolo", titolo: "Una busta al caporedattore", testo: "Domattina la Gazzetta può parlare bene di te. O male di un altro." });
     if (dove === "faro" && s.sette.some((st) => st.gm === p.id)) sp.push({ k: "setta", titolo: "Riunisci la setta", testo: "Tra le onde, i tuoi confratelli aspettano un ordine." });
     if (dove === "faro") for (const id of p.nascondigli || []) { const st = s.sette.find((x) => x.id === id); if (st && st.sepolto > 0) sp.push({ k: "scava", setta: id, titolo: "Scava sotto la scogliera", testo: "Sai dove la setta \"" + st.nome + "\" nasconde il suo tesoro. Metà è tua, ma lasci molte Tracce." }); }
+    { const cv = convocazioneDi(s, p); if (cv && cv.st.gm !== p.id && dove !== cv.c.luogo && N2.ora >= cv.c.ora - 1 && giocatore(s, cv.st.gm).veicoli.includes("jet")) sp.push({ k: "jet", setta: cv.st.id, titolo: "Sali sul jet della setta", testo: "Il Gran Maestro manda il suo jet: arrivi subito a " + LUOGHI[cv.c.luogo].nome + " per il rito delle " + ORE[cv.c.ora] + "." }); }
     { const cv = convocazioneDi(s, p); if (cv && cv.st.gm === p.id && dove === cv.c.luogo && N2.ora >= cv.c.ora && quiConMe(s, p).some((x) => cv.st.membri.includes(x.id))) sp.push({ k: "rito", setta: cv.st.id, titolo: "Celebra il rito della setta", testo: "I confratelli arrivati qui: Tracce cancellate e protezione per il resto della notte." }); }
     const ospiteDi = N2.ospite && N2.ospite[p.id];
     if (ospiteDi) {
@@ -1727,7 +1728,7 @@
       if (q) sp.push({ k: "foto", bersaglio: q.id, titolo: "Fotografa " + q.nome, testo: q.nome + " è qui. Se fa qualcosa di strano, avrai una Prova." });
     }
     const fissa = ATTIVITA_NOTTE[dove] ? { k: "fissa", ...ATTIVITA_NOTTE[dove] } : null;
-    const prima = sp.filter((x) => x.k === "rito" || x.k === "scava"), resto = sp.filter((x) => x.k !== "rito" && x.k !== "scava"); // il rito della setta viene prima di tutto
+    const PRIMA = ["rito", "scava", "jet"], prima = sp.filter((x) => PRIMA.includes(x.k)), resto = sp.filter((x) => !PRIMA.includes(x.k)); // il rito della setta viene prima di tutto
     const tutte = fissa ? [...[...prima, ...occ, ...resto].slice(0, 2), fissa] : [...prima, ...occ, ...resto].slice(0, 3);
     if (tutte.length < 3) {
       const tardi = s.notte.occasioni.some((o) => !o.preso && o.luogo === dove && o.dalle > N2.ora && (!o.riservata || o.riservata === p.id));
@@ -2240,6 +2241,17 @@
     return null;
   }
   // il rito: chi e' al posto giusto all'ora giusta si fa cancellare un po' di Tracce e stanotte e' protetto
+  // il giro in jet: se il Gran Maestro ha il jet, dall'ora prima della convocazione i membri ci arrivano subito
+  function jetSetta(s, p, idSetta) {
+    oraLibera(s, p);
+    const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id) || st.gm === p.id) err("Il jet è per i confratelli.");
+    const c = st.convocazione; if (!c || c.ciclo !== s.ciclo || c.fatto) err("Stanotte non c'è una convocazione.");
+    if (!giocatore(s, st.gm).veicoli.includes("jet")) err("Il Gran Maestro non ha il jet.");
+    if (s.notte.ora < c.ora - 1) err("Il jet parte un'ora prima del rito.");
+    if (s.notte.dove[p.id] === c.luogo) err("Sei già lì.");
+    s.notte.dove[p.id] = c.luogo;
+    racconta(s, p, "Un'auto nera ti porta alla pista. Il jet della setta \"" + st.nome + "\" decolla, gira sopra la Laguna illuminata e atterra vicino a " + LUOGHI[c.luogo].nome + ". Sei arrivato per il rito.");
+  }
   function rito(s, p, idSetta) {
     oraLibera(s, p);
     const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro celebra il rito.");
@@ -3095,6 +3107,7 @@
       case "prova_fedelta": return provaFedelta(s, p, a.setta, a.membro);
       case "convoca": return convoca(s, p, a.setta, a.luogo, a.ora);
       case "rito": return rito(s, p, a.setta);
+      case "jet_setta": return jetSetta(s, p, a.setta);
       case "operazione": return settaAlFaro(s, p, () => operazione(s, p, a.setta, a.op, a.bersaglio, a.direzione));
       case "articolo": return s.fase === "notte" ? articolo2(s, p, a) : articolo(s, p, a.bersaglio, a.tono, a.importo, a.testo, !!a.sporchi);
       case "contratto": return proponiContratto(s, p, a.contratto);
@@ -3150,6 +3163,7 @@
         ospite: s.notte.ospite ? s.notte.ospite[idGiocatore] || null : null,
         serate: Object.entries(s.notte.serate || {}).map(([id, se]) => { const h = s.players.find((x) => x.id === id); return { host: id, nome: h.nome, piani: h.piani, livello: livelloPalazzo(h), ingresso: se.ingresso, ospiti: se.ospiti.length, banco: id === idGiocatore ? se.banco : undefined }; }),
         proposte: (s.notte.proposte || []).filter((x) => (x.a === idGiocatore && x.stato !== "preparazione") || x.da === idGiocatore).map((x) => { const y = { ...x }; delete y.mazzo; if (y.da !== idGiocatore && y.stato !== "finita") delete y.manoDa; return y; }),
+        convocazione: me ? (() => { const cv = convocazioneDi(s, me); return cv ? { luogo: cv.c.luogo, ora: cv.c.ora, nome: cv.st.nome, gm: cv.st.gm === idGiocatore, jet: giocatore(s, cv.st.gm).veicoli.includes("jet") } : null; })() : null,
         manoSM: s.manoSM && s.manoSM[idGiocatore] ? (({ mazzo, ...r }) => ({ ...r, totale: totaleSM(r.carte) }))(s.manoSM[idGiocatore]) : null,
         ultimaMano: s.notte.ultimaMano ? s.notte.ultimaMano[idGiocatore] || null : null,
         occasioni: me ? occasioniVisibili(s, me).map((o) => ({ ...o, ...OCCASIONI.find((x) => x.id === o.id), n: o.n })) : [],
