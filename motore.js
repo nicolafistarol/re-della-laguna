@@ -13,14 +13,14 @@
 
   // ------------------------------------------------------------ numeri del gioco
   const N = {
-    cicli: 6, giorni: 3,
+    cicli: 8, giorni: 4,
     cashStart: 1_000_000, stipendio: 400_000, tassa: 0.20,
     affVuoto: 0.15, affLvl: [1, 1, 4, 12, 26, 45], rendLvl: [0, 1, 2.2, 3.6, 5.2, 7.0],
     costLvl: [0, 0.5, 0.5, 0.75, 1.0, 1.5], R: 0.75,
     moloFee: [0, 25_000, 50_000, 100_000, 200_000],
     pianoCost: 400_000, pianoGrow: 1.08, pianoRend: 0.62, pianiMax: 60,
-    borsaMu: 0.30, borsaSd: 0.16, criptoMu: 0.40, criptoSd: 0.50, criptoCrash: 0.12,
-    caricoBase: 250_000, caricoGrow: 100_000, caricoMax: 3_000_000, caricoMagazzino: 1.5,
+    borsaMu: 0.21, borsaSd: 0.16, criptoMu: 0.40, criptoSd: 0.50, criptoCrash: 0.12,
+    caricoBase: 350_000, caricoGrow: 150_000, caricoMax: 3_000_000, caricoMagazzino: 1.5,
     profittoBase: 0.65, tracceAffare: 10, coltoBase: 0.012, affariNotte: 2,
     intens: { prudente: [1.0, 0.5], normale: [1.4, 1.0], spavaldo: [2.0, 3.0] },
     ricCopPerdita: 0.15, ricCopTracce: 0.4, shadowPerdita: 0.25, shadowTracce: 0.6,
@@ -77,44 +77,64 @@
   };
 
   const PACCHETTI = [
-    { id: "commerciante", nome: "Il Commerciante", lotti: [["Vicolo del Mercato", "ristorante"], ["Via delle Onde", "ristorante"]], extra: { cash: 250_000 } },
+    { id: "commerciante", nome: "Il Commerciante", lotti: [["Via delle Onde", "ristorante"], ["Golf delle Palme", "ristorante"]], extra: { cash: 300_000 } },
     { id: "costruttore", nome: "Il Costruttore", lotti: [["Vicolo dei Pescatori", "residenze"], ["Via dei Cantieri", "residenze"]], extra: { piani: 2 } },
-    { id: "investitore", nome: "L'Investitore", lotti: [["Corso Industria", "uffici"], ["Via delle Spezie", "agenzia"]], extra: { azioni: 500_000 } },
+    { id: "investitore", nome: "L'Investitore", lotti: [["Via delle Spezie", "agenzia"], ["Corso Industria", "uffici"]], extra: { azioni: 300_000 } },
     { id: "playboy", nome: "Il Playboy", lotti: [["Viale Neon", "discoteca"], ["Lungomare Cocco", "beachclub"]], extra: { veicolo: "motoscafo", fama: 25 } },
-    { id: "contrabbandiere", nome: "Il Contrabbandiere", lotti: [["Darsena Container", "magazzino"], ["Via delle Lanterne", "lavanderia"]], extra: { reputazione: 20 } },
-    { id: "politico", nome: "Il Politico", lotti: [["Baia Turchese", "hotel"], ["Flamingo Drive", "boutique"]], extra: { fama: 30 } },
-    { id: "ereditiera", nome: "L'Ereditiera", lotti: [["Viale dei Resort", "hotel"], ["Ocean Boulevard", "galleria"]], extra: { cash: 400_000 } },
-    { id: "speculatore", nome: "Lo Speculatore", lotti: [["Piazzetta Ambra", "lavanderia"], ["Viale Solare", "uffici"]], extra: { cripto: 250_000 } },
+    { id: "contrabbandiere", nome: "Il Contrabbandiere", lotti: [["Piazzetta Ambra", "lavanderia"], ["Darsena Container", "magazzino"]], extra: { reputazione: 20 } },
+    { id: "politico", nome: "Il Politico", lotti: [["Baia Turchese", "hotel"], ["Flamingo Drive", "boutique"]], extra: { fama: 30, cash: 100_000 } },
+    { id: "ereditiera", nome: "L'Ereditiera", lotti: [["Viale dei Resort", "hotel"], ["Villa Rosa", "galleria"]], extra: { cash: 200_000 } },
+    { id: "speculatore", nome: "Lo Speculatore", lotti: [["Via delle Lanterne", "lavanderia"], ["Viale Solare", "uffici"]], extra: { cripto: 250_000 } },
   ];
+
 
   const AZIENDE = ["Corona Bank", "Laguna Energy", "Flamingo Luxury", "SoleTech", "Palma Resorts", "Marina Shipping"];
   const MONETE = ["LagunaCoin", "FlamingoToken", "ShadowCoin"];
 
+  // Il tabellone: un unico giro da 80 caselle che entra in tutte e 5 le isole.
+  // Ogni isola ha 16 caselle: un ponte (o ingresso), 3 gruppi di vie da 3, un molo, un'Agenzia, Gazzette e luoghi speciali.
   const OUTER = [
-    ["Ponte Sud — Partenza", "angolo"], ["Vicolo del Mercato", "Spezie", "Ambra", 100], ["Via delle Spezie", "Spezie", "Ambra", 110],
-    ["Gazzetta", "gazzetta"], ["Piazzetta Ambra", "Spezie", "Ambra", 130], ["Molo Ambra", "Moli", "Ambra", 200],
-    ["Vicolo dei Pescatori", "Lanterne", "Ambra", 150], ["Mercato Nero", "speciale"], ["Via delle Lanterne", "Lanterne", "Ambra", 160],
-    ["Scalinata dei Gatti", "Lanterne", "Ambra", 180], ["Ponte Ovest — Il Faro", "angolo"],
-    ["Lungomare Cocco", "Sabbia", "Palma", 220], ["Via delle Onde", "Sabbia", "Palma", 230], ["Gazzetta", "gazzetta"],
-    ["Spiaggia dei Gabbiani", "Sabbia", "Palma", 250], ["Molo Palma", "Moli", "Palma", 200], ["Baia Turchese", "Corallo", "Palma", 280],
-    ["Spiaggia VIP", "speciale"], ["Viale dei Resort", "Corallo", "Palma", 300], ["Punta Palma", "Corallo", "Palma", 320],
-    ["Ponte Nord — Spiaggia Libera", "angolo"],
-    ["Viale Neon", "Neon", "Flamingo", 360], ["Flamingo Drive", "Neon", "Flamingo", 380], ["Gazzetta", "gazzetta"],
-    ["Via delle Orchidee", "Neon", "Flamingo", 400], ["Molo Flamingo", "Moli", "Flamingo", 200], ["Ocean Boulevard", "Velluto", "Flamingo", 450],
-    ["Gala Flamingo", "speciale"], ["Villa Rosa", "Velluto", "Flamingo", 480], ["Belvedere Flamingo", "Velluto", "Flamingo", 520],
-    ["Ponte Est — Posto di blocco", "angolo"],
-    ["Via dei Cantieri", "Acciaio", "Sole", 580], ["Corso Industria", "Acciaio", "Sole", 600], ["Gazzetta", "gazzetta"],
-    ["Viale Solare", "Acciaio", "Sole", 640], ["Molo Sole", "Moli", "Sole", 200], ["Darsena Container", "Vetro", "Sole", 700],
-    ["Porto Container", "speciale"], ["Piazza dell'Innovazione", "Vetro", "Sole", 750], ["Torre del Sole", "Vetro", "Sole", 800],
+    // Borgo Ambra (0-15)
+    ["Ponte Sud — Partenza", "angolo"], ["Vicolo del Mercato", "Spezie", "Ambra", 60], ["Via delle Spezie", "Spezie", "Ambra", 70],
+    ["Gazzetta", "gazzetta"], ["Piazzetta Ambra", "Spezie", "Ambra", 80], ["Molo Ambra", "Moli", "Ambra", 150],
+    ["Vicolo dei Pescatori", "Lanterne", "Ambra", 100], ["Mercato Nero", "speciale"], ["Via delle Lanterne", "Lanterne", "Ambra", 110],
+    ["Scalinata dei Gatti", "Lanterne", "Ambra", 120], ["Agenzia di Borgo Ambra", "agenzia"],
+    ["Corte dei Mosaici", "Terracotta", "Ambra", 140], ["Via dei Vasai", "Terracotta", "Ambra", 150], ["Gazzetta", "gazzetta"],
+    ["Piazza del Campanile", "Terracotta", "Ambra", 170], ["Bisca del Vicolo", "speciale"],
+    // Costa Palma (16-31)
+    ["Ponte Ovest — Il Faro", "angolo"], ["Lungomare Cocco", "Sabbia", "Palma", 190], ["Via delle Onde", "Sabbia", "Palma", 200],
+    ["Gazzetta", "gazzetta"], ["Spiaggia dei Gabbiani", "Sabbia", "Palma", 220], ["Molo Palma", "Moli", "Palma", 150],
+    ["Baia Turchese", "Corallo", "Palma", 240], ["Spiaggia VIP", "speciale"], ["Viale dei Resort", "Corallo", "Palma", 260],
+    ["Punta Palma", "Corallo", "Palma", 280], ["Agenzia di Costa Palma", "agenzia"],
+    ["Sentiero delle Palme", "Giungla", "Palma", 300], ["Belvedere delle Palme", "Giungla", "Palma", 310], ["Gazzetta", "gazzetta"],
+    ["Golf delle Palme", "Giungla", "Palma", 330], ["Ponte Nord", "libero"],
+    // Isola Corona (32-47)
+    ["Ingresso di Isola Corona", "angolo"], ["Viale dei Diamanti", "Oro", "Corona", 900], ["Galleria Imperiale", "Oro", "Corona", 950],
+    ["La Borsa", "speciale"], ["Piazza Corona", "Oro", "Corona", 1000], ["Il Municipio", "speciale"],
+    ["Corso della Borsa", "Platino", "Corona", 1200], ["Banca Centrale", "speciale"], ["Skyline Avenue", "Platino", "Corona", 1300],
+    ["Piazza dei Re", "Platino", "Corona", 1400], ["Gazzetta", "gazzetta"], ["Casinò Reale", "speciale"],
+    ["Torre Sovrana", "Diamante", "Corona", 1600], ["Corona Tower", "Diamante", "Corona", 1800],
+    ["Agenzia di Isola Corona", "agenzia"], ["Attico del Re", "Diamante", "Corona", 2000],
+    // Baia Flamingo (48-63)
+    ["Pontile Flamingo", "libero"], ["Viale Neon", "Neon", "Flamingo", 360], ["Flamingo Drive", "Neon", "Flamingo", 380],
+    ["Gazzetta", "gazzetta"], ["Via delle Orchidee", "Neon", "Flamingo", 400], ["Molo Flamingo", "Moli", "Flamingo", 150],
+    ["Ocean Boulevard", "Velluto", "Flamingo", 440], ["Gala Flamingo", "speciale"], ["Villa Rosa", "Velluto", "Flamingo", 460],
+    ["Belvedere Flamingo", "Velluto", "Flamingo", 480], ["Agenzia di Baia Flamingo", "agenzia"],
+    ["Passeggiata Rosa", "Perla", "Flamingo", 500], ["Piazza dei Fenicotteri", "Perla", "Flamingo", 520], ["Gazzetta", "gazzetta"],
+    ["Lungolago delle Ninfee", "Perla", "Flamingo", 550], ["Spiaggia Libera", "libero"],
+    // Distretto Sole (64-79)
+    ["Ponte Est — Posto di blocco", "angolo"], ["Via dei Cantieri", "Acciaio", "Sole", 580], ["Corso Industria", "Acciaio", "Sole", 600],
+    ["Gazzetta", "gazzetta"], ["Viale Solare", "Acciaio", "Sole", 640], ["Molo Sole", "Moli", "Sole", 150],
+    ["Darsena Container", "Vetro", "Sole", 680], ["Porto Container", "speciale"], ["Piazza dell'Innovazione", "Vetro", "Sole", 720],
+    ["Torre del Sole", "Vetro", "Sole", 760], ["Agenzia del Distretto Sole", "agenzia"],
+    ["Viale dei Pannelli", "Rame", "Sole", 800], ["Hub delle Gru", "Rame", "Sole", 820], ["Gazzetta", "gazzetta"],
+    ["Lungomare Solare", "Rame", "Sole", 850], ["Rampa del Ponte Sud", "libero"],
   ];
-  const INNER = [
-    ["La Borsa", "speciale"], ["Viale dei Diamanti", "Oro", "Corona", 1000], ["Galleria Imperiale", "Oro", "Corona", 1050],
-    ["Il Municipio", "speciale"], ["Piazza Corona", "Oro", "Corona", 1100], ["Corso della Borsa", "Oro", "Corona", 1200],
-    ["Banca Centrale", "speciale"], ["Skyline Avenue", "Platino", "Corona", 1400], ["Piazza dei Re", "Platino", "Corona", 1500],
-    ["Casinò Reale", "speciale"], ["Torre Sovrana", "Platino", "Corona", 1700], ["Corona Tower", "Platino", "Corona", 2000],
-  ];
-  const CORNER_TO_INNER = { 0: 0, 10: 3, 20: 6, 30: 9 };
-  const INNER_TO_CORNER = { 0: 0, 3: 10, 6: 20, 9: 30 };
+  const CASELLE = OUTER.length; // 80
+  const SEZIONE = 16;
+  const ORDINE_ISOLE = ["Ambra", "Palma", "Corona", "Flamingo", "Sole"];
+  const POS_FARO = 16;
+  function isolaDiPos(pos) { return ORDINE_ISOLE[Math.floor((((pos % CASELLE) + CASELLE) % CASELLE) / SEZIONE)]; }
   const ISOLE = ["Ambra", "Palma", "Flamingo", "Sole", "Corona"];
   const NOMI_ISOLE = { Ambra: "Borgo Ambra", Palma: "Costa Palma", Flamingo: "Baia Flamingo", Sole: "Distretto Sole", Corona: "Isola Corona" };
   const STATI = ["Tranquillo", "Voci", "Osservato", "Indagato", "Processo"];
@@ -217,9 +237,9 @@
       ordine: [], players: [], lotti: [], valore: {}, borsa: {}, cripto: {}, sette: [], contratti: [], inviti: [],
       gazzetta: [], log: [], sindaco: null, candidati: {}, leggi: [], tassa: N.tassa, licenze: [],
       pending: null, notteFatti: {}, prossimoId: 1, principianti: !!opz.principianti, fine: false,
+      cicli: [6, 8, 10].includes(opz.cicli) ? opz.cicli : N.cicli,
     };
     OUTER.forEach((c, i) => s.lotti.push(cella(s, c, "o", i)));
-    INNER.forEach((c, i) => s.lotti.push(cella(s, c, "i", i)));
     for (const i of ISOLE) s.valore[i] = 5;
     for (const a of AZIENDE) s.borsa[a] = 100;
     for (const m of MONETE) s.cripto[m] = 10;
@@ -281,7 +301,7 @@
   // ------------------------------------------------------------ giorno
   function iniziaTurno(s) {
     const p = corrente(s);
-    p.haTirato = false; p.azioneGiornoFatta = false; p.doppi = 0; p.dadi = null;
+    p.haTirato = false; p.azioneGiornoFatta = false; p.doppi = 0; p.dadi = null; p.agenziaUsata = false; p.agenziaSconto = false; p.municipioOggi = false;
     s.pending = null;
     if (p.faro > 0) {
       p.faro -= 1;
@@ -295,53 +315,30 @@
     if (corrente(s).id !== p.id) err("Non è il tuo turno.");
     if (p.haTirato) err("Hai già tirato i dadi.");
     if (s.pending) err("Prima finisci la scelta in corso.");
-    const d1 = dado(s), d2 = dado(s), n = d1 + d2;
-    p.dadi = [d1, d2];
-    const doppio = d1 === d2;
-    if (doppio) p.doppi += 1;
-    if (p.doppi >= 3) {
-      mandaAlFaro(s, p, 2, "tre doppi di fila");
-      p.haTirato = true;
-      return;
-    }
-    log(s, p.nome + " tira " + d1 + " e " + d2 + ".", p.id);
-    muovi(s, p, n, doppio);
-    if (!doppio) p.haTirato = true;
+    // tre dadi: si va avanti della somma; un tris (tre uguali) fa ritirare
+    const d = [dado(s), dado(s), dado(s)], n = d[0] + d[1] + d[2];
+    p.dadi = d;
+    const tris = d[0] === d[1] && d[1] === d[2];
+    log(s, p.nome + " tira " + d.join(" e ") + ".", p.id);
+    muovi(s, p, n);
+    if (tris && p.doppi < 1 && !p.faro) { p.doppi += 1; log(s, p.nome + " fa tris: tira ancora!", p.id); }
+    else p.haTirato = true;
   }
 
-  function muovi(s, p, n, doppio) {
-    if (p.inner) {
-      for (let k = 0; k < n; k++) {
-        p.ipos = (p.ipos + 1) % 12;
-        if (INNER_TO_CORNER[p.ipos] !== undefined && k < n - 1 && p.vuoleUscire !== false) {
-          p.inner = false; p.pos = INNER_TO_CORNER[p.ipos];
-          log(s, p.nome + " esce da Isola Corona.", p.id);
-          for (let j = k + 1; j < n; j++) passo(s, p);
-          break;
-        }
-      }
-    } else {
-      for (let k = 0; k < n; k++) {
-        passo(s, p);
-        if (doppio && CORNER_TO_INNER[p.pos] !== undefined && k < n - 1 && p.vuoleCorona !== false) {
-          p.inner = true; p.ipos = CORNER_TO_INNER[p.pos];
-          log(s, p.nome + " fa un doppio e svolta verso Isola Corona.", p.id);
-          for (let j = k + 1; j < n; j++) p.ipos = (p.ipos + 1) % 12;
-          break;
-        }
-      }
-    }
+  function muovi(s, p, n) {
+    p.inner = false;
+    for (let k = 0; k < n; k++) passo(s, p);
     const c = casella(s, p);
     atterra(s, p, c);
   }
   function passo(s, p) {
-    p.pos = (p.pos + 1) % 40;
+    p.pos = (p.pos + 1) % CASELLE;
     if (p.pos === 0) {
       if (p.blocco > 0) { log(s, p.nome + " passa dal Via ma lo Stipendio è bloccato dal Giudice.", p.id); }
       else { p.cash += N.stipendio; log(s, p.nome + " passa dal Ponte Sud e incassa lo Stipendio (" + euro(N.stipendio) + ").", p.id); }
     }
   }
-  function casella(s, p) { return p.inner ? s.lotti.find((l) => l.giro === "i" && l.idx === p.ipos) : s.lotti.find((l) => l.giro === "o" && l.idx === p.pos); }
+  function casella(s, p) { return s.lotti.find((l) => l.giro === "o" && l.idx === p.pos); }
 
   function atterra(s, p, c) {
     if (c.tipoCasella === "lotto" || c.tipoCasella === "molo") {
@@ -357,15 +354,22 @@
       }
       return;
     }
+    if (c.tipoCasella === "agenzia") {
+      p.agenziaSconto = true;
+      privato(s, p, "All'" + c.nome + " ti accolgono con un caffè: in questo turno puoi comprare un terreno libero di " + NOMI_ISOLE[c.isola || isolaDiPos(p.pos)] + " a prezzo pieno, senza il 20% in più. Apri l'app Agenzia.");
+      log(s, p.nome + " passa dall'" + c.nome + ".", p.id);
+      return;
+    }
     switch (c.nome) {
       case "Gazzetta": cartaGazzetta(s, p); break;
       case "Ponte Est — Posto di blocco": postoDiBlocco(s, p); break;
+      case "Bisca del Vicolo": if (livelloSblocco(s) >= 1) privato(s, p, "Dalla porta della Bisca qualcuno ti fa segno: \"Stanotte si gioca forte. Porta contanti.\""); else { const f = 1 + Math.floor(rng(s) * 2); p.fama += f; log(s, p.nome + " si fa vedere alla Bisca del Vicolo: +" + f + " fama.", p.id); } break;
       case "Mercato Nero": if (livelloSblocco(s) >= 1) privato(s, p, "Passando dal Mercato Nero un venditore ti fa l'occhiolino: \"Stanotte passa a trovarmi, ho roba nuova.\""); break;
       case "Spiaggia VIP": { const f = 2 + Math.floor(rng(s) * 4); p.fama += f; log(s, p.nome + " incontra un ospite famoso alla Spiaggia VIP: +" + f + " fama.", p.id); break; }
       case "Gala Flamingo": s.pending = { tipo: "gala", giocatore: p.id }; break;
       case "Porto Container": if (livelloSblocco(s) >= 1) privato(s, p, "Al Porto un gruista ti dice sottovoce che stanotte arrivano container senza bolla."); break;
       case "La Borsa": privato(s, p, "Alla Borsa: le tue prossime operazioni oggi sono senza commissioni."); break;
-      case "Il Municipio": s.pending = { tipo: "municipio", giocatore: p.id }; break;
+      case "Il Municipio": p.municipioOggi = true; s.pending = { tipo: "municipio", giocatore: p.id }; break;
       case "Banca Centrale": privato(s, p, "Alla Banca Centrale: puoi chiedere un prestito con l'Azione del giorno."); break;
       case "Casinò Reale": s.pending = { tipo: "casino_reale", giocatore: p.id }; break;
       default: break;
@@ -386,7 +390,7 @@
       if (altri.length) { const b = altri[Math.floor(rng(s) * altri.length)]; p.prove.push({ su: b.id, ciclo: s.ciclo + 1, cosa: "soffiata" }); }
     }],
     ["Il tuo quartiere va di moda: +0,5 Valore all'isola dove sei.", (s, p) => { const c = casella(s, p); const i = c.isola || "Corona"; s.valore[i] = clamp(s.valore[i] + 0.5, 1, 10); }],
-    ["Avanzi fino al Ponte Sud e incassi lo Stipendio.", (s, p) => { if (!p.inner) { p.pos = 0; if (!p.blocco) p.cash += N.stipendio; } }],
+    ["Avanzi fino al Ponte Sud e incassi lo Stipendio.", (s, p) => { p.pos = 0; if (!p.blocco) p.cash += N.stipendio; }],
     ["Uno scandalo minore ti tocca di striscio: -3 fama.", (s, p) => { p.fama = Math.max(0, p.fama - 3); }],
     ["Dividendo straordinario: +10% sulle tue azioni.", (s, p) => { for (const a of AZIENDE) if (p.azioni[a]) p.azioni[a] *= 1.1; }],
   ];
@@ -469,8 +473,9 @@
     s.pending = null;
     if (scelta === "candidati") candidati(s, p);
     else if (scelta === "licenza") {
-      if (p.cash < 500_000) err("La licenza costa 500.000 €.");
-      p.cash -= 500_000; s.licenze.push(p.id);
+      if (s.licenze.includes(p.id)) err("La licenza ce l'hai già.");
+      if (p.cash < 400_000) err("Allo sportello la licenza costa 400.000 €.");
+      p.cash -= 400_000; s.licenze.push(p.id);
       log(s, p.nome + " ottiene la licenza per aprire un casinò.", p.id);
     }
   }
@@ -512,7 +517,7 @@
     if (next === 5 && p.fama < 50) err("Il livello Icona richiede fama 50.");
     let costo = N.costLvl[next] * l.prezzo;
     if (s.leggi.includes("condono")) costo *= 0.5;
-    if (p.inner === false && casella(s, p).id === l.id) costo *= 0.9;
+    if (casella(s, p).id === l.id) costo *= 0.9;
     costo = round(costo);
     if (p.cash < costo) err("Ti servono " + euro(costo) + " puliti.");
     p.cash -= costo; l.cantiere = { tipo: nuovoTipo, lvl: next }; l.permesso = false; p.azioneGiornoFatta = true;
@@ -718,7 +723,7 @@
   }
   function isolaDiNotte(s, p) {
     const c = casella(s, p);
-    return c.isola || (p.inner ? "Corona" : ["Ambra", "Palma", "Flamingo", "Sole"][Math.floor(p.pos / 10) % 4]);
+    return c.isola || isolaDiPos(p.pos);
   }
   function corrompi(s, p, chi, isola, pagaConSporchi) {
     inNotte(s, p);
@@ -1187,6 +1192,52 @@
     privato(s, p, "Municipio: permesso negato per " + l.nome + ". L'assessore però ha fatto capire che \"si può sempre parlare\".");
     return "negato";
   }
+  // Agenzia immobiliare (app del telefono): una volta per turno compri un terreno libero
+  // dell'isola dove sei, anche senza fermarti sopra. Costa il 20% in più (prezzo pieno se sei passato da un'Agenzia).
+  function prezzoAgenzia(s, p, l) { return p.agenziaSconto ? l.prezzo : round(l.prezzo * 1.2); }
+  function agenzia(s, p, idLotto) {
+    if (s.fase !== "giorno" || corrente(s).id !== p.id) err("L'Agenzia si usa di giorno, nel tuo turno.");
+    if (!p.haTirato) err("Prima tira i dadi: l'Agenzia lavora sull'isola dove arrivi.");
+    if (s.pending) err("Prima finisci la scelta in corso.");
+    if (p.faro > 0) err("Dal Faro non puoi comprare terreni.");
+    if (p.agenziaUsata) err("All'Agenzia si compra un terreno per turno.");
+    const l = lotto(s, idLotto);
+    if (l.owner != null) err("Questo terreno ha già un proprietario.");
+    if (l.tipoCasella !== "lotto" && l.tipoCasella !== "molo") err("Questo non è un terreno.");
+    const isola = casella(s, p).isola || isolaDiPos(p.pos);
+    if (l.isola !== isola) err("L'Agenzia vende solo terreni di " + NOMI_ISOLE[isola] + ", l'isola dove sei.");
+    const costo = prezzoAgenzia(s, p, l);
+    if (p.cash < costo) err("Non hai abbastanza soldi puliti: serve " + euro(costo) + ".");
+    p.cash -= costo; l.owner = p.id; p.agenziaUsata = true;
+    log(s, p.nome + " compra " + l.nome + " tramite l'Agenzia per " + euro(costo) + ".", p.id);
+    notizia(s, p.nome + " compra " + l.nome + ".", "affari");
+    controllaValoreLusso(s, l);
+  }
+  // Licenza del casinò chiesta dall'app Municipio: come i permessi (approvata, rimandata o negata).
+  function chiediLicenza(s, p) {
+    if (s.fase !== "giorno" || corrente(s).id !== p.id) err("Al Municipio si va di giorno, nel tuo turno.");
+    if (s.pending) err("Prima finisci la scelta in corso.");
+    if (s.licenze.includes(p.id)) err("La licenza ce l'hai già.");
+    if (p.cash < 500_000) err("La licenza costa 500.000 €.");
+    const turno = s.ciclo * 100 + s.giorno * 10 + s.turno;
+    if (p.licenzaTurno === turno) err("La domanda di licenza si fa una volta per turno.");
+    p.licenzaTurno = turno;
+    const x = rng(s) - Math.min(0.2, p.fama / 400);
+    if (x < 0.45) { p.cash -= 500_000; s.licenze.push(p.id); p.licenzaNegata = false; log(s, p.nome + " ottiene la licenza per aprire un casinò.", p.id); privato(s, p, "Municipio: licenza del casinò APPROVATA. Pagati 500.000 €. Ora puoi costruire un casinò a Baia Flamingo o a Isola Corona."); return "approvato"; }
+    if (x < 0.8) { privato(s, p, "Municipio: la domanda di licenza è rimandata. Riprova al prossimo turno (più fama hai, più è facile)."); return "rimandato"; }
+    p.licenzaNegata = true;
+    privato(s, p, "Municipio: licenza NEGATA. L'assessore però ti guarda e dice: \"Con una busta, tutto si sistema.\"");
+    return "negato";
+  }
+  function bustaLicenza(s, p) {
+    if (s.fase !== "giorno" || corrente(s).id !== p.id) err("Non è il tuo turno.");
+    if (!p.licenzaNegata) err("Non c'è nessuna licenza negata da sistemare.");
+    pagaMisto(s, p, 650_000);
+    s.licenze.push(p.id); p.licenzaNegata = false;
+    p.tracce += 10; p.pulitoCiclo = false; p.peggiorReato = peggio(p.peggiorReato, "lieve");
+    privato(s, p, "Una busta gonfia passa sotto il tavolo. La licenza del casinò è tua.");
+    log(s, p.nome + " ottiene la licenza per aprire un casinò.", p.id);
+  }
   function regaloAssessore(s, p, idLotto) {
     if (s.fase !== "giorno" || corrente(s).id !== p.id) err("Non è il tuo turno.");
     const l = lotto(s, idLotto);
@@ -1434,7 +1485,7 @@
   }
   function mandaAlFaro(s, p, turni, motivo) {
     p.faro = Math.max(p.faro, turni); p.arresti += 1;
-    if (p.inner) p.inner = false; p.pos = 10;
+    p.inner = false; p.pos = POS_FARO;
     log(s, p.nome + " va al Faro per " + turni + " turni (" + motivo + ").", p.id);
     notizia(s, p.nome + " è stato portato al Faro.", "scandalo");
   }
@@ -1549,7 +1600,7 @@
       let mu = N.borsaMu / 3; // la crescita media si divide anche sui giorni
       if (a === "Flamingo Luxury") mu += (s.valore.Flamingo - 5) * 0.01;
       if (a === "Palma Resorts") mu += (s.valore.Palma - 5) * 0.01;
-      if (a === "SoleTech") mu += s.lotti.filter((l) => l.tipo === "uffici").length * 0.01;
+      if (a === "SoleTech") mu += Math.min(4, s.lotti.filter((l) => l.tipo === "uffici").length) * 0.01;
       s.borsa[a] = Math.max(5, s.borsa[a] * (1 + gauss(s, mu, N.borsaSd)));
     }
     for (const m of MONETE) {
@@ -1575,7 +1626,7 @@
     s.leggi = s.leggi.filter((x) => !x.startsWith("giro_cripto"));
     // cicli
     s.ciclo += 1;
-    if (s.ciclo >= N.cicli) return fine(s);
+    if (s.ciclo >= (s.cicli || N.cicli)) return fine(s);
     s.fase = "giorno"; s.giorno = 0; s.turno = 0;
     notizia(s, "Sorge il sole sul Ciclo " + (s.ciclo + 1) + ".", "evento");
     iniziaTurno(s);
@@ -1669,6 +1720,9 @@
       case "pacchetto": return scegliPacchetto(s, p, a.id);
       case "tira": return tira(s, p);
       case "compra": return compra(s, p, !!a.si);
+      case "agenzia": return agenzia(s, p, a.lotto);
+      case "licenza": return chiediLicenza(s, p);
+      case "busta_licenza": return bustaLicenza(s, p);
       case "offerta": return offerta(s, p, a.importo);
       case "gala": return gala(s, p, a.importo);
       case "casino_reale": return casinoReale(s, p, a.importo);
@@ -1753,7 +1807,7 @@
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE,
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
-    ORE, LUOGHI, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, livelloSblocco, postiValigetta, oreViaggio, luogoAperto,
+    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, livelloSblocco, postiValigetta, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;

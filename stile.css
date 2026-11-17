@@ -29,14 +29,6 @@ label{font-size:13px;color:var(--muted)}
 #mondo.notte #mappa::before{opacity:1}
 #mondo::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(5,10,20,0) 55%,rgba(5,10,20,.55) 100%)}
 .cas{position:absolute;transform:translate(-50%,-50%);z-index:2;display:flex;flex-direction:column;align-items:center;pointer-events:auto}
-.cas i{font-style:normal;display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;font-size:13px;background:rgba(8,14,26,.82);border:2px solid rgba(255,255,255,.85);box-shadow:0 3px 8px rgba(0,0,0,.55)}
-.cas.lotto i{background:linear-gradient(160deg,color-mix(in srgb,var(--serie) 85%,#fff) 0%,var(--serie) 60%,color-mix(in srgb,var(--serie) 70%,#000) 100%);width:18px;height:18px;border-radius:5px}
-.cas.pres i{border-color:var(--own);border-width:3px;box-shadow:0 0 0 2px rgba(255,255,255,.9),0 0 12px var(--own)}
-.cas.ang i{width:34px;height:34px;border-radius:50%;font-size:18px;border-color:var(--oro);background:radial-gradient(circle,#2a2010,#0b0f18);box-shadow:0 0 14px rgba(243,197,107,.7)}
-.cas.molo i{width:20px;height:20px;border-radius:50%;font-size:11px}
-.cas.spec i{width:24px;height:24px;border-radius:50%;font-size:13px}
-.cas .cn{display:none;margin-top:3px;font-size:10px;font-weight:700;white-space:nowrap;background:rgba(5,10,20,.8);padding:1px 6px;border-radius:6px}
-.cas.ang .cn,#mondo.vicino .cas .cn{display:block}
 #mondo.notte .cas{opacity:.3}
 .ped{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;transition:left .17s ease-out,top .17s ease-out;z-index:4;box-shadow:0 3px 10px rgba(0,0,0,.5)}
 .ped b{font-size:11px;color:#0b1018}
@@ -200,8 +192,8 @@ table.cl{width:100%;border-collapse:collapse;font-size:14px}table.cl td,table.cl
 button .lic{margin-right:2px}
 .luogo .pin .lic{width:24px;height:24px;color:#2a1a05}
 .luogo.qui .pin .lic{color:#0a1730}
-.cas i .lic{width:13px;height:13px;color:#fff}
-.cas.ang i .lic{width:19px;height:19px;color:var(--oro)}
+
+
 .app .ico .lic{width:28px;height:28px;color:#fff}
 .ogg .ic .lic{width:24px;height:24px;color:#fff}
 .avatar .lic{width:20px;height:20px;color:#fff}
@@ -216,3 +208,30 @@ button .lic{margin-right:2px}
 .liv{display:flex;gap:10px;align-items:flex-start;padding:5px 0}
 .liv-n{width:26px;height:26px;border-radius:50%;background:rgba(243,197,107,.2);color:var(--oro);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0}
 .liv.chiuso{opacity:.45}
+
+/* ---- caselle chiare (tabellone da 80) ---- */
+.cas i,.lg{font-style:normal;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+.cas.terreno i,.lg.terreno{min-width:36px;height:25px;padding:0 5px 0 8px;border-radius:6px;background:#f6f1e6;color:#1a1f2b;border:1.5px solid rgba(0,0,0,.35);border-left:6px solid var(--serie,#888);box-shadow:0 3px 8px rgba(0,0,0,.55)}
+.cas.terreno em,.lg em{font-style:normal;font-size:12.5px;font-weight:800;letter-spacing:-.2px}
+.cas.terreno.molo i{min-width:24px;padding:0 3px 0 5px}
+.cas.terreno.molo i .lic{width:15px;height:15px;color:#1a1f2b}
+.cas.terreno.pres i,.lg.terreno.pres{background:var(--own);color:#0b1018;border-color:#fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.4),0 0 10px var(--own)}
+.cas.terreno.pres b,.lg b{font-size:14px;font-weight:900}
+.cas.spec i,.lg.spec{width:34px;height:34px;border-radius:50%;background:#0d1626;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.6)}
+.cas.spec i .lic,.lg.spec .lic{width:19px;height:19px;color:#fff}
+.cas.agz i{background:#1f6b4a}
+.cas.lib i{width:22px;height:22px;border-radius:50%;background:rgba(13,22,38,.7);border:1.5px solid rgba(255,255,255,.6)}
+.cas.lib i .lic{width:10px;height:10px;color:#cfe}
+.cas.ang i,.lg.ang{width:42px;height:42px;border-radius:50%;border:2px solid var(--oro);background:radial-gradient(circle,#2a2010,#0b0f18);box-shadow:0 0 14px rgba(243,197,107,.7)}
+.cas.ang i .lic,.lg.ang .lic{width:24px;height:24px;color:var(--oro)}
+.cas .cn{margin-top:2px;font-size:11px;font-weight:700;white-space:nowrap;background:rgba(5,10,20,.82);color:#fff;padding:1px 5px;border-radius:5px;pointer-events:none}
+.cas.terreno .cn{display:none}
+#mondo.vicino .cas.terreno .cn{display:block}
+.legenda{position:fixed;left:14px;top:62px;z-index:20;padding:6px;border-radius:12px;max-width:330px;font-size:12.5px}
+.legenda .leg-dentro{display:none;padding:8px 6px 4px;gap:7px;flex-direction:column}
+.legenda.aperta .leg-dentro{display:flex}
+.legenda .leg-dentro>div{display:flex;align-items:center;gap:9px}
+.legenda .lg{flex:0 0 auto}
+.legenda .lg.ang{width:26px;height:26px}.legenda .lg.ang .lic{width:14px;height:14px}
+.legenda #legTasto{display:flex;align-items:center;gap:6px}
+.legenda #legTasto .lic{width:14px;height:14px}
