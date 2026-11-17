@@ -2318,7 +2318,8 @@
       if (!p.peggiorReato) { p.stato = 1; p.tracce *= 0.5; privato(s, p, "Il Giudice archivia: non ci sono reati provati."); notizia(s, "Archiviata l'indagine su " + p.nome + ".", "voce"); }
       else condanna(s, p, p.peggiorReato, "processo");
     }
-    // borsa e cripto
+    // borsa e cripto (la Gazzetta mostra di quanto sono salite o scese)
+    s.borsaIeri = { ...s.borsa }; s.criptoIeri = { ...s.cripto };
     for (const a of AZIENDE) {
       let mu = N.borsaMu / 3; // la crescita media si divide anche sui giorni
       if (a === "Flamingo Luxury") mu += (s.valore.Flamingo - 5) * 0.01;

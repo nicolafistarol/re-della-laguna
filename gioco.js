@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=37";
+import { ico } from "./icone.js?v=38";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=37";
-import * as Pano from "./panorama.js?v=37";
+import * as Tre from "./tre.js?v=38";
+import * as Pano from "./panorama.js?v=38";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=37";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=38";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -314,6 +314,7 @@ function testoCiclo() {
 }
 // ------------------------------------------------------------ chi deve agire
 window.__S = () => S; // per le prove automatiche
+window.__ultimOra = (g) => ultimOra(g);
 function io() { return S.players.find((p) => p.id === mioId); }
 function mioTurno() { return S && S.fase === "giorno" && L.corrente(S).id === mioId; }
 function tocca() {
@@ -361,6 +362,7 @@ function nuoviLog(log) {
 }
 function riceviVista(v) {
   const j = JSON.stringify(v); if (j === ultimaVistaJson) return; ultimaVistaJson = j;
+  if (!S) { (v.gazzetta || []).forEach((g) => gazzettaVista.add(g.ciclo + "|" + g.testo)); }
   if (!S) { S = v; S.players.forEach((p) => disp[p.id] = copiaPos(p)); ultimoLog = S.log[S.log.length - 1] || null; ultimoFlusso = Math.max(0, ...(S.flussi || []).map((f) => f.n)); segnoTurno = ultimoFlusso; disegna(); return; }
   coda.push(v);
   if (!animando) eseguiCoda();
@@ -388,6 +390,7 @@ async function eseguiCoda() {
     const me = io();
     if (me && me.cash !== cashPrima && cashPrima && !saldoNascosto) mostraDelta(me.cash - cashPrima);
     for (const r of righe) avvisoPerMe(r);
+    ultimOra(v.gazzetta || []);
     // i soldi che passano di mano: si vedono volare, con il motivo
     const nuoviF = (v.flussi || []).filter((f) => f.n > ultimoFlusso);
     if (v.flussi && v.flussi.length) ultimoFlusso = Math.max(ultimoFlusso, ...v.flussi.map((f) => f.n));
@@ -1340,7 +1343,132 @@ function appVisibile(me, a) {
   if (a.k === "sporchi") return S.sblocco >= 1 || me.sporchi > 0;
   return a.lv <= S.sblocco || (a.k === "prove" && (me.prove || []).length);
 }
-function apriApp(k) { telAperto = true; app = k; chatAperta = null; if (k === "messaggi") segnaLetti((io().messaggi || []).length); disegnaTelefono(io()); }
+// ------------------------------------------------------------ la Gazzetta della Laguna
+// Prima pagina per ogni Ciclo (titolone, foto, sezioni), "Ultim'ora" che scorre in alto quando succede
+// qualcosa di grosso, e i più potenti per fascia (mai i saldi).
+const gazzettaVista = new Set();
+const PESO_NOTIZIA = { scandalo: 9, allarme: 8, evento: 7, politica: 6, borsa: 5, affari: 4, fama: 3, notarile: 2, voce: 2, notizia: 1 };
+const SEZIONI_GAZZETTA = [["Cronaca nera", ["scandalo", "allarme"]], ["Politica", ["politica"]], ["Affari", ["affari", "notarile", "notizia"]], ["Mondanità", ["fama"]], ["Si dice che…", ["voce"]], ["La Laguna", ["evento"]]];
+function fotoNotizia(g) {
+  const x = g.testo;
+  const regole = [[/Porto|carico|container/i, "img/notte-porto.jpg"], [/Casin/i, "img/notte-casino.jpg"], [/Faro|arrestat|cella|Processo|condann|Procura/i, "img/notte-faro.jpg"], [/Borsa|titol|cripto|Coin|Token/i, "img/corona.jpg"],
+    [/Sindaco|Municipio|legge|tasse|elezion/i, "img/corona.jpg"], [/setta|simboli|Faro/i, "img/notte-villa.jpg"], [/yacht|Marina|jet|elicottero/i, "img/notte-marina.jpg"], [/Aeroporto|dogan/i, "img/notte-aeroporto.jpg"],
+    [/Flamingo/i, "img/flamingo.jpg"], [/Palma/i, "img/palma.jpg"], [/Ambra/i, "img/ambra.jpg"], [/Sole/i, "img/sole.jpg"], [/Corona/i, "img/corona.jpg"], [/Gazzetta|giornal|foto/i, "img/notte-redazione.jpg"], [/palazzo|piano|grattacielo|Attico/i, "img/penthouse.jpg"]];
+  for (const [re, img] of regole) if (re.test(x)) return img;
+  return g.tipo === "scandalo" ? "img/notte-redazione.jpg" : "img/laguna.jpg";
+}
+function titolone(testo) {
+  const t = testo.split(/[.:!]/)[0];
+  return t.length > 70 ? t.slice(0, 68) + "…" : t;
+}
+function primaPagina(ciclo, compatta) {
+  const items = S.gazzetta.filter((g) => g.ciclo === ciclo && !/^Sorge il sole/.test(g.testo));
+  if (!items.length) return `<div class="giornale"><div class="testata"><b>La Gazzetta della Laguna</b><span>Ciclo ${ciclo}</span></div><p class="sub" style="padding:10px">Niente di nuovo, per ora. Ma la notte è lunga.</p></div>`;
+  const ord = [...items].sort((a, b) => (PESO_NOTIZIA[b.tipo] || 1) - (PESO_NOTIZIA[a.tipo] || 1) || S.gazzetta.indexOf(b) - S.gazzetta.indexOf(a));
+  const apertura = ord[0], resto = ord.slice(1);
+  const borsa = S.borsaIeri ? L.AZIENDE.map((a) => { const d = (S.borsa[a] / (S.borsaIeri[a] || S.borsa[a]) - 1) * 100; return `<span class="titolo-borsa"><b>${esc(a)}</b> ${S.borsa[a].toFixed(0)} <i style="color:${d >= 0 ? "var(--pulito)" : "var(--sporco)"}">${d >= 0 ? "▲" : "▼"} ${Math.abs(d).toFixed(1)}%</i></span>`; }).join("") : "";
+  const sezioni = compatta ? `<div class="g-sez">${resto.slice(0, 3).map((g) => `<p class="g-breve">${esc(g.testo)}</p>`).join("")}</div>`
+    : SEZIONI_GAZZETTA.map(([nome, tipi]) => { const xs = resto.filter((g) => tipi.includes(g.tipo || "notizia")); return xs.length ? `<div class="g-sez"><span class="g-sez-t">${nome}</span>${xs.map((g) => `<p class="g-breve">${esc(g.testo)}</p>`).join("")}</div>` : ""; }).join("")
+      + (borsa ? `<div class="g-sez"><span class="g-sez-t">Borsa della Laguna</span><div class="g-borsa">${borsa}</div></div>` : "");
+  return `<div class="giornale">
+    <div class="testata"><b>La Gazzetta della Laguna</b><span>Ciclo ${ciclo} · ${ciclo === S.ciclo + 1 ? "ultima edizione" : "edizione del Ciclo " + ciclo}</span></div>
+    <div class="g-apertura" style="background-image:linear-gradient(180deg,rgba(0,0,0,0) 30%,rgba(0,0,0,.85)),url('${fotoNotizia(apertura)}')"><span class="g-kick">${{ scandalo: "Scandalo", allarme: "Allarme", evento: "In primo piano", politica: "Politica", borsa: "Borsa", affari: "Affari", fama: "Mondanità", voce: "Indiscrezioni" }[apertura.tipo] || "Cronaca"}</span><h3>${esc(titolone(apertura.testo))}</h3></div>
+    <p class="g-occhiello">${esc(apertura.testo)}</p>
+    ${sezioni}
+  </div>`;
+}
+function potentiHtml() {
+  const ORD = ["Sovrano", "Magnate", "Milionario", "Ricco", "Benestante"];
+  const cl = [...S.players].map((p) => ({ p, f: p.id === mioId ? L.fascia(S, p) : p.fascia })).sort((a, b) => (ORD.indexOf(a.f) < 0 ? 9 : ORD.indexOf(a.f)) - (ORD.indexOf(b.f) < 0 ? 9 : ORD.indexOf(b.f)) || (b.p.fama || 0) - (a.p.fama || 0));
+  return `<div class="g-sez"><span class="g-sez-t">I più potenti della Laguna</span>${cl.map((x, i) => `<p class="g-breve"><b>${i + 1}. ${esc(x.p.nome)}</b> · ${esc(x.f || "?")} · fama ${x.p.fama ?? "?"}${S.sindaco === x.p.id ? " · Sindaco" : ""}</p>`).join("")}<span class="sub" style="font-size:11px">La Gazzetta non conosce i conti di nessuno: solo come vivono.</span></div>`;
+}
+let gazzettaCiclo = null;
+function appGazzetta() {
+  const cicli = [...new Set(S.gazzetta.map((g) => g.ciclo))].sort((a, b) => b - a);
+  const c = gazzettaCiclo && cicli.includes(gazzettaCiclo) ? gazzettaCiclo : cicli[0] || S.ciclo + 1;
+  return `<div class="riga" style="justify-content:space-between;margin-bottom:8px"><button class="piccolo" data-gciclo="${c - 1}" ${cicli.includes(c - 1) ? "" : "disabled"}>‹ Ciclo prima</button><button class="piccolo" data-gciclo="${c + 1}" ${cicli.includes(c + 1) ? "" : "disabled"}>Ciclo dopo ›</button></div>`
+    + primaPagina(c) + (c === (cicli[0] || 0) ? `<div class="giornale" style="margin-top:10px">${potentiHtml()}</div>` : "");
+}
+// Ultim'ora: le notizie grosse scorrono in alto mentre giochi
+const codaUltimOra = []; let ultimOraAttiva = false;
+function ultimOra(gaz) {
+  for (const g of gaz) {
+    const k = g.ciclo + "|" + g.testo; if (gazzettaVista.has(k)) continue; gazzettaVista.add(k);
+    if ((PESO_NOTIZIA[g.tipo] || 1) >= 5) codaUltimOra.push(g);
+  }
+  while (codaUltimOra.length > 4) codaUltimOra.shift();
+  if (!ultimOraAttiva) mostraUltimOra();
+}
+function mostraUltimOra() {
+  const g = codaUltimOra.shift(); if (!g) { ultimOraAttiva = false; return; }
+  ultimOraAttiva = true;
+  const el = document.createElement("div"); el.className = "ultimora";
+  el.innerHTML = `<span class="uo-t">Ultim'ora</span><span class="uo-testo">${esc(g.testo)}</span>`;
+  el.onclick = () => { el.remove(); apriApp("gazzetta"); };
+  document.body.appendChild(el);
+  setTimeout(() => { el.classList.add("via"); setTimeout(() => { el.remove(); mostraUltimOra(); }, 500); }, VELOCE ? 300 : 6500);
+}
+
+// ------------------------------------------------------------ telefono: home chiara
+// App raggruppate, una riga di stato sotto ogni icona, pallino rosso solo per le cose da fare,
+// "NUOVA" sulle app appena sbloccate, e in alto "Adesso puoi" con 1-3 cose da fare subito.
+const GRUPPI_APP = [["Soldi", ["impero", "banca", "borsa"]], ["Costruire", ["imprese", "agenzia", "palazzo", "lusso"]], ["Persone", ["messaggi", "rubrica", "contratti", "setta"]], ["Notte", ["valigetta", "sporchi", "prove"]], ["Città", ["gazzetta", "municipio", "scoperte"]]];
+const APP_SEMPRE = ["impero", "imprese", "agenzia", "banca", "gazzetta", "messaggi", "valigetta", "palazzo", "lusso", "rubrica", "municipio"];
+function appViste() { try { return new Set(JSON.parse(localStorage.getItem("laguna_appviste_" + partita) || "[]")); } catch (e) { return new Set(); } }
+function segnaAppVista(k) { try { const v = appViste(); v.add(k); localStorage.setItem("laguna_appviste_" + partita, JSON.stringify([...v])); } catch (e) { } }
+function appNuova(k) { return !APP_SEMPRE.includes(k) && !appViste().has(k); }
+function contrattiPerMe() { return (S.contratti || []).filter((c) => c.a === mioId && c.stato === "proposto"); }
+// riga di stato e numero di cose da fare per ogni app
+function statoApp(me, k, nuovi) {
+  const miei = S.lotti.filter((l) => l.owner === mioId);
+  switch (k) {
+    case "impero": return { riga: kEuro(L.patrimonio(S, me, false)) };
+    case "banca": { const scade = (me.prestiti || []).filter((p) => p.scadenza <= S.ciclo + 1).length; return { riga: me.debito > 0 ? "debito " + kEuro(me.debito) : "nessun debito", fare: scade }; }
+    case "borsa": { const inv = L.valoreInvestimenti(S, me); return { riga: inv > 0 ? kEuro(inv) + " investiti" : "niente investito" }; }
+    case "imprese": { const vuoti = miei.filter((l) => l.tipoCasella === "lotto" && !l.lvl && !l.cantiere).length; return { riga: vuoti ? vuoti + (vuoti === 1 ? " terreno vuoto" : " terreni vuoti") : miei.filter((l) => l.lvl > 0).length + " attività", caldo: vuoti > 0 }; }
+    case "agenzia": { const lib = S.lotti.filter((l) => !l.owner && l.tipoCasella === "lotto").length; return { riga: lib + " liberi" }; }
+    case "palazzo": return { riga: me.piani ? me.piani + (me.piani === 1 ? " piano" : " piani") : "da costruire" };
+    case "lusso": return { riga: (me.veicoli || []).length ? (me.veicoli.length === 1 ? "1 mezzo" : me.veicoli.length + " mezzi") : "nessun mezzo" };
+    case "messaggi": return { riga: nuovi ? nuovi + (nuovi === 1 ? " nuovo" : " nuovi") : "letti", fare: nuovi };
+    case "rubrica": return { riga: "chi conta" };
+    case "contratti": { const n = contrattiPerMe().length; return { riga: n ? "proposta per te" : (S.contratti || []).filter((c) => c.stato === "attivo" && (c.a === mioId || c.da === mioId)).length + " attivi", fare: n }; }
+    case "setta": { const inv = (S.inviti || []).length; return { riga: inv ? "invito segreto" : S.sette.length ? esc(S.sette[0].nome) : "fondala", fare: inv }; }
+    case "valigetta": return { riga: (me.valigetta || []).length + " / " + (S.postiValigetta || 0) };
+    case "sporchi": { const cal = Object.keys(me.calore || {}).length || me.calSoldi > 0; return { riga: kEuro(me.sporchi || 0), caldo: !!cal }; }
+    case "prove": return { riga: (me.prove || []).length + " in mano" };
+    case "gazzetta": return { riga: "Ciclo " + (S.ciclo + 1) };
+    case "municipio": { const sind = S.players.find((p) => p.id === S.sindaco); return { riga: sind ? "Sindaco " + esc(sind.nome) : "Sindaco Albertini" }; }
+    case "scoperte": { const n = L.SCOPERTE.filter((x) => (me.scoperte || {})[x.id] !== undefined).length; return { riga: n + " / " + L.SCOPERTE.length }; }
+  }
+  return { riga: "" };
+}
+const APP_DI_SCOPERTA = { agenzia: "agenzia", permesso: "imprese", piano: "palazzo", veicolo: "lusso", prestito: "banca", investi: "borsa", contratto: "contratti", evasione: "banca", candidati: "municipio", ricicla: "sporchi", corrompi: "sporchi", oggetto: "valigetta", fonda_setta: "setta", invita_setta: "setta", denuncia: "prove", serata: "palazzo", proposta: "agenzia" };
+// le 1-3 cose piu' importanti da fare adesso
+function adessoPuoi(me, nuovi) {
+  const out = [];
+  if ((S.inviti || []).length) out.push({ testo: "Hai ricevuto un invito segreto in una setta.", app: "setta", forte: true });
+  const k = contrattiPerMe(); if (k.length) out.push({ testo: (S.players.find((p) => p.id === k[0].da) || {}).nome + " ti propone un contratto.", app: "contratti", forte: true });
+  if (S.resaAnnunciata && !S.fine && (me.sporchi > 0 || Object.keys(me.calore || {}).length)) out.push({ testo: "Inchiesta finale in arrivo: ripulisci gli sporchi e stai lontano dai posti dove ti conoscono.", app: "sporchi", forte: true });
+  const caldo = Object.entries(me.calore || {}).sort((a, b) => b[1] - a[1])[0];
+  if (caldo && caldo[1] >= 2) out.push({ testo: "Al " + (L.LUOGHI[caldo[0]] || {}).nome + " ti conoscono: stanotte cambia posto.", app: "sporchi" });
+  if (nuovi) out.push({ testo: nuovi === 1 ? "Hai un messaggio nuovo." : "Hai " + nuovi + " messaggi nuovi.", app: "messaggi" });
+  const cons = ((S.ultimaAlba || {}).riepilogo || {})[mioId]?.consiglio;
+  if (cons && (me.scoperte || {})[cons.id] === undefined) out.push({ testo: "Vera: " + cons.testo, app: APP_DI_SCOPERTA[cons.id] || "scoperte" });
+  return out.slice(0, 3);
+}
+function homeTelefono(me, nuovi) {
+  const vis = APPS.filter((a) => appVisibile(me, a));
+  const cose = adessoPuoi(me, nuovi);
+  const icona = (a) => {
+    const st = statoApp(me, a.k, nuovi), nuova = appNuova(a.k);
+    return `<button class="app" data-app="${a.k}"><span class="ico" style="background:${a.col}">${a.ico}${st.fare ? `<span class="badge">${st.fare}</span>` : nuova ? `<span class="nuova">NUOVA</span>` : ""}</span><span class="app-nome">${a.nome}</span><span class="app-riga ${st.caldo ? "calda" : ""}">${st.riga}</span></button>`;
+  };
+  return `<div class="home2">
+    ${cose.length ? `<div class="adesso"><span class="adesso-t">Adesso puoi</span>${cose.map((c) => `<button class="adesso-r ${c.forte ? "forte" : ""}" data-app="${c.app}"><span>${esc(c.testo)}</span><span class="freccia">›</span></button>`).join("")}</div>` : ""}
+    ${GRUPPI_APP.map(([titolo, ks]) => { const as = ks.map((k) => vis.find((a) => a.k === k)).filter(Boolean); return as.length ? `<div class="gruppo-app"><span class="gruppo-t">${titolo}</span><div class="home">${as.map(icona).join("")}</div></div>` : ""; }).join("")}
+  </div>`;
+}
+function apriApp(k) { segnaAppVista(k); telAperto = true; app = k; chatAperta = null; if (k === "messaggi") segnaLetti((io().messaggi || []).length); disegnaTelefono(io()); }
 function disegnaTelefono(me) {
   const box = $("#telefonoBox");
   const nuovi = Math.max(0, (me.messaggi || []).length - letti());
@@ -1352,7 +1480,7 @@ function disegnaTelefono(me) {
   const ora = S.fase === "notte" && S.notte ? L.ORE[S.notte.ora] : ["9:00", "13:00", "18:00"][S.giorno] || "9:00";
   let dentro;
   if (!app) {
-    dentro = `<div class="home">${APPS.filter((a) => appVisibile(me, a)).map((a) => `<button class="app" data-app="${a.k}"><span class="ico" style="background:${a.col}">${a.ico}${a.k === "messaggi" && nuovi ? `<span class="badge">${nuovi}</span>` : ""}</span>${a.nome}</button>`).join("")}</div>${S.modoFine === "libera" && mioId === S.players[0].id && !S.fine ? `<button class="piccolo esci-partita" id="chiudiPartita">${S.chiusura ? "Non chiudere più la partita" : "Chiudi la partita"}</button>` : ""}${LOCALE ? `<button class="piccolo esci-partita" id="cambiaNome">Cambia nome</button>` : ""}<button class="piccolo esci-partita" id="esciPartita">Esci dalla partita</button>`;
+    dentro = homeTelefono(me, nuovi) + `${S.modoFine === "libera" && mioId === S.players[0].id && !S.fine ? `<button class="piccolo esci-partita" id="chiudiPartita">${S.chiusura ? "Non chiudere più la partita" : "Chiudi la partita"}</button>` : ""}${LOCALE ? `<button class="piccolo esci-partita" id="cambiaNome">Cambia nome</button>` : ""}<button class="piccolo esci-partita" id="esciPartita">Esci dalla partita</button>`;
   } else {
     const A = APPS.find((a) => a.k === app);
     dentro = `<div class="app-testa"><button id="indietro">‹ Home</button><b>${A.ico} ${A.nome}</b></div><div class="app-corpo">${contenutoApp(me, app)}</div>`;
@@ -1433,7 +1561,7 @@ function contenutoApp(me, k) {
       <div class="scheda"><h4>Fai un regalo</h4><div class="riga"><select id="regA">${altri.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><input id="regImp" type="number" placeholder="quanto" style="width:110px"></div>${S.sblocco >= 1 ? `<label class="check"><input type="checkbox" id="regSp"> in contanti sporchi</label>` : ""}<button class="piccolo" data-a2="regala">Dai</button></div>
       ${S.sblocco >= 2 ? `<div class="scheda"><h4>Tasse</h4><span class="sub">Puoi nascondere una parte delle rendite al fisco. Non paghi le tasse su quella parte: diventa contante in nero, che di notte spendi subito (Mercato Nero, occasioni, "regali") senza ripulirlo. Ma lascia Tracce, e la Finanza guarda i più ricchi.</span><select id="evasione">${[0, 0.1, 0.2, 0.3].map((q) => `<option value="${q}" ${Math.abs(q - (me.evasione || 0)) < 0.01 ? "selected" : ""}>${q ? "Nascondi il " + q * 100 + "%" : "Pago tutto"}</option>`).join("")}</select></div>` : ""}`;
   }
-  if (k === "gazzetta") return [...S.gazzetta].reverse().slice(0, 30).map((g) => `<div class="scheda"><span><span class="tag ${g.tipo}">Ciclo ${g.ciclo}</span></span><span class="serif" style="font-size:16px">${esc(g.testo)}</span></div>`).join("");
+  if (k === "gazzetta") return appGazzetta();
   if (k === "messaggi") {
     const cv = conversazioni(me);
     if (!cv.length) return `<p class="sub">Nessun messaggio.</p>`;
@@ -1652,6 +1780,7 @@ function collegaApp(me) {
   on("[data-denuncia]", (b) => agisci({ tipo: "denuncia", prova: Number(b.dataset.denuncia) }));
   on("[data-compra]", (b) => { const [cosa, nome] = b.dataset.compra.split("|"); agisci({ tipo: "investi", cosa, nome, importo: Number(v(`[data-imp="${cosa === "borsa" ? "b" : "c"}_${nome}"]`)) }); });
   on("[data-vendi]", (b) => { const [cosa, nome] = b.dataset.vendi.split("|"); agisci({ tipo: "vendi", cosa, nome, quota: 1 }); });
+  on("[data-gciclo]", (b) => { gazzettaCiclo = +b.dataset.gciclo; disegnaTelefono(io()); });
   on("[data-invito]", (b) => { const [st, si] = b.dataset.invito.split("|"); agisci({ tipo: "rispondi_invito", setta: st, si: si === "1" }); });
   on("[data-versa]", (b) => { const [st, sp] = b.dataset.versa.split("|"); agisci({ tipo: "versa_setta", setta: st, importo: Number(v("#versa_" + st)), sporchi: sp === "1" }); });
   on("[data-invita]", (b) => { const id = b.dataset.invita; const segno = +v("#invTipo_" + id); const soldi = Math.max(0, Number(v("#invSoldi_" + id)) || 0); if (segno && !soldi) return toast("Scrivi quanto."); agisci({ tipo: "invita_setta", setta: id, invitato: v("#inv_" + id), offerta: segno * soldi }); toast("Invito mandato."); });
@@ -1778,7 +1907,7 @@ function finestraAlba(me) {
     <table class="cl"><tr><td><b>Totale rendite</b></td><td style="color:var(--pulito);font-weight:800">+ ${euro(r.rendite || 0)}</td></tr><tr><td>Tasse</td><td style="color:var(--sporco);font-weight:800">− ${euro(r.tasse || 0)}</td></tr>
     ${r.interessi ? `<tr><td>Interessi alla Banca</td><td>− ${euro(r.interessi)}</td></tr>` : ""}${r.corruzione ? `<tr><td>Le "mance" ai tuoi amici</td><td>− ${euro(r.corruzione)}</td></tr>` : ""}</table>
     ${r.consiglio ? `<div class="scheda" style="margin-top:14px;border:1px solid rgba(255,95,162,.4)"><b style="color:#ff5fa2">Vera ti suggerisce</b><p style="margin:4px 0 0">${esc(r.consiglio.testo)}</p></div>` : ""}
-    <p class="kick" style="color:var(--muted);margin-top:16px">📰 La Gazzetta del mattino</p>${gaz.map((g) => `<p class="serif" style="font-size:16px;margin:4px 0">${esc(g.testo)}</p>`).join("")}
+    <div style="margin-top:16px">${primaPagina(S.ultimaAlba.ciclo, true)}</div>
     <div class="pulsanti"><button class="oro" id="ok">Inizia il giorno</button></div>`, (d, c) => d.querySelector("#ok").onclick = c);
 }
 // Le piste: cosa sta seguendo la polizia su di te (le prove dei rivali restano nascoste)
