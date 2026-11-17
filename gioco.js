@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=31";
+import { ico } from "./icone.js?v=32";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=31";
-import * as Pano from "./panorama.js?v=31";
+import * as Tre from "./tre.js?v=32";
+import * as Pano from "./panorama.js?v=32";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=31";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=32";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -282,9 +282,9 @@ const PUNTI_ESTERNI = Array.from({ length: N_CAS }, (_, i) => lungo(TRATTI[Math.
 function puntoMappa(p) {
   return PUNTI_ESTERNI[((p.pos % N_CAS) + N_CAS) % N_CAS];
 }
-const POS_LUOGO = { club: [73, 29], marina: [48, 79], mercato: [25, 59], bisca: [19, 68], porto: [81, 62], casino: [45, 33], redazione: [57, 44], villa: [24, 29], faro: [84, 81] };
+const POS_LUOGO = { club: [73, 29], marina: [48, 79], mercato: [25, 59], bisca: [19, 68], porto: [81, 62], casino: [45, 33], redazione: [57, 44], villa: [24, 29], faro: [84, 81], aeroporto: [93, 57] };
 const POS_CASA = { Ambra: [35, 70], Palma: [26, 30], Flamingo: [82.5, 26], Sole: [86, 52], Corona: [52, 41] };
-const ICO_LUOGO = { palazzo: ico("palazzo"), club: ico("club"), marina: ico("marina"), mercato: ico("mercato"), bisca: ico("bisca"), porto: ico("porto"), casino: ico("casino"), redazione: ico("redazione"), villa: ico("villa"), faro: ico("faro") };
+const ICO_LUOGO = { palazzo: ico("palazzo"), club: ico("club"), marina: ico("marina"), mercato: ico("mercato"), bisca: ico("bisca"), porto: ico("porto"), casino: ico("casino"), redazione: ico("redazione"), villa: ico("villa"), faro: ico("faro"), aeroporto: ico("aereo") };
 const ICO_OGG = Object.fromEntries(["maschera", "disturbatore", "telefono", "documenti", "furgone", "motoscafo", "avvocato", "macchina", "fiches", "cassetta"].map((k) => [k, ico(k)]));
 function isolaCasa(p) { const l = S.lotti.find((x) => x.owner === p.id && x.isola); return l ? l.isola : "Corona"; }
 function posLuogo(l, p) { return l === "palazzo" ? POS_CASA[isolaCasa(p)] : POS_LUOGO[l]; }
@@ -568,6 +568,8 @@ function casellaHtml(l) {
   } else if (l.tipoCasella === "angolo") { cls += " ang"; dentro = icoAngolo(l); sotto = nomeCorto; }
   else if (l.tipoCasella === "agenzia") { cls += " spec agz"; dentro = ico("chiave"); sotto = "Agenzia"; }
   else if (l.tipoCasella === "libero") { cls += " lib"; dentro = ico("palma"); sotto = nomeCorto; }
+  else if (l.tipoCasella === "eliporto") { cls += " spec agz"; dentro = "<b>H</b>"; sotto = "Eliporto"; }
+  else if (l.tipoCasella === "aeroporto") { cls += " spec agz"; dentro = ico("aereo"); sotto = "Aeroporto"; }
   else if (l.tipoCasella === "asta") { cls += " spec agz"; dentro = ico("martello"); sotto = "Asta"; }
   else { cls += " spec"; dentro = ICO_CASELLA[l.nome] || ico("stella"); sotto = NOME_BREVE[l.nome] || nomeCorto; }
   return `<div class="${cls}" data-cas="${l.id}" title="${esc(tit)}" style="${stile}"><i>${dentro}</i><span class="cn">${esc(sotto)}</span></div>`;
@@ -621,7 +623,7 @@ function schedaCasella(id, cx, cy) {
     const SPIEGA = { "Gazzetta": "Peschi una notizia: può andarti bene o male.", "Mercato Nero": "Di giorno ti danno una dritta. Di notte ci puoi comprare oggetti.", "Spiaggia VIP": "Incontri gente famosa: più fama.", "Gala Flamingo": "Serata di beneficenza: doni e guadagni fama.", "Porto Container": "Di giorno senti delle voci. Di notte arrivano i carichi.", "La Borsa": "Investimenti senza commissioni.", "Il Municipio": "Candidature a Sindaco e licenza del casinò.", "Banca Centrale": "Prestiti.", "Casinò Reale": "Una puntata al tavolo." };
     const ANG = { 0: "Si parte da qui. Ogni volta che ci passi incassi lo Stipendio.", 16: "La prigione. Se ci finisci per una condanna, stai fermo qualche turno.", 32: "L'ingresso di Isola Corona: le vie più care della Laguna.", 64: "Posto di blocco: se sei sotto indagine ti controllano." };
     SPIEGA["Bisca del Vicolo"] = "Di giorno senti qualche voce. Di notte si gioca forte.";
-    righe.push(l.tipoCasella === "angolo" ? ANG[l.idx] : l.tipoCasella === "agenzia" ? "Se ti fermi qui, in questo turno l'app Agenzia ti vende un terreno di quest'isola a prezzo pieno, senza il 20% in più." : l.tipoCasella === "libero" ? "Qui non succede niente: ti riposi." : l.tipoCasella === "asta" ? "Asta del Comune. Se ti fermi qui, in questo turno compri un terreno libero di quest'isola a prezzo pieno. I terreni sequestrati dal Giudice vanno all'asta per tutti (tranne l'ex padrone): i soldi vanno alla banca." : SPIEGA[l.nome] || "");
+    righe.push(l.tipoCasella === "angolo" ? ANG[l.idx] : l.tipoCasella === "agenzia" ? "Se ti fermi qui, in questo turno l'app Agenzia ti vende un terreno di quest'isola a prezzo pieno, senza il 20% in più." : l.tipoCasella === "libero" ? "Qui non succede niente: ti riposi." : l.tipoCasella === "eliporto" ? "Eliporto: con un elicottero, l'eliporto nel Palazzo o il jet ci arrivi col Viaggio rapido (una volta per Ciclo, al posto dei dadi)." : l.tipoCasella === "aeroporto" ? "Aeroporto della Laguna: col jet ci arrivi col Viaggio rapido. Di notte, dal Livello 2, qui arrivano i voli cargo e partono le spedizioni." : l.tipoCasella === "asta" ? "Asta del Comune. Se ti fermi qui, in questo turno compri un terreno libero di quest'isola a prezzo pieno. I terreni sequestrati dal Giudice vanno all'asta per tutti (tranne l'ex padrone): i soldi vanno alla banca." : SPIEGA[l.nome] || "");
   }
   const d = document.createElement("div"); d.className = "scheda-cas vetro";
   d.innerHTML = `<b>${esc(l.nome)}</b>${righe.map((r) => `<span>${r}</span>`).join("")}`;
@@ -747,7 +749,7 @@ function cartaGiorno(me) {
   if (turno.id !== mioId) return `<div class="titolo">Turno di ${esc(turno.nome)}</div><div class="sub">Guarda dove va. Intanto puoi aprire il telefono.</div>`;
   if (S.pending && S.pending.giocatore === mioId) return `<div class="titolo">${S.pending.tipo === "chiamata" ? ico("sconosciuto") + " Ti stanno chiamando" : "Hai una scelta da fare"}</div><button class="oro grande" data-a="pending">${S.pending.tipo === "chiamata" ? "Rispondi" : "Decidi"}</button>`;
   const c = casellaDi(me);
-  if (!me.haTirato) return riepilogoGiro() + rivalita() + `<div class="riga" style="justify-content:space-between;align-items:center"><div><div class="kick" style="color:var(--muted)">Sei a</div><div class="dove">${esc(c ? c.nome : "")}</div></div><button class="oro grande" data-a="tira">${ico("dado")} Tira i dadi</button></div>`;
+  if (!me.haTirato) return riepilogoGiro() + rivalita() + `<div class="riga" style="justify-content:space-between;align-items:center"><div><div class="kick" style="color:var(--muted)">Sei a</div><div class="dove">${esc(c ? c.nome : "")}</div></div><div class="riga">${!me.doppi && me.rapidoCiclo !== S.ciclo && L.destinazioniRapide(S, me).length ? `<button data-a="rapido">${ico("aereo")} Viaggio rapido</button>` : ""}<button class="oro grande" data-a="tira">${ico("dado")} Tira i dadi</button></div></div>`;
   if (me.faro) return `<div class="titolo">Sei al Faro</div><div class="sub">Oggi non ti muovi. Hai diritto a una telefonata: puoi usare il telefono una volta.</div><button class="oro" data-a="fine">Fine turno</button>`;
   const dadi = me.dadi ? me.dadi.map((x) => `<span class="dado">${x}</span>`).join("") : "";
   const own = c && c.owner ? S.players.find((p) => p.id === c.owner) : null;
@@ -790,7 +792,7 @@ function cartaNotte(me) {
 }
 
 // ------------------------------------------------------------ la notte: una scena per ogni luogo
-const SCENA_NOTTE = { palazzo: "img/notte-palazzo.jpg", club: "img/notte-club.jpg", marina: "img/notte-marina.jpg", mercato: "img/notte-mercato.jpg", bisca: "img/notte-bisca.jpg", porto: "img/notte-porto.jpg", casino: "img/notte-casino.jpg", redazione: "img/notte-redazione.jpg", villa: "img/notte-villa.jpg", faro: "img/notte-faro.jpg", viaggio: "img/notte-viaggio.jpg" };
+const SCENA_NOTTE = { aeroporto: "img/notte-aeroporto.jpg", palazzo: "img/notte-palazzo.jpg", club: "img/notte-club.jpg", marina: "img/notte-marina.jpg", mercato: "img/notte-mercato.jpg", bisca: "img/notte-bisca.jpg", porto: "img/notte-porto.jpg", casino: "img/notte-casino.jpg", redazione: "img/notte-redazione.jpg", villa: "img/notte-villa.jpg", faro: "img/notte-faro.jpg", viaggio: "img/notte-viaggio.jpg" };
 // le sale piu' lussuose: si aprono con fama e ricchezza (il Palazzo con i piani)
 const NOMI_LIVELLO = { club: ["", "Privé", "Terrazza VIP"], marina: ["", "Molo degli yacht", "Ponte del megayacht"], mercato: ["", "Retrobottega", "Magazzino segreto"], bisca: ["", "Tavolo dei grandi", "Sala del padrino"], porto: ["", "Ufficio del capo porto", "Nave privata"], casino: ["", "Sala privata", "Salone del Re"], redazione: ["", "Ufficio del direttore", "Archivio segreto"], villa: ["", "Giardino", "Dentro la villa"], faro: ["", "La lanterna", "La stanza nascosta"], palazzo: ["", "Attico", "Grattacielo"] };
 const FOTO_LIVELLI = new Set(["club-2", "club-3"]);
@@ -993,7 +995,7 @@ function aggiornaPanorama(me) {
   });
   Pano.mostra(V.img, punti, { yaw: 0 });
 }
-const ICO_SCELTA = { tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
+const ICO_SCELTA = { doganiere: "handshake", tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
 function righeNotte(lista) { return lista.map((r) => { const [o, ...t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t.join(" — "))}</p>`; }).join(""); }
 function restoOra() { const N2 = S.notte; if (!N2 || !N2.inizio) return null; return Math.max(0, Math.ceil((N2.tempo || 120) - (Date.now() - N2.inizio) / 1000)); }
 function scenaNotte(me) {
@@ -1061,6 +1063,7 @@ function collegaScena(me) {
     if (c.k === "ricicla") return finestraRicicla(me, false);
     if (c.k === "paradiso") return finestraRicicla(me, true);
     if (c.k === "banchiere" || c.k === "polizia") return finestraCorrompi(me);
+    if (c.k === "doganiere") return finestraDoganiere(me);
     if (c.k === "articolo") return finestraArticolo(me);
     if (c.k === "setta") return finestraSetta(me);
     if (c.k === "foto") return agisci({ tipo: "foto", bersaglio: c.bersaglio });
@@ -1192,6 +1195,7 @@ function collegaCarta(me) {
   document.querySelectorAll(".carta [data-vai]").forEach((b) => b.onclick = () => chiediViaggio(me, b.dataset.vai));
   const on = (a, f) => document.querySelectorAll(`.carta [data-a="${a}"]`).forEach((b) => b.onclick = f);
   on("tira", () => agisci({ tipo: "tira" }));
+  on("rapido", () => finestraRapido(me));
   on("fine", () => { segnoTurno = Math.max(segnoTurno, ...(S.flussi || []).map((f) => f.n), 0); agisci({ tipo: "fine_turno" }); });
   on("pacchetti", () => finestraPacchetti());
   on("asta", () => finestraAsta(me));
@@ -1342,7 +1346,7 @@ function contenutoApp(me, k) {
     const miei = S.lotti.filter((l) => l.owner === mioId);
     if (!miei.length) return `<p class="sub">Non hai ancora terreni. Quando atterri su un lotto libero puoi comprarlo.</p>`;
     return `<p class="sub">Ogni impresa nasce in 4 passi: terreno, permesso del Municipio, cantiere (apre all'Alba), apertura.</p>` + miei.map((l) => {
-      const next = l.lvl + 1, costo = next <= 5 ? Math.round(L.N.costLvl[next] * l.prezzo * (me.pacchetto === "costruttore" ? 0.75 : 1)) : 0;
+      const next = l.lvl + 1, costo = next <= 5 ? Math.round(L.N.costLvl[next] * l.prezzo * (me.pacchetto === "costruttore" ? 0.8 : 1)) : 0;
       let azioni = "";
       if (l.tipoCasella === "lotto" && l.lvl < 5 && !l.cantiere && miTurno) {
         if (l.negato) azioni = `<button class="piccolo" data-regalo="${l.id}">Una busta all'assessore (${euro(Math.max(50000, Math.round(l.prezzo * 0.1)))})</button>`;
@@ -1468,6 +1472,8 @@ const PERSONAGGI = [
     fa: "Vende gli oggetti per la valigetta (maschere, telefoni usa-e-getta, avvocato…) e le soffiate sulla polizia.", costo: "Da 50.000 €", come: "Di notte al Mercato Nero: tocca la bancarella." },
   { id: "gruista", nome: "Il gruista", ruolo: "Porto Container", ico: "porto", col: "#c97a2c", dove: "porto", quando: "notte", lv: 1,
     fa: "Sa quali container arrivano senza bolla: ti passa gli affari del Porto.", costo: "Gratis (vuole solo una parte)", come: "Di notte al Porto Container: scegli \"Parla con i gruisti\"." },
+  { id: "doganiere", nome: "Il doganiere", ruolo: "Capo della dogana", ico: "aereo", col: "#0e7490", dove: "aeroporto", quando: "notte", lv: 2,
+    fa: "Chiude un occhio sui tuoi carichi all'Aeroporto: rischiano la metà.", costo: "500.000 €, poi 250.000 € a Ciclo", come: "Di notte all'Aeroporto della Laguna: scegli \"Una busta al doganiere\"." },
   { id: "caporedattore", nome: "Il caporedattore", ruolo: "Gazzetta della Laguna", ico: "gazzetta", col: "#6b5d3f", dove: "redazione", quando: "notte", lv: 2,
     fa: "Pubblica un articolo che ti fa salire la fama, o che rovina un rivale.", costo: "Quanto metti nella busta", come: "Di notte alla Redazione: scegli \"Una busta al caporedattore\"." },
   { id: "sindaco", nome: "Il Sindaco", ruolo: "Municipio", ico: "municipio", col: "#5c7f99", dove: "municipio", quando: "giorno", lv: 0,
@@ -1767,6 +1773,26 @@ function finestraCorrompi(me) {
       `Rifiuta ${Math.round((0.05 + 0.03 * (me.stato || 0)) * 100)} volte su 100 (di più se la polizia ti guarda già): perdi i soldi e +20 Tracce.`,
       "Se accetta: +4 Tracce. L'agente è reato Medio, Vargas e Lenz sono reato Grave."])}
     <div class="pulsanti"><button id="x">Meglio di no</button><button class="notte" id="ok">Faccio l'offerta</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "corrompi", chi: club ? d.querySelector("#chi").value : "banchiere", isola: club ? d.querySelector("#iso").value : null, sporchi: d.querySelector("#sp").checked }); }; });
+}
+function finestraRapido(me) {
+  const dest = L.destinazioniRapide(S, me);
+  const MEZZO = { traghetto: ["marina", "Traghetto"], motoscafo: ["motoscafo", "Motoscafo"], elicottero: ["palazzo", "Elicottero"], jet: ["aereo", "Jet"] };
+  finestra(`<span class="kick" style="color:var(--oro)">${ico("aereo")} Viaggio rapido</span><h2>Dove vuoi andare?</h2>
+    <p>Una volta per Ciclo, al posto dei dadi. Non passi dalla Partenza (niente stipendio) e se atterri sul terreno di un altro paghi l'affitto.</p>
+    <div class="lista-luoghi">${dest.map((d) => { const l = S.lotti.find((x) => x.idx === d.idx); const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
+      return `<button class="luogo-riga" data-rap="${d.idx}" ${me.cash < d.costo ? "disabled" : ""}><span class="ic">${ico(MEZZO[d.mezzo][0])}</span><span style="flex:1;text-align:left"><b>${esc(l.nome)}</b><br><span class="sub">${MEZZO[d.mezzo][1]}${l.isola ? " · " + esc(L.NOMI_ISOLE[l.isola]) : ""}${own ? " · di " + esc(own.nome) : ""}</span></span><span class="ore">${d.costo ? euro(d.costo) : "gratis"}</span></button>`; }).join("")}</div>
+    <div class="pulsanti"><button id="no">Tiro i dadi</button></div>`, (d, c) => {
+    d.querySelector("#no").onclick = c;
+    d.querySelectorAll("[data-rap]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "viaggio_rapido", idx: +b.dataset.rap }); });
+  });
+}
+function finestraDoganiere(me) {
+  const [p0, p1] = L.N.corruz.doganiere;
+  finestra(`<span class="kick" style="color:var(--cielo)">${ico("aereo")} Aeroporto della Laguna</span><h2>Il doganiere</h2>
+    <p>Il capo della dogana fa il turno di notte. Con lui dalla tua parte, i tuoi carichi all'Aeroporto rischiano la metà. Prezzo: ${euro(p0)}, poi ${euro(p1)} a Ciclo. Può anche rifiutare e fare il tuo nome.</p>
+    <label class="check"><input type="checkbox" id="sp"> Pago in contanti sporchi (costa il 20% in meno)</label>
+    ${boxReato("media", [`Rifiuta ${Math.round((0.05 + 0.03 * (me.stato || 0)) * 100)} volte su 100: perdi i soldi e +20 Tracce.`, "Se accetta: +4 Tracce."])}
+    <div class="pulsanti"><button id="x">Meglio di no</button><button class="notte" id="ok">Faccio l'offerta</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "corrompi", chi: "doganiere", isola: null, sporchi: d.querySelector("#sp").checked }); }; });
 }
 function finestraArticolo(me) {
   finestra(`<span class="kick" style="color:var(--cielo)">📰 Redazione</span><h2>Un articolo per domattina</h2><p>Il caporedattore pubblica quello che gli porti, se la busta è abbastanza pesante. Uno scandalo contro chi è pulito può ritorcersi contro di te.</p>

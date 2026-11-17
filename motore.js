@@ -28,7 +28,7 @@
     evasioneMax: 0.30,
     indagineK: 100, scendi: 0.35, decayPulito: 0.20, decaySporco: 0.05,
     prot: { agente: 0.30, commissario: 0.50, max: 0.70 },
-    corruz: { agente: [250_000, 125_000], commissario: [1_000_000, 500_000], banchiere: [750_000, 375_000] },
+    corruz: { agente: [250_000, 125_000], commissario: [1_000_000, 500_000], banchiere: [750_000, 375_000], doganiere: [500_000, 250_000] },
     pentito: 0.04,
     prestitoQuota: 0.30, prestitoInt: 0.10, emergenzaInt: 0.25, ipotecaQuota: 0.5,
     candidatura: 750_000, stipendioSindaco: 750_000,
@@ -80,9 +80,9 @@
   // Le classi: tutti partono con gli stessi soldi e un terreno a sorte; ogni classe ha un vantaggio suo.
   const PACCHETTI = [
     { id: "commerciante", nome: "Il Commerciante", perk: "Tutti i tuoi affitti rendono il 25% in più.", extra: {} },
-    { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 25% in meno. Il permesso del Palazzo è gratis.", extra: {} },
+    { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 20% in meno. Il permesso del Palazzo è gratis.", extra: {} },
     { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo del 4%.", extra: {} },
-    { id: "playboy", nome: "Il Playboy", perk: "+3 fama ogni Alba. Parti con il motoscafo e gli amici dello yacht.", extra: { veicolo: "motoscafo" } },
+    { id: "playboy", nome: "Il Playboy", perk: "+2 fama ogni Alba. Parti con il motoscafo (Viaggio rapido tra i Moli) e gli amici dello yacht.", extra: { veicolo: "motoscafo" } },
     { id: "contrabbandiere", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta.", extra: {} },
     { id: "politico", nome: "Il Politico", perk: "Parti con fama 30. Candidarti a Sindaco costa metà e la licenza del casinò te la danno sempre.", extra: { fama: 30 } },
     { id: "ereditiera", nome: "L'Ereditiera", perk: "La banca ti presta il doppio e senza interessi.", extra: {} },
@@ -114,7 +114,7 @@
     ["Sentiero delle Palme", "Giungla", "Palma", 300], ["Belvedere delle Palme", "Giungla", "Palma", 310], ["Gazzetta", "gazzetta"],
     ["Golf delle Palme", "Giungla", "Palma", 330],
     ["Sentiero delle Mangrovie", "Mangrovie", "Palma", 340], ["Asta del Comune", "asta"], ["Approdo delle Mangrovie", "Mangrovie", "Palma", 345], ["Laguna delle Mangrovie", "Mangrovie", "Palma", 350],
-    ["Ponte Nord", "libero"],
+    ["Eliporto Nord", "eliporto"],
     // Isola Corona (32-47)
     ["Ingresso di Isola Corona", "angolo"], ["Viale dei Diamanti", "Oro", "Corona", 900], ["Galleria Imperiale", "Oro", "Corona", 950],
     ["La Borsa", "speciale"], ["Piazza Corona", "Oro", "Corona", 1000], ["Il Municipio", "speciale"],
@@ -124,14 +124,14 @@
     ["Torre Sovrana", "Diamante", "Corona", 1600], ["Corona Tower", "Diamante", "Corona", 1800],
     ["Agenzia di Isola Corona", "agenzia"], ["Attico del Re", "Diamante", "Corona", 2000],
     // Baia Flamingo (48-63)
-    ["Pontile Flamingo", "libero"], ["Viale Neon", "Neon", "Flamingo", 360], ["Flamingo Drive", "Neon", "Flamingo", 380],
+    ["Eliporto Flamingo", "eliporto"], ["Viale Neon", "Neon", "Flamingo", 360], ["Flamingo Drive", "Neon", "Flamingo", 380],
     ["Gazzetta", "gazzetta"], ["Via delle Orchidee", "Neon", "Flamingo", 400], ["Molo Flamingo", "Moli", "Flamingo", 150],
     ["Ocean Boulevard", "Velluto", "Flamingo", 440], ["Gala Flamingo", "speciale"], ["Villa Rosa", "Velluto", "Flamingo", 460],
     ["Belvedere Flamingo", "Velluto", "Flamingo", 480], ["Agenzia di Baia Flamingo", "agenzia"],
     ["Passeggiata Rosa", "Perla", "Flamingo", 500], ["Piazza dei Fenicotteri", "Perla", "Flamingo", 520], ["Gazzetta", "gazzetta"],
     ["Lungolago delle Ninfee", "Perla", "Flamingo", 550],
     ["Viale del Tramonto", "Tramonto", "Flamingo", 560], ["Terrazza del Tramonto", "Tramonto", "Flamingo", 570], ["Asta del Comune", "asta"], ["Pontile del Tramonto", "Tramonto", "Flamingo", 575],
-    ["Spiaggia Libera", "libero"],
+    ["Eliporto della Spiaggia", "eliporto"],
     // Distretto Sole (64-79)
     ["Ponte Est — Posto di blocco", "angolo"], ["Via dei Cantieri", "Acciaio", "Sole", 580], ["Corso Industria", "Acciaio", "Sole", 600],
     ["Gazzetta", "gazzetta"], ["Viale Solare", "Acciaio", "Sole", 640], ["Molo Sole", "Moli", "Sole", 150],
@@ -140,7 +140,7 @@
     ["Viale dei Pannelli", "Rame", "Sole", 800], ["Hub delle Gru", "Rame", "Sole", 820], ["Gazzetta", "gazzetta"],
     ["Lungomare Solare", "Rame", "Sole", 850],
     ["Via del Cobalto", "Cobalto", "Sole", 870], ["Piazza Fotovoltaica", "Cobalto", "Sole", 880], ["Asta del Comune", "asta"], ["Torre Eolica", "Cobalto", "Sole", 900],
-    ["Rampa del Ponte Sud", "libero"],
+    ["Aeroporto della Laguna", "aeroporto"],
   ];
   const CASELLE = OUTER.length; // 100
   const SEZIONE = 20;
@@ -365,6 +365,35 @@
     else p.haTirato = true;
   }
 
+  // Viaggio rapido: una volta per Ciclo, al posto dei dadi, secondo il mezzo migliore
+  function idxCasella(nome) { return OUTER.findIndex((c) => c[0] === nome); }
+  function destinazioniRapide(s, p) {
+    const d = new Map(), metti = (idx, costo, mezzo) => { if (idx !== p.pos && (!d.has(idx) || d.get(idx).costo > costo)) d.set(idx, { idx, costo, mezzo }); };
+    const qui = casella(s, p), corona = idxCasella("Ingresso di Isola Corona");
+    const moli = s.lotti.filter((l) => l.tipoCasella === "molo").map((l) => l.idx);
+    const eli = s.lotti.filter((l) => l.tipoCasella === "eliporto").map((l) => l.idx).concat([corona]);
+    const aero = idxCasella("Aeroporto della Laguna");
+    if (qui.tipoCasella === "molo") metti(corona, 50_000, "traghetto");
+    if (p.veicoli.some((v) => ["motoscafo", "yacht", "megayacht"].includes(v))) { for (const m of moli) metti(m, 0, "motoscafo"); metti(corona, 0, "motoscafo"); }
+    if (p.veicoli.includes("elicottero") || haPiano(p, "eliporto")) for (const e of eli) metti(e, 0, "elicottero");
+    if (p.veicoli.includes("jet")) { metti(aero, 0, "jet"); for (const e of eli) metti(e, 0, "jet"); }
+    return [...d.values()];
+  }
+  function viaggioRapido(s, p, idx) {
+    if (s.fase !== "giorno" || corrente(s).id !== p.id) err("Non è il tuo turno.");
+    if (p.haTirato || p.doppi) err("Il viaggio rapido si fa al posto dei dadi, a inizio turno.");
+    if (s.pending) err("Prima finisci la scelta in corso.");
+    if (p.faro > 0) err("Sei al Faro.");
+    if (p.rapidoCiclo === s.ciclo) err("Il viaggio rapido si fa una volta per Ciclo.");
+    const dest = destinazioniRapide(s, p).find((x) => x.idx === idx);
+    if (!dest) err("Con i tuoi mezzi lì non ci arrivi.");
+    if (p.cash < dest.costo) err("Il traghetto costa " + euro(dest.costo) + ".");
+    p.cash -= dest.costo; p.rapidoCiclo = s.ciclo; p.haTirato = true; p.inner = false; p.pos = idx;
+    const c = casella(s, p);
+    const COME = { traghetto: "prende il traghetto", motoscafo: "attraversa la laguna in motoscafo", elicottero: "atterra in elicottero", jet: "atterra con il jet" };
+    log(s, p.nome + " " + COME[dest.mezzo] + ": " + c.nome + ".", p.id);
+    atterra(s, p, c);
+  }
   function muovi(s, p, n) {
     p.inner = false;
     for (let k = 0; k < n; k++) passo(s, p);
@@ -401,6 +430,8 @@
       log(s, p.nome + " passa dall'" + c.nome + ".", p.id);
       return;
     }
+    if (c.tipoCasella === "eliporto") { log(s, p.nome + " passa dall'" + c.nome + ".", p.id); privato(s, p, c.nome + ": qui atterrano elicotteri e jet. Con un elicottero (o l'eliporto nel Palazzo) ci arrivi col Viaggio rapido."); return; }
+    if (c.tipoCasella === "aeroporto") { log(s, p.nome + " passa dall'Aeroporto.", p.id); privato(s, p, livelloSblocco(s, p) >= 2 ? "All'Aeroporto un facchino ti sussurra: \"Stanotte atterra un cargo che non risulta da nessuna parte.\"" : "L'Aeroporto della Laguna: di notte, dal Livello 2, qui arrivano e partono carichi che nessuno deve vedere."); return; }
     if (c.tipoCasella === "asta") {
       p.agenziaSconto = true;
       if ((s.sequestrati || []).length) privato(s, p, "All'Asta del Comune c'è un terreno sequestrato in vendita: l'asta parte subito dopo questo turno.");
@@ -571,7 +602,7 @@
     let costo = N.costLvl[next] * l.prezzo;
     if (s.leggi.includes("condono")) costo *= 0.5;
     if (casella(s, p).id === l.id) costo *= 0.9;
-    if (p.pacchetto === "costruttore") costo *= 0.75;
+    if (p.pacchetto === "costruttore") costo *= 0.8;
     costo = round(costo);
     if (p.cash < costo) err("Ti servono " + euro(costo) + " puliti.");
     p.cash -= costo; l.cantiere = { tipo: nuovoTipo, lvl: next }; l.permesso = false; p.azioneGiornoFatta = true;
@@ -599,7 +630,7 @@
     log(s, p.nome + " aggiunge il piano " + p.piani + " al suo Palazzo (" + funzione.replace(/_/g, " ") + ").", p.id);
     aggiornaSkyline(s);
   }
-  function costoPiano(p) { return round(N.pianoCost * Math.pow(N.pianoGrow, p.piani) * (p.pacchetto === "costruttore" ? 0.75 : 1)); }
+  function costoPiano(p) { return round(N.pianoCost * Math.pow(N.pianoGrow, p.piani) * (p.pacchetto === "costruttore" ? 0.8 : 1)); }
   function aggiornaSkyline(s) {
     let best = null;
     for (const p of s.players) if (p.piani > 0 && (!best || p.piani > best.piani)) best = p;
@@ -788,6 +819,7 @@
       chiave = "agente_" + isola; prezzo = N.corruz.agente[0];
     } else if (chi === "commissario") prezzo = N.corruz.commissario[0];
     else if (chi === "banchiere") prezzo = N.corruz.banchiere[0];
+    else if (chi === "doganiere") prezzo = N.corruz.doganiere[0];
     else err("Personaggio sconosciuto.");
     if (p.corrotti[chiave]) err("Lo hai già comprato.");
     if (pagaConSporchi) { prezzo *= 0.8; if (p.sporchi < prezzo) err("Non hai abbastanza soldi sporchi."); p.sporchi -= prezzo; }
@@ -800,8 +832,8 @@
     }
     p.corrotti[chiave] = { dal: s.ciclo };
     p.tracce += 4; p.pulitoCiclo = false;
-    p.peggiorReato = peggio(p.peggiorReato, chi === "agente" ? "media" : "grave");
-    privato(s, p, "Accordo fatto: ora hai dalla tua parte " + (chi === "agente" ? "l'agente di " + NOMI_ISOLE[isola] : chi === "commissario" ? "il Commissario Vargas" : "il banchiere Lenz") + ".");
+    p.peggiorReato = peggio(p.peggiorReato, chi === "agente" || chi === "doganiere" ? "media" : "grave");
+    privato(s, p, "Accordo fatto: ora hai dalla tua parte " + (chi === "agente" ? "l'agente di " + NOMI_ISOLE[isola] : chi === "commissario" ? "il Commissario Vargas" : chi === "doganiere" ? "il doganiere dell'Aeroporto" : "il banchiere Lenz") + ".");
     return true;
   }
   function ricicla(s, p, metodo, importo) {
@@ -867,13 +899,14 @@
     redazione: { nome: "Redazione della Gazzetta", isola: "Corona", sblocco: 2 },
     villa: { nome: "Villa sulla scogliera", isola: "Palma", sblocco: 3 },
     faro: { nome: "Il Faro", isola: "Faro", sblocco: 3 },
+    aeroporto: { nome: "Aeroporto della Laguna", isola: "Sole", sblocco: 2 },
   };
   const OGGETTI = {
     maschera: { nome: "Maschera", dove: "mercato", prezzo: 40_000, illegale: true, salva: ["testimone", "telecamere", "fotografo"], consuma: true, descr: "Telecamere e testimoni non ti riconoscono." },
-    disturbatore: { nome: "Disturbatore radio", dove: "mercato", prezzo: 90_000, illegale: true, salva: ["allarme", "intercettazione"], consuma: true, descr: "Blocca allarmi e intercettazioni per un colpo." },
+    disturbatore: { nome: "Disturbatore radio", dove: "mercato", prezzo: 90_000, illegale: true, salva: ["allarme", "intercettazione", "radar"], consuma: true, descr: "Blocca allarmi, intercettazioni e radar per un colpo." },
     telefono: { nome: "Telefono usa-e-getta", dove: "mercato", prezzo: 20_000, salva: ["intercettazione"], consuma: true, descr: "Accetti un'offerta senza lasciare il tuo nome." },
-    documenti: { nome: "Documenti falsi", dove: "mercato", prezzo: 150_000, illegale: true, salva: ["posto_di_blocco"], consuma: true, descr: "Di giorno passi il Posto di blocco senza controlli." },
-    furgone: { nome: "Furgone pulito", dove: "porto", prezzo: 120_000, salva: ["pattuglia"], notti: 3, descr: "Il carico non si perde se passa una pattuglia. Dura 3 notti." },
+    documenti: { nome: "Documenti falsi", dove: "mercato", prezzo: 150_000, illegale: true, salva: ["posto_di_blocco", "dogana"], consuma: true, descr: "Passi il Posto di blocco di giorno e la dogana dell'Aeroporto di notte." },
+    furgone: { nome: "Furgone pulito", dove: "porto", prezzo: 120_000, salva: ["pattuglia", "cani"], notti: 3, descr: "Il carico non si perde con le pattuglie e i cani antidroga non sentono niente. Dura 3 notti." },
     motoscafo: { nome: "Motoscafo a noleggio", dove: "marina", prezzo: 60_000, salva: ["guardia"], notti: 1, veloce: true, descr: "Stanotte ti sposti in 1 ora ovunque, e scappi dal mare." },
     avvocato: { nome: "Avvocato pagato", dove: "redazione", prezzo: 250_000, salva: ["sentenza"], consuma: true, descr: "La prossima sentenza scende di un gradino." },
     macchina: { nome: "Macchina fotografica", dove: "club", prezzo: 30_000, salva: [], descr: "Fotografi chi fa cose losche vicino a te: ottieni una Prova." },
@@ -890,6 +923,9 @@
     fotografo: { arriva: "un flash si accende nel buio", salvo: "nella foto c'è solo una maschera", danno: "foto" },
     retata: { arriva: "arriva una retata", salvo: null, danno: "retata" },
     rissa: { arriva: "scoppia una rissa", salvo: null, danno: "meta" },
+    dogana: { arriva: "la dogana apre le casse", salvo: "i documenti falsi dicono che è tutto in regola", danno: "perso" },
+    cani: { arriva: "arrivano i cani antidroga", salvo: "il furgone pulito non lascia odori", danno: "riconosciuto" },
+    radar: { arriva: "il radar segue il volo", salvo: "il disturbatore confonde il radar", danno: "allarme" },
   };
   // Le occasioni della notte. costo = quanto metti tu (prima con gli sporchi), guadagno = quanto torna, in sporchi.
   const OCCASIONI = [
@@ -904,6 +940,8 @@
     { id: "quadri", luogo: "club", sblocco: 2, nome: "I quadri falsi", testo: "Un collezionista cerca chi venda due tele \"d'autore\" a un ricco turista.", costo: 200_000, guadagno: [1_840_000, 2_800_000], pericoli: ["testimone", "fotografo"], tracce: 10, gravita: "grave" },
     { id: "pesce", luogo: "porto", sblocco: 2, nome: "Il peschereccio", testo: "Sotto il ghiaccio del pesce c'è altro. Va scaricato prima dell'alba.", costo: 350_000, guadagno: [3_080_000, 4_400_000], pericoli: ["pattuglia", "telecamere"], tracce: 13, gravita: "grave" },
     { id: "colpo", luogo: "villa", sblocco: 3, nome: "Il Colpo alla villa", testo: "Il proprietario è in viaggio. In cassaforte, dicono, ci sono i gioielli di famiglia.", costo: 250_000, guadagno: [5_720_000, 8_360_000], pericoli: ["allarme", "telecamere"], tracce: 26, gravita: "grave" },
+    { id: "cargo", luogo: "aeroporto", sblocco: 2, nome: "Il volo cargo", testo: "Un cargo dall'estero atterra a luci spente. Nella stiva c'è un carico di droga che nessuno deve vedere.", costo: 400_000, guadagno: [3_400_000, 5_000_000], pericoli: ["dogana", "cani"], tracce: 16, gravita: "grave" },
+    { id: "spedizione", luogo: "aeroporto", sblocco: 2, nome: "La spedizione", testo: "Un pilota parte all'alba per l'estero. Ci metti un milione di merce: se passa i controlli, torna il doppio.", costo: 1_000_000, guadagno: [1_500_000, 1_700_000], pericoli: ["dogana", "radar"], tracce: 12, gravita: "grave" },
     { id: "confraternita", luogo: "faro", sblocco: 0, soloSetta: true, nome: "Il carico della confraternita", testo: "Una nave senza bandiera aspetta il segnale della lanterna. Il carico è per la setta: chi lo scarica si prende la sua parte.", costo: 500_000, guadagno: [5_000_000, 8_000_000], pericoli: ["guardia"], tracce: 16, gravita: "grave" },
     { id: "senatore", luogo: "faro", sblocco: 0, soloSetta: true, nome: "Il segreto del senatore", testo: "I confratelli hanno le foto di un senatore. Pagherà bene per farle sparire, se qualcuno va a chiederglielo.", costo: 200_000, guadagno: [3_000_000, 5_000_000], pericoli: ["intercettazione", "fotografo"], tracce: 12, gravita: "grave" },
     { id: "lingotti", luogo: "villa", sblocco: 3, nome: "I lingotti nella cantina", testo: "Il custode della villa ha debiti di gioco. Per una cifra giusta, lascia la porta aperta.", costo: 400_000, guadagno: [3_960_000, 5_720_000], pericoli: ["allarme", "testimone"], tracce: 18, gravita: "grave" },
@@ -917,6 +955,7 @@
     casino: [["Le slot suonano, i tavoli sono pieni di turisti.", "Il direttore di sala ti sorride."], ["Due uomini in giacca grigia osservano la cassa.", "Il cambio fiches oggi è lento: controllano i documenti."], ["Alla cassa c'è un ispettore della Finanza.", "Il direttore di sala evita il tuo sguardo."]],
     redazione: [["Le rotative girano, il caporedattore è di buon umore.", "In redazione c'è solo il turno di notte."], ["Un giornalista ti riconosce e prende il telefono.", "Sul tavolo c'è una cartella con il nome di un rivale."], ["Fuori dalla redazione c'è un'auto della polizia.", "Il caporedattore ti dice di andartene in fretta."]],
     villa: [["La villa è buia, il cane dorme.", "Le finestre del primo piano sono socchiuse."], ["Una luce si accende e si spegne al piano terra.", "Il cancello ha un lucchetto nuovo."], ["Ci sono tre telecamere nuove sulla facciata.", "Un'auto di vigilanza passa due volte in dieci minuti."]],
+    aeroporto: [["La pista è buia, solo le luci blu di bordo.", "Il controllore di volo sbadiglia nella torre."], ["Un'auto della Finanza è parcheggiata vicino all'hangar.", "I doganieri controllano a caso le valigie."], ["Cani antidroga sulla pista e luci accese ovunque.", "Due auto della polizia bloccano l'uscita merci."]],
     faro: [["Le onde coprono ogni rumore. Qui nessuno ascolta.", "Il guardiano del Faro guarda il mare, non te."], ["Sulla scogliera c'è una seconda barca ormeggiata.", "Senti delle voci dietro la torre."], ["Il guardiano parla al telefono e ti guarda.", "Sul molo ci sono impronte fresche di scarponi."]],
   };
   const LIVELLI_PERICOLO = ["tranquillo", "agitato", "pericoloso"];
@@ -936,6 +975,7 @@
   function isolaCasa(s, p) { const l = s.lotti.find((x) => x.owner === p.id && x.isola); return l ? l.isola : "Corona"; }
   function isolaLuogo(s, p, l) { return l === "palazzo" ? isolaCasa(s, p) : LUOGHI[l].isola; }
   function oreViaggio(s, p, da, a) {
+    if (a === "aeroporto" && p.veicoli.includes("jet")) return 1;
     if (haOggetto(p, "motoscafo") || haPiano(p, "eliporto") || p.veicoli.some((v) => ["motoscafo", "yacht", "megayacht", "elicottero"].includes(v))) return 1;
     return isolaLuogo(s, p, da) === isolaLuogo(s, p, a) ? 1 : 2;
   }
@@ -1052,6 +1092,7 @@
     casino: { id: "roulette", titolo: "Gioca alla roulette", testo: "Tutto in regola, niente Tracce. Rosso o nero?", puntata: true },
     redazione: { id: "bozze", titolo: "Leggi le bozze di domani", testo: "Sul tavolo del caporedattore c'è la prima pagina di domani." },
     villa: { id: "osserva", titolo: "Osserva la villa dal buio", testo: "Dal bosco si vedono finestre, guardie e telecamere." },
+    aeroporto: { id: "voli", titolo: "Guarda i voli in arrivo", testo: "Dal bar dell'aeroporto si vede chi atterra e chi parte, e con quali valigie." },
     faro: { id: "mare", titolo: "Guarda chi arriva dal mare", testo: "Dall'alto del Faro si vedono tutte le luci della Laguna." },
   };
   function attivitaNotte(s, p, importo) {
@@ -1283,6 +1324,7 @@
     });
     const sp = [];
     if (dove === "casino" && p.sporchi > 0) sp.push({ k: "ricicla", titolo: "Ripulisci i soldi sporchi", testo: "Il cassiere cambia le fiches senza fare domande. Una parte resta a lui." });
+    if (dove === "aeroporto" && !p.corrotti.doganiere) sp.push({ k: "doganiere", titolo: "Una busta al doganiere", testo: "Il capo della dogana fa il turno di notte. Con lui i tuoi carichi rischiano la metà." });
     if (dove === "casino" && lv >= 1) sp.push({ k: "banchiere", titolo: "Un drink con il banchiere Lenz", testo: "Lenz siede sempre allo stesso tavolo. Con lui i soldi trovano strade nuove." });
     if (dove === "club" && lv >= 1) sp.push({ k: "polizia", titolo: "Parla con un agente fuori servizio", testo: "Al bancone c'è un poliziotto che beve da solo. Ha l'aria di chi cerca un extra." });
     if (dove === "redazione") sp.push({ k: "articolo", titolo: "Una busta al caporedattore", testo: "Domattina la Gazzetta può parlare bene di te. O male di un altro." });
@@ -1420,7 +1462,7 @@
   function corrompi2(s, p, chi, isola, sporchi) {
     oraLibera(s, p);
     const sala = s.notte.dove[p.id] === "palazzo" && !s.notte.ospite?.[p.id] && haPiano(p, "sala_insonorizzata") && !s.notte.viaggio[p.id];
-    if (!sala) { if (chi === "banchiere") qui(s, p, "casino", "Incontrare il banchiere Lenz"); else qui(s, p, "club", "Incontrare la polizia"); }
+    if (!sala) { if (chi === "banchiere") qui(s, p, "casino", "Incontrare il banchiere Lenz"); else if (chi === "doganiere") qui(s, p, "aeroporto", "Incontrare il doganiere"); else qui(s, p, "club", "Incontrare la polizia"); }
     const ok = corrompi(s, p, chi, isola, sporchi);
     s.notte.chiuso[p.id] = true;
     racconta(s, p, ok ? "Una stretta di mano in un angolo buio. Accordo fatto." : "Ti guarda, intasca i soldi e se ne va. Brutto segno.");
@@ -1466,6 +1508,7 @@
     let pg = P_GUAI[LIVELLI_PERICOLO.indexOf(s.notte.pericolo[o.luogo])];
     if (p.corrotti["agente_" + isola]) pg *= 0.6;
     if (p.corrotti.commissario) pg *= 0.8;
+    if (o.luogo === "aeroporto" && p.corrotti.doganiere) pg *= 0.5;
     if (s.leggi.includes("polizia_doppia_" + isola)) pg *= 1.4;
     const guaio = O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
     let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale : 0;
@@ -2026,7 +2069,7 @@
       if (s.sindaco === p.id) { p.cash += N.stipendioSindaco; r.stipendioSindaco = N.stipendioSindaco; }
       // vantaggi delle classi
       if (p.pacchetto === "investitore") { const div = round(0.04 * Object.entries(p.azioni).reduce((t, [k, q]) => t + q * s.borsa[k], 0)); if (div > 0) { p.cash += div; r.dividendo = div; } }
-      if (p.pacchetto === "playboy") p.fama += 3;
+      if (p.pacchetto === "playboy") p.fama += 2;
       if (p.pacchetto === "speculatore") for (const m of Object.keys(p.cripto)) p.cripto[m] *= 1.05;
       // debiti
       if (p.debito > 0) {
@@ -2184,6 +2227,7 @@
     switch (a.tipo) {
       case "pacchetto": return scegliPacchetto(s, p, a.id);
       case "tira": return tira(s, p);
+      case "viaggio_rapido": return viaggioRapido(s, p, a.idx);
       case "compra": return compra(s, p, !!a.si);
       case "agenzia": return agenzia(s, p, a.lotto);
       case "proponi_lotto": return proponiLotto(s, p, a.a, a.lotto, a.prezzo, a.compro);
@@ -2297,7 +2341,7 @@
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE,
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
-    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, oreViaggio, luogoAperto,
+    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;

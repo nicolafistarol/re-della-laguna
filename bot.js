@@ -95,7 +95,15 @@
             return { tipo: "municipio", scelta: i.fama >= 40 && i.cash > 3e6 && void 0 === o.candidati[i.id] ? "candidati" : "nulla" };
         }
         if (r) return null;
-        if (!i.haTirato) return { tipo: "tira" };
+        if (!i.haTirato) {
+          if (!i.doppi && i.rapidoCiclo !== o.ciclo && t.destinazioniRapide && Math.random() < 0.3) {
+            const ds = t.destinazioniRapide(o, i).filter((d) => i.cash - d.costo > 3e5);
+            const buone = ds.filter((d) => { const l = o.lotti.find((x) => x.idx === d.idx); return !l.owner || l.owner === i.id; });
+            const d = (buone.length ? buone : ds)[Math.floor(Math.random() * (buone.length ? buone.length : ds.length))];
+            if (d) return { tipo: "viaggio_rapido", idx: d.idx };
+          }
+          return { tipo: "tira" };
+        }
         if (!i.agenziaUsata && 0 === i.faro && t.isolaDiPos) {
           // Agenzia immobiliare: compra il terreno libero piu' economico dell'isola se resta un cuscinetto
           const isola = (t.casella(o, i) || {}).isola || t.isolaDiPos(i.pos);
@@ -197,6 +205,8 @@
             }
             if ("casino" === s && !l.ric && i.sporchi > 3e5)
               return ((l.ric = !0), { tipo: "ricicla", metodo: t.copertura(o, i) > 0 ? "copertura" : "shadow", importo: i.sporchi });
+            if ("aeroporto" === s && ["Furbo", "Esperto"].includes(e) && !l.dog && !i.corrotti.doganiere && i.cash > 1.2e6)
+              return ((l.dog = !0), { tipo: "corrompi", chi: "doganiere", isola: null });
             if ("club" === s && "Esperto" === e && !l.corr && !i.corrotti.agente_Sole && i.cash > 15e5)
               return ((l.corr = !0), { tipo: "corrompi", chi: "agente", isola: "Sole" });
             if (c >= 5) return { tipo: "torna_a_casa" };
