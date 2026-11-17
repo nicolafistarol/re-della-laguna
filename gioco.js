@@ -1378,6 +1378,8 @@ function chiediViaggio(me, luogo) {
 }
 
 // ------------------------------------------------------------ il telefono
+// al Faro (in prigione) queste app non si possono usare: non hanno azioni da "telefonata"
+const SPENTE_FARO = ["imprese", "agenzia", "palazzo", "lusso", "valigetta", "sporchi", "grandi"];
 const APPS = [
   { k: "impero", nome: "Il mio impero", ico: ico("impero"), col: "#b8860b", lv: 0 },
   { k: "scoperte", nome: "Da scoprire", ico: ico("stella"), col: "#e0a526", lv: 0 },
@@ -1554,11 +1556,14 @@ function adessoPuoi(me, nuovi) {
 function homeTelefono(me, nuovi) {
   const vis = APPS.filter((a) => appVisibile(me, a));
   const cose = adessoPuoi(me, nuovi);
+  const alFaro = me.faro > 0 && S.fase === "giorno";
+  const usata = me.telefonataUsata === S.ciclo * 10 + S.giorno;
   const icona = (a) => {
     const st = statoApp(me, a.k, nuovi), nuova = appNuova(a.k);
-    return `<button class="app" data-app="${a.k}"><span class="ico" style="background:${a.col}">${a.ico}${st.fare ? `<span class="badge">${st.fare}</span>` : nuova ? `<span class="nuova">NUOVA</span>` : ""}</span><span class="app-nome">${a.nome}</span><span class="app-riga ${st.caldo ? "calda" : ""}">${st.riga}</span></button>`;
+    return `<button class="app ${alFaro && SPENTE_FARO.includes(a.k) ? "spenta" : ""}" data-app="${a.k}"><span class="ico" style="background:${a.col}">${a.ico}${st.fare ? `<span class="badge">${st.fare}</span>` : nuova ? `<span class="nuova">NUOVA</span>` : ""}</span><span class="app-nome">${a.nome}</span><span class="app-riga ${st.caldo ? "calda" : ""}">${st.riga}</span></button>`;
   };
   return `<div class="home2">
+    ${alFaro ? `<div class="faro-tel"><b>🔒 Sei al Faro · Telefonata: ${usata ? "già usata in questo turno" : "1 rimasta"}</b><span>Ancora ${me.faro} turni. Puoi fare <b>una</b> azione per turno da: Banca (debito, regali, tasse), Borsa, Municipio, Gazzetta, Contratti, Setta. Le app grigie sono chiuse finché sei dentro.</span></div>` : ""}
     ${cose.length ? `<div class="adesso"><span class="adesso-t">Adesso puoi</span>${cose.map((c) => `<button class="adesso-r ${c.forte ? "forte" : ""}" data-app="${c.app}"><span>${esc(c.testo)}</span><span class="freccia">›</span></button>`).join("")}</div>` : ""}
     ${GRUPPI_APP.map(([titolo, ks]) => { const as = ks.map((k) => vis.find((a) => a.k === k)).filter(Boolean); return as.length ? `<div class="gruppo-app"><span class="gruppo-t">${titolo}</span><div class="home">${as.map(icona).join("")}</div></div>` : ""; }).join("")}
   </div>`;

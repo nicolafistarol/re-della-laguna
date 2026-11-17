@@ -2076,12 +2076,12 @@
     const patto = offerta > 0 ? " Se entri, ricevi " + euro(offerta) + " in soldi sporchi." : offerta < 0 ? " Per entrare chiedono una quota di " + euro(-offerta) + "." : "";
     privato(s, q, "Hai ricevuto un invito segreto da una setta: \"" + st.nome + "\"." + patto + " Rispondi dall'app Setta.");
   }
-  function rispondiInvito(s, p, idSetta, si) {
+  function rispondiInvito(s, p, idSetta, si, motivo) {
     const i = s.inviti.findIndex((x) => x.setta === idSetta && x.a === p.id); if (i < 0) err("Nessun invito.");
     const inv = s.inviti[i];
     const st = s.sette.find((x) => x.id === idSetta);
     const gm = st ? giocatore(s, st.gm) : null;
-    if (!si || !st) { s.inviti.splice(i, 1); if (gm && st) privato(s, gm, p.nome + " ha rifiutato l'invito nella tua setta."); return; }
+    if (!si || !st) { s.inviti.splice(i, 1); if (gm && st) privato(s, gm, p.nome + " ha rifiutato l'invito nella tua setta." + (motivo ? " " + String(motivo).slice(0, 120) : "")); return; }
     const off = inv.offerta || 0;
     if (off > 0 && st.tesoro < off) { s.inviti.splice(i, 1); privato(s, p, "Il Tesoro della setta non ha più i soldi promessi: l'invito non vale più."); privato(s, gm, "L'invito a " + p.nome + " è saltato: nel Tesoro mancano i soldi promessi."); return; }
     if (off < 0 && p.sporchi + p.cash < -off) err("Non hai abbastanza soldi per la quota d'ingresso (" + euro(-off) + ").");
@@ -2855,7 +2855,7 @@
       case "espelli_setta": return espelliSetta(s, p, a.setta, a.membro);
       case "lascia_setta": return lasciaSetta(s, p, a.setta);
       case "chiudi_partita": return chiudiPartita(s, p, a.si !== false);
-      case "rispondi_invito": return rispondiInvito(s, p, a.setta, !!a.si);
+      case "rispondi_invito": return rispondiInvito(s, p, a.setta, !!a.si, a.motivo);
       case "versa_setta": return versaSetta(s, p, a.setta, a.importo, !!a.sporchi);
       case "recluta": return settaAlFaro(s, p, () => recluta(s, p, a.setta, a.chi));
       case "operazione": return settaAlFaro(s, p, () => operazione(s, p, a.setta, a.op, a.bersaglio, a.direzione));

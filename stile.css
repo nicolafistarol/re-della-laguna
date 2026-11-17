@@ -537,3 +537,8 @@ button .lic{margin-right:2px}
 .cas .cn{font-size:12.5px;padding:2px 6px;text-shadow:0 1px 2px #000}
 .livc u{width:6px;height:6px}
 .isola-nome{text-shadow:0 2px 6px #000,0 0 14px rgba(0,0,0,.8)}
+
+/* Faro: la telefonata */
+.app.spenta{opacity:.35;filter:grayscale(1)}
+.faro-tel{background:#1e293b;border:1px solid #f5c84c;border-radius:12px;padding:10px 12px;margin:6px 0 10px;display:flex;flex-direction:column;gap:4px;font-size:13px;color:#e2e8f0}
+.faro-tel b:first-child{color:#f5c84c}

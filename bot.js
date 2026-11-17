@@ -38,7 +38,52 @@
     return (o.valigetta || []).some((o) => o.id === t);
   }
   // I Grandi Affari (Livello 4): aste, quote, poteri. Al massimo una mossa per giorno.
-  function grandiBot(o, i, n) {
+  // ---------------------------------------------------------------- sette
+// Ogni carattere ha il suo prezzo per entrare in una setta: lo Spavaldo entra gratis, il Legale quasi mai.
+const PREZZO_SETTA = { Spavaldo: 0, Furbo: 2e5, Esperto: 4e5, Investitore: 8e5, Costruttore: 8e5, Legale: 2e6 };
+const NOMI_SETTA = [["La Mano Nera", "Nessuno vede, tutti pagano."], ["I Figli della Nebbia", "Dalla laguna veniamo."], ["Ordine del Tridente", "Tre punte, un solo padrone."], ["Loggia del Corallo", "Il mare custodisce."], ["La Lanterna Spenta", "Al buio si fanno gli affari."]];
+function rispostaInvito(o, i, n, a) {
+  const tondo = (v) => (Math.ceil(v / 5e4) * 5e4).toLocaleString("it-IT") + " €";
+  const off = a.offerta || 0, ricco = i.cash + i.sporchi;
+  const no = (m) => ({ tipo: "rispondi_invito", setta: a.setta, si: !1, motivo: m });
+  const si = { tipo: "rispondi_invito", setta: a.setta, si: !0 };
+  if (i.settaFondata) return no("Ha già la sua setta.");
+  if (off < 0) {
+    const max = ({ Spavaldo: 0.1, Furbo: 0.05 }[n] || 0) * ricco;
+    return -off <= max ? si : no(max > 0 ? "Pagherebbe al massimo " + tondo(max) + " per entrare." : "Non paga per entrare in una setta.");
+  }
+  let serve = PREZZO_SETTA[n] != null ? PREZZO_SETTA[n] : 3e5;
+  if ((i.sette || []).length) serve += 5e5; // e' gia' in un'altra setta: costa di piu' convincerlo
+  if (i.stato >= 2) serve += 5e5; // ha la polizia addosso: entrare e' un rischio
+  return off >= serve ? si : no("Entrerebbe con un regalo di almeno " + tondo(serve) + ".");
+}
+// Il Gran Maestro bot invita una persona al Ciclo, con un regalo se il Tesoro puo' permetterselo
+function invitoBot(o, i, L) {
+  const st = (o.sette || []).find((x) => x.gm === i.id);
+  if (!st || i._invCiclo === o.ciclo) return null;
+  i._invCiclo = o.ciclo;
+  const presi = new Set((o.inviti || []).filter((x) => x.setta === st.id).map((x) => x.a));
+  const scelte = o.players.filter((q) => q.id !== i.id && !st.membri.includes(q.id) && !presi.has(q.id) && !q.settaFondata && !q.eliminato);
+  if (!scelte.length) return null;
+  // preferisce chi ha soldi sporchi: e' gia' dei loro
+  const q = scelte.sort((a, b) => (b.sporchi || 0) - (a.sporchi || 0))[0];
+  const regalo = st.tesoro > 3.2e6 ? 5e5 : st.tesoro >= 2e6 ? 2e5 : 0;
+  return { tipo: "invita_setta", setta: st.id, invitato: q.id, offerta: regalo };
+}
+// Di notte: fondare la setta e, col livello 2, reclutare al Faro
+function settaNotteBot(o, i, e, L, s) {
+  if (!i.settaFondata && ["Spavaldo", "Furbo", "Esperto"].includes(e) && i.sporchi >= L.N.settaSporchi && o.ciclo >= 2 && i._fondaCiclo !== o.ciclo) {
+    i._fondaCiclo = o.ciclo;
+    if (Math.random() < 0.6) { const usati = (o.sette || []).map((x) => x.nome); const nm = NOMI_SETTA.find((x) => !usati.includes(x[0])) || ["La Setta di " + i.nome, ""]; return { tipo: "fonda_setta", nome: nm[0], motto: nm[1] }; }
+  }
+  const st = (o.sette || []).find((x) => x.gm === i.id);
+  if (st && !(st.pngReclutati > 0) && L.livelloSetta(o, st) >= 2 && st.tesoro >= 3e6) {
+    if (s !== "faro") return { tipo: "vai", luogo: "faro" };
+    return { tipo: "recluta", setta: st.id, chi: "banchiere" };
+  }
+  return null;
+}
+function grandiBot(o, i, n) {
     if (!o.grandi || !t.GRANDI || (i.livello || 0) < 4 || i.faro > 0) return null;
     const oggi = o.ciclo * 10 + o.giorno;
     if (i.botGrandi === oggi) return null;
@@ -125,13 +170,7 @@
         return prop.prezzo <= massimo ? { tipo: "rispondi_proposta", id: prop.id, si: !0 } : { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Al massimo pagherebbe " + massimo.toLocaleString("it-IT") + " €." };
       }
       const a = o.inviti.find((o) => o.a === i.id);
-      if (a)
-        return {
-          tipo: "rispondi_invito",
-          setta: a.setta,
-          // un bot entra se non e' "Legale" e la quota non gli mangia piu' di un quinto dei soldi
-          si: "Legale" !== n ? !(a.offerta < 0) || -a.offerta <= 0.2 * (i.cash + i.sporchi) : a.offerta >= 2e6,
-        };
+      if (a) return rispostaInvito(o, i, n, a);
       const s = o.contratti.find((o) => o.a === i.id && "proposto" === o.stato);
       if (s) return { tipo: "rispondi_contratto", id: s.id, si: !1 };
       if ("giorno" === o.fase) {
@@ -151,6 +190,7 @@
         }
         if (r) return null;
         { const gr = grandiBot(o, i, n); if (gr) return gr; }
+        { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); const iv = invitoBot(o, i, LL); if (iv) return iv; }
         { const sosp = Object.keys(i.corrotti || {}).find((k) => i.corrotti[k].sospetto && i.stato >= 1);
           if (sosp) return { tipo: "scarica_contatto", chiave: sosp }; }
         if (!i.haTirato) {
@@ -238,6 +278,7 @@
             if (osp) { if (!l.giocato && i.cash > 1e6) { l.giocato = !0; return { tipo: "gioca_serata", importo: 1e5 }; } return c >= 4 ? { tipo: "torna_a_casa" } : { tipo: "aspetta" }; }
             const ser = Object.keys(n.serate || {}).find((h) => h !== i.id);
             if (ser && !l.serata && i.cash > 3e6 && Math.random() < 0.35) { l.serata = !0; return { tipo: "vai_serata", host: ser }; }
+            { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); if (!l.setta) { const sn = settaNotteBot(o, i, e, LL, s); if (sn) { if (sn.tipo !== "vai") l.setta = !0; return sn; } } }
             l.visti.includes(s) || l.visti.push(s);
             // prima si ripuliscono i soldi sporchi: tenerli a fine partita vale poco e una confisca li porta via
             // ripulisce solo quanto i suoi locali possono giustificare, se no la Finanza se ne accorge
