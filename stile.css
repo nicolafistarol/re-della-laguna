@@ -560,3 +560,21 @@ button .lic{margin-right:2px}
 .chat-righe{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;margin:6px 0;font-size:13px}
 .chat-righe div{background:rgba(255,255,255,.06);border-radius:8px;padding:4px 8px}
 .chat-righe div.mio{background:rgba(155,89,182,.3);align-self:flex-end}
+
+/* Alba ordinata */
+.alba-numeri{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.alba-numeri div{background:rgba(255,255,255,.06);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px}
+.alba-numeri span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.alba-numeri b{font-size:20px}.alba-numeri i{font-size:12px;color:var(--muted);font-style:normal}
+.alba-fatti{display:flex;flex-direction:column;gap:6px}
+.alba-fatto{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.35}
+.alba-fatto b{color:var(--cielo);font-weight:600}
+.af-ico{flex:none;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#111;margin-top:1px}
+.alba-fatto.male{background:rgba(255,92,92,.08);border-radius:8px;padding:4px}
+.alba-det{margin-top:10px;background:rgba(255,255,255,.04);border-radius:10px;padding:8px 10px}
+.alba-det summary{cursor:pointer;font-weight:600;color:var(--oro)}
+
+.in-breve .ib{display:flex;gap:8px;margin:6px 0;font-size:13px;line-height:1.4}
+.in-breve .ib>b{flex:none;width:22px;height:22px;border-radius:50%;background:var(--oro);color:#111;display:flex;align-items:center;justify-content:center;font-size:12px}
+
+.g-mie{background:rgba(212,160,23,.12);border-left:3px solid #d4a017;padding-left:8px}

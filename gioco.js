@@ -11,7 +11,7 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=56";
+import * as Tre from "./tre.js?v=57";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
@@ -1466,7 +1466,8 @@ function primaPagina(ciclo, compatta) {
   const apertura = ord[0], resto = ord.slice(1);
   const borsa = S.borsaIeri ? L.AZIENDE.map((a) => { const d = (S.borsa[a] / (S.borsaIeri[a] || S.borsa[a]) - 1) * 100; return `<span class="titolo-borsa"><b>${esc(a)}</b> ${S.borsa[a].toFixed(0)} <i style="color:${d >= 0 ? "var(--pulito)" : "var(--sporco)"}">${d >= 0 ? "▲" : "▼"} ${Math.abs(d).toFixed(1)}%</i></span>`; }).join("") : "";
   const sezioni = compatta ? `<div class="g-sez">${resto.slice(0, 3).map((g) => `<p class="g-breve">${esc(g.testo)}</p>`).join("")}</div>`
-    : SEZIONI_GAZZETTA.map(([nome, tipi]) => { const xs = resto.filter((g) => tipi.includes(g.tipo || "notizia")); return xs.length ? `<div class="g-sez"><span class="g-sez-t">${nome}</span>${xs.map((g) => `<p class="g-breve">${esc(g.testo)}</p>`).join("")}</div>` : ""; }).join("")
+    : (() => { const io_ = S.players.find((x) => x.id === mioId), mie = io_ ? resto.filter((g) => g.testo.includes(io_.nome)) : []; return mie.length ? `<div class="g-sez g-mie"><span class="g-sez-t">Parlano di te</span>${mie.map((g) => `<p class="g-breve">${esc(g.testo)}</p>`).join("")}</div>` : ""; })()
+    + SEZIONI_GAZZETTA.map(([nome, tipi]) => { const xs = resto.filter((g) => tipi.includes(g.tipo || "notizia")); return xs.length ? `<div class="g-sez"><span class="g-sez-t">${nome}</span>${xs.slice(0, 4).map((g) => `<p class="g-breve">${esc(g.testo)}</p>`).join("")}${xs.length > 4 ? `<details><summary class="sub">altre ${xs.length - 4}</summary>${xs.slice(4).map((g) => `<p class="g-breve">${esc(g.testo)}</p>`).join("")}</details>` : ""}</div>` : ""; }).join("")
       + (borsa ? `<div class="g-sez"><span class="g-sez-t">Borsa della Laguna</span><div class="g-borsa">${borsa}</div></div>` : "");
   return `<div class="giornale">
     <div class="testata"><b>La Gazzetta della Laguna</b><span>Ciclo ${ciclo} · ${ciclo === S.ciclo + 1 ? "ultima edizione" : "edizione del Ciclo " + ciclo}</span></div>
@@ -1759,7 +1760,12 @@ function contenutoApp(me, k) {
         <div class="liv"><span class="liv-n">€</span><div class="sub" style="font-size:12px">${x.offerta > 0 ? `<b>Ti regalano ${euro(x.offerta)}</b> in soldi sporchi se entri.` : x.offerta < 0 ? `<b>Quota d'ingresso: ${euro(-x.offerta)}</b> (prima dai tuoi sporchi, poi dai puliti).` : "Nessun regalo e nessuna quota."}<br>Ogni Alba il ${pct}% delle tue rendite va al Tesoro della setta.</div></div>
         <div class="liv"><span class="liv-n">+</span><div class="sub" style="font-size:12px">In cambio: affari sporchi con il 30% di Tracce in meno, condanne più leggere di un gradino, il Faro sempre aperto con affari solo per i membri.</div></div>
         <div class="riga"><button class="piccolo oro" data-invito="${x.setta}|1">Entro</button><button class="piccolo" data-invito="${x.setta}|0">Rifiuto</button></div></div>`).join("") +
-      (S.sette.length ? S.sette.map((st) => `<div class="scheda"><h4 style="color:var(--setta)">${esc(st.nome)}</h4><i class="sub">${esc(st.motto)}</i><span class="sub">Livello ${L.livelloSetta(S, st)} · membri: ${st.membri.map((id) => esc(S.players.find((x) => x.id === id).nome)).join(", ")} · tesoro ${euro(st.tesoro)}</span>
+      (S.sette.length ? `<details class="scheda in-breve" ${S.sette.some((st) => st.gm === mioId) && L.livelloSetta(S, S.sette[0]) <= 1 ? "open" : ""}><summary><b>🕯️ Come funziona la setta</b></summary>
+        <div class="ib"><b>1</b><span><b>Cosa ti dà sempre:</b> affari sporchi con il 30% di Tracce in meno, condanne più leggere, il Faro aperto di notte. Ogni Alba il ${pct}% delle rendite dei membri va nel Tesoro; il Gran Maestro prende il 5% del Tesoro in sporchi.</span></div>
+        <div class="ib"><b>2</b><span><b>I livelli:</b> servono 3 membri e soldi nel Tesoro (3 M per il 2, 8 M per il 3, 20 M per il 4). Dal livello 3 serve anche un personaggio reclutato (Banchiere, Commissario o Giudice), che si recluta di notte al Faro.</span></div>
+        <div class="ib"><b>3</b><span><b>Di notte al Faro</b> il Gran Maestro lancia le operazioni (Borsa, blackout, evasione, sabotaggio, inchiesta, Sindaco fantoccio) e nasconde il Tesoro.</span></div>
+        <div class="ib"><b>4</b><span><b>Qui nel telefono:</b> inviti, chat dei confratelli, convocazione (posto e ora) per il rito, Prova di fedeltà contro i traditori.</span></div>
+        <span class="sub">Esempio: convochi la setta al Porto alle 2. Tu e Sabri ci andate: fai il rito, vi cancella 8 Tracce, poi fate l'affare del Porto con meno pericoli.</span></details>` + S.sette.map((st) => `<div class="scheda"><h4 style="color:var(--setta)">${esc(st.nome)}</h4><i class="sub">${esc(st.motto)}</i><span class="sub">Livello ${L.livelloSetta(S, st)} · membri: ${st.membri.map((id) => esc(S.players.find((x) => x.id === id).nome)).join(", ")} · tesoro ${euro(st.tesoro)}</span>
         <div class="riga"><input type="number" placeholder="versa" id="versa_${st.id}" style="width:100px"><button class="piccolo" data-versa="${st.id}|0">Puliti</button><button class="piccolo" data-versa="${st.id}|1">Sporchi</button></div>
         ${st.membri.filter((id) => id !== st.gm).length ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${st.membri.filter((id) => id !== st.gm).map((id) => { const m = S.players.find((x) => x.id === id); return `<div class="riga" style="justify-content:space-between"><span class="sub">${esc(m.nome)}${id === mioId ? " (tu)" : ""}</span>${st.gm === mioId ? `<span><button class="piccolo" data-prova="${st.id}|${id}" title="Costa 1 M dal Tesoro: scopri se sta tradendo">Prova di fedeltà</button> <button class="piccolo" data-caccia="${st.id}|${id}">Caccia</button></span>` : id === mioId ? `<button class="piccolo" data-lascia="${st.id}">Esci dalla setta</button>` : ""}</div>`; }).join("")}</div>` : ""}
         <span class="sub" style="display:block;margin-top:6px">${requisitiSetta(st)}${PNG_SETTA.filter((x) => st[x.k]).length ? " Personaggi: " + PNG_SETTA.filter((x) => st[x.k]).map((x) => x.nome).join(", ") + "." : ""}</span>
@@ -2084,18 +2090,38 @@ function finestraPending(me) {
   if (pd.tipo === "municipio") return finestra(`<span class="kick" style="color:var(--setta)">Isola Corona</span><h2>Il Municipio</h2><p>Puoi candidarti a Sindaco (fama 40, ${euro(L.N.candidatura)}). Allo sportello la licenza del casinò è sicura e costa solo 400.000 €.</p><div class="pulsanti"><button id="n">Niente</button><button id="l">Licenza casinò</button><button class="oro" id="c">Mi candido</button></div>`,
     (d, c) => { d.querySelector("#n").onclick = () => { c(); agisci({ tipo: "municipio", scelta: "nulla" }); }; d.querySelector("#l").onclick = () => { c(); agisci({ tipo: "municipio", scelta: "licenza" }); }; d.querySelector("#c").onclick = () => { c(); agisci({ tipo: "municipio", scelta: "candidati" }); }; });
 }
+// L'Alba in ordine: prima i numeri, poi i fatti importanti della notte, poi (chiusi) il racconto completo, i conti e il giornale
+function tipoRiga(t) {
+  if (/^(Esci|Parti |Arrivi|Torni|Alle 4|Resti|Aspetti|Ti metti in viaggio)/.test(t) || /Tutto tranquillo\.?$/.test(t)) return "via";
+  if (/(perdi|Perdi|hai perso|sequestr|arrest|Faro|sirene|Sirene|scappi|riconosc|foto|Prova|scoperto|Tracce in più|condann|multa|retata)/.test(t)) return "male";
+  if (/(Vinci|vinci|vinto|guadagn|ti porti via|incassi|Incassi|ripulit|pulit|\+\s?\d|fama cresce|riuscit)/.test(t)) return "bene";
+  return "fatto";
+}
 function finestraAlba(me) {
   const r = (S.ultimaAlba.riepilogo || {})[mioId] || {};
-  const racc = me.raccontoNotte || [];
-  const gaz = S.gazzetta.filter((g) => g.ciclo === S.ultimaAlba.ciclo || g.ciclo === S.ultimaAlba.ciclo + 1).slice(-6);
-  finestra(`<span class="kick" style="color:var(--oro)">${ico("sole")} L'Alba · Ciclo ${S.ultimaAlba.ciclo}</span><h2>La tua notte</h2>
-    <div style="display:flex;flex-direction:column;gap:6px">${racc.map((x) => { const [o, t] = x.split(" — "); return `<p class="storia" style="margin:0"><b style="color:var(--cielo);font-style:normal">${esc(o)}</b> ${esc(t)}</p>`; }).join("") || `<p class="sub">Una notte tranquilla.</p>`}</div>
-    <p class="kick" style="color:var(--muted);margin-top:16px">I conti del mattino</p>
-    ${(r.dettaglio || []).length ? `<table class="cl">${r.dettaglio.map((x) => `<tr><td>${esc(x.nome)} <span class="sub">${esc(x.cosa)}</span></td><td style="color:${x.importo ? "var(--pulito)" : "var(--muted)"};font-weight:700">${x.importo ? "+ " + euro(x.importo) : "0 €"}</td></tr>`).join("")}${r.palazzo ? `<tr><td>Il tuo Palazzo</td><td style="color:var(--pulito);font-weight:700">+ ${euro(r.palazzo)}</td></tr>` : ""}${r.veicoli ? `<tr><td>Noleggio dei tuoi veicoli</td><td style="color:var(--pulito);font-weight:700">+ ${euro(Math.round(r.veicoli))}</td></tr>` : ""}${r.tv ? `<tr><td>Grandi Affari (le tue quote)</td><td style="color:var(--pulito);font-weight:700">+ ${euro(r.tv)}</td></tr>` : ""}${r.tvSpesa ? `<tr><td>Spesa per comandare i Grandi Affari</td><td style="color:#ff9a9a;font-weight:700">− ${euro(r.tvSpesa)}</td></tr>` : ""}</table>` : ""}
-    <table class="cl"><tr><td><b>Totale rendite</b></td><td style="color:var(--pulito);font-weight:800">+ ${euro(r.rendite || 0)}</td></tr><tr><td>Tasse</td><td style="color:var(--sporco);font-weight:800">− ${euro(r.tasse || 0)}</td></tr>
-    ${r.interessi ? `<tr><td>Interessi alla Banca</td><td>− ${euro(r.interessi)}</td></tr>` : ""}${r.corruzione ? `<tr><td>Le "mance" ai tuoi amici</td><td>− ${euro(r.corruzione)}</td></tr>` : ""}</table>
-    ${r.consiglio ? `<div class="scheda" style="margin-top:14px;border:1px solid rgba(255,95,162,.4)"><b style="color:#ff5fa2">Vera ti suggerisce</b><p style="margin:4px 0 0">${esc(r.consiglio.testo)}</p></div>` : ""}
-    <div style="margin-top:16px">${primaPagina(S.ultimaAlba.ciclo, true)}</div>
+  const racc = (me.raccontoNotte || []).map((x) => { const [o, ...t] = x.split(" — "); return { o, t: t.join(" — ") }; });
+  const importanti = racc.filter((x) => tipoRiga(x.t) !== "via");
+  const netto = (r.rendite || 0) - (r.tasse || 0) - (r.interessi || 0) - (r.corruzione || 0) + (r.tesoroSetta || 0) + (r.banchiereSetta || 0);
+  const guai = importanti.filter((x) => tipoRiga(x.t) === "male").length;
+  const ICO_R = { bene: ["✓", "var(--pulito)"], male: ["!", "var(--sporco)"], fatto: ["•", "var(--cielo)"] };
+  const gazAlba = S.gazzetta.filter((g) => g.ciclo === S.ultimaAlba.ciclo || g.ciclo === S.ultimaAlba.ciclo + 1);
+  const mie = gazAlba.filter((g) => g.testo.includes(me.nome));
+  finestra(`<span class="kick" style="color:var(--oro)">${ico("sole")} L'Alba · Ciclo ${S.ultimaAlba.ciclo}</span><h2>Com'è andata stanotte</h2>
+    <div class="alba-numeri">
+      <div><span>Rendite del mattino</span><b style="color:${netto >= 0 ? "var(--pulito)" : "var(--sporco)"}">${netto >= 0 ? "+ " : "− "}${euro(Math.abs(netto))}</b><i>dopo tasse e spese</i></div>
+      <div><span>Polizia</span><b style="color:${(me.stato || 0) >= 3 ? "var(--sporco)" : (me.stato || 0) >= 1 ? "#f3c56b" : "var(--pulito)"}">${esc(L.STATI[me.stato || 0] || "")}</b><i>${guai ? guai + (guai === 1 ? " guaio" : " guai") + " stanotte" : "nessun guaio stanotte"}</i></div>
+    </div>
+    <p class="kick" style="color:var(--muted);margin-top:14px">I fatti della notte</p>
+    <div class="alba-fatti">${importanti.length ? importanti.map((x) => { const k = tipoRiga(x.t), [ic, col] = ICO_R[k]; return `<div class="alba-fatto ${k}"><span class="af-ico" style="background:${col}">${ic}</span><div><b>${esc(x.o)}</b> ${esc(x.t)}</div></div>`; }).join("") : `<p class="sub">Una notte tranquilla: niente di importante.</p>`}</div>
+    ${racc.length > importanti.length ? `<details class="alba-det"><summary>Tutto il racconto della notte (${racc.length} momenti)</summary>${racc.map((x) => `<p class="storia" style="margin:4px 0"><b style="color:var(--cielo);font-style:normal">${esc(x.o)}</b> ${esc(x.t)}</p>`).join("")}</details>` : ""}
+    <details class="alba-det"><summary>I conti del mattino: ${netto >= 0 ? "+ " : "− "}${euro(Math.abs(netto))}</summary>
+      ${(r.dettaglio || []).length ? `<table class="cl">${r.dettaglio.map((x) => `<tr><td>${esc(x.nome)} <span class="sub">${esc(x.cosa)}</span></td><td style="color:${x.importo ? "var(--pulito)" : "var(--muted)"};font-weight:700;white-space:nowrap">${x.importo ? "+ " + euro(x.importo) : "—"}</td></tr>`).join("")}</table>` : ""}
+      <table class="cl"><tr><td><b>Totale rendite</b></td><td style="color:var(--pulito);font-weight:800;white-space:nowrap">+ ${euro(r.rendite || 0)}</td></tr><tr><td>Tasse</td><td style="color:var(--sporco);font-weight:800;white-space:nowrap">− ${euro(r.tasse || 0)}</td></tr>
+      ${r.interessi ? `<tr><td>Interessi alla Banca</td><td style="white-space:nowrap">− ${euro(r.interessi)}</td></tr>` : ""}${r.corruzione ? `<tr><td>Le "mance" ai tuoi amici</td><td style="white-space:nowrap">− ${euro(r.corruzione)}</td></tr>` : ""}${r.tesoroSetta ? `<tr><td>Dal Tesoro della setta (sporchi)</td><td style="white-space:nowrap">+ ${euro(r.tesoroSetta)}</td></tr>` : ""}${r.banchiereSetta ? `<tr><td>Ripuliti dal Banchiere della setta</td><td style="white-space:nowrap">${euro(r.banchiereSetta)}</td></tr>` : ""}</table>
+    </details>
+    ${r.consiglio ? `<div class="scheda" style="margin-top:12px;border:1px solid rgba(255,95,162,.4)"><b style="color:#ff5fa2">Vera ti suggerisce</b><p style="margin:4px 0 0">${esc(r.consiglio.testo)}</p></div>` : ""}
+    ${mie.length ? `<p class="kick" style="color:var(--muted);margin-top:14px">La Gazzetta parla di te</p>${mie.slice(0, 3).map((g) => `<p class="sub" style="margin:4px 0;color:var(--testo,#e5e7eb)">📰 ${esc(g.testo)}</p>`).join("")}` : ""}
+    <details class="alba-det"><summary>La Gazzetta di stamattina (${gazAlba.length} notizie)</summary>${primaPagina(S.ultimaAlba.ciclo, true)}</details>
     <div class="pulsanti"><button class="oro" id="ok">Inizia il giorno</button></div>`, (d, c) => d.querySelector("#ok").onclick = c);
 }
 // Le piste: cosa sta seguendo la polizia su di te (le prove dei rivali restano nascoste)
@@ -2243,12 +2269,13 @@ const PNG_SETTA = [
 ];
 function requisitiSetta(st) {
   const lv = L.livelloSetta(S, st), soglie = L.N.settaLivelli, membri = st.membri.length, png = st.pngReclutati || 0;
-  if (lv >= 4) return "Livello massimo.";
+  const grazia = st.grazia != null && st.grazia >= S.ciclo && st.membri.length < 3 ? ` ⏳ Vi manca un membro: avete tempo fino all'Alba del Ciclo ${st.grazia + 1} per trovarne un altro, poi il livello scende.` : "";
+  if (lv >= 4) return "Livello massimo." + grazia;
   const serve = [];
   if (membri < 3) serve.push(`${3 - membri} ${3 - membri === 1 ? "membro" : "membri"} in più`);
   if (st.tesoro < soglie[lv]) serve.push(`${euro(soglie[lv] - st.tesoro)} in più nel Tesoro`);
   if (lv >= 2 && png < 1) serve.push("un personaggio reclutato");
-  return `Per il livello ${lv + 1} ti manca: ${serve.join(", ") || "niente, sali all'Alba"}.`;
+  return `Per il livello ${lv + 1} ti manca: ${serve.join(", ") || "niente, sali all'Alba"}.` + grazia;
 }
 function finestraSetta(me) {
   const st = S.sette.find((x) => x.gm === mioId), lv = L.livelloSetta(S, st);
@@ -2516,7 +2543,17 @@ function appAffare(me, k, t) {
       <div class="tv-scelta"><b>${ico("chiave")} Blocca un conto</b><span class="sub">Un rivale non può chiedere prestiti fino all'Alba. Una volta per Ciclo.</span><div class="riga"><select id="bBers" style="flex:1">${altri.map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join("")}</select><button class="oro" data-b-blocca="1" ${t.bloccoCiclo === S.ciclo ? "disabled" : ""}>Blocca</button></div></div>
       ${(me.sporchi || 0) > 0 || S.sblocco >= 1 ? `<div class="tv-scelta"><b>${ico("ricicla")} Ripulisci nella tua banca</b><span class="sub">Perdi solo il 10%, fino a ${euro(G.riciclaMax)} per Ciclo (ti restano ${euro(restaRic)}). Ma la Finanza guarda i conti delle banche: lascia una pista sui soldi e tracce.</span><div class="riga"><input id="bRic" type="number" placeholder="quanto" style="flex:1"><button class="oro" data-b-ricicla="1" ${restaRic > 0 && me.sporchi > 0 ? "" : "disabled"}>Ripulisci</button></div></div>` : ""}`;
   }
-  return testa + quote + poteri;
+  const breve = k === "tv" ? `<div class="scheda in-breve"><h4>📺 In breve, cosa fa la TV</h4>
+    <div class="ib"><b>1</b><span><b>Ti paga.</b> A ogni Alba la TV incassa ${euro(G.pubblicita)} di pubblicità più il 10% di tutto il lusso che comprano gli altri. Si divide per quote: con ${mie} ${mie === 1 ? "quota" : "quote"} su 10 ti arriva circa <b>${euro(Math.round(G.pubblicita * mie / 10))}</b> a ogni Alba, più la parte del lusso.</span></div>
+    <div class="ib"><b>2</b><span><b>Chi comanda sceglie il titolone</b>, una volta per Ciclo: un'intervista a te (+8 fama), uno scandalo su un rivale (se è sporco: −15 fama e +12 Tracce; se è pulito rischi la figuraccia tu), o una notizia che fa salire o scendere un'azione in Borsa.</span></div>
+    <div class="ib"><b>3</b><span><b>Ti possono rubare il comando:</b> chi ha più quote comanda. Se un rivale compra quote più di te, la TV passa a lui. Chi comanda paga ${euro(G.spesa)} a ogni Alba.</span></div>
+    <span class="sub">Esempio: comandi tu, Rocco è pieno di soldi sporchi → scegli "scandalo su Rocco": domani la Gazzetta lo distrugge e la polizia lo guarda di più.</span></div>`
+    : `<div class="scheda in-breve"><h4>🏦 In breve, cosa fa la Banca</h4>
+    <div class="ib"><b>1</b><span><b>Ti paga.</b> A ogni Alba la Banca incassa ${euro(G.pubblicita)} più tutti gli interessi dei prestiti degli altri. Si divide per quote: con ${mie} ${mie === 1 ? "quota" : "quote"} su 10 ti arriva circa <b>${euro(Math.round(G.pubblicita * mie / 10))}</b> più la parte degli interessi.</span></div>
+    <div class="ib"><b>2</b><span><b>Chi comanda decide:</b> il tasso dei prestiti degli altri (5%, 10% o 20%), può bloccare il conto di un rivale per un Ciclo e può ripulire soldi sporchi nella sua banca.</span></div>
+    <div class="ib"><b>3</b><span><b>Il rischio:</b> se chi comanda finisce Indagato, la Finanza commissaria la banca: niente utili e niente poteri. E chi ha più quote ti ruba il comando.</span></div>
+    <span class="sub">Esempio: Vera ha un grosso debito → alzi il tasso al 20%: ogni Alba lei paga di più e quei soldi arrivano a chi ha le quote.</span></div>`;
+  return testa + breve + quote + poteri;
 }
 function collegaTV(box, me) {
   box.querySelectorAll("[data-g-off]").forEach((b) => b.onclick = () => { const [k, x] = b.dataset.gOff.split("|"); const v = x === "campo" ? Number(box.querySelector("#gOff_" + k).value) : Number(x); agisci({ tipo: "offerta_grande", affare: k, importo: v }); });

@@ -2147,9 +2147,11 @@
   function livelloSetta(s, st) {
     if (!st) return 0;
     let lv = 1;
-    if (st.tesoro >= N.settaLivelli[1] && st.membri.length >= 3) lv = 2;
-    if (st.tesoro >= N.settaLivelli[2] && st.membri.length >= 3 && (st.pngReclutati || 0) >= 1) lv = 3;
-    if (st.tesoro >= N.settaLivelli[3] && st.membri.length >= 3 && (st.pngReclutati || 0) >= 1) lv = 4;
+    // se esce un membro la setta non crolla subito: ha tempo fino all'Alba dopo per trovarne un altro
+    const membri = st.grazia != null && st.grazia >= s.ciclo ? Math.max(3, st.membri.length) : st.membri.length;
+    if (st.tesoro >= N.settaLivelli[1] && membri >= 3) lv = 2;
+    if (st.tesoro >= N.settaLivelli[2] && membri >= 3 && (st.pngReclutati || 0) >= 1) lv = 3;
+    if (st.tesoro >= N.settaLivelli[3] && membri >= 3 && (st.pngReclutati || 0) >= 1) lv = 4;
     return lv;
   }
   function fondaSetta(s, p, nome, motto) {
@@ -2198,7 +2200,7 @@
     if (idMembro === p.id) err("Il Gran Maestro non può cacciare se stesso.");
     if (!st.membri.includes(idMembro)) err("Non è un membro.");
     const m = giocatore(s, idMembro);
-    st.membri = st.membri.filter((x) => x !== idMembro); m.sette = m.sette.filter((x) => x !== idSetta);
+    if (st.membri.length >= 3) st.grazia = s.ciclo + 1; st.membri = st.membri.filter((x) => x !== idMembro); m.sette = m.sette.filter((x) => x !== idSetta);
     privato(s, m, "Sei stato cacciato dalla setta \"" + st.nome + "\". Perdi tutti i suoi privilegi.");
     privato(s, p, m.nome + " non fa più parte della setta.");
     for (const id of st.membri) if (id !== p.id) privato(s, giocatore(s, id), m.nome + " è stato cacciato dalla setta.");
@@ -2206,7 +2208,7 @@
   function lasciaSetta(s, p, idSetta) {
     const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id)) err("Non sei in questa setta.");
     if (st.gm === p.id) err("Il Gran Maestro non può lasciare la sua setta.");
-    st.membri = st.membri.filter((x) => x !== p.id); p.sette = p.sette.filter((x) => x !== idSetta);
+    if (st.membri.length >= 3) st.grazia = s.ciclo + 1; st.membri = st.membri.filter((x) => x !== p.id); p.sette = p.sette.filter((x) => x !== idSetta);
     privato(s, p, "Hai lasciato la setta \"" + st.nome + "\".");
     privato(s, giocatore(s, st.gm), p.nome + " ha lasciato la tua setta.");
   }
@@ -2307,7 +2309,7 @@
     const m = giocatore(s, idMembro);
     if (st.tradimento && st.tradimento.da === idMembro) {
       st.tradimento = null;
-      st.membri = st.membri.filter((x) => x !== idMembro); m.sette = m.sette.filter((x) => x !== idSetta);
+      if (st.membri.length >= 3) st.grazia = s.ciclo + 1; st.membri = st.membri.filter((x) => x !== idMembro); m.sette = m.sette.filter((x) => x !== idSetta);
       m.tracce += 20; m.stato = Math.max(m.stato, 1);
       privato(s, p, "La Prova di fedeltà parla chiaro: " + m.nome + " stava vendendo la setta alla polizia. È fuori, e la setta ha fatto arrivare alla polizia le sue Tracce.");
       privato(s, m, "Il Gran Maestro ti ha scoperto. Sei fuori dalla setta, e qualcuno ha fatto arrivare alla polizia i tuoi segreti.");
@@ -2321,7 +2323,7 @@
       const premio = Math.min(5_000_000, round(st.tesoro * 0.1)), sequestro = round(st.tesoro * 0.5);
       st.tesoro -= sequestro + premio; tr.cash += premio;
       tr.tracce = Math.max(0, tr.tracce - 30); tr.stato = Math.max(0, tr.stato - 1);
-      st.membri = st.membri.filter((x) => x !== tr.id); tr.sette = tr.sette.filter((x) => x !== st.id);
+      if (st.membri.length >= 3) st.grazia = s.ciclo + 1; st.membri = st.membri.filter((x) => x !== tr.id); tr.sette = tr.sette.filter((x) => x !== st.id);
       for (const id of st.membri) { const m = giocatore(s, id); m.tracce += 20; m.stato = Math.max(m.stato, 1); privato(s, m, "Un traditore ha parlato: la polizia ha sequestrato " + euro(sequestro) + " del Tesoro della setta e ora ti tiene d'occhio. Il Tesoro sepolto è salvo."); }
       privato(s, tr, "Hai venduto la setta. Premio: " + euro(premio) + " puliti, e molte delle tue Tracce spariscono. Ora sei fuori, e loro lo sanno.");
       notizia(s, "Un pentito parla: la Finanza sequestra " + euro(sequestro) + " a una setta segreta della Laguna.", "scandalo");
