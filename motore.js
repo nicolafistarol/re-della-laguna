@@ -861,6 +861,8 @@
     { id: "quadri", luogo: "club", sblocco: 2, nome: "I quadri falsi", testo: "Un collezionista cerca chi venda due tele \"d'autore\" a un ricco turista.", costo: 200_000, guadagno: [1_840_000, 2_800_000], pericoli: ["testimone", "fotografo"], tracce: 10, gravita: "grave" },
     { id: "pesce", luogo: "porto", sblocco: 2, nome: "Il peschereccio", testo: "Sotto il ghiaccio del pesce c'è altro. Va scaricato prima dell'alba.", costo: 350_000, guadagno: [3_080_000, 4_400_000], pericoli: ["pattuglia", "telecamere"], tracce: 13, gravita: "grave" },
     { id: "colpo", luogo: "villa", sblocco: 3, nome: "Il Colpo alla villa", testo: "Il proprietario è in viaggio. In cassaforte, dicono, ci sono i gioielli di famiglia.", costo: 250_000, guadagno: [5_720_000, 8_360_000], pericoli: ["allarme", "telecamere"], tracce: 26, gravita: "grave" },
+    { id: "confraternita", luogo: "faro", sblocco: 0, soloSetta: true, nome: "Il carico della confraternita", testo: "Una nave senza bandiera aspetta il segnale della lanterna. Il carico è per la setta: chi lo scarica si prende la sua parte.", costo: 500_000, guadagno: [5_000_000, 8_000_000], pericoli: ["guardia"], tracce: 16, gravita: "grave" },
+    { id: "senatore", luogo: "faro", sblocco: 0, soloSetta: true, nome: "Il segreto del senatore", testo: "I confratelli hanno le foto di un senatore. Pagherà bene per farle sparire, se qualcuno va a chiederglielo.", costo: 200_000, guadagno: [3_000_000, 5_000_000], pericoli: ["intercettazione", "fotografo"], tracce: 12, gravita: "grave" },
     { id: "lingotti", luogo: "villa", sblocco: 3, nome: "I lingotti nella cantina", testo: "Il custode della villa ha debiti di gioco. Per una cifra giusta, lascia la porta aperta.", costo: 400_000, guadagno: [3_960_000, 5_720_000], pericoli: ["allarme", "testimone"], tracce: 18, gravita: "grave" },
   ];
   const INDIZI = {
@@ -887,13 +889,14 @@
   }
   function livelloSblocco(s, p) { return p ? p.livello || 0 : 3; }
   function postiValigetta(s, p) { return [2, 4, 4, 6][livelloSblocco(s, p)]; }
-  function luogoAperto(s, l, p) { return LUOGHI[l] && LUOGHI[l].sblocco <= livelloSblocco(s, p); }
+  function luogoAperto(s, l, p) { return LUOGHI[l] && (LUOGHI[l].sblocco <= livelloSblocco(s, p) || (l === "faro" && p && inSetta(p))); }
   function isolaCasa(s, p) { const l = s.lotti.find((x) => x.owner === p.id && x.isola); return l ? l.isola : "Corona"; }
   function isolaLuogo(s, p, l) { return l === "palazzo" ? isolaCasa(s, p) : LUOGHI[l].isola; }
   function oreViaggio(s, p, da, a) {
     if (haOggetto(p, "motoscafo") || haPiano(p, "eliporto") || p.veicoli.some((v) => ["motoscafo", "yacht", "megayacht", "elicottero"].includes(v))) return 1;
     return isolaLuogo(s, p, da) === isolaLuogo(s, p, a) ? 1 : 2;
   }
+  function inSetta(p) { return (p.sette || []).length > 0; }
   function haPiano(p, f) { return (p.funzioniPiani || []).includes(f); }
   function haOggetto(p, id) { return (p.valigetta || []).some((o) => o.id === id); }
   function togliOggetto(p, id) { const i = (p.valigetta || []).findIndex((o) => o.id === id); if (i >= 0) p.valigetta.splice(i, 1); }
@@ -927,7 +930,7 @@
     let n = 1;
     for (const l of Object.keys(LUOGHI)) {
       if (!luogoAperto(s, l)) continue;
-      const pool = OCCASIONI.filter((o) => o.luogo === l && o.sblocco <= lv);
+      const pool = OCCASIONI.filter((o) => o.luogo === l && o.sblocco <= lv && (!o.soloSetta || s.sette.length > 0));
       if (!pool.length) continue;
       const quante = rng(s) < 0.4 ? 1 : 2;
       for (let k = 0; k < quante && pool.length; k++) {
@@ -944,7 +947,7 @@
       // una chiamata, a volte
       if (livelloSblocco(s, p) >= 1 && rng(s) < 0.45) {
         const lvp = livelloSblocco(s, p);
-        const pool = OCCASIONI.filter((o) => !o.legale && o.sblocco <= lvp && luogoAperto(s, o.luogo, p));
+        const pool = OCCASIONI.filter((o) => !o.legale && !o.soloSetta && o.sblocco <= lvp && luogoAperto(s, o.luogo, p));
         const o = pool[Math.floor(rng(s) * pool.length)];
         const alle = 3 + Math.floor(rng(s) * 3);
         s.notte.occasioni.push({ n: n++, id: o.id, luogo: o.luogo, dalle: 0, alle, preso: null, riservata: p.id });
@@ -1283,7 +1286,8 @@
     if (!s.notte || s.notte.viaggio[p.id]) return [];
     const dove = s.notte.dove[p.id], ora = s.notte.ora;
     const lvp = livelloSblocco(s, p);
-    return s.notte.occasioni.filter((o) => !o.preso && o.luogo === dove && ora >= o.dalle && ora < o.alle && (!o.riservata || o.riservata === p.id) && OCCASIONI.find((x) => x.id === o.id).sblocco <= lvp);
+    return s.notte.occasioni.filter((o) => !o.preso && o.luogo === dove && ora >= o.dalle && ora < o.alle && (!o.riservata || o.riservata === p.id) && (OCCASIONI.find((x) => x.id === o.id).sblocco <= lvp || l_ok(o)) && (!OCCASIONI.find((x) => x.id === o.id).soloSetta || inSetta(p)));
+    function l_ok(o) { return OCCASIONI.find((x) => x.id === o.id).soloSetta; }
   }
 
   function vai(s, p, luogo) {
@@ -1442,6 +1446,7 @@
       else racconta(s, p, "Il politico parla tanto ma non dice niente di utile.");
     }
     if (o.riservata === p.id && usati.includes("telefono")) tracce *= 0.5;
+    if (inSetta(p)) tracce *= 0.7; // la setta copre i suoi
     if (s.leggi.includes("polizia_doppia_" + isola)) tracce *= 1.5;
     p.tracce += tracce;
     if (guadagno > 0) {
@@ -1892,6 +1897,7 @@
   function condanna(s, p, gravita, motivo) {
     gravita = gravita || "lieve";
     if (p.condanne > 0 && gravita !== "gravissima") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) + 1];
+    if (inSetta(p) && gravita !== "lieve") { gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; privato(s, p, "Gli avvocati della setta lavorano nell'ombra: la condanna scende di un gradino."); }
     if (haOggetto(p, "avvocato")) { togliOggetto(p, "avvocato"); if (gravita !== "lieve") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; privato(s, p, "Il tuo avvocato fa il suo lavoro: la pena scende di un gradino."); }
     const pena = PENE[gravita];
     let protGiudice = false;
@@ -1970,6 +1976,7 @@
       let decima = 0;
       for (const id of p.sette) { const st = s.sette.find((x) => x.id === id); if (st) { const d = (rend - evasa - tassa) * N.decima / p.sette.length; st.tesoro += d; decima += d; } }
       p.cash += rend - evasa - tassa - decima;
+      for (const st of s.sette) if (st.gm === p.id && st.tesoro > 0) { const quota = round(st.tesoro * 0.05); st.tesoro -= quota; p.sporchi += quota; r.tesoroSetta = quota; }
       r.rendite = round(rend); r.tasse = round(tassa); r.evasa = round(evasa); r.decima = round(decima);
       // sindaco
       if (s.sindaco === p.id) { p.cash += N.stipendioSindaco; r.stipendioSindaco = N.stipendioSindaco; }
@@ -2221,6 +2228,8 @@
         daScelta: s.notte.daScelta[idGiocatore], inizioRacc: s.notte.inizioRacc[idGiocatore] || 0,
         scelte: me ? scelteNotte(s, me) : [],
         qui: me ? quiConMe(s, me).map((x) => x.id) : [],
+        pericoloQui: me && !s.notte.viaggio[idGiocatore] && s.notte.dove[idGiocatore] !== "palazzo" ? s.notte.pericolo[s.notte.dove[idGiocatore]] : null,
+        protezione: me ? (me.corrotti && me.corrotti["agente_" + (LUOGHI[s.notte.dove[idGiocatore]] || {}).isola] ? 0.6 : 1) * (me.corrotti && me.corrotti.commissario ? 0.8 : 1) : 1,
         ospite: s.notte.ospite ? s.notte.ospite[idGiocatore] || null : null,
         serate: Object.entries(s.notte.serate || {}).map(([id, se]) => { const h = s.players.find((x) => x.id === id); return { host: id, nome: h.nome, piani: h.piani, livello: livelloPalazzo(h), ingresso: se.ingresso, ospiti: se.ospiti.length, banco: id === idGiocatore ? se.banco : undefined }; }),
         proposte: (s.notte.proposte || []).filter((x) => x.a === idGiocatore || x.da === idGiocatore),
@@ -2240,7 +2249,7 @@
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE,
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
-    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, oreViaggio, luogoAperto,
+    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;
