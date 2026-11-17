@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=60";
+import * as Tre from "./tre.js?v=61";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=60";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=61";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -1195,7 +1195,7 @@ function scenaNotte(me) {
   } else {
     const da = v && N2.daScelta === undefined ? N2.inizioRacc || 0 : N2.daScelta !== undefined ? N2.daScelta : N2.inizioRacc || 0;
     const storia = racc.slice(da);
-    corpo = `<div class="righe grandi">${storia.length ? righeNotte(storia) : v ? `<p>Arrivi tra ${v.restano === 1 ? "un'ora" : v.restano + " ore"}.</p>` : ""}</div>
+    corpo = `<div class="righe grandi">${storia.length ? righeNotte(storia) : v ? `<p>Arrivi tra ${v.restano === 1 ? "un'ora" : v.restano + " ore"}.</p>` : ""}</div>${riquadroEsito(me)}
       ${pronto ? `<div class="attesa">${mancano.length ? "Aspetti " + mancano.map((p) => esc(p.nome)).join(", ") + "…" : "L'ora sta finendo…"}</div>` : `<button class="oro grande avanti" data-a="avanti">Avanti</button>`}`;
   }
   // le animazioni non devono ripartire a ogni aggiornamento: ricordo quando e' iniziata questa scena
@@ -1206,6 +1206,15 @@ function scenaNotte(me) {
   return `<div class="scena ${nuova ? "entra" : ""}"><div class="scena-foto" style="background-image:url('${img}');animation-delay:-${da.toFixed(1)}s"></div><div class="scena-nebbia" style="animation-delay:-${da.toFixed(1)}s"></div><div class="scena-velo"></div><div class="scena-dentro">${testa}${corpo}</div></div>`;
 }
 const inizioScena = {};
+// dopo ogni azione della notte: cosa hai guadagnato o perso, quante Tracce hai lasciato, se la polizia ti guarda
+function riquadroEsito(me) {
+  const e = me.ultimoEsito; if (!e || e.ciclo !== S.ciclo || e.ora !== S.notte.ora) return "";
+  const soldi = (x, sp) => x ? `<span style="color:${x > 0 ? (sp ? "#ff9a9a" : "var(--pulito)") : "#ffb3b3"}">${x > 0 ? "+" : "−"} ${euro(Math.abs(x))}${sp ? " sporchi" : ""}</span>` : "";
+  const TR = ["nessuna traccia", "poche Tracce", "parecchie Tracce", "molte Tracce"], COL = ["var(--pulito)", "#ffd27a", "#ffab5e", "#ff6b6b"];
+  const STATI = ["", "Voci: si parla di te", "Osservato: la polizia ti tiene d'occhio", "Indagato: la Gazzetta fa il tuo nome", "Processo all'Alba"];
+  return `<div class="esito-notte"><b>Com'è andata</b><div class="esito-cifre">${soldi(e.dc) || ""}${e.dc && e.ds ? " · " : ""}${soldi(e.ds, true)}${!e.dc && !e.ds ? "<span>nessun soldo mosso</span>" : ""}</div>
+    <div><span class="pallino" style="background:${COL[e.tr]}"></span> Hai lasciato <b>${TR[e.tr]}</b>${e.tr >= 2 ? ": all'Alba la polizia tira i dadi, più Tracce hai più rischi." : "."}</div>${e.sale ? `<div style="color:#ffb3b3">⚠️ ${STATI[e.sale]}.</div>` : ""}</div>`;
+}
 function testoTempo(r) { return r > 0 ? "Restano " + r + " secondi per quest'ora" : "Tempo finito: chi non ha scelto resta dov'è"; }
 let orologioNotte = null, scadutoInviato = "";
 function collegaScena(me) {
@@ -1224,7 +1233,7 @@ function collegaScena(me) {
     if (c.k === "occ") return finestraOccasione(me, c.n);
     if (c.k === "ricicla") return finestraRicicla(me, false);
     if (c.k === "paradiso") return finestraRicicla(me, true);
-    if (c.k === "banchiere" || c.k === "polizia") return finestraCorrompi(me);
+    if (c.k === "banchiere" || c.k === "polizia") return finestraCorrompi(me, c.chi);
     if (c.k === "doganiere") return finestraDoganiere(me);
     if (c.k === "articolo") return finestraArticolo(me);
     if (c.k === "setta") return finestraSetta(me);
@@ -1396,6 +1405,7 @@ function chiediViaggio(me, luogo) {
 const SPENTE_FARO = ["imprese", "agenzia", "palazzo", "lusso", "valigetta", "sporchi", "grandi"];
 const APPS = [
   { k: "impero", nome: "Il mio impero", ico: ico("impero"), col: "#b8860b", lv: 0 },
+  { k: "conti", nome: "I miei conti", ico: ico("soldi"), col: "#1f6f50", lv: 0 },
   { k: "scoperte", nome: "Da scoprire", ico: ico("stella"), col: "#e0a526", lv: 0 },
   { k: "imprese", nome: "Imprese", ico: ico("imprese"), col: "#c9a24a", lv: 0 },
   { k: "agenzia", nome: "Agenzia", ico: ico("chiave"), col: "#1f6b4a", lv: 0 },
@@ -1520,7 +1530,7 @@ function mostraUltimOra() {
 // ------------------------------------------------------------ telefono: home chiara
 // App raggruppate, una riga di stato sotto ogni icona, pallino rosso solo per le cose da fare,
 // "NUOVA" sulle app appena sbloccate, e in alto "Adesso puoi" con 1-3 cose da fare subito.
-const GRUPPI_APP = [["Soldi", ["impero", "banca", "borsa"]], ["Costruire", ["imprese", "agenzia", "palazzo", "lusso"]], ["Persone", ["messaggi", "rubrica", "contratti", "setta"]], ["Notte", ["valigetta", "sporchi", "prove"]], ["Città", ["gazzetta", "grandi", "municipio", "scoperte"]]];
+const GRUPPI_APP = [["Soldi", ["impero", "conti", "banca", "borsa"]], ["Costruire", ["imprese", "agenzia", "palazzo", "lusso"]], ["Persone", ["messaggi", "rubrica", "contratti", "setta"]], ["Notte", ["valigetta", "sporchi", "prove"]], ["Città", ["gazzetta", "grandi", "municipio", "scoperte"]]];
 const APP_SEMPRE = ["impero", "imprese", "agenzia", "banca", "gazzetta", "messaggi", "valigetta", "palazzo", "lusso", "rubrica", "municipio"];
 function appViste() { try { return new Set(JSON.parse(localStorage.getItem("laguna_appviste_" + partita) || "[]")); } catch (e) { return new Set(); } }
 function segnaAppVista(k) { try { const v = appViste(); v.add(k); localStorage.setItem("laguna_appviste_" + partita, JSON.stringify([...v])); } catch (e) { } }
@@ -1531,6 +1541,7 @@ function statoApp(me, k, nuovi) {
   const miei = S.lotti.filter((l) => l.owner === mioId);
   switch (k) {
     case "impero": return { riga: kEuro(L.patrimonio(S, me, false)) };
+    case "conti": { const c = (me.conti || {})[S.ciclo] || {}; let t = 0; for (const v of Object.values(c)) t += v[0]; return { riga: (t >= 0 ? "+" : "−") + kEuro(Math.abs(t)) + " oggi" }; }
     case "banca": { const scade = (me.prestiti || []).filter((p) => p.scadenza <= S.ciclo + 1).length; return { riga: me.debito > 0 ? "debito " + kEuro(me.debito) : "nessun debito", fare: scade }; }
     case "borsa": { const inv = L.valoreInvestimenti(S, me); return { riga: inv > 0 ? kEuro(inv) + " investiti" : "niente investito" }; }
     case "imprese": { const vuoti = miei.filter((l) => l.tipoCasella === "lotto" && !l.lvl && !l.cantiere).length; return { riga: vuoti ? vuoti + (vuoti === 1 ? " terreno vuoto" : " terreni vuoti") : miei.filter((l) => l.lvl > 0).length + " attività", caldo: vuoti > 0 }; }
@@ -1654,6 +1665,7 @@ function miTurnoApp() { const me = io(); return S.fase === "giorno" && mioTurno(
 function contenutoApp(me, k) {
   const miTurno = mioTurno() && !S.pending && me.haTirato && !me.faro;
   if (k === "impero") return impero(me);
+  if (k === "conti") return appConti(me);
   if (k === "imprese") {
     const miei = S.lotti.filter((l) => l.owner === mioId);
     if (!miei.length) return `<p class="sub">Non hai ancora terreni. Quando atterri su un lotto libero puoi comprarlo.</p>`;
@@ -1878,6 +1890,22 @@ const PAROLE = [
   ["Prove", "Foto o confidenze su un rivale: puoi denunciarlo o ricattarlo."],
   ["Il Faro", "La prigione: se ci finisci stai fermo qualche turno."],
 ];
+// I miei conti: da dove arrivano e dove vanno i soldi, Ciclo per Ciclo
+function appConti(me) {
+  const blocco = (ciclo, titolo) => {
+    const c = (me.conti || {})[ciclo]; if (!c) return `<div class="scheda"><h4>${titolo}</h4><span class="sub">Nessun movimento.</span></div>`;
+    const righe = Object.entries(c).filter(([, v]) => v[0] || v[1]).sort((a, b) => Math.abs(b[1][0] + b[1][1]) - Math.abs(a[1][0] + a[1][1]));
+    const tot = righe.reduce((a, [, v]) => [a[0] + v[0], a[1] + v[1]], [0, 0]);
+    const cifra = (x, sp) => x ? `<span style="color:${x > 0 ? (sp ? "#ff9a9a" : "var(--pulito)") : "#ffb3b3"};white-space:nowrap">${x > 0 ? "+" : "−"} ${euro(Math.abs(x))}${sp ? " sp." : ""}</span>` : "";
+    return `<div class="scheda"><h4>${titolo}</h4><table class="conti">${righe.map(([m, v]) => `<tr><td>${esc(m)}</td><td>${cifra(v[0])}${v[0] && v[1] ? "<br>" : ""}${cifra(v[1], true)}</td></tr>`).join("")}
+      <tr class="tot"><td><b>Totale</b></td><td><b>${cifra(tot[0]) || "0 €"}</b>${tot[1] ? "<br>" + cifra(tot[1], true) : ""}</td></tr></table></div>`;
+  };
+  const r = S.ultimaAlba && S.ultimaAlba.riepilogo && S.ultimaAlba.riepilogo[mioId];
+  const voci = r ? [["Rendite (attività, Palazzo, mezzi)", r.rendite], ["Tasse", -r.tasse], ["Tasse evase (diventano sporchi)", -r.evasa], ["Decima alla setta", -r.decima], ["Interessi alla Banca", -r.interessi], ["Mance ai corrotti", -r.corruzione], ["Stipendio da Sindaco", r.stipendioSindaco], ["Dividendi", r.dividendo], ["Il Banchiere della setta ripulisce", r.banchiereSetta], ["Quota del Tesoro (Gran Maestro)", r.tesoroSetta], ["Isola della setta (sporchi)", r.isolaSetta]].filter(([, x]) => x) : [];
+  return `<div class="scheda"><span class="sub">Qui vedi <b>perché</b> i tuoi soldi salgono o scendono. Verde: entrate pulite. Rosso chiaro: soldi sporchi ("sp."). Rosso: uscite.</span></div>
+    ${blocco(S.ciclo, "Questo Ciclo (" + (S.ciclo + 1) + ")")}${S.ciclo > 0 ? blocco(S.ciclo - 1, "Il Ciclo prima (" + S.ciclo + ")") : ""}
+    ${voci.length ? `<div class="scheda"><h4>L'ultima Alba, voce per voce</h4><table class="conti">${voci.map(([k, x]) => `<tr><td>${k}</td><td style="white-space:nowrap;color:${x > 0 ? "var(--pulito)" : "#ffb3b3"}">${x > 0 ? "+" : "−"} ${euro(Math.abs(x))}</td></tr>`).join("")}</table></div>` : ""}`;
+}
 function impero(me) {
   const miei = S.lotti.filter((l) => l.owner === mioId);
   const rend = miei.reduce((a, l) => a + L.rendita(S, l), 0);
@@ -2145,6 +2173,7 @@ function schedaPiste(me) {
   const pall = (n) => `<span style="letter-spacing:2px;color:${n >= 3 ? "var(--sporco)" : n === 2 ? "#ff8a3d" : "#f3c56b"}">${"●".repeat(Math.min(3, n))}${"○".repeat(Math.max(0, 3 - n))}</span>`;
   return `<div class="scheda"><h4>${ico("siren")} Le tue piste</h4>
     <span class="sub">La polizia non tira a caso: segue le piste che lasci. Se le conosci, le puoi schivare.</span>
+    ${me.rischioPerq != null ? `<div class="liv"><span class="liv-n">🚨</span><div><b>Perquisizione all'Alba: ${me.rischioPerq >= 20 ? "rischio alto" : me.rischioPerq >= 8 ? "rischio medio" : me.rischioPerq > 0 ? "rischio basso" : "nessun rischio"}${me.rischioPerq ? " (circa " + me.rischioPerq + "%)" : ""}</b><div class="sub" style="font-size:12px">Più Tracce lasci, più è facile che la polizia entri nel tuo Palazzo: porta via il 30% degli sporchi e gli oggetti illegali. Il caveau e la cassetta ne salvano una parte; poliziotti comprati e setta abbassano il rischio.</div></div></div>` : ""}
     <div class="liv"><span class="liv-n">📍</span><div><b>I posti</b><div class="sub" style="font-size:12px">${cal.length ? cal.map(([l, c]) => `${esc(L.LUOGHI[l] ? L.LUOGHI[l].nome : l)} ${pall(c)}`).join(" · ") + "<br>Più torni nello stesso posto, più ti riconoscono. Cambia posto e la pista si raffredda." : "Nessun posto ti conosce. Una notte di affari nello stesso posto basta per farti notare."}</div></div></div>
     <div class="liv"><span class="liv-n">€</span><div><b>I soldi</b><div class="sub" style="font-size:12px">${me.calSoldi > 0 ? `La Finanza ti guarda ${pall(Math.ceil(me.calSoldi / 2))}. Ripulisci e spendi in lusso solo quanto i tuoi locali possono giustificare.` : "I tuoi conti tornano. Se ripulisci o compri lusso oltre quello che rendono i tuoi locali, la Finanza se ne accorge."}</div></div></div>
     <div class="liv"><span class="liv-n">🤝</span><div><b>I complici</b><div class="sub" style="font-size:12px">${ps.some((x) => x.k === "complici") ? "Un tuo complice è sotto inchiesta: scaricalo (La tua rete), o può fare il tuo nome." : "Nessun complice nervoso. Più usi lo stesso, più è facile che lo becchino."}</div></div></div>
@@ -2228,11 +2257,11 @@ function finestraRicicla(me, paradiso) {
       `Oltre 8 milioni ripuliti in tutto il reato diventa Grave. Finora: ${euro(me.riciclTot || 0)}.`])}
     <div class="pulsanti"><button id="x">Lascio stare</button><button class="notte" id="ok">Ripulisco</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "ricicla", metodo: paradiso ? "paradiso" : d.querySelector("#met").value, importo: Number(d.querySelector("#imp").value) }); }; });
 }
-function finestraCorrompi(me) {
-  const club = S.notte.dove[mioId] === "club" || S.notte.dove[mioId] === "palazzo";
+function finestraCorrompi(me, chiGiro) {
+  const club = chiGiro ? chiGiro !== "banchiere" : S.notte.dove[mioId] === "club" || S.notte.dove[mioId] === "palazzo";
   finestra(`<span class="kick" style="color:var(--cielo)">🤝 ${club ? "Club Neon, il tavolo in fondo" : "Casinò Reale, la sala privata"}</span><h2>${club ? "Un amico in divisa" : "Il banchiere Lenz"}</h2>
     <p>${club ? "Stasera al club c'è chi indossa una divisa di giorno. Un regalo ogni Ciclo, e chiuderà un occhio." : "Lenz sa far sparire i soldi dai registri. Non è gratis, e non è per sempre."} Può anche rifiutare e fare il tuo nome.</p>
-    ${club ? `<div class="campo"><label for="chi">Chi</label><select id="chi"><option value="agente">L'agente di quartiere (${euro(L.N.corruz.agente[0])}, poi ${euro(L.N.corruz.agente[1])} a Ciclo)</option><option value="commissario">Il Commissario Vargas (${euro(L.N.corruz.commissario[0])})</option></select></div><div class="campo"><label for="iso">L'agente di quale isola</label><select id="iso">${L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("")}</select></div>` : `<p>Prezzo: ${euro(L.N.corruz.banchiere[0])}, poi ${euro(L.N.corruz.banchiere[1])} a Ciclo.</p>`}
+    ${club ? `<div class="campo"><label for="chi">Chi</label><select id="chi">${chiGiro === "commissario" ? "" : `<option value="agente">L'agente di quartiere (${euro(L.N.corruz.agente[0])}, poi ${euro(L.N.corruz.agente[1])} a Ciclo)</option>`}<option value="commissario">Il Commissario Vargas (${euro(L.N.corruz.commissario[0])})</option></select></div><div class="campo"><label for="iso">L'agente di quale isola</label><select id="iso">${L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("")}</select></div>` : `<p>Prezzo: ${euro(L.N.corruz.banchiere[0])}, poi ${euro(L.N.corruz.banchiere[1])} a Ciclo.</p>`}
     <label class="check"><input type="checkbox" id="sp"> Pago in contanti sporchi (costa il 20% in meno)</label>
     ${boxReato(club ? "media" : "grave", [
       `Rifiuta ${Math.round((0.05 + 0.03 * (me.stato || 0)) * 100)} volte su 100 (di più se la polizia ti guarda già): perdi i soldi e +20 Tracce.`,

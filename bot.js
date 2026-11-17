@@ -92,7 +92,7 @@ const VOTO_OPERA = {
   Costruttore: { amnistia: 0.5, porto: 0.6, colpo: 0.3, giudice: 0.6, isola: 0.9 },
   Legale: { amnistia: 0.3, porto: 0.2, colpo: 0, giudice: 0.9, isola: 0.3 },
 };
-const MOTIVO_SI = { amnistia: "Una fedina pulita fa comodo a tutti.", porto: "Il Porto senza pattuglie è oro.", colpo: "Sessanta milioni. Ci sto.", giudice: "Un giudice amico vale più di mille avvocati.", isola: "Soldi ogni Alba, per sempre." };
+const MOTIVO_SI = { amnistia: "Una fedina pulita fa comodo a tutti.", porto: "Il Porto senza pattuglie è oro.", colpo: "Quarantacinque milioni. Ci sto.", giudice: "Un giudice amico vale più di mille avvocati.", isola: "Soldi ogni Alba, per sempre." };
 const MOTIVO_NO = { amnistia: "Troppo rumore per niente: la Procura ci guarderà.", porto: "Al Porto non ci lavoro, sono soldi buttati.", colpo: "Troppo rischioso: se va male finiamo tutti Indagati.", giudice: "Costa troppo per una protezione che forse non serve.", isola: "Costa una fortuna, e i blitz della Finanza fanno paura." };
 function votoBot(o, i, n) {
   for (const id of i.sette || []) {
