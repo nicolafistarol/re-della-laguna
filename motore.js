@@ -978,6 +978,12 @@
     }
     controllaOra(s);
   }
+  // Lo sfarzo: piu' fama e ricchezza hai, piu' entri nelle sale lussuose (0 normale, 1 VIP, 2 riservato)
+  function lustro(s, p) {
+    const punti = p.fama + patrimonio(s, p) / 500_000;
+    return punti >= 55 ? 2 : punti >= 30 ? 1 : 0;
+  }
+  function livelloPalazzo(p) { return p.piani >= 30 ? 2 : p.piani >= 10 ? 1 : 0; }
   // Ogni luogo ha un'attivita' fissa, sempre presente
   const ATTIVITA_NOTTE = {
     club: { id: "giro", titolo: "Offri un giro a tutto il locale", testo: "Champagne per tutti. Domani tutti sapranno il tuo nome.", costo: 30_000 },
@@ -1002,8 +1008,8 @@
     }
     switch (A.id) {
       case "giro": {
-        pagaMisto(s, p, A.costo); p.fama += 2;
-        racconta(s, p, "Alzi il bicchiere e il DJ dice il tuo nome al microfono. Tutto il locale brinda con te. +2 fama.");
+        const f = 2 + lustro(s, p); pagaMisto(s, p, A.costo); p.fama += f;
+        racconta(s, p, "Alzi il bicchiere e il DJ dice il tuo nome al microfono. Tutto il locale brinda con te. +" + f + " fama.");
         break;
       }
       case "yacht": {
@@ -1226,7 +1232,7 @@
     const usati = f.oggetti || [];
     for (const id of usati) if (OGGETTI[id].consuma) togliOggetto(p, id);
     if (O.legale) {
-      p.fama += O.fama;
+      p.fama += O.fama + lustro(s, p);
       racconta(s, p, O.id === "festa" ? "Alla festa stringi le mani giuste. La tua fama cresce." : "Champagne, stelle e armatori. Domani tutti parleranno di te.");
       return;
     }
@@ -1239,7 +1245,7 @@
     if (p.corrotti.commissario) pg *= 0.8;
     if (s.leggi.includes("polizia_doppia_" + isola)) pg *= 1.4;
     const guaio = O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
-    let guadagno = O.guadagno ? O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0]) : 0;
+    let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) : 0;
     if (guaio) {
       const G = PERICOLI[guaio];
       const salvatore = usati.find((id) => (OGGETTI[id].salva || []).includes(guaio)) || (guaio === "guardia" && haOggetto(p, "motoscafo") ? "motoscafo" : null) || (guaio === "pattuglia" && haOggetto(p, "furgone") ? "furgone" : null);
@@ -2024,6 +2030,7 @@
       };
     }
     if (s.riepOra) v.riepOra = { n: s.riepOra.n, ciclo: s.riepOra.ciclo, da: s.riepOra.da, a: s.riepOra.a, mio: s.riepOra.per[idGiocatore] || null };
+    { const me = s.players.find((x) => x.id === idGiocatore); if (me) { v.lustro = lustro(s, me); v.livelloPalazzo = livelloPalazzo(me); } }
     v.sblocco = livelloSblocco(s); v.postiValigetta = postiValigetta(s);
     return v;
   }
@@ -2032,7 +2039,7 @@
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE,
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
-    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, livelloSblocco, postiValigetta, oreViaggio, luogoAperto,
+    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, lustro, livelloPalazzo, livelloSblocco, postiValigetta, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;

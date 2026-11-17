@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=19";
+import { ico } from "./icone.js?v=20";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,11 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=19";
+import * as Tre from "./tre.js?v=20";
+import * as Pano from "./panorama.js?v=20";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=19";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=20";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -498,6 +499,7 @@ function disegna() {
   disegnaTelefono(me);
   if (animando) return;
   if (notte) collegaScena(me); else collegaCarta(me);
+  if (notte && panoOra) aggiornaPanorama(me); else Pano.nascondi();
   if (S.fine) return fine();
   finestreAutomatiche(me);
 }
@@ -786,13 +788,67 @@ function cartaNotte(me) {
 
 // ------------------------------------------------------------ la notte: una scena per ogni luogo
 const SCENA_NOTTE = { palazzo: "img/notte-palazzo.jpg", club: "img/notte-club.jpg", marina: "img/notte-marina.jpg", mercato: "img/notte-mercato.jpg", bisca: "img/notte-bisca.jpg", porto: "img/notte-porto.jpg", casino: "img/notte-casino.jpg", redazione: "img/notte-redazione.jpg", villa: "img/notte-villa.jpg", faro: "img/notte-faro.jpg", viaggio: "img/notte-viaggio.jpg" };
+// le sale piu' lussuose: si aprono con fama e ricchezza (il Palazzo con i piani)
+const NOMI_LIVELLO = { club: ["", "Privé", "Terrazza VIP"], marina: ["", "Molo degli yacht", "Ponte del megayacht"], mercato: ["", "Retrobottega", "Magazzino segreto"], bisca: ["", "Tavolo dei grandi", "Sala del padrino"], porto: ["", "Ufficio del capo porto", "Nave privata"], casino: ["", "Sala privata", "Salone del Re"], redazione: ["", "Ufficio del direttore", "Archivio segreto"], villa: ["", "Giardino", "Dentro la villa"], faro: ["", "La lanterna", "La stanza nascosta"], palazzo: ["", "Attico", "Grattacielo"] };
+const FOTO_LIVELLI = new Set(["club-2", "club-3"]);
+function fotoLivello(l, lv) { for (let k = lv; k > 0; k--) if (FOTO_LIVELLI.has(l + "-" + (k + 1))) return "img/notte-" + l + "-" + (k + 1) + ".jpg"; return SCENA_NOTTE[l] || SCENA_NOTTE.palazzo; }
+// I panorami a 360°: ogni luogo puo' avere piu' punti di vista (si passa dall'uno all'altro senza perdere l'ora)
+// fa: "scelta:<k o id>" = una delle scelte dell'ora; "punto:<nome>" = spostati; "altrove" / "negozio" / "casa"
+const PANORAMI = {
+  club: {
+    pista: { img: "img/360/club-pista.jpg", yaw: 0, punti: [
+      { x: 0.50, y: 0.45, testo: "La consolle del DJ", icona: "club", fa: "scelta:fissa" },
+      { x: 0.12, y: 0.58, testo: "Il bancone", icona: "gala", fa: "scelta:occ" },
+      { x: 0.64, y: 0.55, testo: "Sali al Privé", icona: "stella", fa: "punto:prive", lv: 1 },
+      { x: 0.84, y: 0.55, testo: "Esci sulla spiaggia", icona: "mappa", fa: "altrove" },
+    ] },
+    prive: { img: "img/360/club-prive.jpg", yaw: 0, lv: 1, punti: [
+      { x: 0.65, y: 0.72, testo: "Lo champagne con le stelline", icona: "gala", fa: "scelta:fissa" },
+      { x: 0.35, y: 0.52, testo: "Il barista del privé", icona: "handshake", fa: "scelta:polizia" },
+      { x: 0.50, y: 0.50, testo: "Torna sulla pista", icona: "club", fa: "punto:pista" },
+      { x: 0.71, y: 0.48, testo: "La porta d'oro", icona: "stella", fa: "chiuso:Terrazza VIP" },
+    ] },
+  },
+};
+let panoOra = null;
+const puntoVista = {};
+function aggiornaPanorama(me) {
+  const P = PANORAMI[panoOra]; if (!P) return Pano.nascondi();
+  const nomi = Object.keys(P);
+  let quale = puntoVista[panoOra] || nomi[0];
+  if ((P[quale].lv || 0) > (S.lustro || 0)) quale = nomi[0];
+  puntoVista[panoOra] = quale;
+  const V = P[quale], N2 = S.notte, scelte = N2.scelte || [];
+  const libero = !N2.chiuso[mioId] && !N2.viaggio[mioId] && !S.notteFatti[mioId];
+  const punti = V.punti.map((pt) => {
+    const [tipo, chi] = pt.fa.split(":");
+    let azione = null, classe = "", testo = pt.testo;
+    if (tipo === "scelta") {
+      const i = scelte.findIndex((c) => c.k === chi || c.id === chi);
+      if (i < 0 || !libero) classe = "spento";
+      else { testo += " · " + scelte[i].titolo; azione = () => { const b = document.querySelector(`.scena [data-scelta="${i}"]`); if (b) b.click(); }; }
+    } else if (tipo === "punto") {
+      const bloccato = (P[chi].lv || 0) > (S.lustro || 0);
+      classe = bloccato ? "chiuso" : "porta";
+      azione = bloccato ? () => toast("Il buttafuori ti ferma: qui entra solo chi ha più fama e più soldi.") : () => { puntoVista[panoOra] = chi; Pano.guarda(P[chi].yaw || 0); aggiornaPanorama(me); };
+    } else if (tipo === "altrove") { if (!libero) classe = "spento"; else azione = () => finestraAltrove(me); }
+    else if (tipo === "negozio") azione = () => finestraNegozio(me);
+    else if (tipo === "chiuso") { classe = "chiuso"; azione = () => toast((S.lustro || 0) >= 2 ? chi + ": arriva presto." : "Dietro la porta d'oro c'è la " + chi + ". Si apre solo ai più potenti della Laguna."); }
+    return { ...Pano.daFoto(pt.x, pt.y), ...pt, testo: esc(testo), icona: ico(pt.icona), classe, azione };
+  });
+  Pano.mostra(V.img, punti, { yaw: V.yaw });
+}
 const ICO_SCELTA = { occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
 function righeNotte(lista) { return lista.map((r) => { const [o, ...t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t.join(" — "))}</p>`; }).join(""); }
 function restoOra() { const N2 = S.notte; if (!N2 || !N2.inizio) return null; return Math.max(0, Math.ceil((N2.tempo || 120) - (Date.now() - N2.inizio) / 1000)); }
 function scenaNotte(me) {
   const N2 = S.notte, dove = N2.dove[mioId], v = N2.viaggio[mioId];
   const aCasa = S.notteFatti[mioId], scelto = N2.chiuso[mioId], pronto = N2.pronto && N2.pronto[mioId];
-  const img = me.faro ? SCENA_NOTTE.faro : v ? SCENA_NOTTE.viaggio : SCENA_NOTTE[aCasa ? "palazzo" : dove] || SCENA_NOTTE.palazzo;
+  const qualeLuogo = aCasa ? "palazzo" : dove;
+  const lv = qualeLuogo === "palazzo" ? S.livelloPalazzo || 0 : S.lustro || 0;
+  const img = me.faro ? SCENA_NOTTE.faro : v ? SCENA_NOTTE.viaggio : fotoLivello(qualeLuogo, lv);
+  panoOra = !me.faro && !v && PANORAMI[qualeLuogo] ? qualeLuogo : null;
+  const sala = !me.faro && !v && lv ? (NOMI_LIVELLO[qualeLuogo] || [])[lv] : "";
   const nome = me.faro ? "In cella, al Faro" : aCasa ? "Il tuo Palazzo" : v ? "In viaggio verso " + nomeLuogo(v.verso) : nomeLuogo(dove, true);
   const isola = !v && !aCasa && dove !== "palazzo" && L.LUOGHI[dove] ? L.NOMI_ISOLE[L.LUOGHI[dove].isola] || "" : "";
   const quiAltri = v || aCasa || dove === "palazzo" ? [] : S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !N2.viaggio[p.id] && N2.dove[p.id] === dove);
@@ -800,7 +856,7 @@ function scenaNotte(me) {
   const resto = restoOra();
   const testa = `<div class="scena-testa">
       <div class="kick" style="color:var(--cielo)">${ico("luna")} ore ${L.ORE[N2.ora]} · ${6 - N2.ora} ${6 - N2.ora === 1 ? "ora" : "ore"} all'alba${isola ? " · " + esc(isola) : ""}</div>
-      <h1>${esc(nome)}</h1>
+      <h1>${esc(nome)}</h1>${sala ? `<div class="sala">${ico("stella")} ${esc(sala)} <span class="sub">${lv === 2 ? "solo per i più potenti della Laguna" : "ti fanno entrare nella zona VIP"}</span></div>` : ""}
       ${quiAltri.length ? `<div class="qui-altri">${quiAltri.map((p) => `<span class="pall" style="background:${p.colore}">${esc(p.nome[0])}</span>${esc(p.nome)}`).join(" ")} <span class="sub">${quiAltri.length === 1 ? "è qui con te" : "sono qui con te"}</span></div>` : ""}
       ${resto !== null && !aCasa && !me.faro ? `<div class="tempo"><div class="barra" id="barraTempo" style="width:${(resto / (N2.tempo || 120)) * 100}%"></div></div><div class="sub" id="contoTempo">${testoTempo(resto)}</div>` : ""}
     </div>`;
@@ -827,6 +883,7 @@ function scenaNotte(me) {
   const chiave = img + "|" + S.ciclo, nuova = !inizioScena[chiave];
   if (nuova) inizioScena[chiave] = Date.now();
   const da = (Date.now() - inizioScena[chiave]) / 1000;
+  if (panoOra) return `<div class="scena con-pano ${nuova ? "entra" : ""}"><div class="scena-velo"></div><div class="scena-dentro">${testa}${corpo}</div></div>`;
   return `<div class="scena ${nuova ? "entra" : ""}"><div class="scena-foto" style="background-image:url('${img}');animation-delay:-${da.toFixed(1)}s"></div><div class="scena-nebbia" style="animation-delay:-${da.toFixed(1)}s"></div><div class="scena-velo"></div><div class="scena-dentro">${testa}${corpo}</div></div>`;
 }
 const inizioScena = {};
