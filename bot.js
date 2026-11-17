@@ -37,34 +37,45 @@
   function r(o, t) {
     return (o.valigetta || []).some((o) => o.id === t);
   }
-  // I Grandi Affari (Livello 4): asta della TV, titolone, quote. Al massimo una mossa per giorno.
+  // I Grandi Affari (Livello 4): aste, quote, poteri. Al massimo una mossa per giorno.
   function grandiBot(o, i, n) {
-    const g = o.grandi && o.grandi.tv, G = t.GRANDI && t.GRANDI.tv;
-    if (!g || !G || (i.livello || 0) < 4 || i.faro > 0) return null;
+    if (!o.grandi || !t.GRANDI || (i.livello || 0) < 4 || i.faro > 0) return null;
     const oggi = o.ciclo * 10 + o.giorno;
     if (i.botGrandi === oggi) return null;
     const segna = (a) => ((i.botGrandi = oggi), a);
-    if (g.stato === "asta") {
-      if (g.offerte && void 0 !== g.offerte[i.id]) return null;
-      const voglia = { Spavaldo: 1.5, Esperto: 1.3, Furbo: 1.3, Investitore: 1.1 }[n] || 1;
-      const v = Math.round(Math.min(i.cash * 0.6, G.base * voglia * (0.9 + 0.4 * Math.random())));
-      return v >= G.base ? segna({ tipo: "offerta_grande", affare: "tv", importo: v }) : null;
-    }
-    if (g.stato !== "attiva") return null;
-    if (g.capo === i.id && g.titoloneCiclo !== o.ciclo) {
-      const riv = o.players.filter((p) => p.id !== i.id && !p.fallito).sort((a, b) => t.patrimonio(o, b, true) - t.patrimonio(o, a, true));
-      const b = riv.find((p) => p.stato >= 1 || p.tracce > 25);
-      return segna(b ? { tipo: "titolone", scelta: "scandalo", bersaglio: b.id } : { tipo: "titolone", scelta: "fama" });
-    }
-    const gia = (g.quoteCiclo || {})[i.id] || 0, mie = (g.quote || {})[i.id] || 0;
-    if (g.mercato > 0 && gia < G.maxQuoteCiclo && i.cash > g.prezzoQuota * 3) {
-      const capoQ = g.capo ? g.quote[g.capo] || 0 : 0;
-      const minaccia = g.capo === i.id && Object.entries(g.quote).some(([id, q]) => id !== i.id && q >= mie - 1);
-      const attacco = g.capo !== i.id && ["Spavaldo", "Furbo", "Esperto"].includes(n) && Math.random() < 0.5 && capoQ - mie <= g.mercato;
-      if (minaccia || attacco || Math.random() < 0.15) {
-        const q = Math.min(G.maxQuoteCiclo - gia, g.mercato, minaccia || attacco ? 2 : 1);
-        let c = 0; for (let k = 0; k < q; k++) c += Math.round(g.prezzoQuota * Math.pow(1.1, k));
-        if (q > 0 && c < i.cash - 1e6) return segna({ tipo: "quote_grande", affare: "tv", n: q });
+    for (const k of t.ORDINE_GRANDI || ["tv"]) {
+      const g = o.grandi[k], G = t.GRANDI[k];
+      if (!g || !G) continue;
+      if (g.stato === "asta") {
+        if (g.offerte && void 0 !== g.offerte[i.id]) continue;
+        const voglia = { Spavaldo: 1.5, Esperto: 1.3, Furbo: 1.3, Investitore: 1.2 }[n] || 1;
+        const v = Math.round(Math.min(i.cash * 0.6, G.base * voglia * (0.9 + 0.4 * Math.random())));
+        if (v >= G.base) return segna({ tipo: "offerta_grande", affare: k, importo: v });
+        continue;
+      }
+      if (g.stato !== "attiva") continue;
+      if (g.capo === i.id && (i.stato || 0) < 3) {
+        if (k === "tv" && g.titoloneCiclo !== o.ciclo) {
+          const riv = o.players.filter((p) => p.id !== i.id && !p.fallito).sort((a, b) => t.patrimonio(o, b, true) - t.patrimonio(o, a, true));
+          const b = riv.find((p) => p.stato >= 1 || p.tracce > 25);
+          return segna(b ? { tipo: "titolone", scelta: "scandalo", bersaglio: b.id } : { tipo: "titolone", scelta: "fama" });
+        }
+        if (k === "banca") {
+          if (!g.tasso && g.tassoCiclo !== o.ciclo) return segna({ tipo: "tasso_banca", tasso: ["Spavaldo", "Furbo"].includes(n) ? 20 : 10 });
+          const gia = g.riciclatoCiclo === o.ciclo ? g.riciclato || 0 : 0;
+          if (["Spavaldo", "Furbo", "Esperto"].includes(n) && i.sporchi > 1e6 && gia === 0 && (i.calSoldi || 0) < 2) return segna({ tipo: "ricicla_banca", importo: Math.min(G.riciclaMax, Math.floor(i.sporchi / 1e5) * 1e5) });
+        }
+      }
+      const gia = (g.quoteCiclo || {})[i.id] || 0, mie = (g.quote || {})[i.id] || 0;
+      if (g.mercato > 0 && gia < G.maxQuoteCiclo && i.cash > g.prezzoQuota * 3) {
+        const capoQ = g.capo ? g.quote[g.capo] || 0 : 0;
+        const minaccia = g.capo === i.id && Object.entries(g.quote).some(([id, q]) => id !== i.id && q >= mie - 1);
+        const attacco = g.capo !== i.id && ["Spavaldo", "Furbo", "Esperto"].includes(n) && Math.random() < 0.5 && capoQ - mie <= g.mercato;
+        if (minaccia || attacco || Math.random() < 0.15) {
+          const q = Math.min(G.maxQuoteCiclo - gia, g.mercato, minaccia || attacco ? 2 : 1);
+          let c = 0; for (let x = 0; x < q; x++) c += Math.round(g.prezzoQuota * Math.pow(1.1, x));
+          if (q > 0 && c < i.cash - 1e6) return segna({ tipo: "quote_grande", affare: k, n: q });
+        }
       }
     }
     return null;

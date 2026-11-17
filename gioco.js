@@ -3,7 +3,7 @@ const SB_URL = "https://eqnrzboulnzkjuyhqsvu.supabase.co";
 const SB_KEY = "sb_publishable_yTidV9j2WvfIA-VWrFVJQA_xUnfWX4_";
 const sb = createClient(SB_URL, SB_KEY);
 const db = sb.schema("laguna");
-import { ico } from "./icone.js?v=45";
+import { ico } from "./icone.js?v=46";
 const L = window.Laguna;
 const euro = L.euro;
 const $ = (q) => document.querySelector(q);
@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=45";
-import * as Pano from "./panorama.js?v=45";
+import * as Tre from "./tre.js?v=46";
+import * as Pano from "./panorama.js?v=46";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=45";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=46";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -1367,7 +1367,7 @@ const APPS = [
   { k: "municipio", nome: "Municipio", ico: ico("municipio"), col: "#5c7f99", lv: 0 },
   { k: "sporchi", nome: "Soldi sporchi", ico: ico("maschera"), col: "#7a2c2c", lv: 1 },
   { k: "setta", nome: "Setta", ico: ico("setta"), col: "#3b1d5c", lv: 9 },
-  { k: "tv", nome: "TV", ico: ico("tv"), col: "#e11d48", lv: 4 },
+  { k: "grandi", nome: "Grandi Affari", ico: ico("tv"), col: "#e11d48", lv: 4 },
 ];
 // ogni messaggio arriva da una persona: stessa persona = stessa conversazione
 const MITTENTI = [
@@ -1474,7 +1474,7 @@ function mostraUltimOra() {
 // ------------------------------------------------------------ telefono: home chiara
 // App raggruppate, una riga di stato sotto ogni icona, pallino rosso solo per le cose da fare,
 // "NUOVA" sulle app appena sbloccate, e in alto "Adesso puoi" con 1-3 cose da fare subito.
-const GRUPPI_APP = [["Soldi", ["impero", "banca", "borsa"]], ["Costruire", ["imprese", "agenzia", "palazzo", "lusso"]], ["Persone", ["messaggi", "rubrica", "contratti", "setta"]], ["Notte", ["valigetta", "sporchi", "prove"]], ["Città", ["gazzetta", "tv", "municipio", "scoperte"]]];
+const GRUPPI_APP = [["Soldi", ["impero", "banca", "borsa"]], ["Costruire", ["imprese", "agenzia", "palazzo", "lusso"]], ["Persone", ["messaggi", "rubrica", "contratti", "setta"]], ["Notte", ["valigetta", "sporchi", "prove"]], ["Città", ["gazzetta", "grandi", "municipio", "scoperte"]]];
 const APP_SEMPRE = ["impero", "imprese", "agenzia", "banca", "gazzetta", "messaggi", "valigetta", "palazzo", "lusso", "rubrica", "municipio"];
 function appViste() { try { return new Set(JSON.parse(localStorage.getItem("laguna_appviste_" + partita) || "[]")); } catch (e) { return new Set(); } }
 function segnaAppVista(k) { try { const v = appViste(); v.add(k); localStorage.setItem("laguna_appviste_" + partita, JSON.stringify([...v])); } catch (e) { } }
@@ -1500,7 +1500,10 @@ function statoApp(me, k, nuovi) {
     case "prove": return { riga: (me.prove || []).length + " in mano" };
     case "gazzetta": return { riga: "Ciclo " + (S.ciclo + 1) };
     case "municipio": { const sind = S.players.find((p) => p.id === S.sindaco); return { riga: sind ? "Sindaco " + esc(sind.nome) : "Sindaco Albertini" }; }
-    case "tv": { const t = (S.grandi || {}).tv; if (!t || t.stato === "chiusa") return { riga: "chiusa" }; if (t.stato === "asta") return { riga: "all'asta", fare: t.offerte && t.offerte[mioId] ? 0 : 1 }; return { riga: t.capo === mioId ? "la comandi tu" : "di " + esc((S.players.find((p) => p.id === t.capo) || {}).nome || "nessuno"), fare: t.capo === mioId && t.titoloneCiclo !== S.ciclo ? 1 : 0 }; }
+    case "grandi": { const gg = S.grandi || {}; const asta = L.ORDINE_GRANDI.find((k) => gg[k] && gg[k].stato === "asta"); const miei = L.ORDINE_GRANDI.filter((k) => gg[k] && gg[k].capo === mioId);
+      if (asta) return { riga: "asta: " + (asta === "tv" ? "TV" : "Banca"), fare: gg[asta].offerte && gg[asta].offerte[mioId] ? 0 : 1 };
+      if (miei.length) return { riga: "comandi " + miei.map((k) => (k === "tv" ? "TV" : "Banca")).join(" e "), fare: gg.tv && gg.tv.capo === mioId && gg.tv.titoloneCiclo !== S.ciclo ? 1 : 0 };
+      return { riga: L.ORDINE_GRANDI.some((k) => gg[k]) ? "in mano ad altri" : "chiusi" }; }
     case "scoperte": { const n = L.SCOPERTE.filter((x) => (me.scoperte || {})[x.id] !== undefined).length; return { riga: n + " / " + L.SCOPERTE.length }; }
   }
   return { riga: "" };
@@ -1621,7 +1624,7 @@ function contenutoApp(me, k) {
     const altri = S.players.filter((x) => x.id !== mioId);
     const mov = (S.flussi || []).filter((f) => f.da === mioId || f.a === mioId).slice(-8).reverse();
     return `${mov.length ? `<div class="scheda"><h4>Ultimi movimenti</h4>${mov.map((f) => `<div style="font-size:13px;display:flex;justify-content:space-between;gap:8px"><span>${esc(f.motivo)} <span class="sub">${f.a === mioId ? "da " + esc(nomeDi(f.da)) : "a " + esc(nomeDi(f.a))}</span></span><b style="color:${f.a === mioId ? "#7bd88f" : "#ff9a9a"}">${f.a === mioId ? "+" : "−"}${euro(f.importo)}</b></div>`).join("")}</div>` : ""}<div class="scheda"><span class="kick" style="color:var(--muted)">Conto</span><span class="serif" style="font-size:28px;color:var(--pulito)">${euro(me.cash)}</span>${me.sporchi ? `<span style="color:var(--sporco)">In contanti sporchi: ${euro(me.sporchi)}</span>` : ""}</div>
-      <div class="scheda"><h4>Debito: ${euro(me.debito)}</h4>${me.debito ? `<button class="piccolo" data-a2="restituisci">Restituisci tutto</button>` : ""}${miTurno && !me.azioneGiornoFatta ? `<button class="piccolo" data-a2="prestito">Chiedi un prestito</button>` : `<span class="sub">I prestiti si chiedono durante il tuo turno.</span>`}</div>
+      <div class="scheda"><h4>Debito: ${euro(me.debito)}</h4><span class="sub">Interesse a ogni Alba: ${me.pacchetto === "ereditiera" ? "0%" : Math.round(L.tassoPrestiti(S, me) * 100) + "%"}${(() => { const gb = (S.grandi || {}).banca; const c = gb && gb.capo && S.players.find((p) => p.id === gb.capo); return c && c.id !== mioId ? " (lo decide " + esc(c.nome) + ", che comanda la Banca della Laguna)" : ""; })()}.${me.contoBloccato === S.ciclo ? ` <b style="color:#ff9a9a">Conto bloccato: niente prestiti fino all'Alba.</b>` : ""}</span>${me.debito ? `<button class="piccolo" data-a2="restituisci">Restituisci tutto</button>` : ""}${miTurno && !me.azioneGiornoFatta ? `<button class="piccolo" data-a2="prestito">Chiedi un prestito</button>` : `<span class="sub">I prestiti si chiedono durante il tuo turno.</span>`}</div>
       <div class="scheda"><h4>Fai un regalo</h4><div class="riga"><select id="regA">${altri.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><input id="regImp" type="number" placeholder="quanto" style="width:110px"></div>${S.sblocco >= 1 ? `<label class="check"><input type="checkbox" id="regSp"> in contanti sporchi</label>` : ""}<button class="piccolo" data-a2="regala">Dai</button></div>
       ${S.sblocco >= 2 ? `<div class="scheda"><h4>Tasse</h4><span class="sub">Puoi nascondere una parte delle rendite al fisco. Non paghi le tasse su quella parte: diventa contante in nero, che di notte spendi subito (Mercato Nero, occasioni, "regali") senza ripulirlo. Ma lascia Tracce, e la Finanza guarda i più ricchi.</span><select id="evasione">${[0, 0.1, 0.2, 0.3].map((q) => `<option value="${q}" ${Math.abs(q - (me.evasione || 0)) < 0.01 ? "selected" : ""}>${q ? "Nascondi il " + q * 100 + "%" : "Pago tutto"}</option>`).join("")}</select></div>` : ""}`;
   }
@@ -1645,7 +1648,7 @@ function contenutoApp(me, k) {
       Array.from({ length: Math.max(0, posti - v.length) }, () => `<div class="ogg vuoto"><span class="ic">·</span><span class="sub">Posto libero</span></div>`).join("");
   }
   if (k === "palazzo") return appPalazzo(me, miTurno);
-  if (k === "tv") return appTV(me);
+  if (k === "grandi" || k === "tv") return appGrandi(me);
   if (k === "lusso") return `<div class="scheda"><h4>I tuoi mezzi</h4><span class="sub">${me.veicoli.map((x) => L.N.veicoli[x].nome).join(", ") || "Nessuno, per ora."}</span></div>${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="veicolo">Vai in concessionaria</button>` : `<span class="sub">I mezzi si comprano con la mossa del giorno.</span>`}<span class="sub">Un motoscafo o un elicottero ti fanno muovere di notte in 1 ora ovunque.</span>`;
   if (k === "prove") return (me.prove || []).map((pr, i) => `<div class="scheda"><h4>📷 ${esc(S.players.find((x) => x.id === pr.su).nome)}</h4><span class="sub">${esc(pr.cosa)} · Ciclo ${pr.ciclo}</span><button class="piccolo" data-denuncia="${i}">Manda alla polizia</button></div>`).join("") || `<p class="sub">Nessuna prova. Una macchina fotografica aiuta.</p>`;
   if (k === "borsa") return L.AZIENDE.map((a) => `<div class="scheda"><h4>${a} <span class="sub">${S.borsa[a].toFixed(1)}</span></h4><span class="sub">Ne hai per ${euro((me.azioni[a] || 0) * S.borsa[a])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="b_${a}" style="width:100px"><button class="piccolo" data-compra="borsa|${a}">Compra</button><button class="piccolo" data-vendi="borsa|${a}">Vendi</button></div></div>`).join("") +
@@ -1792,7 +1795,7 @@ const SBLOCCHI = [
   ["Livello 1 · patrimonio 3,5 milioni", "Mercato Nero, Bisca, Porto e Casinò Reale. Soldi sporchi e app Soldi sporchi, occasioni illegali, Prove. Valigetta da 4 posti."],
   ["Livello 2 · patrimonio 7 milioni", "Borsa, Cripto, Contratti, evasione delle tasse. Di notte anche la Redazione."],
   ["Livello 3 · patrimonio 15 milioni", "La Villa sulla scogliera e il Faro. Valigetta da 6 posti. (La setta si apre a parte: servono 8 milioni sporchi.)"],
-  ["Livello 4 · patrimonio 40 milioni (solo partite lunghe)", "I Grandi Affari: la TV della Laguna va all'asta. Chi la comanda sceglie il titolone della Gazzetta. Si può strappare comprando quote."],
+  ["Livello 4 · patrimonio 40 milioni (solo partite lunghe)", "I Grandi Affari: all'asta prima la TV della Laguna (sceglie il titolone), poi la Banca della Laguna (tasso dei prestiti, blocco dei conti). Si strappano comprando quote."],
 ];
 const PAROLE = [
   ["Ciclo", "Un giro completo: 4 giorni di dadi, una notte, un'Alba. Come finisce la partita si sceglie quando la crei: a Cicli, a obiettivo o libera."],
@@ -1972,7 +1975,7 @@ function finestraAlba(me) {
   finestra(`<span class="kick" style="color:var(--oro)">${ico("sole")} L'Alba · Ciclo ${S.ultimaAlba.ciclo}</span><h2>La tua notte</h2>
     <div style="display:flex;flex-direction:column;gap:6px">${racc.map((x) => { const [o, t] = x.split(" — "); return `<p class="storia" style="margin:0"><b style="color:var(--cielo);font-style:normal">${esc(o)}</b> ${esc(t)}</p>`; }).join("") || `<p class="sub">Una notte tranquilla.</p>`}</div>
     <p class="kick" style="color:var(--muted);margin-top:16px">I conti del mattino</p>
-    ${(r.dettaglio || []).length ? `<table class="cl">${r.dettaglio.map((x) => `<tr><td>${esc(x.nome)} <span class="sub">${esc(x.cosa)}</span></td><td style="color:${x.importo ? "var(--pulito)" : "var(--muted)"};font-weight:700">${x.importo ? "+ " + euro(x.importo) : "0 €"}</td></tr>`).join("")}${r.palazzo ? `<tr><td>Il tuo Palazzo</td><td style="color:var(--pulito);font-weight:700">+ ${euro(r.palazzo)}</td></tr>` : ""}${r.veicoli ? `<tr><td>Noleggio dei tuoi veicoli</td><td style="color:var(--pulito);font-weight:700">+ ${euro(Math.round(r.veicoli))}</td></tr>` : ""}${r.tv ? `<tr><td>TV della Laguna (le tue quote)</td><td style="color:var(--pulito);font-weight:700">+ ${euro(r.tv)}</td></tr>` : ""}${r.tvSpesa ? `<tr><td>Spesa per comandare la TV</td><td style="color:#ff9a9a;font-weight:700">− ${euro(r.tvSpesa)}</td></tr>` : ""}</table>` : ""}
+    ${(r.dettaglio || []).length ? `<table class="cl">${r.dettaglio.map((x) => `<tr><td>${esc(x.nome)} <span class="sub">${esc(x.cosa)}</span></td><td style="color:${x.importo ? "var(--pulito)" : "var(--muted)"};font-weight:700">${x.importo ? "+ " + euro(x.importo) : "0 €"}</td></tr>`).join("")}${r.palazzo ? `<tr><td>Il tuo Palazzo</td><td style="color:var(--pulito);font-weight:700">+ ${euro(r.palazzo)}</td></tr>` : ""}${r.veicoli ? `<tr><td>Noleggio dei tuoi veicoli</td><td style="color:var(--pulito);font-weight:700">+ ${euro(Math.round(r.veicoli))}</td></tr>` : ""}${r.tv ? `<tr><td>Grandi Affari (le tue quote)</td><td style="color:var(--pulito);font-weight:700">+ ${euro(r.tv)}</td></tr>` : ""}${r.tvSpesa ? `<tr><td>Spesa per comandare i Grandi Affari</td><td style="color:#ff9a9a;font-weight:700">− ${euro(r.tvSpesa)}</td></tr>` : ""}</table>` : ""}
     <table class="cl"><tr><td><b>Totale rendite</b></td><td style="color:var(--pulito);font-weight:800">+ ${euro(r.rendite || 0)}</td></tr><tr><td>Tasse</td><td style="color:var(--sporco);font-weight:800">− ${euro(r.tasse || 0)}</td></tr>
     ${r.interessi ? `<tr><td>Interessi alla Banca</td><td>− ${euro(r.interessi)}</td></tr>` : ""}${r.corruzione ? `<tr><td>Le "mance" ai tuoi amici</td><td>− ${euro(r.corruzione)}</td></tr>` : ""}</table>
     ${r.consiglio ? `<div class="scheda" style="margin-top:14px;border:1px solid rgba(255,95,162,.4)"><b style="color:#ff5fa2">Vera ti suggerisce</b><p style="margin:4px 0 0">${esc(r.consiglio.testo)}</p></div>` : ""}
@@ -2258,7 +2261,7 @@ function datiGuida() { return [
     "<b>Municipio</b>: candidati a <b>Sindaco</b> e fai le leggi. Lì chiedi anche la licenza del casinò.",
     "<b>Gazzetta</b>: le notizie di ogni Ciclo. Puoi comprare un articolo, o <b>denunciare</b> un rivale con le prove.",
     "<b>Da scoprire</b>: 22 cose da provare, la prima volta +1 fama. Nella partita guidata <b>Vera</b> ti consiglia.",
-    "<b>Grandi Affari</b> (Livello 4, partite lunghe): la <b>TV della Laguna</b> va all'asta. Chi la comanda sceglie il titolone, ma gliela possono strappare comprando quote.",
+    "<b>Grandi Affari</b> (Livello 4, partite lunghe): vanno all'asta la <b>TV della Laguna</b> (sceglie il titolone) e poi la <b>Banca della Laguna</b> (decide il tasso dei prestiti degli altri). Si possono strappare comprando quote.",
     "Titoli finali: Re della Laguna, La Stella, Mani Pulite, Gran Burattinaio.",
   ], tag: ["Banca", "Borsa", "Cripto", "Contratti", "Tasse", "Sindaco", "Leggi", "Gazzetta", "Denunce", "TV", "Da scoprire", "Vera"] },
 ]; }
@@ -2296,52 +2299,64 @@ function tastoGuida() { return `<button class="bianco" id="apriGuida" style="ali
 function collegaTastoGuida() { const b = $("#apriGuida"); if (b) b.onclick = () => apriGuida(0); }
 
 // ------------------------------------------------------------ APP TV: il primo Grande Affare (Livello 4)
-function appTV(me) {
-  const G = L.GRANDI.tv, t = (S.grandi || {}).tv || { stato: "chiusa" }, lv4 = (S.sblocco || 0) >= 4;
-  const testa = `<div class="scheda tv-testa"><span class="kick" style="color:#ff6b8a">${ico("tv")} Grande Affare · uno solo in tutta la Laguna</span><h3 style="margin:4px 0">${G.nome}</h3>
-    <span class="sub">Chi la comanda sceglie a ogni Ciclo il titolone della Gazzetta. Ha 10 quote: comanda chi ne ha di più.</span></div>`;
-  if (t.stato === "chiusa") return testa + `<div class="scheda"><span class="sub">Si apre quando il primo giocatore arriva al Livello 4 (40 milioni di patrimonio). Solo nelle partite lunghe.</span></div>`;
+function appGrandi(me) {
+  const gg = S.grandi || {};
+  const intro = `<div class="scheda tv-testa"><span class="kick" style="color:#ff6b8a">${ico("stella")} Livello 4 · I Grandi Affari</span><span class="sub">Di ognuno ce n'è uno solo in tutta la Laguna. Si prende all'asta, poi si può strappare comprando quote: comanda chi ne ha di più. Vanno all'asta uno alla volta: prima la TV, poi la Banca.</span></div>`;
+  return intro + L.ORDINE_GRANDI.map((k) => appAffare(me, k, gg[k] || { stato: "chiusa" })).join("");
+}
+const DESCR_GRANDI = { tv: "Chi la comanda sceglie a ogni Ciclo il titolone della Gazzetta.", banca: "Chi la comanda decide il tasso dei prestiti degli altri e incassa gli interessi. Può bloccare un conto e ripulire soldi sporchi (ma la Finanza guarda)." };
+function appAffare(me, k, t) {
+  const G = L.GRANDI[k], lv4 = (S.sblocco || 0) >= 4;
+  const testa = `<div class="scheda tv-testa"><h3 style="margin:0">${k === "tv" ? ico("tv") : ico("banca")} ${G.nome}</h3><span class="sub">${DESCR_GRANDI[k]}</span></div>`;
+  if (t.stato === "chiusa") return testa + `<div class="scheda"><span class="sub">${k === "tv" ? "Va all'asta quando il primo giocatore arriva al Livello 4 (40 milioni di patrimonio). Solo nelle partite lunghe." : "Va all'asta dopo la TV."}</span></div>`;
   if (t.stato === "asta") {
     const mia = (t.offerte || {})[mioId];
     const prop = [G.base, Math.round(G.base * 1.25), Math.round(G.base * 1.5), Math.round(G.base * 2)].filter((x) => x <= me.cash);
     return testa + `<div class="scheda" style="border-color:var(--oro)"><h4 style="color:var(--oro)">All'asta: si chiude all'Alba</h4>
-      <span class="sub">L'offerta è <b>segreta</b>: la vedi solo tu. All'Alba vince la più alta e paga quello che ha offerto (i soldi vanno alla banca). Chi vince prende 4 quote su 10 e comanda la TV. Base: ${euro(G.base)}.</span>
+      <span class="sub">L'offerta è <b>segreta</b>: la vedi solo tu. All'Alba vince la più alta e paga quello che ha offerto (i soldi vanno alla banca). Chi vince prende 4 quote su 10 e comanda. Base: ${euro(G.base)}.</span>
       ${!lv4 ? `<p class="sub">All'asta possono offrire solo i giocatori al Livello 4.</p>` : `
       <p>${mia ? `La tua offerta: <b style="color:var(--oro)">${euro(mia)}</b>` : "Non hai ancora offerto."}</p>
-      ${prop.length ? `<div class="riga" style="flex-wrap:wrap">${prop.map((x) => `<button class="piccolo oro" data-tv-off="${x}">${euro(x)}</button>`).join("")}</div>` : `<p class="sub">Ti servono almeno ${euro(G.base)} puliti.</p>`}
-      <div class="riga"><input id="tvOff" type="number" placeholder="altra cifra" style="flex:1"><button class="piccolo" data-tv-off="campo">Offri</button>${mia ? `<button class="piccolo" data-tv-off="0">Ritira</button>` : ""}</div>`}</div>`;
+      ${prop.length ? `<div class="riga" style="flex-wrap:wrap">${prop.map((x) => `<button class="piccolo oro" data-g-off="${k}|${x}">${euro(x)}</button>`).join("")}</div>` : `<p class="sub">Ti servono almeno ${euro(G.base)} puliti.</p>`}
+      <div class="riga"><input id="gOff_${k}" type="number" placeholder="altra cifra" style="flex:1"><button class="piccolo" data-g-off="${k}|campo">Offri</button>${mia ? `<button class="piccolo" data-g-off="${k}|0">Ritira</button>` : ""}</div>`}</div>`;
   }
-  // attiva
   const capo = S.players.find((p) => p.id === t.capo), mie = (t.quote || {})[mioId] || 0, sonoCapo = t.capo === mioId;
   const celle = [];
   for (const [id, q] of Object.entries(t.quote || {}).sort((a, b) => (b[0] === t.capo) - (a[0] === t.capo) || b[1] - a[1])) { const p = S.players.find((x) => x.id === id); for (let i = 0; i < q; i++) celle.push(`<i title="${esc(p.nome)}" style="background:${p.colore}">${esc(p.nome[0])}</i>`); }
   for (let i = 0; i < t.mercato; i++) celle.push(`<i class="mercato" title="In vendita"></i>`);
   const gia = (t.quoteCiclo || {})[mioId] || 0, resta = G.maxQuoteCiclo - gia;
-  const costo = (n) => { let c = 0; for (let k = 0; k < n; k++) c += Math.round(t.prezzoQuota * Math.pow(1.1, k)); return c; };
+  const costo = (n) => { let c = 0; for (let x = 0; x < n; x++) c += Math.round(t.prezzoQuota * Math.pow(1.1, x)); return c; };
   const resaQuota = Math.round(G.pubblicita / G.quote);
   const quote = `<div class="scheda"><h4>Chi comanda: <span style="color:${capo ? capo.colore : "inherit"}">${capo ? esc(capo.nome) + (sonoCapo ? " (tu)" : "") : "nessuno"}</span></h4>
     <div class="tv-quote">${celle.join("")}</div>
-    <span class="sub">Colori = quote dei giocatori · grigie = in vendita. Hai <b>${mie}</b> ${mie === 1 ? "quota" : "quote"}. Ogni quota rende almeno ${euro(resaQuota)} a ogni Alba (più una parte del lusso che comprano gli altri).</span>
-    ${lv4 ? (t.mercato > 0 ? `<div class="riga" style="flex-wrap:wrap;margin-top:6px">${[1, 2].filter((n) => n <= resta && n <= t.mercato).map((n) => `<button class="piccolo oro" data-tv-quote="${n}" ${me.cash >= costo(n) ? "" : "disabled"}>Compra ${n} ${n === 1 ? "quota" : "quote"} · ${euro(costo(n))}</button>`).join("") || `<span class="sub">Questo Ciclo hai già comprato ${G.maxQuoteCiclo} quote.</span>`}</div>
-      <span class="sub">Al massimo ${G.maxQuoteCiclo} quote per Ciclo. Ogni quota venduta fa salire il prezzo del 10%.</span>` : `<p class="sub">Tutte le quote sono in mano ai giocatori: per ora non si compra niente.</p>`) : `<p class="sub">Le quote le comprano solo i giocatori al Livello 4.</p>`}
-    ${sonoCapo ? `<p class="sub" style="color:#ffb3b3">Chi comanda paga ${euro(G.spesa)} a ogni Alba. Se non li hai, perdi il comando.</p>` : capo && lv4 ? `<p class="sub">Per strappargliela ti servono più quote di ${esc(capo.nome)} (${(t.quote || {})[t.capo] || 0}).</p>` : ""}</div>`;
-  let tit = "";
-  if (sonoCapo) {
-    if (t.titoloneCiclo === S.ciclo) tit = `<div class="scheda"><h4>Il titolone</h4><span class="sub">Hai già scelto il titolone di questo Ciclo. Torna al prossimo.</span></div>`;
-    else {
-      const altri = S.players.filter((p) => p.id !== mioId);
-      tit = `<h4 style="margin:12px 0 4px">Il titolone di questo Ciclo</h4>
+    <span class="sub">Colori = quote dei giocatori · grigie = in vendita. Hai <b>${mie}</b> ${mie === 1 ? "quota" : "quote"}. Ogni quota rende almeno ${euro(resaQuota)} a ogni Alba (${k === "tv" ? "più una parte del lusso che comprano gli altri" : "più gli interessi dei prestiti degli altri"}).</span>
+    ${lv4 ? (t.mercato > 0 ? `<div class="riga" style="flex-wrap:wrap;margin-top:6px">${[1, 2].filter((n) => n <= resta && n <= t.mercato).map((n) => `<button class="piccolo oro" data-g-quote="${k}|${n}" ${me.cash >= costo(n) ? "" : "disabled"}>Compra ${n} ${n === 1 ? "quota" : "quote"} · ${euro(costo(n))}</button>`).join("") || `<span class="sub">Questo Ciclo hai già comprato ${G.maxQuoteCiclo} quote.</span>`}</div>
+      <span class="sub">Al massimo ${G.maxQuoteCiclo} quote per Ciclo. Ogni quota venduta fa salire il prezzo del 10%.</span>` : `<p class="sub">Tutte le quote sono in mano ai giocatori.</p>`) : `<p class="sub">Le quote le comprano solo i giocatori al Livello 4.</p>`}
+    ${sonoCapo ? `<p class="sub" style="color:#ffb3b3">Chi comanda paga ${euro(G.spesa)} a ogni Alba. Se non li hai, perdi il comando.${k === "banca" ? " Se la polizia ti mette sotto indagine, la Finanza commissaria la banca: niente utili e niente poteri." : ""}</p>` : capo && lv4 ? `<p class="sub">Per strappargliela ti servono più quote di ${esc(capo.nome)} (${(t.quote || {})[t.capo] || 0}).</p>` : ""}</div>`;
+  let poteri = "";
+  const altri = S.players.filter((p) => p.id !== mioId);
+  if (sonoCapo && k === "tv") {
+    if (t.titoloneCiclo === S.ciclo) poteri = `<div class="scheda"><h4>Il titolone</h4><span class="sub">Hai già scelto il titolone di questo Ciclo. Torna al prossimo.</span></div>`;
+    else poteri = `<h4 style="margin:12px 0 4px">Il titolone di questo Ciclo</h4>
       <div class="tv-scelta"><b>${ico("stella")} La tua faccia in prima serata</b><span class="sub">+8 fama. Sicuro, senza rischi.</span><button class="oro" data-tv-tit="fama">Scegli</button></div>
       <div class="tv-scelta"><b>${ico("siren")} Uno scandalo su un rivale</b><span class="sub">Se ha davvero qualcosa da nascondere: −15 fama e la polizia lo guarda di più. Se è pulito, metà delle volte la figuraccia è tua (−10 fama).</span><div class="riga"><select id="tvBers" style="flex:1">${altri.map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join("")}</select><button class="oro" data-tv-tit="scandalo">Scegli</button></div></div>
       <div class="tv-scelta"><b>${ico("borsa")} Una notizia di Borsa</b><span class="sub">All'Alba l'azienda sale o scende del 12%. Comprale o vendile prima! Ma manipolare la Borsa lascia tracce.</span><div class="riga"><select id="tvAz" style="flex:1">${L.AZIENDE.map((a) => `<option>${a}</option>`).join("")}</select><select id="tvVerso"><option value="1">sale</option><option value="0">scende</option></select><button class="oro" data-tv-tit="borsa">Scegli</button></div></div>`;
-    }
   }
-  return testa + quote + tit;
+  if (sonoCapo && k === "banca") {
+    const comm = (me.stato || 0) >= 3, tasso = t.tasso || 10, giaRic = t.riciclatoCiclo === S.ciclo ? t.riciclato || 0 : 0, restaRic = G.riciclaMax - giaRic;
+    poteri = comm ? `<div class="scheda"><span class="sub" style="color:#ff9a9a">Sei indagato: la Finanza ha commissariato la tua banca. Niente poteri finché l'indagine non si calma.</span></div>` : `<h4 style="margin:12px 0 4px">I poteri della Banca</h4>
+      <div class="tv-scelta"><b>${ico("soldi")} Il tasso dei prestiti degli altri: ${tasso}%</b><span class="sub">Più alto = più interessi per te e per chi ha quote; chi ha debiti paga di più (e magari restituisce prima). Si cambia una volta per Ciclo.</span><div class="riga">${[5, 10, 20].map((x) => `<button class="piccolo ${x === tasso ? "oro" : ""}" data-b-tasso="${x}" ${t.tassoCiclo === S.ciclo || x === tasso ? "disabled" : ""}>${x}%</button>`).join("")}</div></div>
+      <div class="tv-scelta"><b>${ico("chiave")} Blocca un conto</b><span class="sub">Un rivale non può chiedere prestiti fino all'Alba. Una volta per Ciclo.</span><div class="riga"><select id="bBers" style="flex:1">${altri.map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join("")}</select><button class="oro" data-b-blocca="1" ${t.bloccoCiclo === S.ciclo ? "disabled" : ""}>Blocca</button></div></div>
+      ${(me.sporchi || 0) > 0 || S.sblocco >= 1 ? `<div class="tv-scelta"><b>${ico("ricicla")} Ripulisci nella tua banca</b><span class="sub">Perdi solo il 10%, fino a ${euro(G.riciclaMax)} per Ciclo (ti restano ${euro(restaRic)}). Ma la Finanza guarda i conti delle banche: lascia una pista sui soldi e tracce.</span><div class="riga"><input id="bRic" type="number" placeholder="quanto" style="flex:1"><button class="oro" data-b-ricicla="1" ${restaRic > 0 && me.sporchi > 0 ? "" : "disabled"}>Ripulisci</button></div></div>` : ""}`;
+  }
+  return testa + quote + poteri;
 }
 function collegaTV(box, me) {
-  box.querySelectorAll("[data-tv-off]").forEach((b) => b.onclick = () => { const v = b.dataset.tvOff === "campo" ? Number(box.querySelector("#tvOff").value) : Number(b.dataset.tvOff); agisci({ tipo: "offerta_grande", affare: "tv", importo: v }); });
-  box.querySelectorAll("[data-tv-quote]").forEach((b) => b.onclick = () => agisci({ tipo: "quote_grande", affare: "tv", n: +b.dataset.tvQuote }));
+  box.querySelectorAll("[data-g-off]").forEach((b) => b.onclick = () => { const [k, x] = b.dataset.gOff.split("|"); const v = x === "campo" ? Number(box.querySelector("#gOff_" + k).value) : Number(x); agisci({ tipo: "offerta_grande", affare: k, importo: v }); });
+  box.querySelectorAll("[data-g-quote]").forEach((b) => b.onclick = () => { const [k, n] = b.dataset.gQuote.split("|"); agisci({ tipo: "quote_grande", affare: k, n: +n }); });
   box.querySelectorAll("[data-tv-tit]").forEach((b) => b.onclick = () => { const sc = b.dataset.tvTit; agisci(sc === "scandalo" ? { tipo: "titolone", scelta: sc, bersaglio: box.querySelector("#tvBers").value } : sc === "borsa" ? { tipo: "titolone", scelta: sc, azienda: box.querySelector("#tvAz").value, su: box.querySelector("#tvVerso").value === "1" } : { tipo: "titolone", scelta: sc }); });
+  box.querySelectorAll("[data-b-tasso]").forEach((b) => b.onclick = () => agisci({ tipo: "tasso_banca", tasso: +b.dataset.bTasso }));
+  box.querySelectorAll("[data-b-blocca]").forEach((b) => b.onclick = () => agisci({ tipo: "blocca_conto", bersaglio: box.querySelector("#bBers").value }));
+  box.querySelectorAll("[data-b-ricicla]").forEach((b) => b.onclick = () => agisci({ tipo: "ricicla_banca", importo: Number(box.querySelector("#bRic").value) }));
 }
 
 // ------------------------------------------------------------ scegliere un'attivita': schede chiare (rende, affitto, vantaggio, rischio)

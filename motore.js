@@ -715,17 +715,21 @@
   // ha 10 quote, chi ne ha di piu' lo comanda (a parita' resta a chi lo comanda gia').
   const GRANDI = {
     tv: { nome: "La TV della Laguna", base: 12_000_000, pubblicita: 2_500_000, quotaLusso: 0.10, spesa: 1_000_000, quote: 10, quoteVincitore: 4, maxQuoteCiclo: 2 },
+    banca: { nome: "La Banca della Laguna", base: 15_000_000, pubblicita: 2_000_000, spesa: 1_000_000, quote: 10, quoteVincitore: 4, maxQuoteCiclo: 2, riciclaMax: 3_000_000 },
   };
+  const ORDINE_GRANDI = ["tv", "banca"];
   function partitaLunga(s) { return s.modoFine === "libera" || (s.modoFine === "obiettivo" && (s.obiettivo || 0) >= 100_000_000) || (s.modoFine !== "obiettivo" && s.modoFine !== "libera" && (s.cicli || N.cicli) >= 12); }
   function grande(s, k) { s.grandi = s.grandi || {}; if (!s.grandi[k]) s.grandi[k] = { stato: "chiusa", offerte: {}, quote: {}, mercato: 0, prezzoQuota: 0, capo: null, titoloneCiclo: -1, quoteCiclo: {} }; return s.grandi[k]; }
   function capoDi(s, k) { const g = s.grandi && s.grandi[k]; return g && g.capo ? giocatore(s, g.capo) : null; }
   function apriAsteGrandi(s) {
     if (!s.players.some((p) => (p.livello || 0) >= 4)) return;
-    for (const k of Object.keys(GRANDI)) {
+    if (ORDINE_GRANDI.some((k) => s.grandi && s.grandi[k] && s.grandi[k].stato === "asta")) return; // un'asta alla volta
+    for (const k of ORDINE_GRANDI) {
       const g = grande(s, k); if (g.stato !== "chiusa") continue;
       g.stato = "asta"; g.offerte = {};
       notizia(s, "All'Alba va all'asta " + GRANDI[k].nome + ". Possono offrire solo i più potenti della Laguna (Livello 4). Offerte segrete, base " + euro(GRANDI[k].base) + ".", "evento");
-      for (const p of s.players) if ((p.livello || 0) >= 4) privato(s, p, "Vera: \"" + GRANDI[k].nome + " va all'asta all'Alba. Fai la tua offerta segreta dall'app TV: vince la più alta. Chi vince prende 4 quote su 10 e la comanda.\"");
+      for (const p of s.players) if ((p.livello || 0) >= 4) privato(s, p, "Vera: \"" + GRANDI[k].nome + " va all'asta all'Alba. Fai la tua offerta segreta dall'app Grandi Affari: vince la più alta. Chi vince prende 4 quote su 10 e la comanda.\"");
+      return; // la prossima si apre dopo
     }
   }
   function offertaGrande(s, p, k, importo) {
@@ -764,12 +768,12 @@
       const vecchio = g.capo ? giocatore(s, g.capo) : null, nuovo = giocatore(s, best);
       g.capo = best;
       notizia(s, "Scalata riuscita: " + nuovo.nome + " prende il comando di " + G.nome + (vecchio ? ", strappata a " + vecchio.nome : "") + ".", "affari");
-      privato(s, nuovo, "Vera: \"Adesso " + G.nome + " la comandi tu. Ogni Ciclo puoi scegliere il titolone della Gazzetta dall'app TV.\"");
+      privato(s, nuovo, "Vera: \"Adesso " + G.nome + " la comandi tu. Apri l'app Grandi Affari.\"");
       if (vecchio) privato(s, vecchio, "Vera: \"Ti hanno strappato " + G.nome + ": " + nuovo.nome + " ha più quote di te. Puoi riprendertela comprando quote.\"");
     } else if (g.capo) {
       // avviso: qualcuno si avvicina
       const mie = g.quote[g.capo] || 0;
-      for (const [id, q] of Object.entries(g.quote)) if (id !== g.capo && q >= mie - 1 && q > 0) privato(s, giocatore(s, g.capo), "Vera: \"Attento: " + giocatore(s, id).nome + " ha " + q + " quote di " + G.nome + ", tu " + mie + ". Se ti supera, la TV è sua.\"");
+      for (const [id, q] of Object.entries(g.quote)) if (id !== g.capo && q >= mie - 1 && q > 0) privato(s, giocatore(s, g.capo), "Vera: \"Attento: " + giocatore(s, id).nome + " ha " + q + " quote di " + G.nome + ", tu " + mie + ". Se ti supera, è sua.\"");
     }
   }
   // IL TITOLONE: chi comanda la TV, una volta per Ciclo, sceglie la prima pagina
@@ -805,6 +809,42 @@
     g.titoloneCiclo = s.ciclo;
     log(s, p.nome + " sceglie il titolone della TV.", p.id);
   }
+
+  // LA BANCA DELLA LAGUNA: chi la comanda decide il tasso, puo' bloccare un conto, e puo' ripulire (con la Finanza addosso)
+  function tassoPrestiti(s, p) { const g = s.grandi && s.grandi.banca; return g && g.stato === "attiva" && g.capo && g.capo !== p.id ? (g.tasso || 10) / 100 : N.prestitoInt; }
+  function capoBanca(s, p) {
+    const g = grande(s, "banca");
+    if (g.capo !== p.id) err("Solo chi comanda la Banca della Laguna può farlo.");
+    if ((p.stato || 0) >= 3) err("Sei indagato: la Finanza ha commissariato la tua banca.");
+    return g;
+  }
+  function tassoBanca(s, p, tasso) {
+    const g = capoBanca(s, p); tasso = Number(tasso);
+    if (![5, 10, 20].includes(tasso)) err("Il tasso può essere 5%, 10% o 20%.");
+    if (g.tassoCiclo === s.ciclo) err("Il tasso si cambia una volta per Ciclo.");
+    g.tasso = tasso; g.tassoCiclo = s.ciclo;
+    notizia(s, "La Banca della Laguna " + (tasso > 10 ? "alza" : tasso < 10 ? "abbassa" : "riporta") + " il tasso dei prestiti al " + tasso + "%.", "affari");
+  }
+  function bloccaConto(s, p, idBersaglio) {
+    const g = capoBanca(s, p), b = giocatore(s, idBersaglio);
+    if (!b || b.id === p.id) err("Scegli un rivale.");
+    if (g.bloccoCiclo === s.ciclo) err("Un conto bloccato per Ciclo.");
+    b.contoBloccato = s.ciclo; g.bloccoCiclo = s.ciclo;
+    privato(s, b, "La Banca della Laguna ti ha bloccato il conto: niente prestiti fino all'Alba.");
+    log(s, p.nome + " blocca il conto di " + b.nome + " alla Banca della Laguna.", p.id);
+  }
+  function riciclaBanca(s, p, importo) {
+    const g = capoBanca(s, p), G = GRANDI.banca;
+    importo = round(Number(importo) || 0);
+    const gia = g.riciclatoCiclo === s.ciclo ? g.riciclato || 0 : 0;
+    if (importo <= 0) err("Quanto vuoi ripulire?");
+    if (gia + importo > G.riciclaMax) err("Nella tua banca ripulisci al massimo " + euro(G.riciclaMax) + " per Ciclo (ti restano " + euro(G.riciclaMax - gia) + ").");
+    if (p.sporchi < importo) err("Non hai " + euro(importo) + " sporchi.");
+    p.sporchi -= importo; p.cash += round(importo * 0.9); p.riciclTot = (p.riciclTot || 0) + importo; p.ripulitiCiclo = (p.ripulitiCiclo || 0) + importo;
+    p.tracce += 4 * importo / 1_000_000; p.calSoldi = Math.min(10, (p.calSoldi || 0) + 0.8 * importo / 1_000_000); p.pulitoCiclo = false; p.peggiorReato = peggio(p.peggiorReato, "media");
+    g.riciclato = gia + importo; g.riciclatoCiclo = s.ciclo;
+    privato(s, p, "Hai ripulito " + euro(importo) + " nella tua banca (ti restano " + euro(round(importo * 0.9)) + " puliti). La Finanza però guarda i conti delle banche: è una pista.");
+  }
   function albaGrandi(s, riepilogo, lussoAltri) {
     if (!s.grandi) return;
     for (const [k, g] of Object.entries(s.grandi)) {
@@ -816,14 +856,15 @@
         w.cash -= v; flusso(s, w, null, v, "asta: " + G.nome, true);
         g.stato = "attiva"; g.offerte = {}; g.quote = { [w.id]: G.quoteVincitore }; g.mercato = G.quote - G.quoteVincitore; g.prezzoQuota = round(v / 8); g.capo = w.id; g.titoloneCiclo = -1;
         notizia(s, w.nome + " si aggiudica " + G.nome + " per " + euro(v) + ". Ha 4 quote su 10: le altre 6 sono in vendita.", "affari");
-        privato(s, w, "Vera: \"La TV è tua! Da domani scegli il titolone dall'app TV. Attento: 6 quote sono sul mercato. Se un rivale ne compra più di te, te la strappa.\"");
+        privato(s, w, "Vera: \"" + G.nome + ": ora la comandi tu! Apri l'app Grandi Affari per usarla. Attento: 6 quote sono sul mercato. Se un rivale ne compra più di te, te la strappa.\"");
         for (const [q] of off.slice(1)) privato(s, q, "Hai perso l'asta per " + G.nome + ": ha vinto " + w.nome + ". Puoi ancora comprare quote e strappargliela.");
         continue;
       }
       if (g.stato !== "attiva") continue;
       // pubblicita': una base + una parte del lusso comprato dagli altri
       let lusso = 0; for (const p of s.players) if (p.id !== g.capo) lusso += lussoAltri[p.id] || 0;
-      const utile = G.pubblicita + G.quotaLusso * lusso;
+      let utile = G.pubblicita + (k === "tv" ? G.quotaLusso * lusso : s.interessiBanca || 0);
+      if (k === "banca") { s.interessiBanca = 0; const c0 = capoDi(s, k); if (c0 && (c0.stato || 0) >= 3) { utile = 0; notizia(s, "La Finanza commissaria la Banca della Laguna: chi la comanda, " + c0.nome + ", è indagato. Niente utili questo Ciclo.", "scandalo"); } }
       for (const [id, q] of Object.entries(g.quote)) {
         const p = giocatore(s, id); const div = round(utile * q / G.quote);
         p.cash += div; if (riepilogo[id]) riepilogo[id].tv = (riepilogo[id].tv || 0) + div;
@@ -831,7 +872,7 @@
       // chi comanda paga la spesa: se non ce la fa, perde il comando
       const capo = capoDi(s, k);
       if (capo) {
-        if (capo.cash >= G.spesa) { capo.cash -= G.spesa; if (riepilogo[capo.id]) riepilogo[capo.id].tvSpesa = G.spesa; }
+        if (capo.cash >= G.spesa) { capo.cash -= G.spesa; if (riepilogo[capo.id]) riepilogo[capo.id].tvSpesa = (riepilogo[capo.id].tvSpesa || 0) + G.spesa; }
         else {
           notizia(s, capo.nome + " non paga i conti della " + G.nome + ": perde il comando.", "affari");
           privato(s, capo, "Non avevi " + euro(G.spesa) + " per la spesa della TV: hai perso il comando (le quote restano tue).");
@@ -862,6 +903,7 @@
   }
   function prestito(s, p, importo) {
     azioneGiorno(s, p);
+    if (p.contoBloccato === s.ciclo) err("La Banca della Laguna ti ha bloccato il conto: niente prestiti fino all'Alba.");
     importo = Math.floor(importo || 0);
     const cap = N.prestitoQuota * (p.pacchetto === "ereditiera" ? 2 : 1) * propri(s, p).reduce((a, l) => a + valoreLotto(l), 0) - p.debito;
     if (importo <= 0 || importo > cap) err("Puoi chiedere al massimo " + euro(Math.max(0, cap)) + ".");
@@ -1239,7 +1281,7 @@
     "Vera: \"Sei diventato qualcuno. Un tipo del Porto ha chiesto di te. Di notte si aprono il Mercato Nero, la Bisca, il Porto e il Casinò Reale. Arrivano i primi affari sporchi. La valigetta ora ha 4 posti.\"",
     "Vera: \"Ormai sei ricco. Il banchiere Lenz vuole conoscerti: da oggi puoi usare Borsa, Cripto, Contratti e nascondere le tasse. Di notte si apre anche la Redazione della Gazzetta.\"",
     "Vera: \"Sei tra i più potenti della Laguna. È arrivato un biglietto senza firma: 'Al Faro, a mezzanotte'. Si aprono la Villa sulla scogliera e il Faro. La valigetta ora ha 6 posti.\"",
-    "Vera: \"Sei entrato nel giro dei Grandi Affari. Di ogni Grande Affare ce n'è uno solo in tutta la Laguna. Il primo è la TV della Laguna: chi la comanda sceglie il titolone della Gazzetta. Apri l'app TV.\"",
+    "Vera: \"Sei entrato nel giro dei Grandi Affari. Di ognuno ce n'è uno solo in tutta la Laguna: prima la TV, poi la Banca della Laguna. Apri l'app Grandi Affari.\"",
   ];
 
   function iniziaNotte(s) {
@@ -2457,8 +2499,9 @@
       if (p.pacchetto === "speculatore") for (const m of Object.keys(p.cripto)) p.cripto[m] *= 1.05;
       // debiti
       if (p.debito > 0) {
-        const tasso = p.emergenza ? N.emergenzaInt : p.pacchetto === "ereditiera" ? 0 : N.prestitoInt;
+        const tasso = p.emergenza ? N.emergenzaInt : p.pacchetto === "ereditiera" ? 0 : tassoPrestiti(s, p);
         const int = p.debito * tasso; p.debito += int; r.interessi = round(int);
+        { const gb = s.grandi && s.grandi.banca; if (gb && gb.stato === "attiva" && gb.capo && gb.capo !== p.id) s.interessiBanca = (s.interessiBanca || 0) + int; }
         const pagabile = Math.min(p.cash * 0.5, p.debito); p.cash -= pagabile; p.debito -= pagabile;
         if (p.debito < 1) { p.debito = 0; p.emergenza = false; }
       }
@@ -2769,6 +2812,9 @@
       case "offerta_grande": return offertaGrande(s, p, a.affare, a.importo);
       case "quote_grande": return comprareQuote(s, p, a.affare, a.n);
       case "titolone": return titolone(s, p, a);
+      case "tasso_banca": return tassoBanca(s, p, a.tasso);
+      case "blocca_conto": return bloccaConto(s, p, a.bersaglio);
+      case "ricicla_banca": return riciclaBanca(s, p, a.importo);
       case "veicolo": return compraVeicolo(s, p, a.veicolo);
       case "prestito": return prestito(s, p, a.importo);
       case "restituisci": return restituisci(s, p, a.importo);
@@ -2880,7 +2926,7 @@
     rischioResa, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
-    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, rischioContatto, nomeContatto, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, costoPiani, haAttivita, GRANDI, partitaLunga, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, oreViaggio, luogoAperto,
+    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, rischioContatto, nomeContatto, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, costoPiani, haAttivita, GRANDI, ORDINE_GRANDI, tassoPrestiti, partitaLunga, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;
