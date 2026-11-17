@@ -2921,6 +2921,16 @@
     if (s.riepOra) v.riepOra = { n: s.riepOra.n, ciclo: s.riepOra.ciclo, da: s.riepOra.da, a: s.riepOra.a, mio: s.riepOra.per[idGiocatore] || null };
     { const me = s.players.find((x) => x.id === idGiocatore); if (me) { v.lustro = lustro(s, me); v.livelloPalazzo = livelloPalazzo(me); const su = poliziaOccupata(s, me); v.poliziaSu = su ? su.nome : null; } }
     { const me = s.players.find((x) => x.id === idGiocatore); v.sblocco = me ? livelloSblocco(s, me) : 3; v.postiValigetta = me ? postiValigetta(s, me) : 6; v.soglieLivello = SOGLIE_LIVELLO; }
+    // di notte non sai dove sono gli altri: vedi solo chi e' nel tuo stesso posto
+    if (v.notte && v.notte.dove && s.notte) {
+      const mio = s.notte.dove[idGiocatore], mioViaggio = s.notte.viaggio && s.notte.viaggio[idGiocatore];
+      for (const id of Object.keys(v.notte.dove)) {
+        if (id === idGiocatore) continue;
+        const insieme = !mioViaggio && !(s.notte.viaggio && s.notte.viaggio[id]) && mio && mio !== "palazzo" && s.notte.dove[id] === mio;
+        if (!insieme) v.notte.dove[id] = null;
+        if (v.notte.viaggio && v.notte.viaggio[id]) v.notte.viaggio[id] = { nascosto: true };
+      }
+    }
     return v;
   }
 
