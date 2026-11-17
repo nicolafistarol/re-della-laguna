@@ -72,7 +72,7 @@ label{font-size:13px;color:var(--muted)}
 .ntabs{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}
 .ntabs button{font-size:13px;padding:6px 10px}
 .ntabs button.on{background:var(--setta);color:#160a2b;border-color:transparent}
-.toast{position:fixed;top:84px;left:50%;transform:translateX(-50%);padding:11px 16px;border-radius:12px;z-index:70;font-size:14px;max-width:90%;background:rgba(10,16,26,.9);border:1px solid var(--bordo)}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);padding:11px 16px;border-radius:12px;z-index:70;font-size:14px;max-width:90%;background:rgba(10,16,26,.9);border:1px solid var(--bordo)}
 .ingresso{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
 .ingresso .carta{width:min(480px,92vw);padding:28px;border-radius:24px;display:flex;flex-direction:column;gap:14px}
 .posto{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.05)}
@@ -80,6 +80,57 @@ table.cl{width:100%;border-collapse:collapse;font-size:14px}table.cl td,table.cl
 .cartello{position:absolute;left:58%;top:22%;width:260px;border-radius:16px;overflow:hidden;animation:dondola 4s ease-in-out infinite}
 @keyframes dondola{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 @media(max-width:1100px){.decisione{width:calc(100vw - 32px);min-width:0;bottom:200px}.mappa{display:none}.tel{width:calc(100vw - 32px)}}
+
+.gioco{position:absolute;inset:0;display:grid;grid-template-columns:270px minmax(0,1fr) 330px;gap:14px;padding:14px}
+.colS,.colD{display:flex;flex-direction:column;gap:8px;min-height:0}
+.colS .chip{border-radius:14px}
+.cronaca{flex:1;min-height:0;overflow:auto;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.rc{font-size:12px;line-height:1.35;color:rgba(255,255,255,.82);padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08)}
+.rc.mia{color:#ffe3a6}
+.centro{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-width:0;min-height:0}
+.tavola{position:relative;width:min(100%,calc((100vh - 110px)*16/9));aspect-ratio:16/9;border-radius:22px;overflow:hidden;background:#0b1018 url('img/mappa.jpg') center/cover;box-shadow:0 25px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.14);transition:filter .8s}
+.tavola.notte{filter:brightness(.42) saturate(.7) hue-rotate(15deg)}
+.notte-testo{position:absolute;inset:auto 0 18px 0;text-align:center;display:flex;flex-direction:column;filter:brightness(2.2)}
+.notte-testo .serif{font-size:40px}
+.cas{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.cas.ang{width:13px;height:13px;margin:-6.5px 0 0 -6.5px;background:var(--oro)}
+.cas.pres{width:10px;height:10px;margin:-5px 0 0 -5px;box-shadow:0 0 0 2px #fff}
+.tavola .ped{width:18px;height:18px;margin-top:-9px;display:flex;align-items:center;justify-content:center;transition:left .17s ease-out,top .17s ease-out;z-index:3}
+.tavola .ped b{font-size:10px;color:#0b1018}
+.tavola .ped.io{width:22px;height:22px;margin-top:-11px;z-index:4}
+.ped.salto{animation:salto .18s ease-out}
+@keyframes salto{50%{transform:translateY(-7px) scale(1.12)}}
+.scia{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;transition:opacity .8s}
+.scia.spegni{opacity:0}
+.scia polyline{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.scia polyline.oro{stroke:#ffd27a;stroke-width:.9;filter:drop-shadow(0 0 1.2px #ffb52e)}
+.scia polyline.altro{stroke:rgba(255,255,255,.75);stroke-width:.5;stroke-dasharray:1 1}
+.scia circle.oro{fill:#fff3d0}.scia circle.altro{fill:rgba(255,255,255,.8)}
+.etichetta{position:absolute;transform:translate(-50%,calc(-100% - 18px));background:rgba(10,16,26,.82);border:1px solid rgba(243,197,107,.6);border-radius:10px;padding:5px 10px;font-size:12px;white-space:nowrap;display:flex;flex-direction:column;align-items:center;z-index:5;pointer-events:none}
+.etichetta span{color:var(--muted);font-size:11px}
+.colD .saldo{width:auto}
+.colD .decisione{position:static;transform:none;width:auto;min-width:0;left:auto;bottom:auto}
+.gioco .tel{top:14px;bottom:14px;right:14px;width:360px;z-index:20}
+.dadi-scena{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;z-index:60;pointer-events:none;background:radial-gradient(circle,rgba(3,6,14,.55),rgba(3,6,14,0) 60%);transition:opacity .35s}
+.dadi-scena.via{opacity:0}
+.dadi-scena .chi{font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:13px;color:var(--oro)}
+.coppia{display:flex;gap:46px;perspective:700px}
+.cubo{position:relative;width:96px;height:96px;transform-style:preserve-3d}
+.faccia{position:absolute;inset:0;background:linear-gradient(145deg,#fff,#ece6d6);border-radius:16px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:14px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08),inset 0 -6px 12px rgba(0,0,0,.08)}
+.faccia i{display:flex;align-items:center;justify-content:center}
+.faccia i.pt::after{content:"";width:16px;height:16px;border-radius:50%;background:#1b1408;box-shadow:inset 0 2px 3px rgba(0,0,0,.6)}
+.faccia.f{transform:translateZ(48px)}.faccia.b{transform:rotateY(180deg) translateZ(48px)}.faccia.r{transform:rotateY(90deg) translateZ(48px)}.faccia.l{transform:rotateY(-90deg) translateZ(48px)}.faccia.t{transform:rotateX(90deg) translateZ(48px)}.faccia.u{transform:rotateX(-90deg) translateZ(48px)}
+.totale{font-family:'DM Serif Display',Georgia,serif;font-size:76px;line-height:1;color:#fff;text-shadow:0 4px 30px rgba(243,197,107,.8);opacity:0;transform:scale(.6);transition:all .3s}
+.totale span{font-family:Manrope,sans-serif;font-size:20px;font-weight:800;color:var(--oro);vertical-align:middle}
+.dadi-scena.fatto .totale{opacity:1;transform:scale(1)}
+.dadi-scena.piccoli{background:none;justify-content:flex-start;padding-top:70px}
+.dadi-scena.piccoli .cubo{width:56px;height:56px}.dadi-scena.piccoli .faccia{padding:8px;border-radius:10px}.dadi-scena.piccoli .faccia i.pt::after{width:9px;height:9px}
+.dadi-scena.piccoli .faccia.f{transform:translateZ(28px)}.dadi-scena.piccoli .faccia.b{transform:rotateY(180deg) translateZ(28px)}.dadi-scena.piccoli .faccia.r{transform:rotateY(90deg) translateZ(28px)}.dadi-scena.piccoli .faccia.l{transform:rotateY(-90deg) translateZ(28px)}.dadi-scena.piccoli .faccia.t{transform:rotateX(90deg) translateZ(28px)}.dadi-scena.piccoli .faccia.u{transform:rotateX(-90deg) translateZ(28px)}
+.dadi-scena.piccoli .coppia{gap:24px}.dadi-scena.piccoli .totale{font-size:40px}
+.delta{position:fixed;right:60px;top:150px;font-family:'DM Serif Display',Georgia,serif;font-size:34px;z-index:65;animation:sale 2.6s ease-out forwards;text-shadow:0 2px 14px rgba(0,0,0,.6)}
+@keyframes sale{0%{opacity:0;transform:translateY(20px)}15%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
+@media(max-width:1000px){.gioco{grid-template-columns:1fr;overflow:auto;align-content:start}.colS{flex-direction:row;overflow-x:auto;order:1}.colS .chip{flex-shrink:0}.cronaca{display:none}.centro{order:2}.tavola{width:100%}.colD{order:3}.gioco .tel{left:8px;right:8px;width:auto}}
+@media(prefers-reduced-motion:reduce){.tavola .ped,.scia,.totale,.dadi-scena{transition:none}.ped.salto,.delta{animation:none}}
 </style>
 </head>
 <body>
@@ -130,13 +181,13 @@ async function agisci(azione){
 async function caricaVista(){
   const { data, error } = await db.from("viste").select("vista,versione").eq("partita_id", partita).eq("player_id", mioId).maybeSingle();
   if (error) { toast("Non riesco a leggere la partita: " + error.message); return; }
-  if (data) { S = data.vista; disegna(); }
+  if (data) riceviVista(data.vista);
 }
 function ascolta(){
   if (canale) sb.removeChannel(canale);
   canale = sb.channel("viste-" + partita)
     .on("postgres_changes", { event: "*", schema: "laguna", table: "viste", filter: "partita_id=eq." + partita }, (p) => {
-      if (p.new && p.new.player_id === mioId && p.new.vista) { S = p.new.vista; disegna(); }
+      if (p.new && p.new.player_id === mioId && p.new.vista) riceviVista(p.new.vista);
     }).subscribe();
   // sicurezza: se il tempo reale si interrompe, ricarico ogni 8 secondi
   setInterval(() => { if (!document.hidden) caricaVista(); }, 8000);
@@ -268,6 +319,115 @@ function puntoMappa(p){
   return [(1-t)*(1-t)*a[0] + 2*(1-t)*t*c[0] + t*t*b[0], (1-t)*(1-t)*a[1] + 2*(1-t)*t*c[1] + t*t*b[1]];
 }
 
+// ------------------------------------------------------------ animazioni (dadi, pedine, cronaca)
+let disp = {};            // posizione mostrata di ogni pedina (puo' essere indietro rispetto allo stato vero)
+let ultimoLog = null;     // ultima riga di cronaca gia' vista
+let coda = [], animando = false;
+const PRIVATI = /prestito|restituisce|investe|vende|ipoteca|riscatta/;   // operazioni che non mostriamo degli altri
+const VELOCE = location.search.includes("veloce");   // ?veloce = senza animazioni (per le prove)
+const pausa = (ms) => new Promise(r => setTimeout(r, ms));
+function copiaPos(p){ return { inner: !!p.inner, pos: p.pos, ipos: p.ipos }; }
+function nuoviLog(log){
+  if (!ultimoLog) return [];
+  const k = JSON.stringify(ultimoLog);
+  for (let i = log.length - 1; i >= 0; i--) if (JSON.stringify(log[i]) === k) return log.slice(i + 1);
+  return log.slice(-12);
+}
+let ultimaVistaJson = "";
+function riceviVista(v){
+  const j = JSON.stringify(v); if (j === ultimaVistaJson) return; ultimaVistaJson = j;
+  if (!S) { S = v; S.players.forEach(p => disp[p.id] = copiaPos(p)); ultimoLog = S.log[S.log.length-1] || null; disegna(); return; }
+  coda.push(v);
+  if (!animando) eseguiCoda();
+}
+async function eseguiCoda(){
+  animando = true;
+  disegna();
+  while (coda.length) {
+    const v = coda.shift();
+    const righe = nuoviLog(v.log);
+    if (v.log.length) ultimoLog = v.log[v.log.length-1];
+    const cashPrima = io() ? io().cash : 0;
+    // prima i movimenti, in ordine, con i dadi
+    const tiri = [];
+    for (const r of righe) { const m = / tira (\d) e (\d)\.$/.exec(r.testo); if (m && r.chi) tiri.push({ chi: r.chi, d: [+m[1], +m[2]] }); }
+    for (const r of righe) aggiungiCronaca(r);
+    for (let i = 0; i < tiri.length; i++) {
+      const t = tiri[i], mio = t.chi === mioId;
+      await mostraDadi(t.d, mio, v.players.find(p=>p.id===t.chi));
+      const ultimoDiQuesto = !tiri.slice(i+1).some(x => x.chi === t.chi);
+      await cammina(t.chi, t.d[0] + t.d[1], ultimoDiQuesto ? v.players.find(p=>p.id===t.chi) : null, mio);
+    }
+    S = v;
+    S.players.forEach(p => disp[p.id] = copiaPos(p));   // chi e' stato spostato da carte o dal Faro va al suo posto
+    const me = io();
+    if (me && me.cash !== cashPrima && cashPrima) mostraDelta(me.cash - cashPrima);
+    for (const r of righe) avvisoPerMe(r);
+    if (!coda.length) { animando = false; disegna(); }
+  }
+  animando = false;
+}
+function aggiungiCronaca(r){ /* la cronaca si ridisegna da S.log */ }
+function avvisoPerMe(r){
+  const me = io(); if (!me) return;
+  if (/ tira \d e \d\.$/.test(r.testo)) return;
+  const importante = /affitto|Stipendio|compra|Asta|Faro|Gazzetta|Posto di blocco|Casinò|ospite famoso/.test(r.testo);
+  if (importante && (r.chi === mioId || r.testo.includes(" a " + me.nome + " ("))) toast(r.testo);
+}
+function mostraDelta(d){
+  const el = document.createElement("div"); el.className = "delta"; el.textContent = (d > 0 ? "+ " : "− ") + euro(Math.abs(d));
+  el.style.color = d > 0 ? "var(--pulito)" : "var(--sporco)";
+  document.body.appendChild(el); setTimeout(() => el.remove(), 2600);
+}
+const FACCE = {1:[0,0],6:[0,180],3:[0,-90],4:[0,90],5:[-90,0],2:[90,0]};
+const PUNTI = {1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
+function cubo(){ return `<div class="cubo">${[["f",1],["b",6],["r",3],["l",4],["t",5],["u",2]].map(([k,n])=>`<div class="faccia ${k}">${[1,2,3,4,5,6,7,8,9].map(i=>`<i class="${PUNTI[n].includes(i)?"pt":""}"></i>`).join("")}</div>`).join("")}</div>`; }
+async function mostraDadi(d, mio, p){
+  if (VELOCE) return;
+  const lento = mio ? 1 : 0.55;
+  const box = document.createElement("div"); box.className = "dadi-scena" + (mio ? "" : " piccoli");
+  box.innerHTML = `<div class="chi">${mio ? "I tuoi dadi" : esc(p ? p.nome : "") + " tira i dadi"}</div><div class="coppia">${cubo()}${cubo()}</div><div class="totale">&nbsp;</div>`;
+  document.body.appendChild(box);
+  const cubi = box.querySelectorAll(".cubo");
+  cubi.forEach((c, i) => { c.style.transition = "none"; c.style.transform = `rotateX(${Math.random()*360}deg) rotateY(${Math.random()*360}deg)`; });
+  await pausa(30);
+  cubi.forEach((c, i) => { const [x, y] = FACCE[d[i]]; const gx = 720 + 360 * (i+1), gy = 720 + 360 * (2-i);
+    c.style.transition = `transform ${1.1*lento}s cubic-bezier(.2,.75,.25,1)`; c.style.transform = `rotateX(${x + gx}deg) rotateY(${y + gy}deg)`; });
+  await pausa(1150 * lento);
+  box.querySelector(".totale").innerHTML = `${d[0] + d[1]}${d[0]===d[1] ? ' <span>doppio!</span>' : ""}`;
+  box.classList.add("fatto");
+  await pausa(mio ? 900 : 450);
+  box.classList.add("via"); setTimeout(() => box.remove(), 400);
+}
+function puntoDi(q){ return puntoMappa(q); }
+async function cammina(id, n, finale, mio){
+  if (VELOCE) return;
+  const tav = document.querySelector(".tavola"); if (!tav) return;
+  const ped = tav.querySelector(`.ped[data-id="${id}"]`); if (!ped) return;
+  const q = { ...(disp[id] || { inner:false, pos:0, ipos:0 }) };
+  const punti = [puntoDi(q)];
+  const passo = mio ? 190 : 95;
+  for (let k = 0; k < n; k++) {
+    if (q.inner) q.ipos = (q.ipos + 1) % 12; else q.pos = (q.pos + 1) % 40;
+    punti.push(puntoDi(q));
+    disegnaScia(punti, mio);
+    const [x, y] = punti[punti.length-1];
+    ped.style.left = x + "%"; ped.style.top = y + "%";
+    ped.classList.remove("salto"); void ped.offsetWidth; ped.classList.add("salto");
+    await pausa(passo);
+  }
+  if (finale) { const [x, y] = puntoDi(finale); ped.style.left = x + "%"; ped.style.top = y + "%"; disp[id] = copiaPos(finale); }
+  else disp[id] = q;
+  await pausa(mio ? 500 : 150);
+  const sv = tav.querySelector(".scia"); if (sv) sv.classList.add("spegni");
+}
+function disegnaScia(punti, mio){
+  const sv = document.querySelector(".tavola .scia"); if (!sv) return;
+  sv.classList.remove("spegni");
+  sv.innerHTML = `<polyline points="${punti.map(([x,y])=>x+","+(y*0.5625)).join(" ")}" class="${mio?"oro":"altro"}"/>` +
+    punti.map(([x,y])=>`<circle cx="${x}" cy="${y*0.5625}" r="${mio?0.9:0.6}" class="${mio?"oro":"altro"}"/>`).join("");
+}
+
 // ------------------------------------------------------------ disegno
 function disegna(){
   if (!S) return;
@@ -276,28 +436,54 @@ function disegna(){
   const c = casellaDi(me);
   scena(notte ? "img/marina.jpg" : me.faro ? "img/laguna.jpg" : S.fine ? "img/penthouse.jpg" : (c && c.isola ? (c.isola==="Flamingo" && S.pending && S.pending.tipo==="compra" ? "img/flamingo-lotto.jpg" : SCENE[c.isola]) : "img/laguna.jpg"));
   const turno = S.fase === "giorno" ? L.corrente(S) : null;
-  const faseTesto = S.fine ? "Partita finita" : S.fase === "pacchetti" ? "Scelta dei pacchetti" : notte ? `Notte · Ciclo ${S.ciclo+1} di 6` : `Ciclo ${S.ciclo+1} · Giorno ${S.giorno+1} · ${turno.id===mioId?'<span style="color:var(--oro)">Tocca a te</span>':"Turno di "+esc(turno.nome)}`;
+  const faseTesto = S.fine ? "Partita finita" : S.fase === "pacchetti" ? "Scelta dei pacchetti" : notte ? `Notte · Ciclo ${S.ciclo+1} di 6` : `Ciclo ${S.ciclo+1} di 6 · Giorno ${S.giorno+1} · ${turno.id===mioId?'<span style="color:var(--oro)">Tocca a te</span>':"Turno di "+esc(turno.nome)}`;
   const segn = ["Nessuno parla di te.","Voci: si parla di te, in giro.","Osservato: la polizia ti tiene d'occhio.","Indagato: la Gazzetta fa il tuo nome.","Processo: convocazione del Giudice all'Alba."][me.stato||0];
+  const cron = S.log.filter(r => !/ tira \d e \d\.$/.test(r.testo) && !(r.chi && r.chi !== mioId && PRIVATI.test(r.testo))).slice(-9).reverse();
+  const caselle = S.lotti.map(l => {
+    const [x, y] = puntoMappa(l.giro === "i" ? { inner:true, ipos:l.idx } : { inner:false, pos:l.idx });
+    const own = l.owner ? S.players.find(p=>p.id===l.owner) : null;
+    const tit = `${l.nome}${l.isola?" · "+L.NOMI_ISOLE[l.isola]:""}${own?" · di "+own.nome+(l.tipo?" ("+L.ATTIVITA[l.tipo].nome+" liv. "+l.lvl+")":""):l.prezzo?" · libero, "+euro(l.prezzo):""}`;
+    return `<div class="cas ${l.tipoCasella==="angolo"?"ang":""} ${own?"pres":""}" title="${esc(tit)}" style="left:${x}%;top:${y}%;${own?"background:"+own.colore:""}"></div>`;
+  }).join("");
+  const gruppi = {};
+  const pedine = S.players.map(p => {
+    const q = disp[p.id] || copiaPos(p); const key = q.inner ? "i"+q.ipos : "o"+q.pos; const k = (gruppi[key] = (gruppi[key]||0) + 1) - 1;
+    const [x, y] = puntoMappa(q);
+    return `<div class="ped ${p.id===mioId?"io":""}" data-id="${p.id}" title="${esc(p.nome)}" style="left:${x}%;top:${y}%;margin-left:${-9 + k*7}px;background:${p.colore}${p.faro?";opacity:.45":""}"><b>${esc(p.nome[0])}</b></div>`;
+  }).join("");
+  const [mx, my] = puntoMappa(disp[mioId] || me);
   $("#radice").innerHTML = `
-  <div class="alto">
-    <div class="chips">${S.players.map(p=>`<div class="chip vetro ${turno&&turno.id===p.id?"turno":""}"><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id===mioId?" (tu)":""}</div><div class="s">${p.id===mioId?esc(L.fascia(S,me)):esc(p.fascia||"")} · ${S.lotti.filter(l=>l.owner===p.id).length} propr.${p.faro?" · al Faro":""}</div></div></div>`).join("")}</div>
-    <div class="fase vetro">${faseTesto}</div>
-    <div class="saldo vetro">
-      <div class="riga"><span class="kick" style="color:var(--muted)">Saldo segreto</span><button class="piccolo" id="occhio" aria-label="${saldoNascosto?"Mostra":"Nascondi"} il saldo" style="padding:3px 8px">${saldoNascosto?"Mostra":"Nascondi"}</button></div>
-      <div class="riga"><span class="serif" style="font-size:26px;color:var(--pulito)">${saldoNascosto?"••••••":euro(me.cash)}</span></div>
-      <div class="riga" style="font-size:13px"><span style="color:var(--sporco)">Sporchi ${saldoNascosto?"•••":euro(me.sporchi)}</span><span style="color:var(--oro)">Fama ${Math.round(me.fama)}</span></div>
-      <div style="font-size:12px;color:${(me.stato||0)>=2?"#ffb3b3":"var(--muted)"}">${segn}</div>
+  <div class="gioco">
+    <div class="colS">
+      ${S.players.map(p=>`<div class="chip vetro ${turno&&turno.id===p.id?"turno":""}"><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id===mioId?" (tu)":""}</div><div class="s">${p.id===mioId?esc(L.fascia(S,me)):esc(p.fascia||"")} · ${S.lotti.filter(l=>l.owner===p.id).length} propr.${p.faro?" · al Faro":""}${S.fase==="notte"?(S.notteFatti[p.id]?" · pronto":" · nella notte"):""}</div></div></div>`).join("")}
+      <div class="cronaca vetro"><span class="kick" style="color:var(--muted)">Cronaca</span>${cron.map(r=>`<div class="rc ${r.chi===mioId?"mia":""}">${esc(r.testo)}</div>`).join("")}</div>
     </div>
-  </div>
-  <div class="mappa vetro"><div class="img" style="background-image:url('img/mappa.jpg')">
-    ${S.players.map(p=>{const [x,y]=puntoMappa(p); return `<div class="ped ${p.id===mioId?"io":""}" title="${esc(p.nome)}" style="left:${x}%;top:${y}%;background:${p.colore}${p.faro?";opacity:.4":""}"></div>`;}).join("")}
-  </div><div class="dove"><b>${c?esc(c.nome):""}</b><span style="color:var(--muted)">${c&&c.isola?esc(L.NOMI_ISOLE[c.isola]):""}</span></div></div>
-  <div class="decisione vetro">${pannelloDecisione(me)}</div>
-  <div class="destra"><button class="vetro" id="bTel">${telAperto?"Chiudi il telefono":"Telefono"}</button><button class="vetro piccolo" id="bAiuto">? Come si gioca</button></div>
-  ${telAperto ? `<div class="tel vetro">${telefono(me)}</div>` : ""}`;
+    <div class="centro">
+      <div class="fase vetro">${faseTesto}</div>
+      <div class="tavola ${notte?"notte":""}">
+        ${caselle}
+        <svg class="scia" viewBox="0 0 100 56.25" preserveAspectRatio="none"></svg>
+        ${pedine}
+        ${!notte && c && !animando ? `<div class="etichetta" style="left:${mx}%;top:${my}%"><b>${esc(c.nome)}</b>${c.isola?`<span>${esc(L.NOMI_ISOLE[c.isola])}</span>`:""}</div>` : ""}
+        ${notte ? `<div class="notte-testo"><span class="serif">La Notte</span><span>Tutti giocano insieme, in segreto.</span></div>` : ""}
+      </div>
+    </div>
+    <div class="colD">
+      <div class="saldo vetro">
+        <div class="riga"><span class="kick" style="color:var(--muted)">Saldo segreto</span><button class="piccolo" id="occhio" aria-label="${saldoNascosto?"Mostra":"Nascondi"} il saldo" style="padding:3px 8px">${saldoNascosto?"Mostra":"Nascondi"}</button></div>
+        <div class="riga"><span class="serif" style="font-size:30px;color:var(--pulito)">${saldoNascosto?"••••••":euro(me.cash)}</span></div>
+        <div class="riga" style="font-size:13px"><span style="color:var(--sporco)">Sporchi ${saldoNascosto?"•••":euro(me.sporchi)}</span><span style="color:var(--oro)">Fama ${Math.round(me.fama)}</span></div>
+        <div style="font-size:12px;color:${(me.stato||0)>=2?"#ffb3b3":"var(--muted)"}">${segn}</div>
+      </div>
+      <div class="decisione vetro">${animando ? `<div class="sub">…</div>` : pannelloDecisione(me)}</div>
+      <div class="riga"><button class="vetro" id="bTel" style="flex:1">${telAperto?"Chiudi il telefono":"Telefono"}</button><button class="vetro piccolo" id="bAiuto">? Regole</button></div>
+    </div>
+    ${telAperto ? `<div class="tel vetro">${telefono(me)}</div>` : ""}
+  </div>`;
   $("#occhio").onclick = () => { saldoNascosto = !saldoNascosto; disegna(); };
   $("#bTel").onclick = () => { telAperto = !telAperto; disegna(); };
   $("#bAiuto").onclick = aiuto;
+  if (animando) return;
   collegaDecisione(me);
   if (telAperto) collegaTelefono(me);
   if (S.fine) return fine();
@@ -354,7 +540,7 @@ function finestreAutomatiche(me){
 // ------------------------------------------------------------ telefono
 const TABS = [["proprieta","Proprietà"],["banca","Banca"],["borsa","Borsa"],["contratti","Contratti"],["setta","Setta"],["gazzetta","Gazzetta"],["messaggi","Messaggi"]];
 function telefono(me){
-  return `<div class="tabs">${TABS.map(([k,t])=>`<button class="${tab===k?"on":""}" data-tab="${k}">${t}</button>`).join("")}</div><div class="corpo">${contenutoTab(me)}</div>`;
+  return `<div class="tabs"><button id="chiudiTel" aria-label="Chiudi il telefono" style="margin-left:auto;order:9">✕ Chiudi</button>${TABS.map(([k,t])=>`<button class="${tab===k?"on":""}" data-tab="${k}">${t}</button>`).join("")}</div><div class="corpo">${contenutoTab(me)}</div>`;
 }
 function contenutoTab(me){
   if (tab === "proprieta") {
@@ -403,6 +589,7 @@ function contenutoTab(me){
 }
 function collegaTelefono(me){
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { tab = b.dataset.tab; disegna(); });
+  $("#chiudiTel").onclick = () => { telAperto = false; disegna(); };
   const on = (sel, f) => document.querySelectorAll(".tel " + sel).forEach(b => b.onclick = () => f(b));
   on('[data-a="restituisci"]', () => agisci({tipo:"restituisci", importo: me.debito}));
   on('[data-a="regala"]', () => agisci({tipo:"regala", a: $("#regA").value, importo: Number($("#regImp").value), sporchi: $("#regSp").checked}));
