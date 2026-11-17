@@ -78,10 +78,10 @@
   };
 
   const PACCHETTI = [
-    { id: "commerciante", nome: "Il Commerciante", lotti: [["Via delle Onde", "ristorante"], ["Golf delle Palme", "ristorante"]], extra: { cash: 300_000 } },
-    { id: "costruttore", nome: "Il Costruttore", lotti: [["Vicolo dei Pescatori", "residenze"], ["Via dei Cantieri", "residenze"]], extra: { piani: 2 } },
-    { id: "investitore", nome: "L'Investitore", lotti: [["Via delle Spezie", "agenzia"], ["Corso Industria", "agenzia"]], extra: { azioni: 250_000 } },
-    { id: "playboy", nome: "Il Playboy", lotti: [["Viale Neon", "discoteca"], ["Lungomare Cocco", "beachclub"]], extra: { veicolo: "motoscafo", fama: 25 } },
+    { id: "commerciante", nome: "Il Commerciante", lotti: [["Via delle Onde", "ristorante"], ["Golf delle Palme", "ristorante"]], extra: {} },
+    { id: "costruttore", nome: "Il Costruttore", lotti: [["Vicolo dei Pescatori", "residenze"], ["Via dei Cantieri", "residenze"]], extra: { piani: 1, cash: 100_000 } },
+    { id: "investitore", nome: "L'Investitore", lotti: [["Via delle Spezie", "agenzia"], ["Corso Industria", "agenzia"]], extra: { azioni: 400_000 } },
+    { id: "playboy", nome: "Il Playboy", lotti: [["Viale Neon", "discoteca"], ["Lungomare Cocco", "beachclub"]], extra: { veicolo: "motoscafo", fama: 25, cash: 200_000 } },
     { id: "contrabbandiere", nome: "Il Contrabbandiere", lotti: [["Piazzetta Ambra", "lavanderia"], ["Darsena Container", "magazzino"]], extra: { reputazione: 20 } },
     { id: "politico", nome: "Il Politico", lotti: [["Baia Turchese", "hotel"], ["Flamingo Drive", "boutique"]], extra: { fama: 30, cash: 100_000 } },
     { id: "ereditiera", nome: "L'Ereditiera", lotti: [["Viale dei Resort", "hotel"], ["Villa Rosa", "galleria"]], extra: { cash: 200_000 } },
@@ -289,7 +289,7 @@
     }
     const e = pk.extra;
     if (e.cash) p.cash += e.cash;
-    if (e.piani) p.piani = e.piani, p.funzioniPiani = ["appartamenti", "appartamenti"];
+    if (e.piani) p.piani = e.piani, p.funzioniPiani = Array(e.piani).fill("appartamenti");
     if (e.azioni) { for (const a of ["SoleTech", "Corona Bank"]) p.azioni[a] = (e.azioni / 2) / s.borsa[a]; }
     if (e.cripto) p.cripto.FlamingoToken = e.cripto / s.cripto.FlamingoToken;
     if (e.veicolo) p.veicoli.push(e.veicolo);

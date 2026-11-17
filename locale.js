@@ -48,18 +48,25 @@ export function nuova(nome, seed) {
 export function nuovaProva(nome) {
   nuova(nome);
   const s = stato, me = s.players[0];
-  for (let i = 0; i < 4000 && s.fase !== "notte" && !s.fine; i++) {
-    try {
-      if (s.fase === "pacchetti") L.applica(s, "g1", { tipo: "pacchetto", id: L.PACCHETTI[0].id });
-      else if (s.pending?.tipo === "asta") L.applica(s, "g1", { tipo: "offerta", importo: 0 });
-      else if (s.pending && s.pending.giocatore === "g1") L.applica(s, "g1", { tipo: s.pending.tipo, si: false, importo: 0 });
-      else if (L.corrente(s).id === "g1") L.applica(s, "g1", me.haTirato ? { tipo: "fine_turno" } : { tipo: "tira" });
-    } catch (e) { }
-    giocaBot(s);
+  // fino alla prima notte giochi "in automatico" come un giocatore esperto: compri terreni come gli altri
+  me.bot = true; me.strat = "Esperto";
+  for (let i = 0; i < 6000 && s.fase !== "notte" && !s.fine; i++) {
+    const bot = s.players.find((p) => p.bot && B.prossima(s, p));
+    if (!bot) break;
+    try { L.applica(s, bot.id, B.prossima(s, bot)); }
+    catch (e) {
+      try {
+        if (s.pending?.tipo === "asta") L.applica(s, bot.id, { tipo: "offerta", importo: 0 });
+        else if (s.pending && s.pending.giocatore === bot.id) L.applica(s, bot.id, { tipo: s.pending.tipo, si: false, importo: 0 });
+        else L.applica(s, bot.id, bot.haTirato ? { tipo: "fine_turno" } : { tipo: "tira" });
+      } catch (e2) { break; }
+    }
   }
+  me.bot = false; delete me.strat;
   const rocco = s.players[1];
-  rocco.piani = 32; rocco.funzioniPiani = Array(32).fill("appartamenti"); rocco.funzioniPiani[7] = "casino_privato"; rocco.cash += 8_000_000;
-  me.cash += 2_000_000;
+  // Rocco ha un palazzo con il casinò privato (per la serata a poker), ma niente soldi regalati
+  if (rocco.piani < 12) { rocco.piani = 12; rocco.funzioniPiani = Array(12).fill("appartamenti"); }
+  rocco.funzioniPiani[7] = "casino_privato";
   if (s.notte) {
     if (s.notte.serate) delete s.notte.serate[rocco.id];
     L.apriSerataProva(s, rocco.id, 50_000);
