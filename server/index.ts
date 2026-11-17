@@ -39,7 +39,7 @@ function nuovoCodice() {
 // gli indizi indiretti (affari della notte, riciclo, prestiti, piani segreti).
 const ALTRI_SEGRETI = ["affariOk", "pulitoCiclo", "mosseNotte", "mossePagate", "disturbatore", "copUsata",
   "paradisoCiclo", "ombraCicli", "prestiti", "telefonataUsata", "scontoCarico", "mercatoNero", "emergenza", "licenzaNegata", "trucchi", "lavato", "lavatoCiclo"];
-const PIANI_SEGRETI = ["caveau", "piani_segreti", "sala_insonorizzata"];
+const PIANI_SEGRETI = ["caveau", "piani_segreti", "sala_insonorizzata", "bunker", "osservatorio"];
 // deno-lint-ignore no-explicit-any
 function vistaSicura(stato: any, id: string) {
   const v = L.vista(stato, id);

@@ -43,7 +43,7 @@
     pentito: 0.04, oggettoFalla: 0.15,
     prestitoQuota: 0.30, prestitoInt: 0.10, emergenzaInt: 0.25, ipotecaQuota: 0.5,
     candidatura: 750_000, stipendioSindaco: 750_000,
-    settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], settaInfluenza: [0, 0, 12, 35, 70], taxiMunicipio: 250_000, decima: 0.15, perqDa: 25, perqK: 160, perqMax: 0.35, perqSequestro: 0.3,
+    settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], settaInfluenza: [0, 0, 12, 35, 70], taxiMunicipio: 250_000, costoBallo: 300_000, decima: 0.15, perqDa: 25, perqK: 160, perqMax: 0.35, perqSequestro: 0.3,
     fasce: [[6e6, "Benestante"], [12e6, "Ricco"], [20e6, "Milionario"], [30e6, "Magnate"], [Infinity, "Sovrano"]],
     mosse: {
       nascosto: { nome: "Posto nascosto", tracce: 0.60, colto: 0.70, carico: 0.9, costo: 0 },
@@ -638,8 +638,8 @@
   // IL PALAZZO: i PIANI sono l'altezza e rendono l'affitto; le STANZE speciali si comprano a parte.
   // Tre traguardi: Palazzo (dal piano 1), Attico (6 piani), Grattacielo (15 piani).
   const FASCE_PALAZZO = [
-    { nome: "Palazzo", da: 1, lv: 0, rend: 1, fama: 0, fun: ["garage", "ristorante_panoramico"] },
-    { nome: "Attico", da: 6, lv: 0, rend: 1.3, fama: 5, fun: ["spa", "sala_insonorizzata", "caveau", "casino_privato"] },
+    { nome: "Palazzo", da: 1, lv: 0, rend: 1, fama: 0, fun: ["garage", "ristorante_panoramico", "osservatorio"] },
+    { nome: "Attico", da: 6, lv: 0, rend: 1.3, fama: 5, fun: ["spa", "sala_insonorizzata", "caveau", "casino_privato", "bunker", "ufficio_stampa"] },
     { nome: "Grattacielo", da: 15, lv: 0, rend: 1.5, fama: 10, fun: ["eliporto", "piani_segreti", "suite"] },
   ];
   const STANZE = {
@@ -651,6 +651,9 @@
     casino_privato: { nome: "Casinò privato", costo: 3_000_000, rendita: 250_000, quando: "notte", licenza: true, descr: "Di notte apri serate di poker: gli ospiti pagano l'ingresso e il banco sei tu. Rende anche 250.000 € a ogni Alba. Serve la licenza.", esempio: "4 ospiti a 100.000 € = 400.000 € solo di ingressi." },
     eliporto: { nome: "Eliporto", costo: 3_000_000, quando: "sempre", descr: "Di giorno Viaggio rapido verso gli Eliporti; di notte ogni spostamento dura 1 ora.", esempio: "Arrivi a Isola Corona senza tirare i dadi." },
     piani_segreti: { nome: "Piani segreti", costo: 3_500_000, quando: "notte", descr: "Nelle retate la polizia non trova la tua valigetta.", esempio: "Ti perquisiscono: gli oggetti illegali restano tuoi." },
+    osservatorio: { nome: "Terrazza col cannocchiale", costo: 1_200_000, quando: "notte", descr: "Di notte vedi dove sono il banchiere Lenz, il Commissario Vargas, il doganiere e la giornalista, ora per ora.", esempio: "Sai che Vargas è al Porto: stanotte il tuo carico lo fai alla Bisca." },
+    bunker: { nome: "Bunker", costo: 2_500_000, quando: "sempre", descr: "Le perquisizioni all'Alba sono più rare (−40%) e se arrivano trovano la metà dei contanti.", esempio: "Rischio di perquisizione dal 20% al 12%; ti prendono il 15% degli sporchi invece del 30%." },
+    ufficio_stampa: { nome: "Ufficio stampa", costo: 2_500_000, quando: "sempre", descr: "Uno scandalo pagato contro di te, 1 volta su 2, viene smentito e si ritorce su chi l'ha pagato.", esempio: "Un rivale paga la Gazzetta per infangarti: domani la smentita è sua." },
     suite: { nome: "Suite presidenziale", costo: 4_000_000, quando: "giorno", descr: "Ospiti potenti dormono da te: +3 fama ogni Ciclo.", esempio: "In 5 Cicli sono +15 fama." },
   };
   const SOVRAPPREZZO_PIANI = [1, 1.5, 2]; // piu' piani nella stessa mossa: il 2° e il 3° costano di piu'
@@ -1724,6 +1727,8 @@
     if (dove === "aeroporto" && !p.corrotti.doganiere) sp.push({ k: "doganiere", titolo: "Una busta al doganiere", testo: "Il capo della dogana fa il turno di notte. Con lui i tuoi carichi rischiano la metà." });
     if (dove === "casino" && lv >= 1) sp.push({ k: "banchiere", titolo: "Un drink con il banchiere Lenz", testo: "Lenz siede sempre allo stesso tavolo. Con lui i soldi trovano strade nuove." });
     if (dove === "club" && lv >= 1) sp.push({ k: "polizia", titolo: "Parla con un agente fuori servizio", testo: "Al bancone c'è un poliziotto che beve da solo. Ha l'aria di chi cerca un extra." });
+    if (dove === "marina" && s.ciclo % 3 === 2 && !(p.ballo === s.ciclo)) sp.push({ k: "ballo", titolo: "Il Ballo in Maschera", testo: "Stanotte alla Marina tutti hanno il viso coperto. Ingresso " + euro(N.costoBallo) + ": +4 fama, e dietro le maschere la gente parla. Potresti sentire un segreto su un rivale (una Prova)." });
+    if (dove === "mercato" && !(p.refurtiva && p.refurtiva.ciclo === s.ciclo)) sp.push({ k: "ricettatore", titolo: "Il Ricettatore", testo: "Ha un magazzino pieno di merce rubata. La compri con soldi sporchi e all'Alba la rivendi al 160%. Ma 1 volta su 4 la Finanza la trova prima." });
     if (dove === "redazione") sp.push({ k: "articolo", titolo: "Una busta al caporedattore", testo: "Domattina la Gazzetta può parlare bene di te. O male di un altro." });
     // i personaggi in giro: se sono qui stanotte (e non a casa loro), ti vengono incontro
     for (const k of personaggiQui(s, dove)) {
@@ -1878,6 +1883,41 @@
     s.notte.chiuso[p.id] = true;
     racconta(s, p, ok ? "Una stretta di mano in un angolo buio. Accordo fatto." : "Ti guarda, intasca i soldi e se ne va. Brutto segno.");
     controllaOra(s);
+  }
+  // il Ricettatore: compri merce rubata (sporchi), all'Alba la rivendi al 160%; 1 volta su 4 la Finanza la sequestra
+  function ricettatore(s, p, importo) {
+    oraLibera(s, p); qui(s, p, "mercato", "Comprare dal Ricettatore");
+    importo = round(Number(importo) || 0);
+    if (p.refurtiva && p.refurtiva.ciclo === s.ciclo) err("Stanotte hai già comprato dal Ricettatore.");
+    if (importo < 100_000 || importo > 2_000_000) err("Il Ricettatore tratta da 100.000 € a 2 milioni.");
+    if (p.sporchi < importo) err("Il Ricettatore vuole contanti sporchi: non ne hai abbastanza.");
+    p.sporchi -= importo; p.refurtiva = { ciclo: s.ciclo, importo }; p.pulitoCiclo = false; p.peggiorReato = peggio(p.peggiorReato, "media");
+    p.tracce += 3 * importo / 1_000_000; segnaTraccia(s, p, 3 * importo / 1_000_000, "Merce rubata (Mercato Nero)");
+    s.notte.chiuso[p.id] = true;
+    racconta(s, p, "Il Ricettatore conta i soldi due volte, poi ti indica un camion senza targa. " + euro(importo) + " di merce: all'Alba la rivendi, se la Finanza non arriva prima.");
+    controllaOra(s);
+  }
+  // il Ballo in Maschera (ogni 3 Cicli, alla Marina): fama e, se va bene, una Prova su un rivale che ha qualcosa da nascondere
+  function ballo(s, p) {
+    oraLibera(s, p); qui(s, p, "marina", "Il Ballo in Maschera");
+    if (s.ciclo % 3 !== 2) err("Il Ballo è solo una notte ogni 3 Cicli.");
+    if (p.ballo === s.ciclo) err("Al Ballo ci sei già stato stanotte.");
+    if (p.cash < N.costoBallo) err("L'ingresso costa " + euro(N.costoBallo) + ".");
+    p.cash -= N.costoBallo; p.ballo = s.ciclo; p.fama += 4;
+    const rivali = s.players.filter((q) => q.id !== p.id && (q.tracce || 0) > 10);
+    if (rivali.length && rng(s) < 0.6) {
+      const b = rivali.sort((x, y) => y.tracce - x.tracce)[Math.floor(rng(s) * Math.min(2, rivali.length))];
+      p.prove.push({ su: b.id, ciclo: s.ciclo + 1, cosa: "confidenze al Ballo in Maschera" });
+      racconta(s, p, "Sotto una maschera d'oro qualcuno beve troppo e parla di " + b.nome + ". Ora hai una Prova contro di lui. +4 fama.");
+    } else racconta(s, p, "Valzer, champagne e maschere. Nessun segreto stanotte, ma tutti parlano della tua maschera. +4 fama.");
+    s.notte.chiuso[p.id] = true; controllaOra(s);
+  }
+  function albaRefurtiva(s, r) {
+    for (const p of s.players) {
+      const x = p.refurtiva; if (!x || x.ciclo !== s.ciclo || x.fatto) continue; x.fatto = true;
+      if (rng(s) < 0.25) { p.tracce += 8; privato(s, p, "La Finanza ha trovato il camion del Ricettatore: la merce (" + euro(x.importo) + ") è persa, e +8 Tracce."); notizia(s, "Sequestrato un camion di merce rubata vicino al Mercato Nero.", "scandalo"); }
+      else { const g = round(x.importo * 1.6); p.sporchi += g; if (r[p.id]) r[p.id].refurtiva = g; privato(s, p, "Hai rivenduto la merce del Ricettatore: " + euro(g) + " sporchi."); }
+    }
   }
   function articolo2(s, p, a) {
     oraLibera(s, p);
@@ -2171,7 +2211,7 @@
   function rischioPerquisizione(s, p) {
     if (p.fallito || p.faro > 0) return 0;
     const pr = Math.min(N.perqMax, Math.max(0, ((p.tracce || 0) - N.perqDa) / N.perqK) + (p.stato >= 2 ? 0.08 * (p.stato - 1) : 0));
-    return pr * (1 - protezione(s, p));
+    return pr * (1 - protezione(s, p)) * (haPiano(p, "bunker") ? 0.6 : 1);
   }
   function perquisizioni(s) {
     for (const p of s.players) {
@@ -2179,7 +2219,7 @@
       if (!(pr > 0) || rng(s) >= pr) continue;
       const ill = (p.valigetta || []).filter((o) => OGGETTI[o.id].illegale);
       const salvi = Math.min(p.sporchi || 0, (haPiano(p, "caveau") ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0));
-      const presi = round(Math.max(0, (p.sporchi || 0) - salvi) * N.perqSequestro);
+      const presi = round(Math.max(0, (p.sporchi || 0) - salvi) * N.perqSequestro * (haPiano(p, "bunker") ? 0.5 : 1));
       if (!presi && !ill.length) continue; // non trovano niente: la polizia se ne va (ma ti ha guardato)
       p.sporchi -= presi;
       const nascosti = haPiano(p, "piani_segreti");
@@ -2604,6 +2644,10 @@
     const b = giocatore(s, idBersaglio);
     const forza = Math.min(20, Math.round(importo / 50_000));
     // credibilita': uno scandalo su chi ha davvero tracce e' credibile; su chi e' pulito puo' ritorcersi
+    if (tono === "scandalo" && haPiano(b, "ufficio_stampa") && rng(s) < 0.5) {
+      p.fama = Math.max(0, p.fama - forza); privato(s, b, "Il tuo Ufficio stampa ha smontato uno scandalo contro di te prima che uscisse.");
+      notizia(s, "Smentita: l'articolo contro " + b.nome + " era pieno di falsità. Brutta figura per chi lo ha pagato.", "fama"); return;
+    }
     if (tono === "scandalo") {
       const credibile = b.tracce > 25 || b.stato >= 1 || p.prove.some((x) => x.su === b.id);
       if (!credibile && rng(s) < 0.4) {
@@ -3000,6 +3044,8 @@
       for (const id of st.membri) { const m = giocatore(s, id); if (m.ombraCicli >= 3 && id !== st.gm) privato(s, giocatore(s, st.gm), m.nome + " sta nell'ombra da 3 Cicli e non lavora per la setta: puoi cacciarlo dall'app Setta."); }
     }
     albaOpere(s, riepilogo);
+    albaRefurtiva(s, riepilogo);
+    if ((s.ciclo + 1) % 3 === 2) notizia(s, "Stanotte alla Marina dei Re: il Ballo in Maschera. Ingresso " + euro(N.costoBallo) + ", maschera obbligatoria.", "evento");
     // elezioni ogni 2 cicli
     if (s.ciclo % 2 === 1) elezioni(s);
     albaGrandi(s, riepilogo, lussoAltri);
@@ -3230,7 +3276,7 @@
   const MOTIVO = { tira: "Dadi: caselle, affitti, stipendio", viaggio_rapido: "Viaggio rapido", compra: "Terreni comprati", agenzia: "Agenzia immobiliare", offerta: "Aste", proponi_lotto: "Scambi di terreni", rispondi_proposta: "Scambi di terreni",
     costruisci: "Cantieri e attività", attivita: "Cantieri e attività", permesso: "Permessi", piano: "Palazzo", stanza: "Palazzo", investi: "Borsa e cripto", vendi: "Borsa e cripto", prestito: "Prestiti", restituisci: "Prestiti", ipoteca: "Ipoteche", riscatta: "Ipoteche",
     veicolo: "Veicoli e lusso", gala: "Gala", casino_reale: "Casinò Reale", roulette: "Roulette", municipio: "Municipio", licenza: "Licenze", busta_licenza: "Bustarelle", regalo_assessore: "Bustarelle", campagna: "Campagna elettorale", candidati: "Candidatura",
-    articolo: "Gazzetta", regala: "Regali", contratto: "Contratti", rispondi_contratto: "Contratti", occasione: "Affari della notte", ricicla: "Soldi ripuliti", ricicla_banca: "Soldi ripuliti", corrompi: "Corruzione", scarica_contatto: "Corruzione",
+    articolo: "Gazzetta", regala: "Regali", contratto: "Contratti", rispondi_contratto: "Contratti", occasione: "Affari della notte", ricettatore: "Ricettatore (merce rubata)", ballo: "Ballo in Maschera", ricicla: "Soldi ripuliti", ricicla_banca: "Soldi ripuliti", corrompi: "Corruzione", scarica_contatto: "Corruzione",
     compra_oggetto: "Mercato Nero", sm: "Sette e mezzo", carte: "Sette e mezzo", serata: "Serate", gioca_serata: "Serate", vai_serata: "Serate", spa: "Notte", chiamata: "Lavoretti al telefono", soffiata: "Soffiate", denuncia: "Denunce",
     fonda_setta: "Setta", versa_setta: "Setta", lava_setta: "Setta: Lavanderia", rispondi_invito: "Setta", scava: "Setta", seppellisci: "Setta", tradisci: "Setta", offerta_grande: "Grandi Affari", quote_grande: "Grandi Affari", titolone: "Grandi Affari", tasso_banca: "Grandi Affari", blocca_conto: "Grandi Affari" };
   const MOTIVO_ALTRI = { tira: "Affitti e pedaggi incassati", regala: "Regali ricevuti", sm: "Sette e mezzo", carte: "Sette e mezzo", rispondi_contratto: "Contratti", contratto: "Contratti", proponi_lotto: "Scambi di terreni", rispondi_proposta: "Scambi di terreni", offerta: "Aste", rispondi_invito: "Setta" };
@@ -3341,6 +3387,8 @@
       case "ritira_opera": return ritiraOpera(s, p, a.setta);
       case "vota_opera": return votaOpera(s, p, a.setta, !!a.si, a.motivo);
       case "lava_setta": return lavaSetta(s, p, a.setta, a.importo);
+      case "ricettatore": return ricettatore(s, p, a.importo);
+      case "ballo": return ballo(s, p);
       case "prova_fedelta": return provaFedelta(s, p, a.setta, a.membro);
       case "convoca": return convoca(s, p, a.setta, a.luogo, a.ora);
       case "rito": return rito(s, p, a.setta);
@@ -3372,7 +3420,7 @@
       for (const k of ["cash", "sporchi", "tracce", "stato", "corrotti", "prove", "messaggi", "debito", "azioni", "cripto", "evasione", "affariStanotte", "spiaSu", "sette", "settaFondata", "reputazione", "peggiorReato", "riciclTot", "ultimaSentenza", "offertaBoss", "valigetta", "raccontoNotte", "permessoTurno", "primoPermesso", "scoperte", "consigliati", "visteFare", "calore", "calSoldi", "luoghiNotte", "storiaTracce", "ripulitiCiclo", "lussoCiclo", "ultimaPista"]) delete p[k];
       p.fascia = fasciaPubblica;
     }
-    { const mio = v.players.find((x) => x.id === idGiocatore), vero = s.players.find((x) => x.id === idGiocatore); if (mio && vero) mio.rischioPerq = Math.round(rischioPerquisizione(s, vero) * 100); }
+    { const mio = v.players.find((x) => x.id === idGiocatore), vero = s.players.find((x) => x.id === idGiocatore); if (mio && vero) { mio.rischioPerq = Math.round(rischioPerquisizione(s, vero) * 100); if (s.notte && haPiano(vero, "osservatorio")) mio.giroPg = Object.fromEntries(Object.keys(GIRO).map((k) => [k, dovePersonaggio(s, k)])); } }
     // le offerte all'asta sono segrete: vedi solo la tua
     if (v.grandi) for (const g of Object.values(v.grandi)) if (g.offerte) g.offerte = g.offerte[idGiocatore] ? { [idGiocatore]: g.offerte[idGiocatore] } : {};
     v.sette = s.sette.filter((st) => st.membri.includes(idGiocatore)).map((st) => { const c = { ...st }; if (!(st.tradimento && st.tradimento.da === idGiocatore)) delete c.tradimento; else c.tradimento = { mio: true }; if (st.gm !== idGiocatore) delete c.sepolto; return c; });

@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=61";
+import * as Tre from "./tre.js?v=62";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=61";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=62";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -1153,9 +1153,12 @@ function aggiornaPanorama(me) {
   });
   Pano.mostra(V.img, punti, { yaw: 0 });
 }
-const ICO_SCELTA = { rito: "setta", scava: "faro", jet: "aereo", doganiere: "handshake", tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
+const ICO_SCELTA = { ballo: "maschera", ricettatore: "mercato", rito: "setta", scava: "faro", jet: "aereo", doganiere: "handshake", tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
 function righeNotte(lista) { return lista.map((r) => { const [o, ...t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t.join(" — "))}</p>`; }).join(""); }
-function restoOra() { const N2 = S.notte; if (!N2 || !N2.inizio) return null; return Math.max(0, Math.ceil((N2.tempo || 120) - (Date.now() - N2.inizio) / 1000)); }
+// l'orologio del server: se quello del computer e' avanti o indietro, il conto alla rovescia si corregge
+let scartoOrologio = 0, ultimoAdesso = null;
+function oraServer() { const N2 = S && S.notte; if (N2 && N2.adesso && N2.adesso !== ultimoAdesso) { ultimoAdesso = N2.adesso; scartoOrologio = N2.adesso - Date.now(); } return Date.now() + scartoOrologio; }
+function restoOra() { const N2 = S.notte; if (!N2 || !N2.inizio) return null; return Math.max(0, Math.ceil((N2.tempo || 120) - (oraServer() - N2.inizio) / 1000)); }
 function scenaNotte(me) {
   const N2 = S.notte, dove = N2.dove[mioId], v = N2.viaggio[mioId];
   const aCasa = S.notteFatti[mioId], scelto = N2.chiuso[mioId], pronto = N2.pronto && N2.pronto[mioId];
@@ -1177,6 +1180,7 @@ function scenaNotte(me) {
       <div class="kick" style="color:var(--cielo)">${ico("luna")} ore ${L.ORE[N2.ora]} · ${6 - N2.ora} ${6 - N2.ora === 1 ? "ora" : "ore"} all'alba${isola ? " · " + esc(isola) : ""}${N2.pericoloQui && !v && !aCasa ? ` · <span style="color:${COLORE_POLIZIA[N2.pericoloQui]}">polizia ${N2.pericoloQui}</span>` : ""}</div>
       <h1>${esc(nome)}</h1>${sala ? `<div class="sala">${ico("stella")} ${esc(sala)}</div>` : ""}
       ${quiAltri.length ? `<div class="qui-altri">${quiAltri.map((p) => `<button class="persona" data-persona="${p.id}"><span class="pall" style="background:${p.colore}">${esc(p.nome[0])}</span>${esc(p.nome)}</button>`).join(" ")} <span class="sub">${quiAltri.length === 1 ? "è qui con te: toccalo" : "sono qui con te: toccali"}</span></div>` : ""}
+      ${me.giroPg && !me.faro ? `<div class="sub giro-pg">🔭 Dal cannocchiale: ${Object.entries(me.giroPg).map(([k, l]) => `${{ banchiere: "Lenz", commissario: "Vargas", doganiere: "il doganiere", giornalista: "la giornalista" }[k]} → <b>${esc(nomeLuogo(l))}</b>`).join(" · ")}</div>` : ""}
       ${resto !== null && !aCasa && !me.faro ? `<div class="tempo"><div class="barra" id="barraTempo" style="width:${(resto / (N2.tempo || 120)) * 100}%"></div></div><div class="sub" id="contoTempo">${resto <= 20 ? testoTempo(resto) : ""}</div>` : ""}
     </div>`;
   let corpo = "";
@@ -1216,7 +1220,7 @@ function riquadroEsito(me) {
     <div><span class="pallino" style="background:${COL[e.tr]}"></span> Hai lasciato <b>${TR[e.tr]}</b>${e.tr >= 2 ? ": all'Alba la polizia tira i dadi, più Tracce hai più rischi." : "."}</div>${e.sale ? `<div style="color:#ffb3b3">⚠️ ${STATI[e.sale]}.</div>` : ""}</div>`;
 }
 function testoTempo(r) { return r > 0 ? "Restano " + r + " secondi per quest'ora" : "Tempo finito: chi non ha scelto resta dov'è"; }
-let orologioNotte = null, scadutoInviato = "";
+let orologioNotte = null, scadutoInviato = "", ultimoScaduto = 0;
 function collegaScena(me) {
   const on = (a, f) => document.querySelectorAll(`.scena [data-a="${a}"]`).forEach((b) => b.onclick = f);
   document.querySelectorAll(".scena [data-vai]").forEach((b) => b.onclick = () => chiediViaggio(me, b.dataset.vai));
@@ -1235,6 +1239,12 @@ function collegaScena(me) {
     if (c.k === "paradiso") return finestraRicicla(me, true);
     if (c.k === "banchiere" || c.k === "polizia") return finestraCorrompi(me, c.chi);
     if (c.k === "doganiere") return finestraDoganiere(me);
+    if (c.k === "ballo") return agisci({ tipo: "ballo" });
+    if (c.k === "ricettatore") return finestra(`<span class="kick" style="color:var(--sporco)">📦 Mercato Nero, il retro</span><h2>Il Ricettatore</h2>
+      <p>Merce rubata: la paghi adesso in <b>contanti sporchi</b>, all'Alba la rivendi al <b>160%</b>. Ma 1 volta su 4 la Finanza trova il camion: perdi tutto e +8 Tracce. Lascia anche 3 Tracce per milione.</p>
+      <p class="sub">Esempio: metti 1 milione. All'Alba ne incassi 1,6 (sporchi), oppure niente.</p>
+      <div class="campo"><label for="ricImp">Quanto (da 100.000 € a 2 milioni, hai ${euro(me.sporchi)} sporchi)</label><input id="ricImp" type="number" step="100000" value="${Math.min(1_000_000, Math.floor((me.sporchi || 0) / 100000) * 100000)}"></div>
+      <div class="pulsanti"><button id="x">Lascio stare</button><button class="notte" id="ok">Compro</button></div>`, (d, cl) => { d.querySelector("#x").onclick = cl; d.querySelector("#ok").onclick = () => { cl(); agisci({ tipo: "ricettatore", importo: +d.querySelector("#ricImp").value }); }; });
     if (c.k === "articolo") return finestraArticolo(me);
     if (c.k === "setta") return finestraSetta(me);
     if (c.k === "rito") return agisci({ tipo: "rito", setta: c.setta });
@@ -1262,7 +1272,10 @@ function collegaScena(me) {
     const io_ = io(), N2 = S.notte;
     const hoFinito = S.notteFatti[mioId] || io_.faro || (N2.pronto && N2.pronto[mioId]);
     const chiave = S.ciclo + "_" + N2.ora;
-    if (r <= 0 && hoFinito && scadutoInviato !== chiave && !LOCALE) { scadutoInviato = chiave; chiama({ comando: "azione", partita, azione: { tipo: "tempo_scaduto" } }).then(() => caricaVista()).catch(() => { }); }
+    // l'ora non deve mai bloccarsi: finito il tempo, chiunque sia collegato la fa avanzare, e se il server
+    // risponde "non ancora" (orologi un po' diversi) o "riprova" si ritenta ogni 4 secondi finche' l'ora cambia
+    const crudo = (N2.tempo || 120) - (oraServer() - N2.inizio) / 1000;
+    if (r <= 0 && !LOCALE && (hoFinito || crudo <= -3) && (scadutoInviato !== chiave || Date.now() - ultimoScaduto > 4000)) { scadutoInviato = chiave; ultimoScaduto = Date.now(); chiama({ comando: "azione", partita, azione: { tipo: "tempo_scaduto" } }).then(() => caricaVista()).catch(() => { }); }
   }, 1000);
 }
 const ICO_FISSA = { giro: "gala", yacht: "marina", chiedi: "soffiata", carte: "bisca", gruisti: "porto", roulette: "casino", bozze: "gazzetta", osserva: "villa", mare: "faro" };
@@ -1901,7 +1914,7 @@ function appConti(me) {
       <tr class="tot"><td><b>Totale</b></td><td><b>${cifra(tot[0]) || "0 €"}</b>${tot[1] ? "<br>" + cifra(tot[1], true) : ""}</td></tr></table></div>`;
   };
   const r = S.ultimaAlba && S.ultimaAlba.riepilogo && S.ultimaAlba.riepilogo[mioId];
-  const voci = r ? [["Rendite (attività, Palazzo, mezzi)", r.rendite], ["Tasse", -r.tasse], ["Tasse evase (diventano sporchi)", -r.evasa], ["Decima alla setta", -r.decima], ["Interessi alla Banca", -r.interessi], ["Mance ai corrotti", -r.corruzione], ["Stipendio da Sindaco", r.stipendioSindaco], ["Dividendi", r.dividendo], ["Il Banchiere della setta ripulisce", r.banchiereSetta], ["Quota del Tesoro (Gran Maestro)", r.tesoroSetta], ["Isola della setta (sporchi)", r.isolaSetta]].filter(([, x]) => x) : [];
+  const voci = r ? [["Rendite (attività, Palazzo, mezzi)", r.rendite], ["Tasse", -r.tasse], ["Tasse evase (diventano sporchi)", -r.evasa], ["Decima alla setta", -r.decima], ["Interessi alla Banca", -r.interessi], ["Mance ai corrotti", -r.corruzione], ["Stipendio da Sindaco", r.stipendioSindaco], ["Dividendi", r.dividendo], ["Il Banchiere della setta ripulisce", r.banchiereSetta], ["Quota del Tesoro (Gran Maestro)", r.tesoroSetta], ["Isola della setta (sporchi)", r.isolaSetta], ["Merce del Ricettatore rivenduta (sporchi)", r.refurtiva]].filter(([, x]) => x) : [];
   return `<div class="scheda"><span class="sub">Qui vedi <b>perché</b> i tuoi soldi salgono o scendono. Verde: entrate pulite. Rosso chiaro: soldi sporchi ("sp."). Rosso: uscite.</span></div>
     ${blocco(S.ciclo, "Questo Ciclo (" + (S.ciclo + 1) + ")")}${S.ciclo > 0 ? blocco(S.ciclo - 1, "Il Ciclo prima (" + S.ciclo + ")") : ""}
     ${voci.length ? `<div class="scheda"><h4>L'ultima Alba, voce per voce</h4><table class="conti">${voci.map(([k, x]) => `<tr><td>${k}</td><td style="white-space:nowrap;color:${x > 0 ? "var(--pulito)" : "#ffb3b3"}">${x > 0 ? "+" : "−"} ${euro(Math.abs(x))}</td></tr>`).join("")}</table></div>` : ""}`;
