@@ -17,6 +17,8 @@
     // come finisce la partita: a Cicli, a obiettivo (patrimonio) o libera (la chiude chi l'ha creata)
     durataCicli: [6, 8, 10, 12, 16, 20], obiettivi: [50_000_000, 100_000_000, 200_000_000], quasiTraguardo: 0.75,
     settaOffertaMax: 10_000_000,
+    occupata: 0.75, // se la polizia indaga su un altro, per te rischi e controlli x0,75
+    resaK: 60, resaStato: 0.1, resaMax: 0.9, resaMulta: 1.5, // la Resa dei conti di fine partita
     cashStart: 1_500_000, stipendio: 600_000, valoreSporchi: 0.25, tassa: 0.20,
     affVuoto: 0.15, affLvl: [1, 1, 4, 12, 26, 45], rendLvl: [0, 1, 2.2, 3.6, 5.2, 7.0],
     costLvl: [0, 0.5, 0.5, 0.75, 1.0, 1.5], R: 0.95,
@@ -1579,6 +1581,7 @@
     if (p.corrotti.commissario) { pg *= 0.8; p.corrotti.commissario.usi = (p.corrotti.commissario.usi || 0) + 1; }
     if (o.luogo === "aeroporto" && p.corrotti.doganiere) { pg *= 0.5; p.corrotti.doganiere.usi = (p.corrotti.doganiere.usi || 0) + 1; }
     if (s.leggi.includes("polizia_doppia_" + isola)) pg *= 1.4;
+    if (poliziaOccupata(s, p)) pg *= N.occupata;
     const guaio = O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
     let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale : 0;
     if (guaio) {
@@ -2059,16 +2062,56 @@
   }
 
   // ------------------------------------------------------------ indagini e pene
-  function tiroIndagine(s, p) {
-    if (p.faro > 0) return;
+  // quanto ti proteggono poliziotti comprati e sette (0 = niente, 0,7 = il massimo)
+  function protezione(s, p) {
     let prot = 0;
     if (Object.keys(p.corrotti).some((k) => k.startsWith("agente_"))) prot += N.prot.agente;
     if (p.corrotti.commissario) prot += N.prot.commissario;
     for (const id of p.sette) { const st = s.sette.find((x) => x.id === id); const lv = livelloSetta(s, st); prot += [0, 0.1, 0.2, 0.3, 0.3][lv]; if (st && st.commissario) prot += 0.3; }
-    prot = Math.min(N.prot.max, prot);
+    return Math.min(N.prot.max, prot);
+  }
+  // La Resa dei conti: prima della fine la Procura apre l'inchiesta finale, a tutti viene detto.
+  // All'ultima Alba chi ha lasciato Tracce rischia una multa sul patrimonio (niente prigione: la partita e' finita).
+  function annunciaResa(s) {
+    if (s.resaAnnunciata) return;
+    s.resaAnnunciata = true;
+    notizia(s, "La Procura apre l'inchiesta finale: all'ultima Alba controllerà i conti di tutti. Chi ha lasciato Tracce rischia grosso.", "scandalo");
+    for (const p of s.players) privato(s, p, "Vera: \"Ultima chiamata. La Procura apre l'inchiesta finale: all'ultima Alba guarda i conti di tutti. Se hai fatto affari sporchi, adesso è il momento di stare puliti, ripulire i soldi e scaricare i contatti a rischio.\"");
+  }
+  // Un'inchiesta tiene occupata la polizia: se un altro giocatore e' Indagato (o al Processo),
+  // per tutti gli altri la notte e i controlli dell'Alba sono un po' meno pericolosi.
+  function poliziaOccupata(s, p) {
+    const su = s.players.filter((q) => q.id !== p.id && !q.fallito && !(q.faro > 0) && (q.stato || 0) >= 3).sort((a, b) => b.stato - a.stato)[0];
+    return su || null;
+  }
+  function rischioResa(s, p) {
+    if (!p.peggiorReato && !(p.sporchi > 0)) return 0;
+    const tr = p.tracce * (p.fama >= 60 ? 1.25 : 1);
+    return clamp(tr / (tr + N.resaK) * (1 - protezione(s, p)) + N.resaStato * (p.stato || 0), 0, N.resaMax);
+  }
+  function resaDeiConti(s) {
+    s.resa = [];
+    for (const p of s.players) {
+      if (p.fallito || (!p.peggiorReato && !(p.sporchi > 0))) continue;
+      if (rng(s) >= rischioResa(s, p)) { privato(s, p, "Resa dei conti: la Procura non trova niente su di te."); continue; }
+      let gravita = p.peggiorReato || "lieve";
+      if (inSetta(p) && gravita !== "lieve") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1];
+      if (haOggetto(p, "avvocato") && gravita !== "lieve") { togliOggetto(p, "avvocato"); gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; }
+      const multa = round(Math.min(0.6, PENE[gravita].multa * N.resaMulta) * Math.max(0, patrimonio(s, p, false)));
+      const protetti = Math.min(p.sporchi, (haPiano(p, "caveau") && gravita !== "gravissima" ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0));
+      const sporchiPersi = round(p.sporchi - protetti);
+      p.sporchi = protetti; p.cash -= multa; p.fama = Math.max(0, p.fama - PENE[gravita].fama);
+      s.resa.push({ id: p.id, nome: p.nome, gravita, multa, sporchi: sporchiPersi });
+      privato(s, p, "Resa dei conti (" + gravita + "): multa di " + euro(multa) + (sporchiPersi ? " e confisca di " + euro(sporchiPersi) + " sporchi" : "") + ".");
+      notizia(s, "Resa dei conti: la Procura condanna " + p.nome + " (reato " + gravita + "). Multa di " + euro(multa) + ".", "scandalo");
+    }
+  }
+  function tiroIndagine(s, p) {
+    if (p.faro > 0) return;
+    const prot = protezione(s, p);
     let tr = p.tracce;
     if (p.fama >= 60) tr *= 1.25;
-    const pUp = tr / (tr + N.indagineK) * (1 - prot);
+    const pUp = tr / (tr + N.indagineK) * (1 - prot) * (poliziaOccupata(s, p) ? N.occupata : 1);
     const vecchio = p.stato;
     if (tr > 0 && rng(s) < pUp) p.stato = Math.min(4, p.stato + 1);
     else if (p.pulitoCiclo && p.stato > 0 && rng(s) < N.scendi) p.stato -= 1;
@@ -2076,7 +2119,7 @@
       const segnali = ["Ti senti più tranquillo: nessuno parla di te.", "Un personaggio ti dice: \"Si parla di te, in giro.\"", "Vedi spesso un'auto della polizia vicino ai tuoi locali.", "La Gazzetta fa il tuo nome. I tuoi conti sono sotto controllo.", "Ricevi una convocazione del Giudice per l'Alba."];
       privato(s, p, segnali[p.stato]);
       if (p.stato === 1) notizia(s, "Si mormora su certi affari di " + p.nome + ".", "voce");
-      if (p.stato === 3) notizia(s, p.nome + " è sotto indagine.", "scandalo");
+      if (p.stato === 3) notizia(s, p.nome + " è sotto indagine. Mezzo commissariato lavora solo su di lui: per gli altri, stanotte, le strade sono più libere.", "scandalo");
     }
   }
   function mandaAlFaro(s, p, turni, motivo) {
@@ -2197,6 +2240,7 @@
       if (p.pulitoCiclo) p.ombraCicli = (p.ombraCicli || 0) + 1; else p.ombraCicli = 0;
       p.copUsata = 0;
       riepilogo[p.id] = r;
+      r.consiglio = consiglioVera(s, p);
     }
     // processo per chi e' arrivato allo stato 4
     for (const p of s.players) if (p.stato >= 4) {
@@ -2235,6 +2279,7 @@
     // cicli
     s.ciclo += 1;
     if (finisceQui(s)) return fine(s);
+    if ((s.modoFine || "cicli") === "cicli" && s.ciclo === (s.cicli || N.cicli) - 1) annunciaResa(s);
     s.fase = "giorno"; s.giorno = 0; s.turno = 0;
     notizia(s, "Sorge il sole sul Ciclo " + (s.ciclo + 1) + ".", "evento");
     iniziaTurno(s);
@@ -2312,6 +2357,7 @@
       for (const p of vivi) if (!s.quasi[p.id] && patrimonio(s, p, true) >= s.obiettivo * N.quasiTraguardo) {
         s.quasi[p.id] = true;
         notizia(s, "In Laguna si dice che " + p.nome + " sia vicino ai " + euro(s.obiettivo) + ". Se ci arriva, la partita finisce.", "evento");
+        annunciaResa(s);
         for (const q of vivi) if (q.id !== p.id) privato(s, q, p.nome + " è vicino al traguardo dei " + euro(s.obiettivo) + ". Se vuoi fermarlo, è il momento.");
       }
       return false;
@@ -2324,15 +2370,17 @@
     if (p.id !== s.players[0].id) err("Solo chi ha creato la partita la può chiudere.");
     if (s.chiusura === !!si) return;
     s.chiusura = !!si;
-    if (si) notizia(s, p.nome + " ha deciso: questa è l'ultima notte della Laguna. All'Alba la classifica finale.", "evento");
-    else notizia(s, "Contrordine: la Laguna non chiude. Si va avanti.", "evento");
+    if (si) { notizia(s, p.nome + " ha deciso: questa è l'ultima notte della Laguna. All'Alba la classifica finale.", "evento"); annunciaResa(s); }
+    else { notizia(s, "Contrordine: la Laguna non chiude. Si va avanti.", "evento"); s.resaAnnunciata = false; }
   }
 
   function fine(s) {
     s.fase = "fine"; s.fine = true;
+    const arrivato = s.modoFine === "obiettivo" ? s.players.filter((p) => !p.fallito).sort((a, b) => patrimonio(s, b, true) - patrimonio(s, a, true))[0] : null;
+    resaDeiConti(s);
     const cl = s.players.map((p) => ({ id: p.id, nome: p.nome, patrimonio: round(patrimonio(s, p, true)), fama: p.fama, arresti: p.arresti, tracce: round(p.tracce), piani: p.piani, riciclTot: p.riciclTot }))
       .sort((a, b) => b.patrimonio - a.patrimonio);
-    s.motivoFine = s.modoFine === "obiettivo" ? cl[0].nome + " ha superato i " + euro(s.obiettivo) + "." : s.modoFine === "libera" ? "La partita è stata chiusa dopo " + s.ciclo + " Cicli." : "Sono finiti i " + (s.cicli || N.cicli) + " Cicli.";
+    s.motivoFine = s.modoFine === "obiettivo" ? (arrivato ? arrivato.nome : cl[0].nome) + " ha superato i " + euro(s.obiettivo) + "." + (arrivato && arrivato.id !== cl[0].id ? " Ma dopo la Resa dei conti il più ricco è " + cl[0].nome + "." : "") : s.modoFine === "libera" ? "La partita è stata chiusa dopo " + s.ciclo + " Cicli." : "Sono finiti i " + (s.cicli || N.cicli) + " Cicli.";
     const titoli = [];
     titoli.push({ titolo: "Re della Laguna", a: cl[0].nome });
     const stella = [...cl].sort((a, b) => b.fama - a.fama)[0]; titoli.push({ titolo: "La Stella", a: stella.nome });
@@ -2344,11 +2392,115 @@
     notizia(s, "Fine della partita. " + cl[0].nome + " è il Re della Laguna.", "evento");
   }
 
+  // ------------------------------------------------------------ scoperte
+  // Le cose che si possono fare nella Laguna. Chi non le conosce non le usa: per questo
+  // Vera da' un consiglio a ogni Alba (una cosa mai fatta che adesso si puo' fare),
+  // la prima volta che provi una cosa nuova ricevi +1 fama, e quando un altro fa una cosa
+  // che si vede (un piano, uno yacht, una candidatura) chi non l'ha mai fatta lo scopre.
+  // gruppo: giorno · notte · potere. lv: livello dal quale l'indizio e' visibile.
+  const SCOPERTE = [
+    { id: "agenzia", gruppo: "giorno", lv: 0, nome: "Comprare all'Agenzia", fatto: (a) => a.tipo === "agenzia", pubblico: "ha comprato un terreno all'Agenzia senza aspettare i dadi",
+      indizio: "Non serve aspettare di finire su un terreno libero.", spiega: "Dall'app Agenzia compri un terreno libero dell'isola dove sei, quando vuoi.",
+      quando: (s, p) => p.cash > 1_200_000 && s.lotti.some((l) => !l.owner && l.tipoCasella === "lotto"), consiglio: "Non aspettare i dadi: dall'app Agenzia compri un terreno libero dell'isola dove sei. Costa un po' di più, ma lo scegli tu." },
+    { id: "permesso", gruppo: "giorno", lv: 0, nome: "Aprire un'attività", fatto: (a) => a.tipo === "permesso" || a.tipo === "costruisci",
+      indizio: "Un terreno vuoto rende pochissimo.", spiega: "Chiedi il permesso al Municipio, poi apri il cantiere: all'Alba l'attività rende.",
+      quando: (s, p) => propri(s, p).some((l) => l.tipoCasella === "lotto" && l.lvl === 0 && !l.cantiere) && p.cash > 400_000, consiglio: "Hai terreni vuoti: così non rendono quasi niente. Dall'app Imprese chiedi il permesso e apri un'attività. Le rendite arrivano a ogni Alba." },
+    { id: "piano", gruppo: "giorno", lv: 0, nome: "Alzare il tuo Palazzo", fatto: (a) => a.tipo === "piano", pubblico: "ha alzato un nuovo piano del suo Palazzo",
+      indizio: "Il tuo Palazzo può crescere piano dopo piano.", spiega: "Ogni piano rende a ogni Alba e si ripaga in circa due Cicli. A 6 piani diventa un Attico, a 15 un Grattacielo.",
+      quando: (s, p) => p.cash > costoPiano(p) * 3, consiglio: "Hai soldi fermi. Un piano del tuo Palazzo si ripaga in circa due Cicli e poi rende per sempre. Apri l'app Palazzo." },
+    { id: "veicolo", gruppo: "giorno", lv: 0, nome: "Comprare un mezzo", fatto: (a) => a.tipo === "veicolo", pubblico: "si è comprato un mezzo di lusso",
+      indizio: "Yacht, motoscafi, elicotteri: non sono solo per farsi vedere.", spiega: "I mezzi si noleggiano ai turisti e rendono a ogni Alba. Di notte ti portano più veloce.",
+      quando: (s, p) => p.cash > 4_000_000 && !p.veicoli.length, consiglio: "Uno yacht non è solo lusso: lo noleggi ai turisti e rende a ogni Alba. Guarda l'app Lusso." },
+    { id: "viaggio_rapido", gruppo: "giorno", lv: 0, nome: "Viaggio rapido", fatto: (a) => a.tipo === "viaggio_rapido", pubblico: "ha preso il traghetto invece di tirare i dadi",
+      indizio: "I dadi non sono l'unico modo per muoversi.", spiega: "Una volta per Ciclo, invece dei dadi, vai dove vuoi col traghetto da un Molo o con i tuoi mezzi.",
+      quando: (s, p) => s.ciclo >= 1 && destinazioniRapide(s, p).length > 0, consiglio: "Vuoi arrivare su un'isola precisa? Una volta per Ciclo, invece dei dadi, puoi fare un viaggio rapido. Cerca il tasto vicino ai dadi." },
+    { id: "prestito", gruppo: "giorno", lv: 0, nome: "Chiedere un prestito", fatto: (a) => a.tipo === "prestito" || a.tipo === "ipoteca",
+      indizio: "Quando mancano i contanti, c'è chi li presta.", spiega: "La Banca presta fino al 30% di quello che hai. Gli interessi si pagano a ogni Alba.",
+      quando: (s, p) => p.cash < 300_000 && propri(s, p).length >= 2, consiglio: "Sei a corto di contanti. La Banca ti presta una parte di quello che hai, o ti dà soldi su un terreno con l'ipoteca. App Banca." },
+    { id: "proposta", gruppo: "giorno", lv: 0, nome: "Comprare da un altro giocatore", fatto: (a) => a.tipo === "proponi_lotto",
+      indizio: "Ogni terreno ha un prezzo, anche quelli già presi.", spiega: "Puoi offrire soldi a un altro giocatore per un suo terreno. Lui accetta o rifiuta.",
+      quando: (s, p) => s.lotti.some((l) => l.owner && l.owner !== p.id && l.serie && s.lotti.filter((x) => x.serie === l.serie && x.id !== l.id).every((x) => x.owner === p.id)), consiglio: "Ti manca un solo terreno per completare un gruppo, ma ce l'ha un altro. Fagli un'offerta: toccalo sulla mappa." },
+    { id: "candidati", gruppo: "potere", lv: 0, nome: "Candidarti a Sindaco", fatto: (a) => a.tipo === "candidati" || (a.tipo === "municipio" && a.scelta === "candidati"), pubblico: "si è candidato a Sindaco",
+      indizio: "Il Sindaco fa le leggi e decide le tasse.", spiega: "Ci si candida al Municipio. Vince chi ha più fama e spende di più in campagna. Il Sindaco prende uno stipendio e fa una legge per Ciclo.",
+      quando: (s, p) => p.fama >= 25 && p.cash > N.candidatura * 2 && s.candidati[p.id] === undefined, consiglio: "Con la tua fama potresti diventare Sindaco: fai le leggi e decidi le tasse. Ti candidi dall'app Municipio." },
+    { id: "investi", gruppo: "giorno", lv: 2, nome: "Borsa e cripto", fatto: (a) => a.tipo === "investi",
+      indizio: "I soldi possono lavorare da soli.", spiega: "Le azioni crescono piano; le cripto salgono e crollano. Si vendono quando vuoi.",
+      quando: (s, p) => p.cash > 2_500_000, consiglio: "Lenz dice che i soldi fermi perdono valore. In Borsa crescono piano, le cripto salgono e crollano. App Borsa." },
+    { id: "contratto", gruppo: "potere", lv: 2, nome: "Un contratto con un rivale", fatto: (a) => a.tipo === "contratto",
+      indizio: "Un patto scritto vale più di una stretta di mano.", spiega: "Scrivi tu i patti: chi paga cosa, oggi e fra qualche Ciclo, e anche terreni ceduti.",
+      quando: (s, p) => s.players.length > 1, consiglio: "Con l'app Contratti scrivi un patto con un altro giocatore: soldi oggi in cambio di soldi domani, un terreno, quello che vuoi tu." },
+    { id: "evasione", gruppo: "potere", lv: 2, nome: "Nascondere le tasse", fatto: (a) => a.tipo === "evasione" && a.quota > 0,
+      indizio: "Le tasse si possono pagare… di meno.", spiega: "Una parte delle rendite non la dichiari: diventa contante sporco da usare di notte. Lascia Tracce.",
+      quando: (s, p) => propri(s, p).some((l) => l.lvl > 0), consiglio: "Paghi tasse su tutto. Una parte delle rendite la puoi nascondere: diventa contante sporco da spendere di notte. Con un po' di rischio. App Banca." },
+    { id: "occasione", gruppo: "notte", lv: 1, nome: "Un affare della notte", fatto: (a) => a.tipo === "occasione",
+      indizio: "Di notte, al Porto e al Mercato, c'è chi paga bene.", spiega: "Gli affari della notte rendono tanto ma lasciano Tracce. Prima di accettare guardi sempre il rischio.",
+      quando: (s, p) => true, consiglio: "Stanotte al Porto c'è chi paga bene per un carico. Rende molto più di un affitto, ma lascia Tracce. Vai e guarda il rischio prima di dire sì." },
+    { id: "oggetto", gruppo: "notte", lv: 1, nome: "Riempire la valigetta", fatto: (a) => a.tipo === "compra_oggetto",
+      indizio: "Al Mercato Nero vendono cose che salvano la pelle.", spiega: "Gli oggetti della valigetta ti proteggono dai pericoli della notte: maschera, motoscafo, telefono sicuro…",
+      quando: (s, p) => (p.valigetta || []).length === 0, consiglio: "Al Mercato Nero compri oggetti per la valigetta. La maschera, per esempio, ti salva dai fotografi durante un affare." },
+    { id: "ricicla", gruppo: "notte", lv: 1, nome: "Ripulire i soldi sporchi", fatto: (a) => a.tipo === "ricicla",
+      indizio: "I soldi sporchi pesano, e a fine partita valgono poco.", spiega: "Al Casinò Reale li cambi in soldi puliti. Ne perdi una parte, ma diventano tuoi davvero.",
+      quando: (s, p) => p.sporchi > 500_000, consiglio: "Hai soldi sporchi. A fine partita valgono solo un quarto e una condanna li porta via. Di notte, al Casinò Reale, li ripulisci." },
+    { id: "corrompi", gruppo: "notte", lv: 1, nome: "Comprare un poliziotto", fatto: (a) => a.tipo === "corrompi",
+      indizio: "Anche la polizia ha un prezzo.", spiega: "Un agente comprato abbassa il rischio nella sua isola. Si paga a ogni Alba, e può essere beccato.",
+      quando: (s, p) => (p.stato || 0) >= 1 || p.tracce > 30, consiglio: "Si parla di te. Un agente comprato, al Club, abbassa il rischio di guai nella sua isola. Costa a ogni Alba." },
+    { id: "foto", gruppo: "notte", lv: 1, nome: "Fotografare un rivale", fatto: (a) => a.tipo === "foto" || a.tipo === "soffiata",
+      indizio: "Chi fa affari sporchi lascia prove. Anche gli altri.", spiega: "Se un rivale fa affari loschi vicino a te, puoi fotografarlo: è una Prova da usare contro di lui.",
+      quando: (s, p) => s.ciclo >= 2, consiglio: "Gli altri non sono santi. Di notte, se uno fa un affare dove sei tu, puoi fotografarlo: una Prova contro di lui." },
+    { id: "denuncia", gruppo: "potere", lv: 1, nome: "Denunciare un rivale", fatto: (a) => a.tipo === "denuncia",
+      indizio: "Una Prova nel cassetto non serve a niente.", spiega: "Una Prova consegnata alla polizia fa salire il rivale verso il Processo.",
+      quando: (s, p) => (p.prove || []).length > 0, consiglio: "Hai una Prova contro un rivale. Dall'app Prove la consegni alla polizia: per lui il Processo si avvicina." },
+    { id: "incontro", gruppo: "notte", lv: 0, nome: "Incontrare un rivale di notte", fatto: (a) => a.tipo === "incontro",
+      indizio: "Di notte gli altri giocatori sono in giro come te.", spiega: "Se sei nello stesso posto di un altro puoi offrirgli un drink, sfidarlo o proporgli un affare.",
+      quando: (s, p) => s.ciclo >= 1, consiglio: "Di notte, se finisci nello stesso posto di un altro giocatore, lo vedi. Puoi offrirgli un drink o sfidarlo." },
+    { id: "articolo", gruppo: "potere", lv: 2, nome: "Comprare un articolo", fatto: (a) => a.tipo === "articolo",
+      indizio: "La Gazzetta scrive quello che le paghi.", spiega: "Alla Redazione compri un articolo: fama per te o fango su un rivale.",
+      quando: (s, p) => true, consiglio: "La Gazzetta si compra. Di notte, alla Redazione, paghi un articolo su di te (fama) o contro un rivale." },
+    { id: "serata", gruppo: "potere", lv: 0, nome: "Una serata nel tuo Casinò", fatto: (a) => a.tipo === "serata", pubblico: "ha aperto una serata nel suo Casinò privato",
+      indizio: "Un Palazzo con il casinò privato è una calamita.", spiega: "Di notte apri il tuo Casinò privato: gli altri pagano l'ingresso e il banco sei tu.",
+      quando: (s, p) => haPiano(p, "casino_privato"), consiglio: "Hai un Casinò privato. Stanotte, dal tuo Palazzo, apri una serata: chi viene paga l'ingresso e il banco sei tu." },
+    { id: "fonda_setta", gruppo: "potere", lv: 1, nome: "Fondare una setta", fatto: (a) => a.tipo === "fonda_setta",
+      indizio: "Si dice che i più sporchi si riuniscano al Faro.", spiega: "Con 8 milioni sporchi fondi una setta: meno Tracce, condanne più leggere, affari solo per i membri.",
+      quando: (s, p) => p.sporchi >= N.settaSporchi && !p.settaFondata, consiglio: "Hai abbastanza soldi sporchi per fondare una setta. Stanotte, dall'app Setta. Meno Tracce, condanne più leggere, affari segreti." },
+    { id: "invita_setta", gruppo: "potere", lv: 1, nome: "Portare qualcuno nella setta", fatto: (a) => a.tipo === "invita_setta",
+      indizio: "Una setta da soli non sale di livello.", spiega: "Con 3 membri la setta sale di livello. L'invito è senza firma; puoi offrire soldi o chiedere una quota.",
+      quando: (s, p) => s.sette.some((st) => st.gm === p.id && st.membri.length < 3), consiglio: "La tua setta sale al livello 2 solo con 3 membri. Invita qualcuno dall'app Setta: puoi anche offrirgli soldi." },
+  ];
+  function primaVolta(s, p, a) {
+    p.scoperte = p.scoperte || {};
+    for (const sc of SCOPERTE) {
+      if (p.scoperte[sc.id] !== undefined || !sc.fatto(a)) continue;
+      p.scoperte[sc.id] = s.ciclo + 1;
+      p.fama += 1;
+      privato(s, p, "Nuova scoperta (+1 fama): " + sc.nome + ". " + sc.spiega);
+      // chi non l'ha mai fatto lo vede fare (solo le cose che si vedono in pubblico)
+      if (sc.pubblico) for (const q of s.players) if (q.id !== p.id && !q.bot && !(q.scoperte || {})[sc.id] && !(q.visteFare || {})[sc.id]) {
+        q.visteFare = q.visteFare || {}; q.visteFare[sc.id] = true;
+        privato(s, q, "Vera: \"Hai visto? " + p.nome + " " + sc.pubblico + ". Anche tu puoi: " + sc.spiega + "\"");
+      }
+    }
+  }
+  // all'Alba: un consiglio di Vera su una cosa mai fatta che adesso si puo' fare
+  function consiglioVera(s, p) {
+    if (p.bot) return null;
+    p.scoperte = p.scoperte || {}; p.consigliati = p.consigliati || {};
+    const lv = livelloSblocco(s, p);
+    const ok = SCOPERTE.filter((sc) => sc.lv <= lv && p.scoperte[sc.id] === undefined && (p.consigliati[sc.id] || 0) < 2 && (() => { try { return sc.quando(s, p); } catch (e) { return false; } })());
+    if (!ok.length) return null;
+    // prima le cose mai consigliate, poi quelle consigliate una volta
+    ok.sort((x, y) => (p.consigliati[x.id] || 0) - (p.consigliati[y.id] || 0));
+    const sc = ok[0];
+    p.consigliati[sc.id] = (p.consigliati[sc.id] || 0) + 1;
+    privato(s, p, "Vera: \"" + sc.consiglio + "\"");
+    return { id: sc.id, nome: sc.nome, testo: sc.consiglio };
+  }
+
   // ------------------------------------------------------------ ingresso unico
   function applica(s, idGiocatore, a) {
     const N0 = s.fase === "notte" && s.notte, ora0 = N0 ? N0.ora : -1, eraChiuso = N0 ? !!N0.chiuso[idGiocatore] : true;
     const len0 = N0 ? (N0.racconto[idGiocatore] || []).length : 0;
     const r = applica0(s, idGiocatore, a);
+    if (a && a.tipo && !(a.tipo === "compra" && !a.si)) { const p = s.players.find((x) => x.id === idGiocatore); if (p) primaVolta(s, p, a); }
     if (N0 && s.notte === N0 && N0.ora === ora0 && !eraChiuso && N0.chiuso[idGiocatore] && N0.daScelta[idGiocatore] === undefined) N0.daScelta[idGiocatore] = len0;
     return r;
   }
@@ -2438,7 +2590,7 @@
       if (p.id === idGiocatore) continue;
       const vero = s.players.find((x) => x.id === p.id);
       const fasciaPubblica = fascia(s, vero);
-      for (const k of ["cash", "sporchi", "tracce", "stato", "corrotti", "prove", "messaggi", "debito", "azioni", "cripto", "evasione", "affariStanotte", "spiaSu", "sette", "settaFondata", "reputazione", "peggiorReato", "riciclTot", "ultimaSentenza", "offertaBoss", "valigetta", "raccontoNotte", "permessoTurno", "primoPermesso"]) delete p[k];
+      for (const k of ["cash", "sporchi", "tracce", "stato", "corrotti", "prove", "messaggi", "debito", "azioni", "cripto", "evasione", "affariStanotte", "spiaSu", "sette", "settaFondata", "reputazione", "peggiorReato", "riciclTot", "ultimaSentenza", "offertaBoss", "valigetta", "raccontoNotte", "permessoTurno", "primoPermesso", "scoperte", "consigliati", "visteFare"]) delete p[k];
       p.fascia = fasciaPubblica;
     }
     v.sette = s.sette.filter((st) => st.membri.includes(idGiocatore));
@@ -2462,7 +2614,7 @@
         scelte: me ? scelteNotte(s, me) : [],
         qui: me ? quiConMe(s, me).map((x) => x.id) : [],
         pericoloQui: me && !s.notte.viaggio[idGiocatore] && s.notte.dove[idGiocatore] !== "palazzo" ? s.notte.pericolo[s.notte.dove[idGiocatore]] : null,
-        protezione: me ? (me.corrotti && me.corrotti["agente_" + (LUOGHI[s.notte.dove[idGiocatore]] || {}).isola] ? 0.6 : 1) * (me.corrotti && me.corrotti.commissario ? 0.8 : 1) : 1,
+        protezione: me ? (me.corrotti && me.corrotti["agente_" + (LUOGHI[s.notte.dove[idGiocatore]] || {}).isola] ? 0.6 : 1) * (me.corrotti && me.corrotti.commissario ? 0.8 : 1) * (poliziaOccupata(s, me) ? N.occupata : 1) : 1,
         ospite: s.notte.ospite ? s.notte.ospite[idGiocatore] || null : null,
         serate: Object.entries(s.notte.serate || {}).map(([id, se]) => { const h = s.players.find((x) => x.id === id); return { host: id, nome: h.nome, piani: h.piani, livello: livelloPalazzo(h), ingresso: se.ingresso, ospiti: se.ospiti.length, banco: id === idGiocatore ? se.banco : undefined }; }),
         proposte: (s.notte.proposte || []).filter((x) => x.a === idGiocatore || x.da === idGiocatore),
@@ -2473,13 +2625,15 @@
       };
     }
     if (s.riepOra) v.riepOra = { n: s.riepOra.n, ciclo: s.riepOra.ciclo, da: s.riepOra.da, a: s.riepOra.a, mio: s.riepOra.per[idGiocatore] || null };
-    { const me = s.players.find((x) => x.id === idGiocatore); if (me) { v.lustro = lustro(s, me); v.livelloPalazzo = livelloPalazzo(me); } }
+    { const me = s.players.find((x) => x.id === idGiocatore); if (me) { v.lustro = lustro(s, me); v.livelloPalazzo = livelloPalazzo(me); const su = poliziaOccupata(s, me); v.poliziaSu = su ? su.nome : null; } }
     { const me = s.players.find((x) => x.id === idGiocatore); v.sblocco = me ? livelloSblocco(s, me) : 3; v.postiValigetta = me ? postiValigetta(s, me) : 6; v.soglieLivello = SOGLIE_LIVELLO; }
     return v;
   }
 
   const API = {
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE,
+    SCOPERTE: SCOPERTE.map(({ id, gruppo, lv, nome, indizio, spiega }) => ({ id, gruppo, lv, nome, indizio, spiega })),
+    rischioResa,
     nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
     haSerie, propri, corrente, casella, livelloSetta, euro, giocatore,
     ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, rischioContatto, nomeContatto, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, FASCE_PALAZZO, STANZE, stanzePossibili, oreViaggio, luogoAperto,

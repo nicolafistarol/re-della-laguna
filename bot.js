@@ -188,7 +188,7 @@
               p = i.cash + i.sporchi,
               // i furbi si fermano appena la polizia li osserva; lo spavaldo solo quando e' indagato
               // chi e' gia' molto ricco rischia piu' di quanto guadagna stanotte: lo spavaldo no, lui rischia sempre
-              d = ["Legale", "Costruttore", "Investitore"].includes(e) || 0 === a || i.stato >= ("Spavaldo" === e ? 2 : 1) || (i.arresti >= 2 && i.stato >= 1) || ("Spavaldo" !== e && t.patrimonio(o, i, !1) > 4e7),
+              d = ["Legale", "Costruttore", "Investitore"].includes(e) || 0 === a || i.stato >= ("Spavaldo" === e ? 2 : 1) || (i.arresti >= 2 && i.stato >= 1) || ("Spavaldo" !== e && t.patrimonio(o, i, !1) > 4e7) || ("Spavaldo" !== e && o.resaAnnunciata),
               f = u.find((o) => o.O.legale && i.cash > 6e5);
             if (f) return { tipo: "occasione", n: f.n, oggetti: [] };
             if (d)
