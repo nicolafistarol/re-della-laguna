@@ -25,13 +25,19 @@ label{font-size:13px;color:var(--muted)}
 #mappa{--z:1;position:absolute;left:50%;top:50%;width:max(100vw,calc(100vh*16/9));aspect-ratio:16/9;transform:translate(-50%,-50%);transform-origin:50% 50%;background:url('img/mappa.jpg') center/cover;transition:filter 1s,transform .25s ease-out;cursor:grab}
 #mondo.trascino #mappa{transition:filter 1s;cursor:grabbing}
 #mappa .cas,#mappa .ped,#mappa .luogo,#mappa .luce,#mappa .etichetta,#mappa .edificio,#mappa .torre{scale:calc(1 / var(--z))}
-#mondo.notte #mappa{filter:brightness(.38) saturate(.75) hue-rotate(12deg)}
+#mappa::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,8,30,.72),rgba(8,10,35,.6));opacity:0;transition:opacity 1s;pointer-events:none;z-index:1}
+#mondo.notte #mappa::before{opacity:1}
 #mondo::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(5,10,20,0) 55%,rgba(5,10,20,.55) 100%)}
-.cas{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:rgba(255,255,255,.6);box-shadow:0 0 0 1px rgba(0,0,0,.35);z-index:2}
-.cas.ang{width:14px;height:14px;margin:-7px 0 0 -7px;background:var(--oro)}
-.cas.pres{width:11px;height:11px;margin:-5.5px 0 0 -5.5px;box-shadow:0 0 0 2px #fff}
-.cas.cant{box-shadow:0 0 0 2px #ffd27a,0 0 10px #ffb52e}
-#mondo.notte .cas{opacity:.25}
+.cas{position:absolute;transform:translate(-50%,-50%);z-index:2;display:flex;flex-direction:column;align-items:center;pointer-events:auto}
+.cas i{font-style:normal;display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;font-size:13px;background:rgba(8,14,26,.82);border:2px solid rgba(255,255,255,.85);box-shadow:0 3px 8px rgba(0,0,0,.55)}
+.cas.lotto i{background:linear-gradient(160deg,color-mix(in srgb,var(--serie) 85%,#fff) 0%,var(--serie) 60%,color-mix(in srgb,var(--serie) 70%,#000) 100%);width:18px;height:18px;border-radius:5px}
+.cas.pres i{border-color:var(--own);border-width:3px;box-shadow:0 0 0 2px rgba(255,255,255,.9),0 0 12px var(--own)}
+.cas.ang i{width:34px;height:34px;border-radius:50%;font-size:18px;border-color:var(--oro);background:radial-gradient(circle,#2a2010,#0b0f18);box-shadow:0 0 14px rgba(243,197,107,.7)}
+.cas.molo i{width:20px;height:20px;border-radius:50%;font-size:11px}
+.cas.spec i{width:24px;height:24px;border-radius:50%;font-size:13px}
+.cas .cn{display:none;margin-top:3px;font-size:10px;font-weight:700;white-space:nowrap;background:rgba(5,10,20,.8);padding:1px 6px;border-radius:6px}
+.cas.ang .cn,#mondo.vicino .cas .cn{display:block}
+#mondo.notte .cas{opacity:.3}
 .ped{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;transition:left .17s ease-out,top .17s ease-out;z-index:4;box-shadow:0 3px 10px rgba(0,0,0,.5)}
 .ped b{font-size:11px;color:#0b1018}
 .ped.io{width:28px;height:28px;margin:-14px 0 0 -14px;z-index:5;animation:pulsa 1.8s infinite}
@@ -171,3 +177,15 @@ table.cl{width:100%;border-collapse:collapse;font-size:14px}table.cl td,table.cl
 .torre span{order:-1;font-size:11px;font-weight:800;background:rgba(5,10,20,.8);border-radius:6px;padding:1px 6px;margin-bottom:3px}
 .comandi-vista{position:fixed;right:16px;bottom:92px;display:flex;flex-direction:column;gap:4px;padding:5px;border-radius:14px;z-index:19}
 .comandi-vista button{width:38px;height:38px;padding:0;font-size:18px;border-radius:10px}
+
+.conv{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 6px;border:0;border-bottom:1px solid rgba(255,255,255,.08);border-radius:0;background:none;color:#fff;font-weight:400}
+.avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;color:#fff;flex-shrink:0}
+.cv-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cv-t span{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pallino{background:var(--rosa);border-radius:999px;font-size:11px;font-weight:800;padding:2px 7px}
+.chat-testa{display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+.chat-testa .avatar{width:32px;height:32px;font-size:16px}
+.chat{display:flex;flex-direction:column;gap:8px;overflow:auto}
+.bolla{align-self:flex-start;max-width:88%;background:rgba(255,255,255,.1);border-radius:16px 16px 16px 4px;padding:9px 12px;line-height:1.4;display:flex;flex-direction:column;gap:3px}
+.bolla span{font-size:10px;color:var(--muted);align-self:flex-end}
+.audio{position:fixed;right:16px;bottom:282px;width:48px;height:48px;padding:0;border-radius:14px;font-size:20px;z-index:19}

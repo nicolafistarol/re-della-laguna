@@ -16,10 +16,68 @@ let utente = null, partita = null, mioId = null, S = null, canale = null;
 let telAperto = false, app = null, saldoNascosto = false, attesa = false, principianti = true, timerSala = null;
 const visti = new Set();
 
-function toast(t) { let box = $("#toasts"); if (!box) { box = document.createElement("div"); box.id = "toasts"; document.body.appendChild(box); } const d = document.createElement("div"); d.className = "toast"; d.textContent = t; box.appendChild(d); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => d.remove(), 4500); }
+function toast(t) { let box = $("#toasts"); if (!box) { box = document.createElement("div"); box.id = "toasts"; document.body.appendChild(box); } const d = document.createElement("div"); d.className = "toast"; d.textContent = t; box.appendChild(d); Suono.avviso(); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => d.remove(), 4500); }
 function salvaLocale() { try { localStorage.setItem("laguna_online", JSON.stringify({ partita, mioId })); } catch (e) { } }
 function leggiLocale() { try { return JSON.parse(localStorage.getItem("laguna_online") || "{}"); } catch (e) { return {}; } }
 function sfondo(img) { $("#sfondo").style.backgroundImage = `url('${img}')`; }
+
+// ------------------------------------------------------------ suoni e musica (generati dal browser, niente file da scaricare)
+const Suono = (() => {
+  let ctx = null, master = null, eco = null, acceso = true, modo = null, timer = null, drone = [];
+  try { acceso = localStorage.getItem("laguna_audio") !== "0"; } catch (e) { }
+  function avvia() {
+    if (ctx) { if (ctx.state === "suspended") ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    ctx = new AC(); master = ctx.createGain(); master.gain.value = acceso ? 0.55 : 0; master.connect(ctx.destination);
+    // un'eco morbida per dare spazio
+    eco = ctx.createDelay(1); eco.delayTime.value = 0.33; const fb = ctx.createGain(); fb.gain.value = 0.32; const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2200;
+    eco.connect(lp); lp.connect(fb); fb.connect(eco); lp.connect(master);
+    if (modo) ambiente(modo, true);
+  }
+  function nota(f, t0, dur, vol, tipo = "sine", conEco = true) {
+    if (!ctx) return;
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = tipo; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(master); if (conEco) g.connect(eco); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  function rumore(t0, dur, vol, freq) {
+    if (!ctx) return;
+    const b = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = b; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = 1.2; g.gain.value = vol;
+    s.connect(f); f.connect(g); g.connect(master); s.start(t0);
+  }
+  const PENTA = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3, 784];
+  function ambiente(m, forza) {
+    if (m === modo && !forza) return; modo = m;
+    if (!ctx) return;
+    clearInterval(timer); drone.forEach((x) => { try { x.stop(); } catch (e) { } }); drone = [];
+    if (m === "notte") {
+      for (const f of [55, 82.4, 110]) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = "sine"; o.frequency.value = f; g.gain.value = 0.035; o.connect(g); g.connect(master); o.start(); drone.push(o); }
+      timer = setInterval(() => { const t = ctx.currentTime; rumore(t, 2.5, 0.05, 400); if (Math.random() < 0.35) nota([523.3, 622.3, 784, 932.3][Math.floor(Math.random() * 4)], t + 0.5, 3, 0.03, "sine"); }, 3200);
+    } else if (m === "giorno") {
+      let k = 0;
+      timer = setInterval(() => {
+        const t = ctx.currentTime, accordi = [[0, 2, 4], [3, 5, 7], [1, 4, 6], [2, 4, 8]], a = accordi[Math.floor(k / 4) % 4];
+        nota(PENTA[a[k % 3]] / 2, t, 1.2, 0.05, "triangle"); if (k % 2 === 0) nota(PENTA[a[(k + 1) % 3]], t + 0.25, 0.8, 0.035, "sine");
+        if (k % 8 === 0) nota(PENTA[a[0]] / 4, t, 2.5, 0.05, "sine", false);
+        k++;
+      }, 520);
+    }
+  }
+  return {
+    avvia, ambiente,
+    acceso: () => acceso,
+    cambia() { acceso = !acceso; try { localStorage.setItem("laguna_audio", acceso ? "1" : "0"); } catch (e) { } avvia(); if (master) master.gain.value = acceso ? 0.55 : 0; },
+    dado() { if (!ctx) return; const t = ctx.currentTime; for (let i = 0; i < 9; i++) rumore(t + i * 0.09 + Math.random() * 0.04, 0.07, 0.5 - i * 0.04, 2500 + Math.random() * 1500); },
+    passo(mio) { if (!ctx) return; nota(mio ? 880 : 660, ctx.currentTime, 0.08, mio ? 0.06 : 0.03, "square", false); },
+    soldi(su) { if (!ctx) return; const t = ctx.currentTime; if (su) { nota(1046.5, t, 0.25, 0.08); nota(1318.5, t + 0.08, 0.4, 0.08); nota(1568, t + 0.16, 0.5, 0.06); } else { nota(392, t, 0.3, 0.07, "triangle"); nota(311.1, t + 0.12, 0.45, 0.07, "triangle"); } },
+    avviso() { if (!ctx) return; const t = ctx.currentTime; nota(880, t, 0.25, 0.045); nota(1174.7, t + 0.1, 0.35, 0.045); },
+    telefono() { if (!ctx) return; const t = ctx.currentTime; for (let i = 0; i < 2; i++) { nota(1318.5, t + i * 0.18, 0.12, 0.05, "sine", false); nota(1760, t + i * 0.18 + 0.06, 0.12, 0.05, "sine", false); } },
+  };
+})();
+addEventListener("pointerdown", () => Suono.avvia(), { capture: true });
+addEventListener("keydown", () => Suono.avvia(), { capture: true });
 
 // ------------------------------------------------------------ server
 async function chiama(corpo) {
@@ -170,15 +228,26 @@ function tocca() {
 function casellaDi(p) { return p.inner ? S.lotti.find((l) => l.giro === "i" && l.idx === p.ipos) : S.lotti.find((l) => l.giro === "o" && l.idx === p.pos); }
 
 // ------------------------------------------------------------ geografia della mappa (in % dell'immagine)
-const ANG = [[54.7, 73], [13.7, 43.4], [44, 23.4], [86, 45]];
-const CTRL = [[22.5, 69.4], [21.5, 29.5], [76.2, 26], [84, 62.5]];
-function puntoMappa(p) {
-  if (p.inner) { const a = (90 + p.ipos * 30) * Math.PI / 180; return [50 + 9 * Math.cos(a), 37.5 + 10.5 * Math.sin(a)]; }
-  const lato = Math.floor(p.pos / 10), t = (p.pos % 10) / 10;
-  const a = ANG[lato], b = ANG[(lato + 1) % 4], c = CTRL[lato];
-  return [(1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * c[0] + t * t * b[0], (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * c[1] + t * t * b[1]];
+// il percorso segue le strade e i ponti dell'immagine: 4 tratti, ognuno diviso in 10 caselle
+const TRATTI = [
+  [[56, 70.5], [50, 70], [44, 69.5], [38, 68.5], [33, 67.5], [28, 65.5], [24, 63], [20, 60], [17, 56.5], [14.5, 52], [13.5, 47], [13.8, 43]],
+  [[13.8, 43], [15.5, 38], [18, 35], [21, 32.5], [25, 30], [29, 28], [33, 26.5], [36, 25.5], [40, 24.5], [44, 24]],
+  [[44, 24], [50, 23.8], [56, 24], [60, 25], [65, 26], [70, 28], [75, 31], [80, 33], [84, 35], [86.5, 39], [87.3, 43.5]],
+  [[87.3, 43.5], [86, 48], [84, 52], [81, 56], [77, 60], [72, 63], [67, 65.5], [62, 68], [56, 70.5]],
+];
+function lungo(poli, t) { // punto a frazione t (0..1) della lunghezza di una spezzata (le y pesano 9/16)
+  const seg = []; let tot = 0;
+  for (let i = 1; i < poli.length; i++) { const d = Math.hypot(poli[i][0] - poli[i - 1][0], (poli[i][1] - poli[i - 1][1]) * 0.5625); seg.push(d); tot += d; }
+  let r = t * tot;
+  for (let i = 0; i < seg.length; i++) { if (r <= seg[i] || i === seg.length - 1) { const f = seg[i] ? Math.min(1, r / seg[i]) : 0; return [poli[i][0] + (poli[i + 1][0] - poli[i][0]) * f, poli[i][1] + (poli[i + 1][1] - poli[i][1]) * f]; } r -= seg[i]; }
+  return poli[poli.length - 1];
 }
-const POS_LUOGO = { club: [73.7, 33], marina: [40, 76], mercato: [31, 64], bisca: [27.5, 77], porto: [82, 65], casino: [45, 31], redazione: [57, 45], villa: [31, 26], faro: [84, 80] };
+const PUNTI_ESTERNI = Array.from({ length: 40 }, (_, i) => lungo(TRATTI[Math.floor(i / 10)], (i % 10) / 10));
+function puntoMappa(p) {
+  if (p.inner) { const a = (90 + p.ipos * 30) * Math.PI / 180; return [50 + 11.5 * Math.cos(a), 42 + 7.5 * Math.sin(a)]; }
+  return PUNTI_ESTERNI[((p.pos % 40) + 40) % 40];
+}
+const POS_LUOGO = { club: [73, 29], marina: [48, 79], mercato: [25, 59], bisca: [19, 68], porto: [81, 62], casino: [45, 33], redazione: [57, 44], villa: [24, 29], faro: [84, 81] };
 const POS_CASA = { Ambra: [35, 70], Palma: [26, 30], Flamingo: [82.5, 26], Sole: [86, 52], Corona: [52, 41] };
 const ICO_LUOGO = { palazzo: "🏙️", club: "🍸", marina: "🛥️", mercato: "🕯️", bisca: "🃏", porto: "🏗️", casino: "🎰", redazione: "📰", villa: "🏛️", faro: "🗼" };
 const ICO_OGG = { maschera: "🎭", disturbatore: "📡", telefono: "📱", documenti: "🪪", furgone: "🚐", motoscafo: "🚤", avvocato: "⚖️", macchina: "📷", fiches: "🪙", cassetta: "🔐" };
@@ -234,7 +303,7 @@ function avvisoPerMe(r) {
 function mostraDelta(d) {
   document.querySelectorAll(".delta").forEach((x) => x.remove());
   const el = document.createElement("div"); el.className = "delta"; el.textContent = (d > 0 ? "+ " : "− ") + euro(Math.abs(d));
-  el.style.color = d > 0 ? "var(--pulito)" : "var(--sporco)";
+  el.style.color = d > 0 ? "var(--pulito)" : "var(--sporco)"; Suono.soldi(d > 0);
   document.body.appendChild(el); setTimeout(() => el.remove(), 2600);
 }
 const FACCE = { 1: [0, 0], 6: [0, 180], 3: [0, -90], 4: [0, 90], 5: [-90, 0], 2: [90, 0] };
@@ -249,6 +318,7 @@ async function mostraDadi(d, mio, p) {
   const cubi = box.querySelectorAll(".cubo");
   cubi.forEach((c) => { c.style.transition = "none"; c.style.transform = `rotateX(${Math.random() * 360}deg) rotateY(${Math.random() * 360}deg)`; });
   await pausa(30);
+  Suono.dado();
   cubi.forEach((c, i) => { const [x, y] = FACCE[d[i]]; c.style.transition = `transform ${1.1 * lento}s cubic-bezier(.2,.75,.25,1)`; c.style.transform = `rotateX(${x + 720 + 360 * (i + 1)}deg) rotateY(${y + 720 + 360 * (2 - i)}deg)`; });
   await pausa(1150 * lento);
   box.querySelector(".totale").innerHTML = `${d[0] + d[1]}${d[0] === d[1] ? ' <span>doppio!</span>' : ""}`;
@@ -267,7 +337,7 @@ async function cammina(id, n, finale, mio) {
     disegnaScia(punti, mio);
     const [x, y] = punti[punti.length - 1];
     ped.style.left = x + "%"; ped.style.top = y + "%";
-    ped.classList.remove("salto"); void ped.offsetWidth; ped.classList.add("salto");
+    ped.classList.remove("salto"); void ped.offsetWidth; ped.classList.add("salto"); Suono.passo(mio);
     await pausa(mio ? 190 : 95);
   }
   if (finale) { const [x, y] = puntoMappa(finale); ped.style.left = x + "%"; ped.style.top = y + "%"; disp[id] = copiaPos(finale); }
@@ -288,6 +358,7 @@ function disegna() {
   const notte = S.fase === "notte" && S.notte;
   $("#mondo").style.display = "block";
   $("#mondo").classList.toggle("notte", !!notte);
+  Suono.ambiente(notte ? "notte" : "giorno");
   $("#sfondo").style.filter = "";
   const c = casellaDi(me);
   sfondo(notte ? "img/marina.jpg" : c && c.isola ? SCENE[c.isola] : "img/laguna.jpg");
@@ -310,9 +381,11 @@ function disegna() {
   ${notte ? `<div class="racconto vetro"><span class="kick" style="color:var(--cielo)">La tua notte</span>${S.notte.racconto.map((r) => { const [o, t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t)}</p>`; }).join("")}</div>`
       : `<div class="ticker">${cron.map((r) => `<div class="${r.chi === mioId ? "mia" : ""}">${esc(r.testo)}</div>`).join("")}</div>`}
   ${comandiVista()}
+  <button class="vetro audio" id="audio" aria-label="${Suono.acceso() ? "Spegni" : "Accendi"} musica e suoni">${Suono.acceso() ? "🔊" : "🔇"}</button>
   <div class="carta vetro">${animando ? `<div class="sub">…</div>` : notte ? cartaNotte(me) : cartaGiorno(me)}</div>`;
   $("#occhio").onclick = () => { saldoNascosto = !saldoNascosto; disegna(); };
   collegaComandiVista(me); applicaVista();
+  $("#audio").onclick = () => { Suono.cambia(); $("#audio").textContent = Suono.acceso() ? "🔊" : "🔇"; };
   const rc = document.querySelector(".racconto"); if (rc) rc.scrollTop = rc.scrollHeight;
   disegnaTelefono(me);
   if (animando) return;
@@ -324,12 +397,7 @@ function disegna() {
 function disegnaMappa(me, notte) {
   const m = $("#mappa");
   if (!notte) {
-    const caselle = S.lotti.map((l) => {
-      const [x, y] = puntoMappa(l.giro === "i" ? { inner: true, ipos: l.idx } : { inner: false, pos: l.idx });
-      const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
-      const tit = `${l.nome}${l.isola ? " · " + L.NOMI_ISOLE[l.isola] : ""}${own ? " · di " + own.nome + (l.tipo ? " (" + L.ATTIVITA[l.tipo].nome + ", livello " + l.lvl + ")" : "") + (l.cantiere ? " · cantiere in corso" : "") : l.prezzo ? " · libero, " + euro(l.prezzo) : ""}`;
-      return `<div class="cas ${l.tipoCasella === "angolo" ? "ang" : ""} ${own ? "pres" : ""} ${l.cantiere ? "cant" : ""}" title="${esc(tit)}" style="left:${x}%;top:${y}%;${own ? "background:" + own.colore : ""}"></div>`;
-    }).join("");
+    const caselle = S.lotti.map((l) => casellaHtml(l)).join("");
     const gruppi = {};
     const pedine = S.players.map((p) => {
       const q = disp[p.id] || copiaPos(p); const key = q.inner ? "i" + q.ipos : "o" + q.pos; const k = (gruppi[key] = (gruppi[key] || 0) + 1) - 1;
@@ -362,6 +430,24 @@ function disegnaMappa(me, notte) {
   m.querySelectorAll(".luogo[data-luogo]").forEach((b) => b.onclick = () => chiediViaggio(me, b.dataset.luogo));
 }
 
+// le caselle: tessere con il colore della serie, icone per i posti speciali, nome da vicino
+const ICO_CASELLA = { "Gazzetta": "📰", "Mercato Nero": "🕯️", "Spiaggia VIP": "🏖️", "Gala Flamingo": "🥂", "Porto Container": "🏗️", "La Borsa": "📈", "Il Municipio": "🏛️", "Banca Centrale": "🏦", "Casinò Reale": "🎰" };
+const ICO_ANGOLO = { 0: "🌉", 10: "🗼", 20: "🏝️", 30: "🚔" };
+function casellaHtml(l) {
+  const [x, y] = puntoMappa(l.giro === "i" ? { inner: true, ipos: l.idx } : { inner: false, pos: l.idx });
+  const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
+  const tit = `${l.nome}${l.isola ? " · " + L.NOMI_ISOLE[l.isola] : ""}${own ? " · di " + own.nome + (l.tipo ? " (" + L.ATTIVITA[l.tipo].nome + ", livello " + l.lvl + ")" : "") + (l.cantiere ? " · cantiere in corso" : "") : l.prezzo ? " · libero, " + euro(l.prezzo) : ""}`;
+  const nomeCorto = l.nome.replace(/ — .*/, "");
+  let cls = "cas", dentro = "", stile = `left:${x}%;top:${y}%;`;
+  if (l.tipoCasella === "angolo") { cls += " ang"; dentro = ICO_ANGOLO[l.idx] || "⭐"; }
+  else if (l.tipoCasella === "lotto") { cls += " lotto"; stile += `--serie:${COL_SERIE[l.serie] || "#888"};`; }
+  else if (l.tipoCasella === "molo") { cls += " molo"; dentro = "⚓"; }
+  else { cls += " spec"; dentro = ICO_CASELLA[l.nome] || "✦"; }
+  if (own) { cls += " pres"; stile += `--own:${own.colore};`; }
+  const sotto = l.tipoCasella === "angolo" ? nomeCorto : `${nomeCorto}${l.tipoCasella === "lotto" || l.tipoCasella === "molo" ? (own ? " · " + own.nome : l.prezzo ? " · " + euro(l.prezzo) : "") : ""}`;
+  return `<div class="${cls}" title="${esc(tit)}" style="${stile}"><i>${dentro}</i><span class="cn">${esc(sotto)}</span></div>`;
+}
+
 // gli edifici crescono: un disegno per ogni lotto costruito, e la torre del Palazzo di ognuno
 const ICO_LIV = ["", "🏠", "🏘️", "🏢", "🏨", "🏙️"];
 function edifici() {
@@ -387,13 +473,14 @@ let vista = { z: 1, x: 0, y: 0 };
 function applicaVista() {
   const m = $("#mappa"); if (!m) return;
   const w = m.offsetWidth, h = m.offsetHeight, W = innerWidth, H = innerHeight;
-  const maxX = Math.max(0, (w * vista.z - W) / 2), maxY = Math.max(0, (h * vista.z - H) / 2);
+  const maxX = Math.max(0, (w * vista.z - W) / 2) + W * 0.25, maxY = Math.max(0, (h * vista.z - H) / 2) + H * 0.25;
   vista.x = Math.max(-maxX, Math.min(maxX, vista.x)); vista.y = Math.max(-maxY, Math.min(maxY, vista.y));
   m.style.transform = `translate(calc(-50% + ${vista.x}px), calc(-50% + ${vista.y}px)) scale(${vista.z})`;
   m.style.setProperty("--z", vista.z);
+  $("#mondo").classList.toggle("vicino", vista.z >= 1.6);
 }
 function zoomA(z, cx = innerWidth / 2, cy = innerHeight / 2) {
-  const nz = Math.max(1, Math.min(3.5, z));
+  const nz = Math.max(1, Math.min(4, z));
   const k = nz / vista.z;
   vista.x = (vista.x - (cx - innerWidth / 2)) * k + (cx - innerWidth / 2);
   vista.y = (vista.y - (cy - innerHeight / 2)) * k + (cy - innerHeight / 2);
@@ -406,7 +493,24 @@ function centraSu(px, py) {
 }
 function collegaEsplora() {
   const mondo = $("#mondo");
-  mondo.addEventListener("wheel", (e) => { e.preventDefault(); zoomA(vista.z * Math.pow(1.0015, -e.deltaY), e.clientX, e.clientY); }, { passive: false });
+  mondo.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const rotella = e.deltaMode === 1 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 40 && Number.isInteger(e.deltaY));
+    if (e.ctrlKey) zoomA(vista.z * Math.pow(1.012, -e.deltaY), e.clientX, e.clientY);          // pizzico sul trackpad
+    else if (rotella) zoomA(vista.z * Math.pow(1.0018, -e.deltaY * (e.deltaMode === 1 ? 33 : 1)), e.clientX, e.clientY); // rotellina del mouse
+    else { vista.x -= e.deltaX; vista.y -= e.deltaY; $("#mondo").classList.add("trascino"); applicaVista(); clearTimeout(vista.t); vista.t = setTimeout(() => $("#mondo").classList.remove("trascino"), 120); } // due dita sul trackpad
+  }, { passive: false });
+  // Safari: il pizzico arriva come "gesture"
+  let gz = 1;
+  mondo.addEventListener("gesturestart", (e) => { e.preventDefault(); gz = vista.z; });
+  mondo.addEventListener("gesturechange", (e) => { e.preventDefault(); zoomA(gz * e.scale, e.clientX || innerWidth / 2, e.clientY || innerHeight / 2); });
+  addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input,textarea,select")) return;
+    const passo = 80;
+    if (e.key === "+" || e.key === "=") zoomA(vista.z * 1.3); else if (e.key === "-") zoomA(vista.z / 1.3);
+    else if (e.key === "ArrowLeft") { vista.x += passo; applicaVista(); } else if (e.key === "ArrowRight") { vista.x -= passo; applicaVista(); }
+    else if (e.key === "ArrowUp") { vista.y += passo; applicaVista(); } else if (e.key === "ArrowDown") { vista.y -= passo; applicaVista(); }
+  });
   let trascina = null; const tocchi = new Map();
   mondo.addEventListener("pointerdown", (e) => {
     if (e.target.closest("button")) return;
@@ -531,9 +635,38 @@ const APPS = [
   { k: "municipio", nome: "Municipio", ico: "🏛️", col: "#5c7f99", lv: 2 },
   { k: "setta", nome: "Setta", ico: "👁️", col: "#3b1d5c", lv: 3 },
 ];
+// ogni messaggio arriva da una persona: stessa persona = stessa conversazione
+const MITTENTI = [
+  [/^Vera:/, "Vera", "💁‍♀️", "#ff5fa2"],
+  [/numero sconosciuto|Squilla il telefono|Lavoretto fatto|Riattacchi/i, "Numero sconosciuto", "📵", "#555"],
+  [/^Municipio:|ottieni il permesso/i, "Municipio", "🏛️", "#5c7f99"],
+  [/busta passa di mano/i, "L'assessore", "💼", "#7a5c2c"],
+  [/gruista|Porto Container/i, "Gruista del Porto", "🏗️", "#c97a2c"],
+  [/Mercato Nero|venditore/i, "Venditore del Mercato", "🕯️", "#8a5a2c"],
+  [/Sentenza|Giudice|convocazione/i, "Tribunale della Laguna", "⚖️", "#8d1f2c"],
+  [/boss straniero/i, "Lo straniero", "🕶️", "#111"],
+  [/foto|Prova/i, "Il fotografo", "📷", "#3a3f4b"],
+  [/setta|Gran Maestro|invito segreto/i, "Messaggio senza firma", "👁️", "#3b1d5c"],
+  [/Sindaco/i, "Comune della Laguna", "🏛️", "#5c7f99"],
+  [/polizia|perquisisce|contatto corrotto|pentito|Si parla di te|auto della polizia|Gazzetta fa il tuo nome|tranquillo: nessuno/i, "Un amico fidato", "🤫", "#2f6fe0"],
+  [/Banca|prestito|interessi/i, "Banca Centrale", "🏦", "#2f6fe0"],
+];
+function mittente(testo) {
+  if (S) for (const p of S.players) if (p.id !== mioId && (testo.startsWith(p.nome + " ") || testo.includes(" da " + p.nome))) return [p.nome, p.nome[0], p.colore];
+  for (const [re, nome, ico, col] of MITTENTI) if (re.test(testo)) return [nome, ico, col];
+  return ["Notifiche", "🔔", "#444"];
+}
+function conversazioni(me) {
+  const conv = new Map();
+  (me.messaggi || []).forEach((m, i) => { const [nome, ico, col] = mittente(m.testo); if (!conv.has(nome)) conv.set(nome, { nome, ico, col, msg: [] }); conv.get(nome).msg.push({ ...m, i, testo: m.testo.replace(/^Vera: /, "").replace(/^Municipio: /, "") }); });
+  return [...conv.values()].sort((a, b) => b.msg[b.msg.length - 1].i - a.msg[a.msg.length - 1].i);
+}
+let chatAperta = null;
+function lettiChat(nome) { try { return +(localStorage.getItem("laguna_chat_" + partita + "_" + nome) || 0); } catch (e) { return 0; } }
+function segnaChat(nome, n) { try { localStorage.setItem("laguna_chat_" + partita + "_" + nome, String(n)); } catch (e) { } }
 function letti() { try { return +(localStorage.getItem("laguna_letti_" + partita) || 0); } catch (e) { return 0; } }
 function segnaLetti(n) { try { localStorage.setItem("laguna_letti_" + partita, String(n)); } catch (e) { } }
-function apriApp(k) { telAperto = true; app = k; if (k === "messaggi") segnaLetti((io().messaggi || []).length); disegnaTelefono(io()); }
+function apriApp(k) { telAperto = true; app = k; chatAperta = null; if (k === "messaggi") segnaLetti((io().messaggi || []).length); disegnaTelefono(io()); }
 function disegnaTelefono(me) {
   const box = $("#telefonoBox");
   const nuovi = Math.max(0, (me.messaggi || []).length - letti());
@@ -553,7 +686,7 @@ function disegnaTelefono(me) {
   box.innerHTML = `<div class="tel"><div class="schermo"><div class="barra"><span>${ora}</span><button class="piccolo" id="chiudiTel2" aria-label="Chiudi il telefono" style="padding:3px 10px">✕ Chiudi</button></div>${dentro}</div><button class="tel-chiudi" id="chiudiTel" aria-label="Chiudi il telefono"></button></div>`;
   $("#chiudiTel").onclick = $("#chiudiTel2").onclick = () => { telAperto = false; disegnaTelefono(me); };
   box.querySelectorAll("[data-app]").forEach((b) => b.onclick = () => apriApp(b.dataset.app));
-  if ($("#indietro")) $("#indietro").onclick = () => { app = null; disegnaTelefono(me); };
+  if ($("#indietro")) $("#indietro").onclick = () => { app = null; chatAperta = null; disegnaTelefono(me); };
   collegaApp(me);
 }
 function tappe(l) {
@@ -587,10 +720,21 @@ function contenutoApp(me, k) {
     return `<div class="scheda"><span class="kick" style="color:var(--muted)">Conto</span><span class="serif" style="font-size:28px;color:var(--pulito)">${euro(me.cash)}</span>${me.sporchi ? `<span style="color:var(--sporco)">In contanti sporchi: ${euro(me.sporchi)}</span>` : ""}</div>
       <div class="scheda"><h4>Debito: ${euro(me.debito)}</h4>${me.debito ? `<button class="piccolo" data-a2="restituisci">Restituisci tutto</button>` : ""}${miTurno && !me.azioneGiornoFatta ? `<button class="piccolo" data-a2="prestito">Chiedi un prestito</button>` : `<span class="sub">I prestiti si chiedono durante il tuo turno.</span>`}</div>
       <div class="scheda"><h4>Fai un regalo</h4><div class="riga"><select id="regA">${altri.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><input id="regImp" type="number" placeholder="quanto" style="width:110px"></div>${S.sblocco >= 1 ? `<label class="check"><input type="checkbox" id="regSp"> in contanti sporchi</label>` : ""}<button class="piccolo" data-a2="regala">Dai</button></div>
-      ${S.sblocco >= 2 ? `<div class="scheda"><h4>Tasse</h4><span class="sub">Puoi nascondere una parte delle rendite al fisco: diventano soldi sporchi e lasciano Tracce.</span><select id="evasione">${[0, 0.1, 0.2, 0.3].map((q) => `<option value="${q}" ${Math.abs(q - (me.evasione || 0)) < 0.01 ? "selected" : ""}>${q ? "Nascondi il " + q * 100 + "%" : "Pago tutto"}</option>`).join("")}</select></div>` : ""}`;
+      ${S.sblocco >= 2 ? `<div class="scheda"><h4>Tasse</h4><span class="sub">Puoi nascondere una parte delle rendite al fisco. Non paghi le tasse su quella parte: diventa contante in nero, che di notte spendi subito (Mercato Nero, occasioni, "regali") senza ripulirlo. Ma lascia Tracce, e la Finanza guarda i più ricchi.</span><select id="evasione">${[0, 0.1, 0.2, 0.3].map((q) => `<option value="${q}" ${Math.abs(q - (me.evasione || 0)) < 0.01 ? "selected" : ""}>${q ? "Nascondi il " + q * 100 + "%" : "Pago tutto"}</option>`).join("")}</select></div>` : ""}`;
   }
   if (k === "gazzetta") return [...S.gazzetta].reverse().slice(0, 30).map((g) => `<div class="scheda"><span><span class="tag ${g.tipo}">Ciclo ${g.ciclo}</span></span><span class="serif" style="font-size:16px">${esc(g.testo)}</span></div>`).join("");
-  if (k === "messaggi") return [...(me.messaggi || [])].reverse().map((m) => `<div class="msg ${m.testo.startsWith("Vera:") ? "vera" : ""}">${esc(m.testo)}</div>`).join("") || `<p class="sub">Nessun messaggio.</p>`;
+  if (k === "messaggi") {
+    const cv = conversazioni(me);
+    if (!cv.length) return `<p class="sub">Nessun messaggio.</p>`;
+    const c = chatAperta && cv.find((x) => x.nome === chatAperta);
+    if (c) {
+      segnaChat(c.nome, c.msg.length);
+      return `<div class="chat-testa"><button class="piccolo" id="tornaChat">‹</button><span class="avatar" style="background:${c.col}">${esc(c.ico)}</span><b>${esc(c.nome)}</b></div>
+        <div class="chat">${c.msg.map((m) => `<div class="bolla">${esc(m.testo)}<span>Ciclo ${m.ciclo}</span></div>`).join("")}</div>`;
+    }
+    return cv.map((c) => { const ult = c.msg[c.msg.length - 1]; const nuovi = c.msg.length - lettiChat(c.nome);
+      return `<button class="conv" data-chat="${esc(c.nome)}"><span class="avatar" style="background:${c.col}">${esc(c.ico)}</span><span class="cv-t"><b>${esc(c.nome)}</b><span>${esc(ult.testo.slice(0, 70))}${ult.testo.length > 70 ? "…" : ""}</span></span>${nuovi > 0 ? `<span class="pallino">${nuovi}</span>` : ""}</button>`; }).join("");
+  }
   if (k === "valigetta") {
     const v = me.valigetta || [], posti = S.postiValigetta;
     return `<p class="sub">${v.length} posti usati su ${posti}. Gli oggetti si comprano di notte, nei posti giusti.</p>` +
@@ -629,6 +773,9 @@ function collegaApp(me) {
   const box = $("#telefonoBox");
   const on = (sel, f) => box.querySelectorAll(sel).forEach((b) => b.onclick = () => f(b));
   const v = (q) => box.querySelector(q)?.value;
+  on("[data-chat]", (b) => { chatAperta = b.dataset.chat; disegnaTelefono(me); });
+  on("#tornaChat", () => { chatAperta = null; disegnaTelefono(me); });
+  const ch = box.querySelector(".chat"); if (ch) ch.scrollTop = ch.scrollHeight;
   on("[data-permesso]", (b) => agisci({ tipo: "permesso", lotto: b.dataset.permesso }));
   on("[data-regalo]", (b) => agisci({ tipo: "regalo_assessore", lotto: b.dataset.regalo }));
   on("[data-cantiere]", (b) => agisci({ tipo: "costruisci", lotto: b.dataset.cantiere, attivita: v("#t_" + b.dataset.cantiere) }));
@@ -705,6 +852,7 @@ function finestraPending(me) {
     });
   }
   if (pd.tipo === "chiamata") {
+    Suono.telefono();
     const tel = (me.valigetta || []).some((o) => o.id === "telefono");
     return finestra(`<span class="kick" style="color:var(--rosa)">📞 Numero sconosciuto</span><p class="storia" style="font-size:17px">${esc(pd.testo)}</p>
       ${tel ? `<label class="check"><input type="checkbox" id="tel" checked> Rispondo dal telefono usa-e-getta</label>` : `<p class="sub">Se accetti dal tuo numero, qualcuno potrebbe ascoltare.</p>`}
