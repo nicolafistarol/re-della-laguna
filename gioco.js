@@ -11,7 +11,7 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=51";
+import * as Tre from "./tre.js?v=56";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
@@ -773,7 +773,7 @@ function applicaVista() {
   const m = $("#mappa"); if (!m) return;
   if (TRE3D) { m.style.transform = ""; m.style.setProperty("--z", 1); return; }
   const w = m.offsetWidth, h = m.offsetHeight, W = innerWidth, H = innerHeight;
-  const maxX = Math.max(0, (w * vista.z - W) / 2), maxY = Math.max(0, (h * vista.z - H) / 2); // la mappa copre sempre tutto lo schermo
+  const maxX = Math.max((w * vista.z) / 2, (w * vista.z - W) / 2), maxY = Math.max((h * vista.z) / 2, (h * vista.z - H) / 2); // ogni punto della mappa si puo' portare al centro dello schermo
   vista.x = Math.max(-maxX, Math.min(maxX, vista.x)); vista.y = Math.max(-maxY, Math.min(maxY, vista.y));
   m.style.transform = `translate(calc(-50% + ${vista.x}px), calc(-50% + ${vista.y}px)) scale(${vista.z})`;
   m.style.setProperty("--z", vista.z);
@@ -793,23 +793,26 @@ function centraSu(px, py) {
 }
 // muovendo il mouse verso il bordo dello schermo la mappa scorre (come nei giochi di strategia)
 const bordo = { x: 0, y: 0, attivo: false };
-function scorriAlBordo() {
+function scorriAlBordo(t) {
   requestAnimationFrame(scorriAlBordo);
-  if (!bordo.attivo || !S || (S.fase === "notte" && S.notte) || document.querySelector(".velo,#guida")) return;
-  const Z = 56, W = innerWidth, H = innerHeight;
+  const dt = Math.min(0.05, ((t || 0) - (bordo.ultimo || t || 0)) / 1000); bordo.ultimo = t;
+  if (!bordo.dentro || !S || (S.fase === "notte" && S.notte) || document.querySelector(".velo,#guida")) return;
+  const Z = 70, W = innerWidth, H = innerHeight;
+  // vicino al bordo scorre solo sopra la mappa; proprio sul bordo (24 px) scorre sempre, anche sopra i pannelli
+  if (!bordo.attivo && !(bordo.x < 24 || bordo.y < 24 || bordo.x > W - 24 || bordo.y > H - 24)) return;
   const fx = bordo.x < Z ? -(Z - bordo.x) / Z : bordo.x > W - Z ? (bordo.x - (W - Z)) / Z : 0;
   const fy = bordo.y < Z ? -(Z - bordo.y) / Z : bordo.y > H - Z ? (bordo.y - (H - Z)) / Z : 0;
   if (!fx && !fy) return;
-  const v = 16;
+  const v = 1100 * dt; // pixel al secondo, uguale su ogni computer
   if (TRE3D) Tre.sposta(fx * v, fy * v);
   else { vista.x -= fx * v; vista.y -= fy * v; $("#mondo").classList.add("trascino"); applicaVista(); clearTimeout(bordo.t); bordo.t = setTimeout(() => $("#mondo").classList.remove("trascino"), 150); }
 }
 addEventListener("mousemove", (e) => {
-  bordo.x = e.clientX; bordo.y = e.clientY;
+  bordo.x = e.clientX; bordo.y = e.clientY; bordo.dentro = true;
   // sopra i pannelli (soldi, carta, telefono, legenda...) non scorre
-  bordo.attivo = e.pointerType !== "touch" && !!e.target.closest && !!e.target.closest("#mondo") && !e.target.closest(".scheda-cas");
+  bordo.attivo = !!e.target.closest && !!e.target.closest("#mondo") && !e.target.closest(".scheda-cas");
 });
-document.addEventListener("mouseleave", () => { bordo.attivo = false; });
+document.addEventListener("mouseleave", () => { bordo.attivo = false; bordo.dentro = false; });
 requestAnimationFrame(scorriAlBordo);
 let apertaVicino = false;
 function apriMappaVicino(me) {
@@ -1146,7 +1149,7 @@ function aggiornaPanorama(me) {
   });
   Pano.mostra(V.img, punti, { yaw: 0 });
 }
-const ICO_SCELTA = { rito: "setta", doganiere: "handshake", tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
+const ICO_SCELTA = { rito: "setta", scava: "faro", doganiere: "handshake", tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
 function righeNotte(lista) { return lista.map((r) => { const [o, ...t] = r.split(" — "); return `<p><b>${esc(o)}</b> ${esc(t.join(" — "))}</p>`; }).join(""); }
 function restoOra() { const N2 = S.notte; if (!N2 || !N2.inizio) return null; return Math.max(0, Math.ceil((N2.tempo || 120) - (Date.now() - N2.inizio) / 1000)); }
 function scenaNotte(me) {
@@ -1210,7 +1213,7 @@ function collegaScena(me) {
   const scelte = S.notte.scelte || [];
   document.querySelectorAll(".scena [data-scelta]").forEach((b) => b.onclick = () => {
     const c = scelte[+b.dataset.scelta]; if (!c) return;
-    const diretta = ["occ", "ricicla", "paradiso", "banchiere", "polizia", "doganiere", "rito"].includes(c.k);
+    const diretta = ["occ", "ricicla", "paradiso", "banchiere", "polizia", "doganiere", "rito", "scava"].includes(c.k);
     if (!diretta && !b.classList.contains("aperta")) { document.querySelectorAll(".scena .scelta.aperta").forEach((x) => x.classList.remove("aperta")); b.classList.add("aperta"); return; }
     if (c.k === "occ") return finestraOccasione(me, c.n);
     if (c.k === "ricicla") return finestraRicicla(me, false);
@@ -1220,6 +1223,7 @@ function collegaScena(me) {
     if (c.k === "articolo") return finestraArticolo(me);
     if (c.k === "setta") return finestraSetta(me);
     if (c.k === "rito") return agisci({ tipo: "rito", setta: c.setta });
+    if (c.k === "scava") return agisci({ tipo: "scava", setta: c.setta });
     if (c.k === "foto") return agisci({ tipo: "foto", bersaglio: c.bersaglio });
     if (c.k === "aspetta") return agisci({ tipo: "aspetta" });
     if (c.k === "fissa") return c.puntata ? finestraPuntata(me, c) : agisci({ tipo: "attivita" });
@@ -1586,7 +1590,12 @@ function disegnaTelefono(me) {
     const A = APPS.find((a) => a.k === app);
     dentro = `<div class="app-testa"><button id="indietro">‹ Home</button><b>${A.ico} ${A.nome}</b></div><div class="app-corpo">${contenutoApp(me, app)}</div>`;
   }
+  // quando arriva un aggiornamento (un altro tira i dadi) il telefono si ridisegna: la pagina resta dove l'avevi lasciata
+  const primaCorpo = box.querySelector(".app-corpo"), primaHome = box.querySelector(".home2");
+  const scrollPrima = { app: box.dataset.app || "", corpo: primaCorpo ? primaCorpo.scrollTop : 0, home: primaHome ? primaHome.scrollTop : 0 };
+  box.dataset.app = app || "";
   box.innerHTML = `<div class="tel"><div class="schermo"><div class="barra"><span>${ora}</span><button class="piccolo" id="chiudiTel2" aria-label="Chiudi il telefono" style="padding:3px 10px">✕ Chiudi</button></div>${dentro}</div><button class="tel-chiudi" id="chiudiTel" aria-label="Chiudi il telefono"></button></div>`;
+  if (scrollPrima.app === (app || "")) { const c = box.querySelector(".app-corpo"), h = box.querySelector(".home2"); if (c) c.scrollTop = scrollPrima.corpo; if (h) h.scrollTop = scrollPrima.home; }
   $("#chiudiTel").onclick = $("#chiudiTel2").onclick = () => { telAperto = false; disegnaTelefono(me); };
   box.querySelectorAll("[data-app]").forEach((b) => b.onclick = () => apriApp(b.dataset.app));
   if ($("#cambiaNome")) $("#cambiaNome").onclick = () => finestra(`<h2>Come ti chiami?</h2><input id="nuovoNome" maxlength="24" value="${esc(me.nome)}"><div class="pulsanti"><button id="no">Annulla</button><button class="oro" id="si">Salva</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { const n = d.querySelector("#nuovoNome").value.trim(); if (!n) return toast("Scrivi un nome."); try { localStorage.setItem("laguna_nome_locale", n); } catch (e) { } Loc.rinomina(n); c(); caricaVista(); }; });
@@ -1752,12 +1761,13 @@ function contenutoApp(me, k) {
         <div class="riga"><button class="piccolo oro" data-invito="${x.setta}|1">Entro</button><button class="piccolo" data-invito="${x.setta}|0">Rifiuto</button></div></div>`).join("") +
       (S.sette.length ? S.sette.map((st) => `<div class="scheda"><h4 style="color:var(--setta)">${esc(st.nome)}</h4><i class="sub">${esc(st.motto)}</i><span class="sub">Livello ${L.livelloSetta(S, st)} · membri: ${st.membri.map((id) => esc(S.players.find((x) => x.id === id).nome)).join(", ")} · tesoro ${euro(st.tesoro)}</span>
         <div class="riga"><input type="number" placeholder="versa" id="versa_${st.id}" style="width:100px"><button class="piccolo" data-versa="${st.id}|0">Puliti</button><button class="piccolo" data-versa="${st.id}|1">Sporchi</button></div>
-        ${st.membri.filter((id) => id !== st.gm).length ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${st.membri.filter((id) => id !== st.gm).map((id) => { const m = S.players.find((x) => x.id === id); return `<div class="riga" style="justify-content:space-between"><span class="sub">${esc(m.nome)}${id === mioId ? " (tu)" : ""}</span>${st.gm === mioId ? `<button class="piccolo" data-caccia="${st.id}|${id}">Caccia</button>` : id === mioId ? `<button class="piccolo" data-lascia="${st.id}">Esci dalla setta</button>` : ""}</div>`; }).join("")}</div>` : ""}
+        ${st.membri.filter((id) => id !== st.gm).length ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${st.membri.filter((id) => id !== st.gm).map((id) => { const m = S.players.find((x) => x.id === id); return `<div class="riga" style="justify-content:space-between"><span class="sub">${esc(m.nome)}${id === mioId ? " (tu)" : ""}</span>${st.gm === mioId ? `<span><button class="piccolo" data-prova="${st.id}|${id}" title="Costa 1 M dal Tesoro: scopri se sta tradendo">Prova di fedeltà</button> <button class="piccolo" data-caccia="${st.id}|${id}">Caccia</button></span>` : id === mioId ? `<button class="piccolo" data-lascia="${st.id}">Esci dalla setta</button>` : ""}</div>`; }).join("")}</div>` : ""}
         <span class="sub" style="display:block;margin-top:6px">${requisitiSetta(st)}${PNG_SETTA.filter((x) => st[x.k]).length ? " Personaggi: " + PNG_SETTA.filter((x) => st[x.k]).map((x) => x.nome).join(", ") + "." : ""}</span>
         ${(() => { const cv = st.convocazione && st.convocazione.ciclo === S.ciclo ? st.convocazione : null;
           const luoghi = Object.keys(L.LUOGHI).filter((l) => l !== "palazzo");
           return `<div class="scheda conv-setta"><h4>🕯️ Convocazione</h4>${cv ? `<span class="sub"><b>Stanotte alle ${L.ORE[cv.ora]}, ${esc(L.LUOGHI[cv.luogo].nome)}</b>${cv.fatto ? " · il rito è già stato fatto" : ". Chi è lì a quell'ora partecipa al rito: Tracce cancellate e protezione per il resto della notte." + (S.players.find((x) => x.id === st.gm).veicoli.includes("jet") ? " Il jet del Gran Maestro ti porta lì in 1 ora." : "")}</span>` : `<span class="sub">Nessuna convocazione per stanotte.</span>`}
           ${st.gm === mioId && !(cv && cv.fatto) ? `<div class="riga" style="flex-wrap:wrap;margin-top:6px"><select id="convL_${st.id}">${luoghi.map((l) => `<option value="${l}" ${cv && cv.luogo === l ? "selected" : ""}>${esc(L.LUOGHI[l].nome)}</option>`).join("")}</select><select id="convO_${st.id}">${[1, 2, 3, 4, 5].filter((o) => !(S.fase === "notte" && S.notte && o <= S.notte.ora)).map((o) => `<option value="${o}" ${cv && cv.ora === o ? "selected" : ""}>${L.ORE[o]}</option>`).join("")}</select><button class="piccolo oro" data-convoca="${st.id}">Convoca</button></div><span class="sub">Solo i membri ricevono il messaggio. Il rito lo celebri tu, di notte, quando sei lì.</span>` : ""}</div>`; })()}
+        ${st.gm !== mioId ? `<div class="scheda" style="margin-top:8px;border-color:#7a2c2c"><h4>🗡️ Tradire la setta</h4><span class="sub">${st.tradimento ? "<b>Hai già parlato con la polizia.</b> All'Alba scatta il tradimento, se il Gran Maestro non ti scopre prima." : "Vendi la setta alla polizia: all'Alba prendi il 10% del Tesoro (fino a 5 M) puliti e ti cancellano 30 Tracce. La setta perde metà del Tesoro e gli altri membri finiscono sotto osservazione. Se il Gran Maestro ti fa la Prova di fedeltà prima dell'Alba, sei scoperto."}</span>${st.tradimento ? "" : `<button class="piccolo" data-tradisci="${st.id}" style="margin-top:6px">Chiama la polizia</button>`}</div>` : `<span class="sub" style="display:block;margin-top:6px">⚰️ Tesoro sepolto: ${euro(st.sepolto || 0)}. Si nasconde e si recupera di notte al Faro.</span>`}
         <div class="scheda chat-setta"><h4>💬 Parla con i confratelli</h4>
           <div class="chat-righe">${(st.chat || []).slice(-12).map((m) => `<div class="${m.da === mioId ? "mio" : ""}"><b>${esc(m.nome)}</b> ${esc(m.testo)}</div>`).join("") || `<span class="sub">Ancora nessun messaggio. Qui scrivono solo i membri.</span>`}</div>
           <div class="riga"><input id="chat_${st.id}" maxlength="160" placeholder="Scrivi ai confratelli…" style="flex:1"><button class="piccolo oro" data-schat="${st.id}">Invia</button></div></div>
@@ -1898,6 +1908,8 @@ function collegaApp(me) {
   on("[data-vendi]", (b) => { const [cosa, nome] = b.dataset.vendi.split("|"); agisci({ tipo: "vendi", cosa, nome, quota: 1 }); });
   on("[data-gciclo]", (b) => { gazzettaCiclo = +b.dataset.gciclo; disegnaTelefono(io()); });
   on("[data-invito]", (b) => { const [st, si] = b.dataset.invito.split("|"); agisci({ tipo: "rispondi_invito", setta: st, si: si === "1" }); });
+  on("[data-prova]", (b) => { const [st, m] = b.dataset.prova.split("|"); agisci({ tipo: "prova_fedelta", setta: st, membro: m }); });
+  on("[data-tradisci]", (b) => finestra(`<h2>Tradire la setta?</h2><p>Non si torna indietro. All'Alba la polizia riceve tutto, a meno che il Gran Maestro ti scopra prima.</p><div class="pulsanti"><button id="no">Ci ripenso</button><button class="oro" id="si">Chiamo</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "tradisci", setta: b.dataset.tradisci }); }; }));
   on("[data-convoca]", (b) => { const id = b.dataset.convoca; agisci({ tipo: "convoca", setta: id, luogo: v("#convL_" + id), ora: +v("#convO_" + id) }); });
   on("[data-schat]", (b) => { const id = b.dataset.schat, t = v("#chat_" + id); if (t && t.trim()) agisci({ tipo: "msg_setta", setta: id, testo: t }); });
   on("[data-versa]", (b) => { const [st, sp] = b.dataset.versa.split("|"); agisci({ tipo: "versa_setta", setta: st, importo: Number(v("#versa_" + st)), sporchi: sp === "1" }); });
@@ -2220,6 +2232,7 @@ const OPS_SETTA = [
   { k: "manipola", nome: "Muovere un titolo in Borsa", lv: 2, costo: 1_000_000, ob: "azienda", descr: "Un titolo sale o scende del 15% (del 40% dal livello 3). Compra prima, poi fallo salire." },
   { k: "blackout", nome: "Spegnere un'isola", lv: 3, costo: 3_000_000, ob: "isola", descr: "Stanotte su quell'isola la polizia è al buio: niente pericoli negli affari." },
   { k: "evasione", nome: "Far evadere qualcuno dal Faro", lv: 3, costo: 2_000_000, ob: "giocatore", descr: "Esce subito dalla prigione." },
+  { k: "sabotaggio", nome: "Sabotare una setta rivale", lv: 2, costo: 1_500_000, ob: "setta", descr: "Un incendio nella notte: la setta rivale perde il 25% del suo Tesoro (fino a 5 M). Il Tesoro sepolto si salva." },
   { k: "inchiesta", nome: "Inchiesta pilotata", lv: 4, costo: 4_000_000, ob: "giocatore", descr: "Una soffiata alla Procura: il bersaglio prende +25 Tracce e la polizia lo tiene d'occhio." },
   { k: "fantoccio", nome: "Un Sindaco fantoccio", lv: 4, costo: 10_000_000, ob: null, descr: "Diventi Sindaco per 2 Cicli." },
 ];
@@ -2247,6 +2260,9 @@ function finestraSetta(me) {
     <p class="sub" id="opDescr"></p>
     <div class="riga" id="obRiga"><select id="ob"></select><select id="od"><option value="su">su</option><option value="giu">giù</option></select></div>
     <p class="sub">Riesce 3 volte su 4. Ogni membro prende +5 Tracce.</p>
+    <h4 style="margin:12px 0 4px">⚰️ Il Tesoro sepolto</h4>
+    <p class="sub">Sotto la scogliera: ${euro(st.sepolto || 0)}. Qui la Finanza e i traditori non arrivano, ma non conta per il livello. Se qualcuno ti sta seguendo stanotte, vede dove scavi.</p>
+    <div class="riga"><input id="sepImp" type="number" step="500000" placeholder="quanto" style="width:110px"><button class="piccolo" id="sep">Seppellisci</button><button class="piccolo" id="dis">Dissotterra</button></div>
     <h4 style="margin:12px 0 4px">Personaggi</h4>
     ${PNG_SETTA.map((x) => `<div class="riga" style="justify-content:space-between;align-items:center;gap:8px"><span class="sub" style="flex:1"><b>${x.nome}</b> · ${euro(x.costo)}<br>${x.descr}</span>${st[x.k] ? `<span class="sub" style="color:var(--pulito)">✔ è vostro</span>` : `<button class="piccolo" data-rec="${x.k}" ${lv < 2 || st.tesoro < x.costo ? "disabled" : ""}>Recluta</button>`}</div>`).join("")}
     ${lv < 2 ? `<p class="sub">I personaggi si reclutano dal livello 2.</p>` : ""}
@@ -2256,13 +2272,15 @@ function finestraSetta(me) {
     const aggiorna = () => {
       const o = OPS_SETTA.find((x) => x.k === sel.value);
       d.querySelector("#opDescr").textContent = o.descr;
-      ob.innerHTML = o.ob === "azienda" ? L.AZIENDE.map((a) => `<option value="${a}">${a}</option>`).join("") : o.ob === "isola" ? L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("") : o.ob === "giocatore" ? S.players.filter((x) => o.k === "evasione" ? x.faro > 0 : x.id !== mioId).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("") : "";
+      ob.innerHTML = o.ob === "setta" ? (S.setteRivali || []).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("") : o.ob === "azienda" ? L.AZIENDE.map((a) => `<option value="${a}">${a}</option>`).join("") : o.ob === "isola" ? L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("") : o.ob === "giocatore" ? S.players.filter((x) => o.k === "evasione" ? x.faro > 0 : x.id !== mioId).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("") : "";
       ob.style.display = o.ob ? "" : "none"; od.style.display = o.ob === "azienda" ? "" : "none";
       d.querySelector("#ok").disabled = lv < o.lv || st.tesoro < o.costo || (o.ob && !ob.value);
     };
     sel.onchange = aggiorna; aggiorna();
     d.querySelector("#x").onclick = c;
     d.querySelectorAll("[data-rec]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "recluta", setta: st.id, chi: b.dataset.rec }); });
+    d.querySelector("#sep").onclick = () => { c(); agisci({ tipo: "seppellisci", setta: st.id, importo: +d.querySelector("#sepImp").value }); };
+    d.querySelector("#dis").onclick = () => { c(); agisci({ tipo: "seppellisci", setta: st.id, importo: +d.querySelector("#sepImp").value, indietro: true }); };
     d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "operazione", setta: st.id, op: sel.value, bersaglio: ob.value, direzione: od.value }); };
   });
 }

@@ -104,7 +104,7 @@ export function ruota(gradi) {
 // scorrere la mappa (bordo dello schermo): dx, dy in pixel dello schermo
 export function sposta(dx, dy) {
   if (!attivo) return;
-  const dist = camera.position.distanceTo(controlli.target), k = dist / 700;
+  const dist = camera.position.distanceTo(controlli.target), k = dist / 500;
   const avanti = controlli.target.clone().sub(camera.position); avanti.y = 0; avanti.normalize();
   const destra = new THREE.Vector3().crossVectors(avanti, new THREE.Vector3(0, 1, 0)).normalize();
   const m = destra.multiplyScalar(dx * k).add(avanti.multiplyScalar(-dy * k));
@@ -197,7 +197,8 @@ function pedina(colore) {
   g.scale.setScalar(1.8);
   return g;
 }
-function svuota(gr) { while (gr.children.length) { const c = gr.children.pop(); c.traverse((m) => { if (m.geometry && m.geometry !== geoBox) m.geometry.dispose(); }); } }
+// libera la memoria della scheda video: geometrie, materiali e immagini dei pezzi tolti (prima i materiali restavano e il gioco diventava pesante)
+function svuota(gr) { while (gr.children.length) { const c = gr.children.pop(); c.traverse((m) => { if (m.geometry && m.geometry !== geoBox) m.geometry.dispose(); const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : []; for (const x of mats) { if (x.map) x.map.dispose(); x.dispose(); } }); } }
 
 // Ridisegna edifici, torri e basi delle caselle a partire dalla situazione della partita.
 // caselle: [{x,y,colore,proprietario,livello,cantiere,tipo}], torri: [{x,y,colore,piani}]

@@ -59,6 +59,14 @@ function rispostaInvito(o, i, n, a) {
 }
 // Il Gran Maestro bot invita una persona al Ciclo, con un regalo se il Tesoro puo' permetterselo
 function invitoBot(o, i, L) {
+  // tradimenti e sospetti
+  if (i._tradCiclo !== o.ciclo) {
+    i._tradCiclo = o.ciclo;
+    const altra = (o.sette || []).find((x) => x.gm !== i.id && x.membri.includes(i.id));
+    if (altra && !altra.tradimento && altra.tesoro >= 1e7 && ["Furbo", "Spavaldo"].includes(i.strat) && Math.random() < 0.08) return { tipo: "tradisci", setta: altra.id };
+    const mia = (o.sette || []).find((x) => x.gm === i.id);
+    if (mia && mia.membri.length > 1 && mia.tesoro >= 3e6 && Math.random() < 0.15) { const m = mia.membri.filter((x) => x !== i.id); return { tipo: "prova_fedelta", setta: mia.id, membro: m[Math.floor(Math.random() * m.length)] }; }
+  }
   const st = (o.sette || []).find((x) => x.gm === i.id);
   if (st && st.membri.length >= 2 && !(st.convocazione && st.convocazione.ciclo === o.ciclo) && o.ciclo % 2 === 0) {
     const posti = ["faro", "porto", "bisca", "club"].filter((l) => L.luogoAperto(o, l, i));

@@ -1709,6 +1709,7 @@
     if (dove === "club" && lv >= 1) sp.push({ k: "polizia", titolo: "Parla con un agente fuori servizio", testo: "Al bancone c'è un poliziotto che beve da solo. Ha l'aria di chi cerca un extra." });
     if (dove === "redazione") sp.push({ k: "articolo", titolo: "Una busta al caporedattore", testo: "Domattina la Gazzetta può parlare bene di te. O male di un altro." });
     if (dove === "faro" && s.sette.some((st) => st.gm === p.id)) sp.push({ k: "setta", titolo: "Riunisci la setta", testo: "Tra le onde, i tuoi confratelli aspettano un ordine." });
+    if (dove === "faro") for (const id of p.nascondigli || []) { const st = s.sette.find((x) => x.id === id); if (st && st.sepolto > 0) sp.push({ k: "scava", setta: id, titolo: "Scava sotto la scogliera", testo: "Sai dove la setta \"" + st.nome + "\" nasconde il suo tesoro. Metà è tua, ma lasci molte Tracce." }); }
     { const cv = convocazioneDi(s, p); if (cv && cv.st.gm === p.id && dove === cv.c.luogo && N2.ora >= cv.c.ora && quiConMe(s, p).some((x) => cv.st.membri.includes(x.id))) sp.push({ k: "rito", setta: cv.st.id, titolo: "Celebra il rito della setta", testo: "I confratelli arrivati qui: Tracce cancellate e protezione per il resto della notte." }); }
     const ospiteDi = N2.ospite && N2.ospite[p.id];
     if (ospiteDi) {
@@ -1726,7 +1727,7 @@
       if (q) sp.push({ k: "foto", bersaglio: q.id, titolo: "Fotografa " + q.nome, testo: q.nome + " è qui. Se fa qualcosa di strano, avrai una Prova." });
     }
     const fissa = ATTIVITA_NOTTE[dove] ? { k: "fissa", ...ATTIVITA_NOTTE[dove] } : null;
-    const prima = sp.filter((x) => x.k === "rito"), resto = sp.filter((x) => x.k !== "rito"); // il rito della setta viene prima di tutto
+    const prima = sp.filter((x) => x.k === "rito" || x.k === "scava"), resto = sp.filter((x) => x.k !== "rito" && x.k !== "scava"); // il rito della setta viene prima di tutto
     const tutte = fissa ? [...[...prima, ...occ, ...resto].slice(0, 2), fissa] : [...prima, ...occ, ...resto].slice(0, 3);
     if (tutte.length < 3) {
       const tardi = s.notte.occasioni.some((o) => !o.preso && o.luogo === dove && o.dalle > N2.ora && (!o.riservata || o.riservata === p.id));
@@ -2257,6 +2258,75 @@
     for (const id of st.membri) if (!presenti.some((x) => x.id === id)) privato(s, giocatore(s, id), "Stanotte non eri al rito della setta. Il Gran Maestro se n'è accorto.");
     N2.chiuso[p.id] = true; controllaOra(s);
   }
+  // ---- il Tesoro sepolto: al Faro il Gran Maestro nasconde una parte del Tesoro. Non conta per il livello,
+  // ma la Finanza e i traditori non lo trovano. Chi lo segue di notte pero' scopre il nascondiglio.
+  function settaMia(s, p, idSetta) { const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro."); return st; }
+  function seppellisci(s, p, idSetta, importo, indietro) {
+    oraLibera(s, p);
+    if (s.notte.dove[p.id] !== "faro") err("Il Tesoro si nasconde al Faro.");
+    const st = settaMia(s, p, idSetta);
+    importo = round(Number(importo) || 0); if (importo <= 0) err("Scegli quanto.");
+    if (!indietro) {
+      if (importo > st.tesoro) err("Nel Tesoro non ci sono " + euro(importo) + ".");
+      st.tesoro -= importo; st.sepolto = (st.sepolto || 0) + importo;
+      racconta(s, p, "Sotto la scogliera, al buio, sotterri " + euro(importo) + " del Tesoro. Nessuno li troverà. Spero.");
+      for (const [chi, seguito] of Object.entries(s.notte.segue || {})) if (seguito === p.id && chi !== p.id) {
+        const q = giocatore(s, chi); q.nascondigli = q.nascondigli || []; if (!q.nascondigli.includes(st.id)) q.nascondigli.push(st.id);
+        racconta(s, q, "Dietro una roccia vedi " + p.nome + " scavare sotto la scogliera del Faro. Ora sai dove la setta nasconde i soldi.");
+      }
+    } else {
+      if (importo > (st.sepolto || 0)) err("Sotto terra ci sono solo " + euro(st.sepolto || 0) + ".");
+      st.sepolto -= importo; st.tesoro += importo;
+      racconta(s, p, "Dissotterri " + euro(importo) + " e li rimetti nel Tesoro.");
+    }
+  }
+  function scava(s, p, idSetta) {
+    oraLibera(s, p); qui(s, p, "faro", "Scavare sotto la scogliera");
+    const st = s.sette.find((x) => x.id === idSetta);
+    if (!st || !(p.nascondigli || []).includes(idSetta)) err("Non sai dove scavare.");
+    p.nascondigli = p.nascondigli.filter((x) => x !== idSetta);
+    const preso = round((st.sepolto || 0) * 0.5);
+    st.sepolto -= preso; p.sporchi += preso; p.tracce += 15;
+    racconta(s, p, preso ? "Scavi nel buio finché la pala tocca il metallo. Ti porti via " + euro(preso) + " in contanti sporchi." : "Scavi, ma la buca è vuota: qualcuno è arrivato prima.");
+    if (preso) { privato(s, giocatore(s, st.gm), "Qualcuno ha scavato sotto la scogliera del Faro: mancano " + euro(preso) + " dal Tesoro sepolto."); notizia(s, "Una buca fresca sotto la scogliera del Faro. I pescatori giurano di aver visto una pala, nella notte.", "voce"); }
+    s.notte.chiuso[p.id] = true; controllaOra(s);
+  }
+  // ---- il Traditore: un membro vende la setta alla polizia. Succede all'Alba, a meno che il Gran Maestro lo scopra prima.
+  function tradisci(s, p, idSetta) {
+    const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id)) err("Non sei in questa setta.");
+    if (st.gm === p.id) err("Il Gran Maestro non tradisce la sua setta.");
+    if (st.tradimento) err("Qualcuno ha già parlato con la polizia.");
+    st.tradimento = { da: p.id, ciclo: s.ciclo };
+    privato(s, p, "Hai chiamato un numero che non avresti dovuto conoscere. All'Alba la polizia avrà tutto sulla setta \"" + st.nome + "\": tu prendi un premio e ti cancellano molte Tracce. Se il Gran Maestro ti scopre prima con una Prova di fedeltà, sei finito.");
+  }
+  function provaFedelta(s, p, idSetta, idMembro) {
+    const st = settaMia(s, p, idSetta);
+    if (!st.membri.includes(idMembro) || idMembro === p.id) err("Scegli un membro.");
+    const costo = 1_000_000; if (st.tesoro < costo) err("La Prova di fedeltà costa " + euro(costo) + " dal Tesoro.");
+    st.tesoro -= costo;
+    const m = giocatore(s, idMembro);
+    if (st.tradimento && st.tradimento.da === idMembro) {
+      st.tradimento = null;
+      st.membri = st.membri.filter((x) => x !== idMembro); m.sette = m.sette.filter((x) => x !== idSetta);
+      m.tracce += 20; m.stato = Math.max(m.stato, 1);
+      privato(s, p, "La Prova di fedeltà parla chiaro: " + m.nome + " stava vendendo la setta alla polizia. È fuori, e la setta ha fatto arrivare alla polizia le sue Tracce.");
+      privato(s, m, "Il Gran Maestro ti ha scoperto. Sei fuori dalla setta, e qualcuno ha fatto arrivare alla polizia i tuoi segreti.");
+      for (const id of st.membri) if (id !== p.id) privato(s, giocatore(s, id), m.nome + " ha tradito la setta ed è stato scoperto.");
+    } else privato(s, p, "La Prova di fedeltà su " + m.nome + ": è fedele. Per ora.");
+  }
+  function tradimentiAllAlba(s) {
+    for (const st of s.sette) {
+      const t = st.tradimento; if (!t) continue; st.tradimento = null;
+      const tr = giocatore(s, t.da); if (!st.membri.includes(tr.id)) continue;
+      const premio = Math.min(5_000_000, round(st.tesoro * 0.1)), sequestro = round(st.tesoro * 0.5);
+      st.tesoro -= sequestro + premio; tr.cash += premio;
+      tr.tracce = Math.max(0, tr.tracce - 30); tr.stato = Math.max(0, tr.stato - 1);
+      st.membri = st.membri.filter((x) => x !== tr.id); tr.sette = tr.sette.filter((x) => x !== st.id);
+      for (const id of st.membri) { const m = giocatore(s, id); m.tracce += 20; m.stato = Math.max(m.stato, 1); privato(s, m, "Un traditore ha parlato: la polizia ha sequestrato " + euro(sequestro) + " del Tesoro della setta e ora ti tiene d'occhio. Il Tesoro sepolto è salvo."); }
+      privato(s, tr, "Hai venduto la setta. Premio: " + euro(premio) + " puliti, e molte delle tue Tracce spariscono. Ora sei fuori, e loro lo sanno.");
+      notizia(s, "Un pentito parla: la Finanza sequestra " + euro(sequestro) + " a una setta segreta della Laguna.", "scandalo");
+    }
+  }
   function recluta(s, p, idSetta, chi) {
     inNotte(s, p);
     const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro recluta.");
@@ -2278,6 +2348,7 @@
       evasione: { lv: 3, costo: 2_000_000, nome: "Evasione dal Faro" },
       fantoccio: { lv: 4, costo: 10_000_000, nome: "Sindaco fantoccio" },
       inchiesta: { lv: 4, costo: 4_000_000, nome: "Inchiesta pilotata" },
+      sabotaggio: { lv: 2, costo: 1_500_000, nome: "Sabotare una setta rivale" },
     };
     const O = OPS[tipo]; if (!O) err("Operazione sconosciuta.");
     if (lv < O.lv) err(O.nome + " richiede una setta di livello " + O.lv + ".");
@@ -2295,6 +2366,11 @@
       s.blackout = bersaglio; notizia(s, "Blackout totale a " + (NOMI_ISOLE[bersaglio] || bersaglio) + ". Nessuno ha visto niente.", "evento");
     } else if (tipo === "evasione") {
       const b = giocatore(s, bersaglio); b.faro = 0; notizia(s, b.nome + " è evaso dal Faro!", "evento");
+    } else if (tipo === "sabotaggio") {
+      const r = s.sette.find((x) => x.id === bersaglio && x.id !== st.id); if (!r) err("Scegli una setta rivale.");
+      const danno = Math.min(5_000_000, round(r.tesoro * 0.25)); r.tesoro -= danno;
+      privato(s, giocatore(s, r.gm), "Qualcuno ha colpito la tua setta: " + euro(danno) + " del Tesoro sono andati in fumo. Il Tesoro sepolto è salvo.");
+      notizia(s, "Incendio nella notte in un magazzino senza nome. Si parla di una guerra tra sette.", "voce");
     } else if (tipo === "inchiesta") {
       const b = giocatore(s, bersaglio); if (!b || b.id === p.id) err("Scegli chi colpire.");
       b.tracce += 25; b.stato = Math.max(b.stato, 1);
@@ -2697,6 +2773,7 @@
     for (const i of ISOLE) s.valore[i] = clamp(Math.round((s.valore[i] + [-0.3, 0, 0, 0.3][Math.floor(rng(s) * 4)]) * 10) / 10, 1, 10);
     scadenzeContratti(s);
     regista(s);
+    tradimentiAllAlba(s);
     // sette: livelli
     for (const st of s.sette) {
       const lv = livelloSetta(s, st);
@@ -3010,6 +3087,10 @@
       case "versa_setta": return versaSetta(s, p, a.setta, a.importo, !!a.sporchi);
       case "recluta": return settaAlFaro(s, p, () => recluta(s, p, a.setta, a.chi));
       case "msg_setta": return msgSetta(s, p, a.setta, a.testo);
+      case "seppellisci": return seppellisci(s, p, a.setta, a.importo, !!a.indietro);
+      case "scava": return scava(s, p, a.setta);
+      case "tradisci": return tradisci(s, p, a.setta);
+      case "prova_fedelta": return provaFedelta(s, p, a.setta, a.membro);
       case "convoca": return convoca(s, p, a.setta, a.luogo, a.ora);
       case "rito": return rito(s, p, a.setta);
       case "operazione": return settaAlFaro(s, p, () => operazione(s, p, a.setta, a.op, a.bersaglio, a.direzione));
@@ -3040,7 +3121,8 @@
     }
     // le offerte all'asta sono segrete: vedi solo la tua
     if (v.grandi) for (const g of Object.values(v.grandi)) if (g.offerte) g.offerte = g.offerte[idGiocatore] ? { [idGiocatore]: g.offerte[idGiocatore] } : {};
-    v.sette = s.sette.filter((st) => st.membri.includes(idGiocatore));
+    v.sette = s.sette.filter((st) => st.membri.includes(idGiocatore)).map((st) => { const c = { ...st }; if (!(st.tradimento && st.tradimento.da === idGiocatore)) delete c.tradimento; else c.tradimento = { mio: true }; if (st.gm !== idGiocatore) delete c.sepolto; return c; });
+    v.setteRivali = s.sette.filter((st) => !st.membri.includes(idGiocatore)).map((st) => ({ id: st.id, nome: st.nome }));
     // l'invito non ha firma: chi lo riceve vede la setta e il patto, non chi lo manda
     v.inviti = s.inviti.filter((x) => x.a === idGiocatore).map((x) => { const st = s.sette.find((y) => y.id === x.setta); return { setta: x.setta, offerta: x.offerta || 0, nome: st ? st.nome : "?", motto: st ? st.motto : "", livello: livelloSetta(s, st), membri: st ? st.membri.length : 0 }; });
     v.flussi = (s.flussi || []).filter((f) => f.pubblico || f.da === idGiocatore || f.a === idGiocatore);
