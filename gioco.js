@@ -450,6 +450,13 @@ function casellaHtml(l) {
   return `<div class="${cls}" data-cas="${l.id}" title="${esc(tit)}" style="${stile}"><i>${dentro}</i><span class="cn">${esc(sotto)}</span></div>`;
 }
 
+// i gruppi di vie: spiegati con parole semplici
+function gruppo(l) {
+  if (!l.serie || l.serie === "Moli") return "";
+  const vie = S.lotti.filter((x) => x.serie === l.serie), mie = vie.filter((x) => x.owner === mioId).length;
+  return `Gruppo «${l.serie}»: ${vie.length} vie dello stesso colore a ${L.NOMI_ISOLE[l.isola]}. Tu ne hai ${mie}. Se le hai tutte, gli affitti raddoppiano e puoi costruire fino al livello 5.`;
+}
+
 // i nomi delle isole, sempre visibili
 const NOMI_POS = { Ambra: [22, 55], Palma: [21, 23], Flamingo: [78, 21.5], Sole: [86, 71.5], Corona: [50, 53] };
 function nomiIsole() {
@@ -461,7 +468,8 @@ function schedaCasella(id, cx, cy) {
   const l = S.lotti.find((x) => x.id === id); if (!l) return;
   const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
   const righe = [];
-  if (l.isola) righe.push(L.NOMI_ISOLE[l.isola] + (l.serie && l.serie !== "Moli" ? " · zona " + l.serie : ""));
+  if (l.isola) righe.push(L.NOMI_ISOLE[l.isola]);
+  if (gruppo(l)) righe.push(`<span style="color:${COL_SERIE[l.serie]}">■</span> ${gruppo(l)}`);
   if (l.tipoCasella === "lotto" || l.tipoCasella === "molo") {
     if (own) righe.push(`Di <b style="color:${own.colore}">${esc(own.nome)}</b>${own.id === mioId ? " (tua)" : ""}`); else righe.push("Libera · costa " + euro(l.prezzo));
     if (l.cantiere) righe.push("🚧 Cantiere: " + L.ATTIVITA[l.cantiere.tipo].nome + ", apre all'Alba");
@@ -758,10 +766,10 @@ function contenutoApp(me, k) {
         else if (!l.permesso) azioni = `<button class="piccolo oro" data-permesso="${l.id}">Chiedi il permesso al Municipio</button>`;
         else if (!me.azioneGiornoFatta) {
           const ok = next < 3 || L.haSerie(S, me, l.serie);
-          azioni = !ok ? `<span class="sub">Per il livello ${next} serve tutta la serie ${esc(l.serie)}.</span>` : `${l.lvl === 0 ? `<select id="t_${l.id}">${Object.entries(L.ATTIVITA).filter(([kk, t]) => (!t.isole || t.isole.includes(l.isola)) && !t.serie).map(([kk, t]) => `<option value="${kk}">${esc(t.nome)}</option>`).join("")}</select>` : ""}<button class="piccolo oro" data-cantiere="${l.id}" ${me.cash < costo ? "disabled" : ""}>Apri il cantiere · ${euro(costo)}</button>`;
+          azioni = !ok ? `<span class="sub">Per il livello ${next} serve avere tutte le vie del gruppo «${esc(l.serie)}».</span>` : `${l.lvl === 0 ? `<select id="t_${l.id}">${Object.entries(L.ATTIVITA).filter(([kk, t]) => (!t.isole || t.isole.includes(l.isola)) && !t.serie).map(([kk, t]) => `<option value="${kk}">${esc(t.nome)}</option>`).join("")}</select>` : ""}<button class="piccolo oro" data-cantiere="${l.id}" ${me.cash < costo ? "disabled" : ""}>Apri il cantiere · ${euro(costo)}</button>`;
         }
       }
-      return `<div class="scheda"><h4>${esc(l.nome)} <span class="tag" style="background:${COL_SERIE[l.serie] || "#555"}">${esc(l.serie || "")}</span></h4>
+      return `<div class="scheda"><h4>${esc(l.nome)} <span class="tag" style="background:${COL_SERIE[l.serie] || "#555"}">gruppo ${esc(l.serie || "")}</span></h4>
         <span class="sub">${l.cantiere ? "🚧 Cantiere: " + esc(L.ATTIVITA[l.cantiere.tipo].nome) + " livello " + l.cantiere.lvl + ", apre all'Alba." : l.tipo ? esc(L.ATTIVITA[l.tipo].nome) + " · rende " + euro(L.rendita(S, l)) + " a Ciclo" : "Terreno vuoto"}</span>
         ${l.tipoCasella === "lotto" ? tappe(l) : ""}${azioni ? `<div class="riga">${azioni}</div>` : ""}</div>`;
     }).join("");
@@ -824,7 +832,7 @@ const LIVELLI = [
   ["Terreno", "Un lotto vuoto. Chi ci passa paga un piccolo pedaggio."],
   ["Livello 1 · Apertura", "L'attività apre: inizia a rendere ogni Ciclo e l'affitto sale."],
   ["Livello 2 · Crescita", "Rende circa il doppio. Si può fare su qualsiasi lotto."],
-  ["Livello 3 · Successo", "Serve avere tutta la zona dello stesso colore. Affitti molto più alti."],
+  ["Livello 3 · Successo", "Serve avere tutte le vie del suo gruppo (stesso colore). Affitti molto più alti."],
   ["Livello 4 · Lusso", "Una delle attività più ricche dell'isola."],
   ["Livello 5 · Icona", "Serve fama 50. Il simbolo dell'isola: affitti da capogiro."],
 ];
@@ -833,6 +841,17 @@ const SBLOCCHI = [
   ["Ciclo 2", "Il primo contatto: Mercato Nero, Bisca, Porto e Casinò Reale. Soldi sporchi, occasioni illegali, Prove. Valigetta da 4 posti."],
   ["Ciclo 3", "Borsa, Cripto, Contratti, Municipio, evasione delle tasse. Di notte anche la Redazione."],
   ["Ciclo 4", "La Villa sulla scogliera, il Faro e le sette. Valigetta da 6 posti."],
+];
+const PAROLE = [
+  ["Ciclo", "Un giro completo: 3 giorni di dadi, una notte, un'Alba. La partita dura 6 Cicli."],
+  ["Gruppo di vie", "Ogni isola ha 2 gruppi di vie dello stesso colore (es. «Acciaio» a Distretto Sole). Averle tutte raddoppia gli affitti e ti fa costruire più in alto."],
+  ["Permesso e cantiere", "Per costruire chiedi il permesso al Municipio, poi apri il cantiere: l'attività apre all'Alba."],
+  ["Fama", "Quanto sei famoso. Serve per alcune cose (Sindaco, livello 5, sette)."],
+  ["Soldi sporchi", "Contanti in nero: li spendi di notte. Per usarli di giorno vanno ripuliti."],
+  ["Tracce", "Quanto la polizia sa di te. Non le vedi: vedi solo i segnali sotto i tuoi soldi."],
+  ["Valigetta", "Gli oggetti comprati di notte. Ti salvano quando qualcosa va storto."],
+  ["Prove", "Foto o confidenze su un rivale: puoi denunciarlo o ricattarlo."],
+  ["Il Faro", "La prigione: se ci finisci stai fermo qualche turno."],
 ];
 function impero(me) {
   const miei = S.lotti.filter((l) => l.owner === mioId);
@@ -843,6 +862,7 @@ function impero(me) {
     <div class="cifre"><div><b>${miei.length}</b><span>proprietà</span></div><div><b>${miei.filter((l) => l.lvl > 0).length}</b><span>attività aperte</span></div><div><b>${me.piani}</b><span>piani del Palazzo</span></div><div><b>${euro(rend)}</b><span>rendita a Ciclo</span></div></div>
     <div class="scheda"><h4>${ico("imprese")} I livelli di un'attività</h4>${LIVELLI.map(([t, d], i) => `<div class="liv"><span class="liv-n">${i === 0 ? ico("palma") : i}</span><div><b>${t}</b><div class="sub" style="font-size:12px">${d}</div></div></div>`).join("")}
       <span class="sub" style="font-size:12px">Ogni passo richiede il permesso del Municipio e un cantiere, che apre all'Alba.</span></div>
+    <div class="scheda"><h4>${ico("notizie")} Le parole del gioco</h4>${PAROLE.map(([t, d]) => `<div class="liv"><div><b>${t}</b><div class="sub" style="font-size:12px">${d}</div></div></div>`).join("")}</div>
     <div class="scheda"><h4>${ico("chiave")} Cosa si apre, e quando</h4>${SBLOCCHI.map(([t, d], i) => `<div class="liv ${S.sblocco >= i ? "" : "chiuso"}"><span class="liv-n">${S.sblocco >= i ? "✓" : i + 1}</span><div><b>${t}</b><div class="sub" style="font-size:12px">${d}</div></div></div>`).join("")}</div>`;
 }
 function collegaApp(me) {
@@ -919,9 +939,9 @@ function finestraPending(me) {
   const pd = S.pending;
   if (pd.tipo === "compra") {
     const l = S.lotti.find((x) => x.id === pd.lotto);
-    return finestra(`<span class="kick" style="color:${COL_SERIE[l.serie] || "var(--oro)"}">${l.isola ? esc(L.NOMI_ISOLE[l.isola]) + " · serie " + esc(l.serie) : ""}</span><h2>${esc(l.nome)}</h2>
+    return finestra(`<span class="kick" style="color:${COL_SERIE[l.serie] || "var(--oro)"}">${l.isola ? esc(L.NOMI_ISOLE[l.isola]) : ""}</span><h2>${esc(l.nome)}</h2>
       <p class="serif" style="font-size:30px;color:var(--oro);margin:4px 0">${euro(l.prezzo)}</p>
-      <p>Un terreno libero. Se lo compri, poi ti serve il permesso del Municipio per costruirci. Se non lo compri, va all'asta tra tutti.</p>
+      <p>Un terreno libero. Se lo compri, poi ti serve il permesso del Municipio per costruirci. Se non lo compri, va all'asta tra tutti.</p>${gruppo(l) ? `<p class="sub"><span style="color:${COL_SERIE[l.serie]}">■</span> ${gruppo(l)}</p>` : ""}
       <div class="pulsanti"><button id="no">Lascio stare</button><button class="oro" id="si" ${me.cash < l.prezzo ? "disabled" : ""}>Compro · ${euro(l.prezzo)}</button></div>`, (d, c) => {
       d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "compra", si: true }); };
       d.querySelector("#no").onclick = () => { c(); agisci({ tipo: "compra", si: false }); };
