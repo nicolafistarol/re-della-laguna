@@ -1,0 +1,32 @@
+# Rapporto: ritocchi del 18/11 sera (v76)
+
+Ramo `ritocchi` in /home/claude/re-della-laguna. Commit piccoli, niente push, niente Supabase, server/ non toccato.
+VERSIONE_REGOLE 75 -> 76 (ora è una costante in cima a motore.js), voce NOVITA 76, `?v=76` in index.html, gioco.js, tre.js, cubetti.js (mondo3d.js non ha import con `?v=`).
+
+## Cosa ho fatto (10 punti: 7 della specifica + 3 arrivati durante il lavoro)
+1. **Timbro**: non si consuma più da solo. Azione `permesso` con `timbro: true` (campo piatto). Senza, resta in valigetta. `timbro: true` senza Timbro = errore. Finestra "Usi il Timbro falso?" se ce l'hai. Descrizione nuova. Il bot lo usa solo se il permesso è rimandato o il bollo è almeno 250.000 € (partite vecchie: terreno da 400.000 € in su).
+2. **Prova di fedeltà**: costa il 10% del Tesoro, minimo 2 M. Nello stesso Ciclo la seconda costa x2, la terza x4 (`st.prove = {ciclo, n}`). Il membro riceve "Il Gran Maestro ti ha messo alla prova." Se era fedele: −3 Influenza con `perdiInfluenza` nuova (mai sotto la soglia del livello che la setta ha) e "Era una prova inutile: sei stato fedele." Finestra di conferma con il costo. Bot: il Gran Maestro la fa solo con un Tesoro di almeno 2,5 volte il costo. Il bot fedele messo alla prova se ne va 1 volta su 3 (`p.provato`).
+3. **Vendetta**: se il tradimento riesce, il GM riceve una Prova sul traditore. `p.marchiatoFino = ciclo + 4`. I membri ricevono "<nome> ci ha venduti…", il traditore "La setta ha tenuto qualcosa su di te." Nei 4 Cicli il traditore non può essere invitato, accettare un invito o **fondare** una setta (fondare non era nella specifica: l'ho bloccato perché "entrare in una setta" lo comprende).
+4. **Viaggio rapido**: niente più taxi (`N.taxiMunicipio` tolto). Traghetto 50.000 €, motoscafo 100.000 €, elicottero o Eliporto 300.000 €, jet 600.000 € (`N.rapido`). Consuma la mossa del giorno (`azioneGiornoFatta` e `p.rapidoTurno`: in quel turno niente permesso). Si fa una volta ogni 2 Cicli. Nuove funzioni `cicliAlRapido` e `motivoNoRapido`. La finestra mostra il prezzo, "+ mossa del giorno" e "Prossimo viaggio fra N Cicli". Bot: solo verso un terreno libero o suo, e solo se gli restano 1,5 M.
+   - **Candidature**: i bot non hanno mai preso il taxi, quindi la loro simulazione non cambia (prima 118–145, dopo 108–134: è rumore). Ho misurato con un giocatore "umano" che col taxi va al Municipio appena ha fama 40 (`UMANI=1` in sim-ritocchi.js): prima ~2.240 candidature, senza taxi ~136, cioè **−94%**. Quindi, come chiede la specifica, ci si può candidare **dall'app Municipio a prezzo doppio** (allo sportello, o sul Municipio quel giorno, il prezzo resta pieno). In più ho corretto un errore: prima ci si poteva ricandidare pagando di nuovo (`if (s.candidati[id])` con valore 0).
+5. **Frase del Favore nel patto**: `L.testoFavorePatto(tipo, deveIo, nome)` per i 4 Favori, in tutti e due i versi. La frase si aggiorna quando cambi Favore, "Chi lo deve" o il destinatario. L'opzione "lui/lei" ora mostra il nome.
+6. **Patto sulla parola**: alla scadenza diventa `scaduto` con `scadutoCiclo`. Si paga con "Paga ora" nell'app Contratti (azione `paga_patto`) o con un regalo in soldi puliti dall'app Banca (conta come pagamento). All'Alba dopo, se non è pagato: patto `rotto`, −8 fama, `senzaParola`, Gazzetta. I patti già scaduti prima della v76 (senza `scadutoCiclo`) non vengono puniti: si possono solo pagare. Il bot paga sempre se ha i soldi.
+7. **Versione**: `v.versioneRegole` nella vista. Se è più nuova della pagina compare in alto "C'è una versione nuova del gioco" con il pulsante Aggiorna, che ricarica con `?v=N` e tiene gli altri parametri.
+8. (dal coordinatore) **Parola rotta visibile**: un'unica funzione `paroleRotta` per Favori rotti, Mano mancata e patti non pagati. Notizia di tipo nuovo `parola` (peso 8: esce in Ultim'ora, Cronaca nera). Messaggi: "Hai rotto la parola con <nome>: −8 fama, e fino al Ciclo N…" e "<nome> non ha mantenuto la parola: <Favore>." (+ "La Prova torna a te." se c'era). Nella pagina compaiono un toast e una finestra appena arriva il messaggio.
+9. (dal coordinatore) **Sotto il cappuccio**: al rito i membri ricevono solo "Siete in N sotto il cappuccio."; solo il GM riceve i nomi. Nella vista di un membro che non è GM, nel posto della convocazione, i confratelli (GM compreso) non hanno posto (`dove` = null), non sono in `qui`, e c'è `v.notte.incappucciati = N`. La pagina li mostra come "incappucciati".
+10. (dal coordinatore) **Notte senza nomi**: nella vista `pronto`, `chiuso` e `notteFatti` contengono solo il tuo stato. `v.notte.mancano = N`. Le schede in alto non dicono più "decide…" o "ha deciso" degli altri. La pagina scrive "Aspettiamo ancora N giocatori…". `controllaOra`, il timer e i bot leggono lo stato vero e non cambiano.
+
+## Prove
+- `node --check` su motore.js, bot.js e gioco.js: ok.
+- Simulazione 200 partite, 12 Cicli: **0 errori** prima e dopo. Vincitore mediano: prima 113–116 M, dopo 111–116 M. Medie per carattere quasi uguali. Viaggi rapidi dei bot: ~1.700 prima, ~930 dopo. Candidature: vedi il punto 4.
+- vecchia.js: 10 partite su 10 finite, 0 errori.
+- casi-favori.js 62/62 ok, casi-fedina.js 113/113 ok.
+- **casi-ritocchi.js: 89/89 ok**, con controlli su tutti i 10 punti (anche i bot del Timbro, della Prova e del patto).
+- gioca.py 200: nessun errore della pagina. Il server locale sulla porta 8765 non mi è stato permesso, quindi ho fatto copie (`gioca-disco.py`, `foto-disco.py`, `foto-ritocchi.py` con `disco.py`) che servono i file dal disco dentro Playwright. Il resto è uguale.
+- Screenshot guardati: /tmp/rit-rapido.png (Viaggio rapido: 100.000 € + mossa del giorno, "Una volta ogni 2 Cicli"), /tmp/rit-patto.png ("Rocco, per i suoi prossimi 4 turni, non paga affitti né pedaggi sui tuoi terreni."), /tmp/rit-parola.png (avviso versione + finestra della parola rotta).
+
+## Rischi / da sapere
+- I membri della setta vedono ancora l'elenco dei membri nell'app Setta. Il cappuccio nasconde **chi è venuto**, non chi è membro.
+- La pagina della notte (incappucciati, "Aspettiamo ancora N") è provata solo nel motore e con `node --check`: in 200 passi gioca.py non arriva alla notte. Va guardata giocando una notte vera.
+- Il viaggio rapido ora è molto più caro e raro: è un cambiamento di bilanciamento per tutte le partite, anche quelle già iniziate (lo chiede la specifica).
+- Il server va rigenerato (terser) e pubblicato dall'orchestratore. Una pagina v76 con un server v75 funziona: senza `versioneRegole` non compare nessun avviso.
