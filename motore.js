@@ -44,6 +44,7 @@
     costLvl: [0, 0.5, 0.5, 0.75, 1.0, 1.5], R: 0.95,
     moloFee: [0, 25_000, 50_000, 100_000, 200_000],
     pianoCost: 400_000, pianoGrow: 1.08, pianoRend: 0.62, pianiMax: 60, cantiereGrande: 6,
+    astaBase: 0.6, // base d'asta: il 60% del prezzo del terreno. Sotto non si vende (vale per tutte le aste dei terreni)
     bonusIllegale: 1.4, // gli affari della notte rendono il 40% in piu': tanto premio, tanto rischio
     borsaMu: 0.21, borsaSd: 0.16, criptoMu: 0.40, criptoSd: 0.50, criptoCrash: 0.12,
     caricoBase: 350_000, caricoGrow: 150_000, caricoMax: 3_000_000, caricoMagazzino: 1.5,
@@ -380,11 +381,20 @@
     if (s.pending || s.fase !== "giorno" || !(s.sequestrati || []).length) return;
     const q = s.sequestrati.shift(), l = lotto(s, q.lotto);
     if (l.owner) return avviaAstaSequestro(s);
-    const part = s.players.filter((x) => !x.fallito && x.faro === 0 && x.id !== q.escluso).map((x) => x.id);
-    if (!part.length) return;
-    s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: corrente(s).id, partecipanti: part, sequestro: true, minimo: round(l.prezzo * 0.5), escluso: q.escluso };
-    notizia(s, "Asta del Comune: si vende " + l.nome + " (sequestrato). Base d'asta " + euro(round(l.prezzo * 0.5)) + ".", "affari");
+    const minimo = baseAsta(l);
+    const part = partecipantiAsta(s, minimo, q.escluso);
+    if (!part.length) { log(s, "Asta del Comune per " + l.nome + ": nessuno può offrire la base di " + euro(minimo) + ". Il terreno resta libero."); return avviaAstaSequestro(s); }
+    s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: corrente(s).id, partecipanti: part, sequestro: true, minimo, escluso: q.escluso, inizio: adesso() };
+    notizia(s, "Asta del Comune: si vende " + l.nome + " (sequestrato). Base d'asta " + euro(minimo) + ".", "affari");
   }
+  // LE ASTE DEI TERRENI (regole uguali per tutte):
+  //  - base d'asta = 60% del prezzo: un'offerta piu' bassa non vale, e se nessuno ci arriva il terreno resta libero;
+  //  - chi ha rifiutato di comprare il terreno (o l'ex padrone, se e' un sequestro) non partecipa a quell'asta;
+  //  - partecipa solo chi ha in tasca almeno la base (agli altri non si chiede niente);
+  //  - offerte segrete, una a testa; vince la piu' alta; a parita' vince chi ha offerto per primo;
+  //  - quando l'asta si chiude le offerte si vedono tutte (s.ultimaAsta).
+  function baseAsta(l) { return round(l.prezzo * N.astaBase); }
+  function partecipantiAsta(s, minimo, escluso) { return s.players.filter((x) => !x.fallito && x.faro === 0 && x.id !== escluso && x.cash >= minimo).map((x) => x.id); }
   function iniziaTurno(s) {
     const p = corrente(s);
     p.haTirato = false; p.azioneGiornoFatta = false; p.doppi = 0; p.dadi = null; p.agenziaUsata = false; p.agenziaSconto = false; p.municipioOggi = false;
@@ -552,31 +562,38 @@
       notizia(s, p.nome + " compra " + l.nome + ".", "affari");
       controllaValoreLusso(s, l);
     } else {
-      s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: p.id, partecipanti: s.players.filter((x) => !x.fallito && x.faro === 0).map((x) => x.id) };
-      log(s, p.nome + " rinuncia: " + l.nome + " va all'asta.", p.id);
+      // chi rinuncia non puo' ricomprarlo all'asta a meno (era la mossa migliore: rifiutare e poi vincere a poco)
+      const minimo = baseAsta(l), part = partecipantiAsta(s, minimo, p.id);
+      if (!part.length) { s.pending = null; log(s, p.nome + " rinuncia a " + l.nome + ". Nessun altro può offrire la base d'asta (" + euro(minimo) + "): il terreno resta libero.", p.id); return; }
+      s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: p.id, partecipanti: part, minimo, escluso: p.id, inizio: adesso() };
+      log(s, p.nome + " rinuncia: " + l.nome + " va all'asta tra gli altri. Base d'asta " + euro(minimo) + ".", p.id);
     }
   }
   function offerta(s, p, importo) {
     const pd = s.pending;
     if (!pd || pd.tipo !== "asta") err("Non c'è un'asta in corso.");
-    if (!pd.partecipanti.includes(p.id)) err("Non partecipi a questa asta.");
+    if (!pd.partecipanti.includes(p.id)) err(pd.escluso === p.id ? (pd.sequestro ? "Il terreno era tuo: a questa asta non puoi partecipare." : "Hai rinunciato a questo terreno: a questa asta non puoi offrire.") : "Non partecipi a questa asta.");
+    if (pd.offerte[p.id] !== undefined) err("La tua offerta l'hai già fatta: è segreta e non si cambia.");
     importo = Math.max(0, Math.floor(importo || 0));
     if (importo > p.cash) err("Non puoi offrire più dei tuoi soldi puliti.");
-    if (pd.minimo && importo > 0 && importo < pd.minimo) err("All'Asta del Comune l'offerta minima è " + euro(pd.minimo) + " (oppure 0 per non partecipare).");
+    if (pd.minimo && importo > 0 && importo < pd.minimo) err("La base d'asta è " + euro(pd.minimo) + ": offri almeno questa cifra, oppure 0 per non offrire.");
     pd.offerte[p.id] = importo;
     if (Object.keys(pd.offerte).length >= pd.partecipanti.length) chiudiAsta(s);
   }
   function chiudiAsta(s) {
     const pd = s.pending, l = lotto(s, pd.lotto);
-    let best = null, bid = 0;
-    for (const [id, v] of Object.entries(pd.offerte)) if (v > bid) { best = id; bid = v; }
+    let best = null, bid = 0, pari = false;
+    // a parita' vince chi ha offerto per primo (le offerte sono in ordine di arrivo)
+    for (const [id, v] of Object.entries(pd.offerte)) { if (v > bid) { best = id; bid = v; pari = false; } else if (v === bid && v > 0) pari = true; }
     s.pending = null;
+    // l'esito con TUTTE le offerte: adesso non sono piu' segrete
+    s.ultimaAsta = { n: (s.nAste = (s.nAste || 0) + 1), ciclo: s.ciclo + 1, giorno: s.giorno + 1, lotto: l.id, nome: l.nome, prezzo: l.prezzo, minimo: pd.minimo || 0, sequestro: !!pd.sequestro, escluso: pd.escluso || null, offerte: { ...pd.offerte }, vincitore: best && bid > 0 ? best : null, importo: best && bid > 0 ? bid : 0, pari };
     if (best && bid > 0) {
       const w = giocatore(s, best);
       w.cash -= bid; l.owner = w.id; flusso(s, w, null, bid, "Asta vinta: " + l.nome, true);
-      log(s, "Asta: " + w.nome + " vince " + l.nome + " con " + euro(bid) + ".", w.id);
-      notizia(s, "Asta per " + l.nome + ": se la aggiudica " + w.nome + ".", "affari");
-    } else log(s, "Asta per " + l.nome + ": nessuna offerta. Il lotto resta libero.");
+      log(s, "Asta: " + w.nome + " vince " + l.nome + " con " + euro(bid) + (pari ? " (offerta pari a un'altra: vince chi ha offerto per primo)" : "") + ".", w.id);
+      notizia(s, "Asta per " + l.nome + ": se la aggiudica " + w.nome + " con " + euro(bid) + ".", "affari");
+    } else log(s, "Asta per " + l.nome + ": nessuna offerta" + (pd.minimo ? " sopra la base di " + euro(pd.minimo) : "") + ". Il terreno resta libero.");
     if (pd.sequestro) avviaAstaSequestro(s);
   }
 
