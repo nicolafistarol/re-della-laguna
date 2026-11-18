@@ -667,3 +667,8 @@ table.conti{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}ta
 button.spento{opacity:.55}
 .avviso-rischio{color:#ffcf8a}
 #avvisoVersione{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:12px;background:rgba(20,30,45,.94);border:1px solid var(--oro,#c9a24a);color:#fff;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+
+/* Borsa come le app vere (v75b) */
+.bv{gap:4px}.bv-testa{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.bv-prezzo{font-size:16px;font-weight:700}.bv-su{color:#5fd38a;font-size:12px;font-weight:600}.bv-giu{color:#ff7a7a;font-size:12px;font-weight:600}.bv-pari{color:var(--testo2,#aaa);font-size:12px}
+.bv-mio{font-size:13px}.bv-tot{gap:3px}.bv-grande{font-size:22px}.bv-sez{margin:10px 0 2px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;opacity:.75}

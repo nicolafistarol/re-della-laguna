@@ -1775,7 +1775,7 @@ function statoApp(me, k, nuovi) {
     case "impero": return { riga: kEuro(L.patrimonio(S, me, false)) };
     case "conti": { const c = (me.conti || {})[S.ciclo] || {}; let t = 0; for (const v of Object.values(c)) t += v[0]; return { riga: (t >= 0 ? "+" : "−") + kEuro(Math.abs(t)) + " oggi" }; }
     case "banca": { const scade = (me.prestiti || []).filter((p) => p.scadenza <= S.ciclo + 1).length; return { riga: me.debito > 0 ? "debito " + kEuro(me.debito) : "nessun debito", fare: scade }; }
-    case "borsa": { const inv = L.valoreInvestimenti(S, me); return { riga: inv > 0 ? kEuro(inv) + " investiti" : "niente investito" }; }
+    case "borsa": { let inv = 0; for (const a of L.AZIENDE) inv += (me.azioni[a] || 0) * S.borsa[a]; for (const m of L.MONETE) inv += (me.cripto[m] || 0) * S.cripto[m]; return { riga: inv > 0 ? "portafoglio " + kEuro(inv) : "niente investito" }; }
     case "imprese": { const vuoti = miei.filter((l) => l.tipoCasella === "lotto" && !l.lvl && !l.cantiere).length; return { riga: vuoti ? vuoti + (vuoti === 1 ? " terreno vuoto" : " terreni vuoti") : miei.filter((l) => l.lvl > 0).length + " attività", caldo: vuoti > 0 }; }
     case "agenzia": { const lib = S.lotti.filter((l) => !l.owner && l.tipoCasella === "lotto").length; return { riga: lib + " liberi" }; }
     case "palazzo": return { riga: me.piani ? me.piani + (me.piani === 1 ? " piano" : " piani") : "da costruire" };
@@ -1953,9 +1953,26 @@ function appProve(me, miTurno) {
   return (me.prove || []).map((pr, i) => `<div class="scheda"><h4>📷 ${esc(S.players.find((x) => x.id === pr.su).nome)}</h4><span class="sub">${esc(pr.cosa)} · Ciclo ${pr.ciclo}</span><div class="riga"><button class="piccolo" data-denuncia="${i}">Manda alla polizia</button>${pr.rifiutata ? `<span class="sub">L'ha già vista: ora puoi solo denunciarlo.</span>` : `<button class="piccolo oro" data-ricatta="${i}">Usala: chiedi un Favore</button>`}</div></div>`).join("") || `<p class="sub">Nessuna prova. Una macchina fotografica aiuta.</p>`;
 }
 function appBorsa(me, miTurno) {
-  return L.AZIENDE.map((a) => `<div class="scheda"><h4>${a} <span class="sub">${S.borsa[a].toFixed(1)}</span></h4><span class="sub">Ne hai per ${euro((me.azioni[a] || 0) * S.borsa[a])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="b_${a}" style="width:100px"><button class="piccolo" data-compra="borsa|${a}">Compra</button><button class="piccolo" data-vendi="borsa|${a}">Vendi</button></div></div>`).join("") +
-    `<p class="sub">Le cripto si comprano con soldi puliti e cambiano prezzo una volta per Ciclo, all'Alba. In media salgono, ma ogni tanto crollano del 70% in una notte.</p>` +
-    L.MONETE.map((m) => `<div class="scheda"><h4>${m} <span class="sub">${S.cripto[m].toFixed(2)}</span></h4><span class="sub" style="display:block;margin-bottom:4px">${{ LagunaCoin: "La più tranquilla: si muove poco e crolla di rado.", FlamingoToken: "La più pazza: può raddoppiare o dimezzarsi in un Ciclo.", ShadowCoin: "Media. Serve anche per ripulire i soldi sporchi. Il Sindaco può bloccarla." }[m] || ""}</span><span class="sub">Ne hai per ${euro((me.cripto[m] || 0) * S.cripto[m])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="c_${m}" style="width:100px"><button class="piccolo" data-compra="cripto|${m}">Compra</button><button class="piccolo" data-vendi="cripto|${m}">Vendi</button></div></div>`).join("");
+  // come le app vere: in alto il totale, poi una riga per titolo con prezzo e variazione (v75b)
+  const pr = (v, d) => v.toLocaleString("it-IT", { minimumFractionDigits: d, maximumFractionDigits: d }) + " €";
+  const varia = (ora, ieri) => { if (!ieri || ieri === ora) return `<span class="bv-pari">= dall'Alba</span>`; const x = (ora / ieri - 1) * 100; return `<span class="${x > 0 ? "bv-su" : "bv-giu"}">${x > 0 ? "▲ +" : "▼ "}${x.toLocaleString("it-IT", { maximumFractionDigits: 1 })}% dall'Alba</span>`; };
+  const pezzi = (q) => q >= 10 ? Math.round(q).toLocaleString("it-IT") : q.toLocaleString("it-IT", { maximumFractionDigits: 2 });
+  const riga = (cosa, nome, prezzo, ieri, quante, nota, dec, unita) => {
+    const val = quante * prezzo, k = cosa === "borsa" ? "b" : "c";
+    return `<div class="scheda bv"><div class="bv-testa"><b>${esc(nome)}</b><span class="bv-prezzo">${pr(prezzo, dec)}</span></div>
+<div class="bv-testa"><span class="sub">${unita}</span>${varia(prezzo, ieri)}</div>${nota ? `<span class="sub">${nota}</span>` : ""}
+${quante > 0 ? `<div class="bv-mio">Hai <b>${pezzi(quante)}</b> ${cosa === "borsa" ? "azioni" : "monete"} · valgono <b>${euro(val)}</b></div>` : `<span class="sub">Non ne hai.</span>`}
+<div class="riga"><input type="number" placeholder="€ da investire" data-imp="${k}_${nome}" style="width:120px"><button class="piccolo" data-compra="${cosa}|${nome}">Compra</button>${quante > 0 ? `<button class="piccolo" data-vendimeta="${cosa}|${nome}">Vendi metà</button><button class="piccolo" data-vendi="${cosa}|${nome}">Vendi tutto</button>` : ""}</div></div>`;
+  };
+  let tA = 0, tC = 0;
+  for (const a of L.AZIENDE) tA += (me.azioni[a] || 0) * S.borsa[a];
+  for (const m of L.MONETE) tC += (me.cripto[m] || 0) * S.cripto[m];
+  const note = { LagunaCoin: "La più tranquilla: si muove poco e crolla di rado.", FlamingoToken: "La più pazza: può raddoppiare o dimezzarsi in un Ciclo.", ShadowCoin: "Media. Serve anche per ripulire i soldi sporchi. Il Sindaco può bloccarla." };
+  return `<div class="scheda bv-tot"><span class="sub">Il tuo portafoglio</span><b class="bv-grande">${euro(tA + tC)}</b><span class="sub">Azioni ${euro(tA)} · Cripto ${euro(tC)} · Contanti puliti ${euro(me.cash)}</span><span class="sub">Scrivi quanti € vuoi investire e premi Compra. I prezzi cambiano all'Alba.</span></div>
+<h4 class="bv-sez">Azioni</h4>` +
+    L.AZIENDE.map((a) => riga("borsa", a, S.borsa[a], (S.borsaIeri || {})[a], me.azioni[a] || 0, "", 2, "Prezzo di 1 azione")).join("") +
+    `<h4 class="bv-sez">Cripto</h4><p class="sub">Si comprano con soldi puliti. In media salgono, ma ogni tanto crollano del 70% in una notte.</p>` +
+    L.MONETE.map((m) => riga("cripto", m, S.cripto[m], (S.criptoIeri || {})[m], me.cripto[m] || 0, note[m] || "", 2, "Prezzo di 1 moneta")).join("");
 }
 // un patto sulla parola scaduto: chi deve pagare ha tempo fino all'Alba dopo (v76)
 function pattoDaPagare(x, me) {
@@ -2487,6 +2504,7 @@ function collegaApp(me) {
   on("[data-ricapri]", (b) => { const r = (S.ricatti || []).find((x) => x.id === b.dataset.ricapri); if (r) finestraRicattoVittima(r); });
   on("[data-compra]", (b) => { const [cosa, nome] = b.dataset.compra.split("|"); agisci({ tipo: "investi", cosa, nome, importo: Number(v(`[data-imp="${cosa === "borsa" ? "b" : "c"}_${nome}"]`)) }); });
   on("[data-vendi]", (b) => { const [cosa, nome] = b.dataset.vendi.split("|"); agisci({ tipo: "vendi", cosa, nome, quota: 1 }); });
+  on("[data-vendimeta]", (b) => { const [cosa, nome] = b.dataset.vendimeta.split("|"); agisci({ tipo: "vendi", cosa, nome, quota: 0.5 }); });
   on("[data-gciclo]", (b) => { gazzettaCiclo = +b.dataset.gciclo; disegnaTelefono(io()); });
   on("[data-invito]", (b) => { const [st, si] = b.dataset.invito.split("|"); agisci({ tipo: "rispondi_invito", setta: st, si: si === "1" }); });
   on("[data-prova]", (b) => { const [st, m] = b.dataset.prova.split("|"); finestraProvaFedelta(st, m); });
