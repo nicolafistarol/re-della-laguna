@@ -374,6 +374,7 @@ function grandiBot(o, i, n) {
   const n = {
     prossima: function (o, i) {
       const n = i.strat || "Legale";
+      if (o.fase === "notte" && o.notte && o.notte.colpi && o.notte.colpi[i.id]) return { tipo: "colpo", i: 0 }; // v83: un colpo lasciato a meta' (giocatore assente): la scelta prudente
       // Sette e mezzo: ogni carattere ha il suo coraggio
       const sm = o.manoSM && o.manoSM[i.id];
       if (sm) {
