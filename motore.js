@@ -721,11 +721,15 @@
     }
     s.pending = null;
   }
-  function candidati(s, p) {
+  // quanto costa candidarsi: allo sportello (sei sul Municipio oggi) il prezzo pieno, dal telefono il doppio (v76: niente piu' taxi)
+  function costoCandidatura(s, p, daTelefono) {
+    return N.candidatura * (p.pacchetto === "politico" ? 0.5 : 1) * (daTelefono && !p.municipioOggi ? 2 : 1);
+  }
+  function candidati(s, p, daTelefono) {
     if (p.fama < 40) err("Per candidarti serve fama 40.");
-    if (s.candidati[p.id]) err("Sei già candidato.");
-    const cand = N.candidatura * (p.pacchetto === "politico" ? 0.5 : 1);
-    if (p.cash < cand) err("La candidatura costa " + euro(cand) + ".");
+    if (s.candidati[p.id] !== undefined) err("Sei già candidato.");
+    const cand = costoCandidatura(s, p, daTelefono);
+    if (p.cash < cand) err("La candidatura costa " + euro(cand) + (daTelefono && !p.municipioOggi ? " dal telefono (allo sportello del Municipio la metà)" : "") + ".");
     p.cash -= cand; s.candidati[p.id] = 0;
     notizia(s, p.nome + " si candida a Sindaco della Laguna.", "politica");
   }
@@ -4974,7 +4978,7 @@
       case "inchiesta_pubblica": return inchiestaPubblica(s, p);
       case "opera_pubblica": return operaPubblica(s, p, a.isola, a.opera);
       // ---- politica
-      case "candidati": return candidati(s, p);
+      case "candidati": return candidati(s, p, true); // dall'app Municipio: costa il doppio, se non sei sul Municipio oggi
       case "campagna": return campagna(s, p, a.importo);
       case "legge": return legge(s, p, a.legge, a.isola);
       case "tasse": return tasse(s, p, a.quota);
@@ -5162,7 +5166,7 @@
     // scoperte e consigli
     SCOPERTE: SCOPERTE.map(({ id, gruppo, lv, nome, indizio, spiega }) => ({ id, gruppo, lv, nome, indizio, spiega })),
     // mercato nero a rotazione e situazioni dell'Alba (v70)
-    STRUMENTI, BANCHI, SITUAZIONI, descriviSituazione, sitAttive, oggettoDef, postiUsati, prezzoOggetto, VERSIONE_REGOLE, costoProvaFedelta, cicliAlRapido, motivoNoRapido, testoFavorePatto, restoPatto,
+    STRUMENTI, BANCHI, SITUAZIONI, descriviSituazione, sitAttive, oggettoDef, postiUsati, prezzoOggetto, VERSIONE_REGOLE, costoProvaFedelta, costoCandidatura, cicliAlRapido, motivoNoRapido, testoFavorePatto, restoPatto,
     // Favori e ricatti (v74)
     FAVORI, motivoNoFavore: (s, idDeve, idA, tipo) => motivoNoFavore(s, giocatore(s, idDeve), giocatore(s, idA), tipo),
     // Servizi dei contatti e Fedina pulita (v75)

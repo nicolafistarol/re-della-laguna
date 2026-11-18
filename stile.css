@@ -664,3 +664,6 @@ table.conti{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}ta
 .scheda.grigia{opacity:.7}
 .chip .fed-chip{color:#e9c46a;font-weight:700;font-size:10px;line-height:1.1}
 .contatto-rete{padding-top:6px;border-top:1px solid rgba(255,255,255,.08)}
+button.spento{opacity:.55}
+.avviso-rischio{color:#ffcf8a}
+#avvisoVersione{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:12px;background:rgba(20,30,45,.94);border:1px solid var(--oro,#c9a24a);color:#fff;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.4)}

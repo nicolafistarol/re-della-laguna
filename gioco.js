@@ -15,7 +15,7 @@ const LOCALE = location.search.includes("locale");  // ?locale = partita contro 
 // Se non arriva o non parte, si gioca lo stesso sulla foto piatta e un avviso dice il perché. ?cubetti = il vecchio mondo a cubetti, solo per confronto.
 let Tre = null, motivo3D = "", provato3D = false;
 const CUBETTI = location.search.includes("cubetti");
-import(CUBETTI ? "./cubetti.js?v=75" : "./tre.js?v=75").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
+import(CUBETTI ? "./cubetti.js?v=76" : "./tre.js?v=76").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
@@ -32,7 +32,7 @@ function avviso3D() {
   d.querySelector("#av3dSi").onclick = () => location.reload();
   d.querySelector("#av3dNo").onclick = () => { motivo3D = ""; d.remove(); };
 }
-import * as Loc from "./locale.js?v=75";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=76";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -509,8 +509,22 @@ function nuoviLog(log) {
   for (let i = log.length - 1; i >= 0; i--) if (JSON.stringify(log[i]) === k) return log.slice(i + 1);
   return log.slice(-12);
 }
+// la pagina e' piu' vecchia del motore che ha calcolato la vista? Allora chiede di aggiornare (v76)
+function indirizzoAggiornato(href, n) { const u = new URL(href); u.searchParams.set("v", String(n)); return u.toString(); }
+function controllaVersione(v) {
+  const mia = L.VERSIONE_REGOLE || 0, sua = (v && v.versioneRegole) || 0, motore = (v && v.versioneMotore) || 0;
+  if (!(sua > mia || (L.VERSIONE && motore > L.VERSIONE))) return false;
+  if (document.getElementById("avvisoVersione")) return true;
+  const n = Math.max(sua, mia + 1), d = document.createElement("div"); d.id = "avvisoVersione";
+  d.innerHTML = `<span>C'è una versione nuova del gioco.</span><button class="oro piccolo" id="aggiornaVersione">Aggiorna</button>`;
+  document.body.appendChild(d);
+  d.querySelector("#aggiornaVersione").onclick = () => { location.href = indirizzoAggiornato(location.href, n); };
+  return true;
+}
+window.lagunaControllaVersione = controllaVersione; // per le prove automatiche
 function riceviVista(v) {
   const j = JSON.stringify(v); if (j === ultimaVistaJson) return; ultimaVistaJson = j;
+  try { controllaVersione(v); } catch (e) { console.warn("versione", e); }
   if (!S) { (v.gazzetta || []).forEach((g) => gazzettaVista.add(g.ciclo + "|" + g.testo)); }
   if (!S) { S = v; S.players.forEach((p) => disp[p.id] = copiaPos(p)); ultimoLog = S.log[S.log.length - 1] || null; ultimoFlusso = Math.max(0, ...(S.flussi || []).map((f) => f.n)); segnoTurno = ultimoFlusso; disegna(); mostraNovita(); return; }
   coda.push(v);
@@ -1056,7 +1070,7 @@ function cartaGiorno(me) {
   if (turno.id !== mioId) return `<div class="titolo">Turno di ${esc(turno.nome)}</div><div class="sub">Guarda dove va. Intanto puoi aprire il telefono.</div>`;
   if (S.pending && S.pending.giocatore === mioId) return `<div class="titolo">${S.pending.tipo === "chiamata" ? ico("sconosciuto") + " Ti stanno chiamando" : "Hai una scelta da fare"}</div><button class="oro grande" data-a="pending">${S.pending.tipo === "chiamata" ? "Rispondi" : "Decidi"}</button>`;
   const c = casellaDi(me);
-  if (!me.haTirato) return riepilogoGiro() + rivalita() + `<div class="riga" style="justify-content:space-between;align-items:center"><div><div class="kick" style="color:var(--muted)">Sei a</div><div class="dove">${esc(c ? c.nome : "")}</div></div><div class="riga">${!me.doppi && me.rapidoCiclo !== S.ciclo && L.destinazioniRapide(S, me).length ? `<button data-a="rapido">${ico("aereo")} Viaggio rapido</button>` : ""}<button class="oro grande" data-a="tira">${ico("dado")} Tira i dadi</button></div></div>`;
+  if (!me.haTirato) return riepilogoGiro() + rivalita() + `<div class="riga" style="justify-content:space-between;align-items:center"><div><div class="kick" style="color:var(--muted)">Sei a</div><div class="dove">${esc(c ? c.nome : "")}</div></div><div class="riga">${!me.doppi && L.destinazioniRapide(S, me).length ? `<button data-a="rapido"${L.motivoNoRapido && L.motivoNoRapido(S, me) ? ' class="spento"' : ""}>${ico("aereo")} Viaggio rapido</button>` : ""}<button class="oro grande" data-a="tira">${ico("dado")} Tira i dadi</button></div></div>`;
   if (me.faro) return `<div class="titolo">Sei al Faro</div><div class="sub">Oggi non ti muovi. Hai diritto a una telefonata: puoi usare il telefono una volta.</div><button class="oro" data-a="fine">Fine turno</button>`;
   const dadi = me.dadi ? me.dadi.map((x) => `<span class="dado">${x}</span>`).join("") : "";
   const own = c && c.owner ? S.players.find((p) => p.id === c.owner) : null;
@@ -1674,7 +1688,12 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 75: ["<b>I Servizi dei contatti.</b> Un poliziotto o un banchiere comprato ora ti fa un Servizio per Ciclo: una transenna sul tabellone, una retata dove vuoi tu, il conto di un rivale, un carico tenuto da parte. App Soldi sporchi, La tua rete.",
+const NOVITA = { 76: ["<b>Viaggio rapido.</b> Ora si fa una volta ogni 2 Cicli e costa il carburante: motoscafo 100.000 €, elicottero 300.000 €, jet 600.000 €. Ti costa anche la mossa del giorno. Il taxi per il Municipio non c'è più: ti candidi a Sindaco allo sportello, o dal telefono pagando il doppio.",
+  "<b>Il Timbro del Municipio</b> non si consuma più da solo: quando chiedi un permesso il gioco ti chiede se vuoi usarlo.",
+  "<b>Prova di fedeltà.</b> Costa il 10% del Tesoro (almeno 2 milioni), e di più se la rifai nello stesso Ciclo. Il membro lo sa. Se era fedele, la setta perde 3 Influenza.",
+  "<b>Chi vende la setta paga.</b> Il Gran Maestro tiene una Prova sul traditore, e per 4 Cicli nessuna setta lo prende.",
+  "<b>Patto sulla parola.</b> Quando scade, chi deve pagare ha tempo fino all'Alba dopo (\"Paga ora\" nell'app Contratti). Se non paga, rompe la parola: −8 fama e la Gazzetta lo scrive.",
+  "<b>Versione nuova.</b> Se il gioco è stato aggiornato, in alto compare \"C'è una versione nuova del gioco\": tocca Aggiorna."], 75: ["<b>I Servizi dei contatti.</b> Un poliziotto o un banchiere comprato ora ti fa un Servizio per Ciclo: una transenna sul tabellone, una retata dove vuoi tu, il conto di un rivale, un carico tenuto da parte. App Soldi sporchi, La tua rete.",
   "<b>Attento all'umore.</b> Ogni Servizio rende il contatto più nervoso: più lo usi, prima gli Affari Interni arrivano a lui. E poi a te.",
   "<b>La Fedina pulita.</b> Ogni Ciclo senza atti sporchi la fa crescere. A 2 puoi firmare un esposto, a 4 aprire un'inchiesta su un rivale, a 6 donare un'opera alla città. App Municipio, «Cittadino onesto».",
   "<b>Basta un atto sporco</b> e la Fedina torna a zero. Prima di una mossa sporca il gioco te lo dice. La Fedina degli altri la vedi accanto al loro nome."], 74: ["<b>I Favori.</b> In un patto (app Contratti) ora puoi chiedere un Favore: un voto alle elezioni, un passaggio gratis sui suoi terreni, un silenzio, un appuntamento di notte. Il gioco lo fa rispettare.",
@@ -1921,9 +1940,17 @@ function appBorsa(me, miTurno) {
     `<p class="sub">Le cripto si comprano con soldi puliti e cambiano prezzo una volta per Ciclo, all'Alba. In media salgono, ma ogni tanto crollano del 70% in una notte.</p>` +
     L.MONETE.map((m) => `<div class="scheda"><h4>${m} <span class="sub">${S.cripto[m].toFixed(2)}</span></h4><span class="sub" style="display:block;margin-bottom:4px">${{ LagunaCoin: "La più tranquilla: si muove poco e crolla di rado.", FlamingoToken: "La più pazza: può raddoppiare o dimezzarsi in un Ciclo.", ShadowCoin: "Media. Serve anche per ripulire i soldi sporchi. Il Sindaco può bloccarla." }[m] || ""}</span><span class="sub">Ne hai per ${euro((me.cripto[m] || 0) * S.cripto[m])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="c_${m}" style="width:100px"><button class="piccolo" data-compra="cripto|${m}">Compra</button><button class="piccolo" data-vendi="cripto|${m}">Vendi</button></div></div>`).join("");
 }
+// un patto sulla parola scaduto: chi deve pagare ha tempo fino all'Alba dopo (v76)
+function pattoDaPagare(x, me) {
+  if (x.stato !== "scaduto" || x.tipo === "notarile") return "";
+  const deve = x.chiPagaDopo === "da" ? x.da : x.a, resto = L.restoPatto ? L.restoPatto(x) : x.pagoDopo;
+  const entro = x.scadutoCiclo != null ? " entro l'Alba di questo Ciclo" : "";
+  if (deve !== mioId) return `<span class="sub">${esc(nomeDi(deve))} deve pagarti ${euro(resto)}${entro}. Se non paga, rompe la parola davanti a tutti.</span>`;
+  return `<span class="sub" style="color:#ffb3b3">Devi pagare ${euro(resto)}${entro}. Se non paghi: −8 fama, la Gazzetta lo scrive e per 2 Cicli nessuno si fida di te.</span><div class="riga"><button class="piccolo oro" data-pagapatto="${x.id}" ${me.cash < resto ? "disabled" : ""}>Paga ora · ${euro(resto)}</button></div>`;
+}
 function appContratti(me, miTurno) {
     const miei = S.contratti.filter((x) => x.da === mioId || x.a === mioId);
-    return miei.map((x) => `<div class="scheda"><span><span class="tag">${x.tipo === "notarile" ? "Dal notaio" : "Sulla parola"}</span>${x.favore ? `<span class="tag" style="background:rgba(201,162,74,.25)">Favore: ${esc(NOME_FAV(x.favore.tipo))} · lo deve ${esc(nomeDi(x.favore.deve === "da" ? x.da : x.a))}</span>` : ""}<span class="tag">${esc(x.stato)}</span></span><span>${esc(S.players.find((y) => y.id === x.da).nome)} ↔ ${esc(S.players.find((y) => y.id === x.a).nome)}: subito ${euro(x.pagoOra)}, poi ${euro(x.pagoDopo)}</span>${x.testo ? `<i class="sub">"${esc(x.testo)}"</i>` : ""}${x.a === mioId && x.stato === "proposto" ? `<div class="riga"><button class="piccolo oro" data-contr="${x.id}|1">Accetta</button><button class="piccolo" data-contr="${x.id}|0">Rifiuta</button></div>` : ""}</div>`).join("") + `<button class="oro" data-a2="nuovoContratto">Proponi un patto</button>`;
+    return miei.map((x) => `<div class="scheda"><span><span class="tag">${x.tipo === "notarile" ? "Dal notaio" : "Sulla parola"}</span>${x.favore ? `<span class="tag" style="background:rgba(201,162,74,.25)">Favore: ${esc(NOME_FAV(x.favore.tipo))} · lo deve ${esc(nomeDi(x.favore.deve === "da" ? x.da : x.a))}</span>` : ""}<span class="tag">${esc(x.stato)}</span></span><span>${esc(S.players.find((y) => y.id === x.da).nome)} ↔ ${esc(S.players.find((y) => y.id === x.a).nome)}: subito ${euro(x.pagoOra)}, poi ${euro(x.pagoDopo)}</span>${x.testo ? `<i class="sub">"${esc(x.testo)}"</i>` : ""}${x.a === mioId && x.stato === "proposto" ? `<div class="riga"><button class="piccolo oro" data-contr="${x.id}|1">Accetta</button><button class="piccolo" data-contr="${x.id}|0">Rifiuta</button></div>` : ""}${pattoDaPagare(x, me)}</div>`).join("") + `<button class="oro" data-a2="nuovoContratto">Proponi un patto</button>`;
 }
 function appAgenzia(me, miTurno) {
     const c = casellaDi(me), isola = (c && c.isola) || L.isolaDiPos(me.pos);
@@ -1936,7 +1963,7 @@ function appAgenzia(me, miTurno) {
     return testa + liberi.map((l) => { const costo = L.prezzoAgenzia(S, me, l); return `<div class="scheda"><h4><span style="color:${COL_SERIE[l.serie] || "#aaa"}">■</span> ${esc(l.nome)}</h4><span class="sub">${l.tipoCasella === "molo" ? "Molo: chi ci passa ti paga il pedaggio." : "Gruppo " + esc(l.serie) + " · prezzo " + euro(l.prezzo)}</span><button class="piccolo oro" data-agenzia="${l.id}" ${me.cash < costo ? "disabled" : ""}>Compra a ${euro(costo)}</button></div>`; }).join("");
 }
 function appMunicipio(me, miTurno) {
-    return `<div class="scheda"><h4>Sindaco: ${S.sindaco ? esc(S.players.find((x) => x.id === S.sindaco).nome) : "nessuno"}</h4><span class="sub">Tasse al ${Math.round(S.tassa * 100)}%. Le elezioni sono ogni 2 Cicli: per candidarti serve fama 40, passando dal Municipio. Ci arrivi coi dadi o, a inizio turno, con il Viaggio rapido in taxi (${euro(L.N.taxiMunicipio)}).</span></div>
+    return `<div class="scheda"><h4>Sindaco: ${S.sindaco ? esc(S.players.find((x) => x.id === S.sindaco).nome) : "nessuno"}</h4><span class="sub">Tasse al ${Math.round(S.tassa * 100)}%. Le elezioni sono ogni 2 Cicli: per candidarti serve fama 40. Allo sportello del Municipio (ci arrivi coi dadi) costa ${euro(L.costoCandidatura(S, me, false))}; da qui, dal telefono, il doppio.</span>${S.candidati[mioId] === undefined ? `<div class="riga"><button class="piccolo" data-a2="candidatiTel" ${me.fama < 40 || me.cash < L.costoCandidatura(S, me, true) ? "disabled" : ""}>Candidati dal telefono · ${euro(L.costoCandidatura(S, me, true))}</button></div>${me.fama < 40 ? `<span class="sub">Ti serve fama 40 (ora ${Math.round(me.fama)}).</span>` : ""}` : ""}</div>
       ${S.candidati[mioId] !== undefined ? `<div class="scheda"><h4>Sei candidato</h4><div class="riga"><input id="campImp" type="number" placeholder="quanto" style="width:110px"><button class="piccolo" data-a2="campagna">Investi in campagna</button></div></div>` : ""}
       ${S.sindaco === mioId && S.transenna ? `<div class="scheda"><h4>🚧 Una transenna in città</h4><span class="sub">Un agente ha messo un posto di blocco in ${esc((S.lotti.find((l) => l.giro === "o" && l.idx === S.transenna.pos) || {}).nome || "una via")}. Da Sindaco la fai togliere gratis, una volta per Ciclo, nel tuo turno.</span>${me.togliCiclo === S.ciclo ? `<span class="sub">In questo Ciclo l'hai già fatto.</span>` : `<button class="piccolo oro" data-a2="togliTransenna" ${mioTurnoGiorno() ? "" : "disabled"}>Fai togliere la transenna</button>`}</div>` : ""}
       ${cittadinoOnesto(me)}
@@ -1989,14 +2016,14 @@ function appSetta(me, miTurno) {
         <div class="ib"><b>4</b><span><b>Grandi Opere</b>: colpi enormi pagati dal Tesoro (da 10 a 30 milioni). Il Gran Maestro propone, gli altri membri votano sì o no fino all'Alba. Passa se i sì sono almeno quanti i no. Da soli si decide da soli, ma costa il 50% in più.</span></div>
         <span class="sub">Esempio: la tua setta ha 14 punti (livello 2) e 12 milioni nel Tesoro. Proponi l'Amnistia. Sabri vota sì, lo Spavaldo vota no: 1 a 1, decidi tu, passa. All'Alba spariscono le vostre condanne e il 70% delle Tracce, la setta prende +12 Influenza e arriva a 26. Ma per 2 Cicli ogni Traccia nuova pesa di più.</span></details>` + S.sette.map((st) => `<div class="scheda"><h4 style="color:var(--setta)">${esc(st.nome)}</h4><i class="sub">${esc(st.motto)}</i><span class="sub">Livello ${L.livelloSetta(S, st)} · ${Math.floor(L.influenzaDi(S, st))} Influenza · membri: ${st.membri.map((id) => esc(S.players.find((x) => x.id === id).nome)).join(", ")} · tesoro ${euro(st.tesoro)}</span>
         <div class="riga"><input type="number" placeholder="versa" id="versa_${st.id}" style="width:100px"><button class="piccolo" data-versa="${st.id}|0">Puliti</button><button class="piccolo" data-versa="${st.id}|1">Sporchi</button></div>
-        ${st.membri.filter((id) => id !== st.gm).length ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${st.membri.filter((id) => id !== st.gm).map((id) => { const m = S.players.find((x) => x.id === id); return `<div class="riga" style="justify-content:space-between"><span class="sub">${esc(m.nome)}${id === mioId ? " (tu)" : ""}</span>${st.gm === mioId ? `<span><button class="piccolo" data-prova="${st.id}|${id}" title="Costa 1 M dal Tesoro: scopri se sta tradendo">Prova di fedeltà</button> <button class="piccolo" data-caccia="${st.id}|${id}">Caccia</button></span>` : id === mioId ? `<button class="piccolo" data-lascia="${st.id}">Esci dalla setta</button>` : ""}</div>`; }).join("")}</div>` : ""}
+        ${st.membri.filter((id) => id !== st.gm).length ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${st.membri.filter((id) => id !== st.gm).map((id) => { const m = S.players.find((x) => x.id === id); return `<div class="riga" style="justify-content:space-between"><span class="sub">${esc(m.nome)}${id === mioId ? " (tu)" : ""}</span>${st.gm === mioId ? `<span><button class="piccolo" data-prova="${st.id}|${id}" title="Costa ${euro(L.costoProvaFedelta(S, st))} dal Tesoro: scopri se sta tradendo">Prova di fedeltà</button> <button class="piccolo" data-caccia="${st.id}|${id}">Caccia</button></span>` : id === mioId ? `<button class="piccolo" data-lascia="${st.id}">Esci dalla setta</button>` : ""}</div>`; }).join("")}</div>` : ""}
         <span class="sub" style="display:block;margin-top:6px">${PNG_SETTA.filter((x) => st[x.k]).length ? "Personaggi: " + PNG_SETTA.filter((x) => st[x.k]).map((x) => x.nome).join(", ") + "." : "Nessun personaggio reclutato (si reclutano di notte al Faro)."}</span>
         ${schedaInfluenza(st)}${schedaOpere(st, me)}${schedaLavanderia(st, me)}
         ${(() => { const cv = st.convocazione && st.convocazione.ciclo === S.ciclo ? st.convocazione : null;
           const luoghi = Object.keys(L.LUOGHI).filter((l) => l !== "palazzo");
           return `<div class="scheda conv-setta"><h4>🕯️ Convocazione</h4>${cv ? `<span class="sub"><b>Stanotte alle ${L.ORE[cv.ora]}, ${esc(L.LUOGHI[cv.luogo].nome)}</b>${cv.fatto ? " · il rito è già stato fatto" : ". Chi è lì a quell'ora partecipa al rito: Tracce cancellate e protezione per il resto della notte." + (S.players.find((x) => x.id === st.gm).veicoli.includes("jet") ? " Il jet del Gran Maestro ti porta lì in 1 ora." : "")}</span>` : `<span class="sub">Nessuna convocazione per stanotte.</span>`}
           ${st.gm === mioId && !(cv && cv.fatto) ? `<div class="riga" style="flex-wrap:wrap;margin-top:6px"><select id="convL_${st.id}">${luoghi.map((l) => `<option value="${l}" ${cv && cv.luogo === l ? "selected" : ""}>${esc(L.LUOGHI[l].nome)}</option>`).join("")}</select><select id="convO_${st.id}">${[1, 2, 3, 4, 5].filter((o) => !(S.fase === "notte" && S.notte && o <= S.notte.ora)).map((o) => `<option value="${o}" ${cv && cv.ora === o ? "selected" : ""}>${L.ORE[o]}</option>`).join("")}</select><button class="piccolo oro" data-convoca="${st.id}">Convoca</button></div><span class="sub">Solo i membri ricevono il messaggio. Il rito lo celebri tu, di notte, quando sei lì.</span>` : ""}</div>`; })()}
-        ${st.gm !== mioId ? `<div class="scheda" style="margin-top:8px;border-color:#7a2c2c"><h4>🗡️ Tradire la setta</h4><span class="sub">${st.tradimento ? "<b>Hai già parlato con la polizia.</b> All'Alba scatta il tradimento, se il Gran Maestro non ti scopre prima." : "Vendi la setta alla polizia: all'Alba prendi il 10% del Tesoro (fino a 5 M) puliti e ti cancellano 30 Tracce. La setta perde metà del Tesoro e gli altri membri finiscono sotto osservazione. Se il Gran Maestro ti fa la Prova di fedeltà prima dell'Alba, sei scoperto."}</span>${st.tradimento ? "" : `<button class="piccolo" data-tradisci="${st.id}" style="margin-top:6px">Chiama la polizia</button>`}</div>` : `<span class="sub" style="display:block;margin-top:6px">⚰️ Tesoro sepolto: ${euro(st.sepolto || 0)}. Si nasconde e si recupera di notte al Faro.</span>`}
+        ${st.gm !== mioId ? `<div class="scheda" style="margin-top:8px;border-color:#7a2c2c"><h4>🗡️ Tradire la setta</h4><span class="sub">${st.tradimento ? "<b>Hai già parlato con la polizia.</b> All'Alba scatta il tradimento, se il Gran Maestro non ti scopre prima." : "Vendi la setta alla polizia: all'Alba prendi il 10% del Tesoro (fino a 5 M) puliti e ti cancellano 30 Tracce. La setta perde metà del Tesoro e gli altri membri finiscono sotto osservazione. Se il Gran Maestro ti fa la Prova di fedeltà prima dell'Alba, sei scoperto. Se riesce, il Gran Maestro tiene una Prova su di te e per 4 Cicli nessuna setta ti prende."}</span>${st.tradimento ? "" : `<button class="piccolo" data-tradisci="${st.id}" style="margin-top:6px">Chiama la polizia</button>`}</div>` : `<span class="sub" style="display:block;margin-top:6px">⚰️ Tesoro sepolto: ${euro(st.sepolto || 0)}. Si nasconde e si recupera di notte al Faro.</span>`}
         <div class="scheda chat-setta"><h4>💬 Parla con i confratelli</h4>
           <div class="chat-righe">${(st.chat || []).slice(-12).map((m) => `<div class="${m.da === mioId ? "mio" : ""}"><b>${esc(m.nome)}</b> ${esc(m.testo)}</div>`).join("") || `<span class="sub">Ancora nessun messaggio. Qui scrivono solo i membri.</span>`}</div>
           <div class="riga"><input id="chat_${st.id}" maxlength="160" placeholder="Scrivi ai confratelli…" style="flex:1"><button class="piccolo oro" data-schat="${st.id}">Invia</button></div></div>
@@ -2405,7 +2432,7 @@ function collegaApp(me) {
   on("[data-chat]", (b) => { chatAperta = b.dataset.chat; disegnaTelefono(me); });
   on("#tornaChat", () => { chatAperta = null; disegnaTelefono(me); });
   const ch = box.querySelector(".chat"); if (ch) ch.scrollTop = ch.scrollHeight;
-  on("[data-permesso]", (b) => agisci({ tipo: "permesso", lotto: b.dataset.permesso }));
+  on("[data-permesso]", (b) => chiediPermesso(me, b.dataset.permesso));
   on("[data-agenzia]", (b) => agisci({ tipo: "agenzia", lotto: b.dataset.agenzia }));
   on("[data-scarica]", (b) => agisci({ tipo: "scarica_contatto", chiave: b.dataset.scarica }));
   on("[data-serv]", (b) => { const [chi, isola] = b.dataset.serv.split("|"); finestraServizio(me, chi, isola); });
@@ -2429,6 +2456,7 @@ function collegaApp(me) {
   on("[data-stanza]", (b) => agisci({ tipo: "stanza", stanza: b.dataset.stanza }));
   on('[data-a2="veicolo"]', () => finestraVeicolo());
   on('[data-a2="nuovoContratto"]', () => finestraContratto());
+  on('[data-a2="candidatiTel"]', () => agisci({ tipo: "candidati" }));
   on('[data-a2="campagna"]', () => agisci({ tipo: "campagna", importo: Number(v("#campImp")) }));
   on('[data-a2="legge"]', () => agisci({ tipo: "legge", legge: v("#leggeSel"), isola: v("#leggeIsola") }));
   on('[data-a2="tasse"]', () => agisci({ tipo: "tasse", quota: Number(v("#tasseSel")) }));
@@ -2444,7 +2472,7 @@ function collegaApp(me) {
   on("[data-vendi]", (b) => { const [cosa, nome] = b.dataset.vendi.split("|"); agisci({ tipo: "vendi", cosa, nome, quota: 1 }); });
   on("[data-gciclo]", (b) => { gazzettaCiclo = +b.dataset.gciclo; disegnaTelefono(io()); });
   on("[data-invito]", (b) => { const [st, si] = b.dataset.invito.split("|"); agisci({ tipo: "rispondi_invito", setta: st, si: si === "1" }); });
-  on("[data-prova]", (b) => { const [st, m] = b.dataset.prova.split("|"); agisci({ tipo: "prova_fedelta", setta: st, membro: m }); });
+  on("[data-prova]", (b) => { const [st, m] = b.dataset.prova.split("|"); finestraProvaFedelta(st, m); });
   on("[data-tradisci]", (b) => finestra(`<h2>Tradire la setta?</h2><p>Non si torna indietro. All'Alba la polizia riceve tutto, a meno che il Gran Maestro ti scopra prima.</p><div class="pulsanti"><button id="no">Ci ripenso</button><button class="oro" id="si">Chiamo</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "tradisci", setta: b.dataset.tradisci }); }; }));
   on("[data-convoca]", (b) => { const id = b.dataset.convoca; agisci({ tipo: "convoca", setta: id, luogo: v("#convL_" + id), ora: +v("#convO_" + id) }); });
   on("[data-schat]", (b) => { const id = b.dataset.schat, t = v("#chat_" + id); if (t && t.trim()) agisci({ tipo: "msg_setta", setta: id, testo: t }); });
@@ -2456,6 +2484,7 @@ function collegaApp(me) {
   on("[data-vota]", (b) => { const [st, si] = b.dataset.vota.split("|"); agisci({ tipo: "vota_opera", setta: st, si: si === "1" }); });
   on("[data-ritira]", (b) => agisci({ tipo: "ritira_opera", setta: b.dataset.ritira }));
   on("[data-lava]", (b) => { const id = b.dataset.lava; agisci({ tipo: "lava_setta", setta: id, importo: Number(v("#lava_" + id)) }); });
+  on("[data-pagapatto]", (b) => agisci({ tipo: "paga_patto", id: b.dataset.pagapatto }));
   on("[data-contr]", (b) => { const [kk, si] = b.dataset.contr.split("|"); agisci({ tipo: "rispondi_contratto", id: kk, si: si === "1" }); });
 }
 
@@ -2773,13 +2802,40 @@ function finestraCorrompi(me, chiGiro) {
       "Se accetta: +4 Tracce. L'agente è reato Medio, Vargas e Lenz sono reato Grave."])}
     <div class="pulsanti"><button id="x">Meglio di no</button><button class="notte" id="ok">Faccio l'offerta</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "corrompi", chi: club ? d.querySelector("#chi").value : "banchiere", isola: club ? d.querySelector("#iso").value : null, sporchi: d.querySelector("#sp").checked }); }; });
 }
+// il permesso: se hai il Timbro falso in valigetta il gioco ti chiede se usarlo (v76: non si consuma piu' da solo)
+function chiediPermesso(me, idLotto) {
+  if (!(me.valigetta || []).some((o) => o.id === "timbro")) return agisci({ tipo: "permesso", lotto: idLotto });
+  const l = S.lotti.find((x) => x.id === idLotto);
+  finestra(`<span class="kick" style="color:var(--sporco)">${ico("municipio")} Timbro del Municipio</span><h2>Usi il Timbro falso?</h2>
+    <p>Il permesso per <b>${esc(l ? l.nome : "")}</b> passa subito${S.gen >= 2 ? " (e senza bollo)" : ""}, ma <b>+6 Tracce</b>.</p><p class="sub">Se non lo usi, il Timbro resta in valigetta.</p>
+    <div class="pulsanti"><button id="x">Annulla</button><button id="no">Senza Timbro</button><button class="oro" id="si">Sì, uso il Timbro</button></div>`, (d, c) => {
+    d.querySelector("#x").onclick = c;
+    d.querySelector("#no").onclick = () => { c(); agisci({ tipo: "permesso", lotto: idLotto, timbro: false }); };
+    d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "permesso", lotto: idLotto, timbro: true }); };
+  });
+}
+function finestraProvaFedelta(idSetta, idMembro) {
+  const st = (S.sette || []).find((x) => x.id === idSetta); if (!st) return;
+  const costo = L.costoProvaFedelta(S, st), n = st.prove && st.prove.ciclo === S.ciclo ? st.prove.n || 0 : 0, nome = nomeDi(idMembro);
+  finestra(`<span class="kick" style="color:var(--setta)">${ico("setta")} Prova di fedeltà</span><h2>Metti alla prova ${esc(nome)}?</h2>
+    <p>Costa <b>${euro(costo)}</b> dal Tesoro (il 10% del Tesoro, almeno 2 milioni${n ? `; è la ${n + 1}ª di questo Ciclo, per questo costa ${n === 1 ? "il doppio" : "di più"}` : ""}).</p>
+    <p class="sub">Se sta tradendo, lo scopri e lo cacci. Se è fedele, se ne accorge: la setta perde 3 Influenza (il livello però resta) e magari se ne va. La prossima Prova in questo Ciclo costa il doppio.</p>
+    ${st.tesoro < costo ? `<p class="avviso-rischio">Nel Tesoro ci sono solo ${euro(st.tesoro)}.</p>` : ""}
+    <div class="pulsanti"><button id="x">Annulla</button><button class="oro" id="si" ${st.tesoro < costo ? "disabled" : ""}>Sì, mettilo alla prova</button></div>`, (d, c) => {
+    d.querySelector("#x").onclick = c;
+    d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "prova_fedelta", setta: idSetta, membro: idMembro }); };
+  });
+}
 function finestraRapido(me) {
   const dest = L.destinazioniRapide(S, me);
-  const MEZZO = { taxi: ["municipio", "Taxi per il Municipio (candidarsi a Sindaco, licenza sicura)"], traghetto: ["marina", "Traghetto"], motoscafo: ["motoscafo", "Motoscafo"], elicottero: ["palazzo", "Elicottero"], jet: ["aereo", "Jet"] };
+  const MEZZO = { traghetto: ["marina", "Traghetto (dal molo)"], motoscafo: ["motoscafo", "Motoscafo · carburante"], elicottero: ["palazzo", "Elicottero · carburante"], jet: ["aereo", "Jet · carburante"] };
+  const no = L.motivoNoRapido ? L.motivoNoRapido(S, me) : "", fra = L.cicliAlRapido ? L.cicliAlRapido(S, me) : 0;
+  const quando = fra > 0 ? `<p class="avviso-rischio">Prossimo viaggio rapido fra <b>${fra} ${fra === 1 ? "Ciclo" : "Cicli"}</b>.</p>` : no ? `<p class="avviso-rischio">${esc(no)}</p>` : `<p class="sub">Dopo questo, il prossimo viaggio rapido sarà fra ${L.N.rapidoOgni || 2} Cicli.</p>`;
   finestra(`<span class="kick" style="color:var(--oro)">${ico("aereo")} Viaggio rapido</span><h2>Dove vuoi andare?</h2>
-    <p>Una volta per Ciclo, al posto dei dadi. Non passi dalla Partenza (niente stipendio) e se atterri sul terreno di un altro paghi l'affitto.</p>
+    <p>Una volta ogni ${L.N.rapidoOgni || 2} Cicli, al posto dei dadi. Paghi il carburante e <b>ti costa la mossa del giorno</b>: in questo turno niente permesso, cantiere, piano o altra mossa del giorno. Non passi dalla Partenza (niente stipendio) e se atterri sul terreno di un altro paghi l'affitto.</p>
+    ${quando}
     <div class="lista-luoghi">${dest.map((d) => { const l = S.lotti.find((x) => x.idx === d.idx); const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
-      return `<button class="luogo-riga" data-rap="${d.idx}" ${me.cash < d.costo ? "disabled" : ""}><span class="ic">${ico(MEZZO[d.mezzo][0])}</span><span style="flex:1;text-align:left"><b>${esc(l.nome)}</b><br><span class="sub">${MEZZO[d.mezzo][1]}${l.isola ? " · " + esc(L.NOMI_ISOLE[l.isola]) : ""}${own ? " · di " + esc(own.nome) : ""}</span></span><span class="ore">${d.costo ? euro(d.costo) : "gratis"}</span></button>`; }).join("")}</div>
+      return `<button class="luogo-riga" data-rap="${d.idx}" ${me.cash < d.costo || no ? "disabled" : ""}><span class="ic">${ico(MEZZO[d.mezzo][0])}</span><span style="flex:1;text-align:left"><b>${esc(l.nome)}</b><br><span class="sub">${MEZZO[d.mezzo][1]}${l.isola ? " · " + esc(L.NOMI_ISOLE[l.isola]) : ""}${own ? " · di " + esc(own.nome) : ""}</span></span><span class="ore">${d.costo ? euro(d.costo) : "gratis"}<br><span class="sub">+ mossa del giorno</span></span></button>`; }).join("")}</div>
     <div class="pulsanti"><button id="no">Tiro i dadi</button></div>`, (d, c) => {
     d.querySelector("#no").onclick = c;
     d.querySelectorAll("[data-rap]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "viaggio_rapido", idx: +b.dataset.rap }); });
@@ -2971,13 +3027,19 @@ function finestraContratto() {
     <div class="campo"><label>Subito</label><div class="riga"><input id="ora" type="number" value="0" style="width:140px"> li paga <select id="chiOra"><option value="da">io</option><option value="a">lui/lei</option></select></div></div>
     <div class="campo"><label>Più avanti</label><div class="riga"><input id="dopo" type="number" value="0" style="width:140px"> li paga <select id="chiDopo"><option value="a">lui/lei</option><option value="da">io</option></select> fra <select id="cicli">${[1, 2, 3, 4].map((n) => `<option>${n}</option>`).join("")}</select> Cicli</div></div>
     <div class="campo"><label for="fav">Favore</label><select id="fav"><option value="">nessuno</option>${Object.keys(L.FAVORI || {}).map((k) => `<option value="${k}">${esc(NOME_FAV(k))}</option>`).join("")}</select></div>
-    <div class="campo"><label for="favDeve">Chi lo deve</label><select id="favDeve"><option value="a">lui/lei</option><option value="da">io</option></select></div>
+    <div class="campo"><label for="favDeve">Chi lo deve</label><select id="favDeve"><option value="a">${esc(altri[0] ? altri[0].nome : "lui/lei")}</option><option value="da">io</option></select></div>
     <p class="sub" id="favSpiega">Un Favore è una promessa che il gioco fa rispettare. Chi rompe la parola finisce sulla Gazzetta.</p>
     <div class="campo"><label for="lotto">Un lotto che passa di mano subito (facoltativo)</label><select id="lotto"><option value="">nessuno</option>${lotti.map((l) => `<option value="${l.id}">${esc(l.nome)} (${esc(S.players.find((x) => x.id === l.owner).nome)})</option>`).join("")}</select></div>
     <div class="campo"><label for="testo">Il resto, con parole tue</label><textarea id="testo" rows="3"></textarea></div>
     <div class="pulsanti"><button id="x">Annulla</button><button class="oro" id="ok">Proponi</button></div>`, (d, c) => {
     d.querySelector("#x").onclick = c;
-    d.querySelector("#fav").onchange = (e) => { d.querySelector("#favSpiega").textContent = e.target.value ? SPIEGA_FAV(e.target.value) : "Un Favore è una promessa che il gioco fa rispettare. Chi rompe la parola finisce sulla Gazzetta."; };
+    // la frase sotto il Favore usa i nomi e il verso giusto: si aggiorna quando cambi il Favore, chi lo deve o con chi
+    const spiega = () => {
+      const tipo = d.querySelector("#fav").value, deveIo = d.querySelector("#favDeve").value === "da", altro = nomeDi(d.querySelector("#a").value);
+      d.querySelector('#favDeve option[value="a"]').textContent = altro;
+      d.querySelector("#favSpiega").textContent = tipo ? L.testoFavorePatto(tipo, deveIo, altro) : "Un Favore è una promessa che il gioco fa rispettare. Chi rompe la parola finisce sulla Gazzetta.";
+    };
+    for (const q of ["#fav", "#favDeve", "#a"]) d.querySelector(q).onchange = spiega;
     d.querySelector("#ok").onclick = () => { const g = (q) => d.querySelector(q).value; c(); agisci({ tipo: "contratto", contratto: { a: g("#a"), tipo: g("#tipo"), favore: g("#fav") || null, favoreDeve: g("#favDeve"), pagoOra: Number(g("#ora")), chiPagaOra: g("#chiOra"), pagoDopo: Number(g("#dopo")), chiPagaDopo: g("#chiDopo"), cicli: Number(g("#cicli")), lottoCeduto: g("#lotto") || null, garanzia: null, testo: g("#testo") } }); };
   });
 }

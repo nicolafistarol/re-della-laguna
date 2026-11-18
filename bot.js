@@ -65,7 +65,8 @@ function invitoBot(o, i, L) {
     const altra = (o.sette || []).find((x) => x.gm !== i.id && x.membri.includes(i.id));
     if (altra && !altra.tradimento && altra.tesoro >= 1e7 && ["Furbo", "Spavaldo"].includes(i.strat) && Math.random() < 0.08) return { tipo: "tradisci", setta: altra.id };
     const mia = (o.sette || []).find((x) => x.gm === i.id);
-    if (mia && mia.membri.length > 1 && mia.tesoro >= 3e6 && Math.random() < 0.15) { const m = mia.membri.filter((x) => x !== i.id); return { tipo: "prova_fedelta", setta: mia.id, membro: m[Math.floor(Math.random() * m.length)] }; }
+    const costoProva = mia && L && L.costoProvaFedelta ? L.costoProvaFedelta(o, mia) : 1e6;
+    if (mia && mia.membri.length > 1 && mia.tesoro >= Math.max(3e6, costoProva * 2.5) && Math.random() < 0.15) { const m = mia.membri.filter((x) => x !== i.id); return { tipo: "prova_fedelta", setta: mia.id, membro: m[Math.floor(Math.random() * m.length)] }; }
   }
   const st = (o.sette || []).find((x) => x.gm === i.id);
   if (st && st.membri.length >= 2 && !(st.convocazione && st.convocazione.ciclo === o.ciclo) && o.ciclo % 2 === 0) {
@@ -428,6 +429,17 @@ function grandiBot(o, i, n) {
       { const rc = (o.ricatti || []).find((x) => x.a === i.id && x.stato === "attesa"); if (rc && LF && LF.FAVORI) return rispostaRicattoBot(o, i, n, rc, LF); }
       const s = o.contratti.find((o) => o.a === i.id && "proposto" === o.stato);
       if (s) return s.favore ? rispostaPattoBot(o, i, n, s, LF) : { tipo: "rispondi_contratto", id: s.id, si: !1 };
+      // patto sulla parola scaduto: il bot paga sempre, se ha i soldi (v76)
+      if (LF && LF.restoPatto && o.fase !== "pacchetti" && !o.fine) {
+        const k = (o.contratti || []).find((x) => x.stato === "scaduto" && x.tipo !== "notarile" && (x.chiPagaDopo === "da" ? x.da : x.a) === i.id && LF.restoPatto(x) > 0 && i.cash >= LF.restoPatto(x));
+        if (k) return { tipo: "paga_patto", id: k.id };
+      }
+      // messo alla prova anche se era fedele: 1 volta su 3 se ne va dalla setta (v76)
+      if (i.provato && i._provatoVisto !== i.provato.setta + ":" + i.provato.ciclo) {
+        i._provatoVisto = i.provato.setta + ":" + i.provato.ciclo;
+        const st = (o.sette || []).find((x) => x.id === i.provato.setta && x.membri.includes(i.id) && x.gm !== i.id);
+        if (st && Math.random() < 1 / 3) return { tipo: "lascia_setta", setta: st.id };
+      }
       if (LF && LF.FAVORI && o.fase !== "pacchetti" && !o.fine && !(o.fase === "notte" && (o.notteFatti[i.id] || (o.notte && o.notte.viaggio[i.id])))) { const fu = usaFavoriBot(o, i, n, LF, o.fase === "giorno" && t.corrente(o).id === i.id && !i.haTirato && !o.pending); if (fu) return fu; }
       if ("giorno" === o.fase) {
         if (t.corrente(o).id !== i.id) return null;
@@ -452,10 +464,11 @@ function grandiBot(o, i, n) {
         { const sosp = Object.keys(i.corrotti || {}).find((k) => i.corrotti[k].sospetto && i.stato >= 1);
           if (sosp) return { tipo: "scarica_contatto", chiave: sosp }; }
         if (!i.haTirato) {
-          if (!i.doppi && i.rapidoCiclo !== o.ciclo && t.destinazioniRapide && Math.random() < 0.3) {
-            const ds = t.destinazioniRapide(o, i).filter((d) => i.cash - d.costo > 3e5);
-            const buone = ds.filter((d) => { const l = o.lotti.find((x) => x.idx === d.idx); return d.mezzo !== "taxi" && (!l.owner || l.owner === i.id); });
-            const vere = ds.filter((d) => d.mezzo !== "taxi"); const d = buone.length ? buone[Math.floor(Math.random() * buone.length)] : vere[Math.floor(Math.random() * vere.length)];
+          // viaggio rapido (v76): costa carburante e la mossa del giorno, una volta ogni 2 Cicli: solo verso un terreno libero o suo
+          if (!i.doppi && t.destinazioniRapide && (t.motivoNoRapido ? !t.motivoNoRapido(o, i) : i.rapidoCiclo !== o.ciclo) && Math.random() < 0.3) {
+            const ds = t.destinazioniRapide(o, i).filter((d) => i.cash - d.costo > 1.5e6 && d.mezzo !== "taxi");
+            const buone = ds.filter((d) => { const l = o.lotti.find((x) => x.idx === d.idx); return !l.owner || l.owner === i.id; });
+            const d = buone[Math.floor(Math.random() * buone.length)];
             if (d) return { tipo: "viaggio_rapido", idx: d.idx };
           }
           return { tipo: "tira" };
@@ -476,7 +489,15 @@ function grandiBot(o, i, n) {
             if (i.permessoTurno === n) return null;
             if (t.propri(o, i).some((o) => o.permesso && !o.cantiere)) return null;
             const s = e(o, i, !1);
-            return s ? { tipo: "permesso", lotto: s.l.id } : null;
+            if (!s) return null;
+            // il Timbro falso (v76): lo usa solo se il permesso e' a rischio (rimandato) o costoso
+            if ((i.valigetta || []).some((x) => x.id === "timbro")) {
+              const inf = t.infoPermesso ? t.infoPermesso(o, i, s.l) : null;
+              const g2 = inf && (inf.sicuro || !!inf.rinvio); // partite nuove: permesso sicuro col bollo, o rimandato per un motivo
+              const usa = g2 ? !!inf.rinvio || inf.bollo >= 250000 : s.l.prezzo >= 4e5; // partite vecchie: il permesso e' sempre a rischio
+              if (usa) return { tipo: "permesso", lotto: s.l.id, timbro: !0 };
+            }
+            return { tipo: "permesso", lotto: s.l.id };
           })(o, i, n);
           if (r) return r;
           const a = (function (o, t, i) {
