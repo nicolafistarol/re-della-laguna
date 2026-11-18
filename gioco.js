@@ -2681,53 +2681,44 @@ function finestreAutomatiche(me) {
   if (S.ultimaCarta && S.ultimaCarta.giocatore === mioId) { const k = "carta" + S.ultimaCarta.testo + S.ciclo + S.giorno; if (!visti.has(k)) { visti.add(k); toast("📰 Gazzetta · " + S.ultimaCarta.testo); } }
   if (me.ultimaSentenza && !visti.has("sent" + JSON.stringify(me.ultimaSentenza))) { visti.add("sent" + JSON.stringify(me.ultimaSentenza)); return finestraSentenza(me, me.ultimaSentenza); }
 }
-// Punto 29: la sentenza in una finestra grande. Ogni effetto: cosa perdi, quanto, per quanto tempo, perche'.
-const GRAV_SPIEGA = { lieve: "un reato piccolo", media: "un reato medio", grave: "un reato grave", gravissima: "un reato gravissimo" };
+// Punto 29: la sentenza in una finestra grande, in parole semplici. Prima in breve cosa ti succede, poi perche', poi i dettagli.
+const GRAV_SPIEGA = { lieve: "piccolo", media: "medio", grave: "grave", gravissima: "gravissimo" };
 function finestraSentenza(me, s) {
-  const G = ["lieve", "media", "grave", "gravissima"], quota = s.multaQuota != null ? Math.round(s.multaQuota * 100) : Math.round((L.MULTA_CONDANNA[s.gravita] || 0) * 100);
-  const gio = L.N.giorni || 4, cicli = (n) => n + (n === 1 ? " Ciclo" : " Cicli");
-  const eff = (icona, titolo, quanto, durata, perche, colore) => `<div class="sent-eff"><span class="sent-ico">${icona}</span><div><div class="sent-tit"><b>${titolo}</b>${quanto ? `<span class="sent-q" style="color:${colore || "var(--sporco)"}">${quanto}</span>` : ""}</div>${durata ? `<div class="sent-dur">⏳ ${durata}</div>` : ""}<div class="sent-perche">${perche}</div></div></div>`;
+  const gio = L.N.giorni || 4, conf = s.confiscati || 0, tes = (s.tesori || []).reduce((t, x) => t + x.importo, 0);
+  const chiusi = s.chiusiNomi && s.chiusiNomi.length ? s.chiusiNomi : null, nChiusi = chiusi ? chiusi.length : s.chiusi || 0;
+  // 1. in breve: una riga per cosa, frasi corte
   const r = [];
-  r.push(eff("💸", "Soldi sporchi confiscati", euro(s.confiscati), "Per sempre: non tornano.",
-    "Ogni condanna porta via <b>tutti</b> i soldi sporchi che hai in quel momento." + (s.salvi > 0 ? ` Ne hai salvati <b style="color:var(--pulito)">${euro(s.salvi)}</b> grazie a ${esc((s.salviDa || []).join(", ") || "le tue protezioni")}.` : " Per salvarne una parte servono il Caveau del Palazzo o la cassetta di sicurezza.")));
-  r.push(eff("⚖️", "Multa", euro(s.multa), "Pagata subito.",
-    `È il <b>${quota}%</b> di tutto quello che possiedi (contanti, locali, azioni), non solo dei contanti: spendere prima non serve. Più il reato è grave, più è alta (lieve 4%, media 8%, grave 16%, gravissima 30%).` + (s.legale ? " Il tuo Studio legale l'ha abbassata del 30%." : "") + " Se non hai i contanti, la banca vende i tuoi titoli e poi ti mette a debito."));
-  if (s.faro) r.push(eff("🗼", "Cella al Faro", s.faro + " turni", s.faro >= gio ? `Circa ${cicli(Math.round(s.faro / gio))} (${gio} turni = 1 Ciclo). Esci da solo quando finiscono.` : `Meno di un Ciclo (${gio} turni = 1 Ciclo). Esci da solo quando finiscono.`,
-    "Al Faro non tiri i dadi, non compri terreni e di notte resti in cella. Ogni tuo turno hai <b>una telefonata</b>: un'azione dal telefono (Borsa, banca, Setta, patti, articoli, politica)."));
-  if (s.blocco) r.push(eff("📉", "Entrate dimezzate", "−50%", (s.blocco === 1 ? "Per la prossima Alba." : "Per le prossime " + s.blocco + " Albe."),
-    "A ogni Alba i tuoi locali rendono la metà e quando passi dal Ponte Sud lo Stipendio non arriva: il Giudice li blocca."));
-  if (s.chiusiNomi && s.chiusiNomi.length || s.chiusi) r.push(eff("🔒", "Locali chiusi", (s.chiusiNomi && s.chiusiNomi.length || s.chiusi) + "", "Per un Ciclo, poi riaprono.",
-    (s.chiusiNomi && s.chiusiNomi.length ? esc(s.chiusiNomi.join(", ")) + ". " : "") + "Il Giudice chiude i locali che possono coprire affari sporchi (coperture, locali della notte, attività a rischio). Chiusi non rendono."));
-  if (s.sequestrati && s.sequestrati.length) r.push(eff("🏚️", "Locali sequestrati", s.sequestrati.length + "", "Per sempre: vanno all'asta.",
-    esc(s.sequestrati.join(", ")) + ". Con un reato grave lo Stato prende i locali che coprivano i tuoi affari e li rimette all'asta come terreni vuoti."));
-  if (s.piani) r.push(eff("🏢", "Piani del Palazzo persi", s.piani + "", "Per sempre.",
-    (s.stanzePerse && s.stanzePerse.length ? "Con loro perdi le stanze: " + esc(s.stanzePerse.join(", ")) + ". " : "") + "Succede solo con un reato gravissimo."));
-  if (s.contatti) r.push(eff("📇", "Contatti corrotti persi", s.contatti + "", "Per sempre: vanno ricomprati.",
-    "Dopo una condanna nessun agente, giudice o doganiere vuole più farsi vedere con te."));
-  for (const x of s.tesori || []) r.push(eff("🗝️", "Tesoro della setta «" + esc(x.nome) + "»", euro(x.importo), "Per sempre.",
-    "Sei il Gran Maestro: la Procura sequestra il 30% del Tesoro. Il Tesoro sepolto è salvo."));
-  if (s.cerchiePerse) r.push(eff("🥂", "Circoli esclusivi persi", "", "Per sempre.", "Con un reato grave i circoli (come lo Yacht club) ti cacciano."));
-  if (s.fama != null) r.push(eff("⭐", "Fama", "−" + s.fama, "Per sempre (si riguadagna giocando).", "La Laguna legge la notizia sulla Gazzetta. Meno fama vuol dire meno voti alle elezioni."));
-  const pulito = `<div class="sent-azzera"><b style="color:var(--pulito)">Cosa si azzera</b><br>L'indagine è chiusa: torni <b>Tranquillo</b>. Le Tracce scendono a ${Math.round(s.tracceDopo != null ? s.tracceDopo : 15)}. Il reato è pagato: la Procura non ti processa due volte per lo stesso. I ricatti in attesa su di te si annullano.<br><b style="color:var(--sporco)">Cosa resta</b><br>Hai ${s.condanneTot ? `<b>${s.condanneTot}</b> ${s.condanneTot === 1 ? "condanna" : "condanne"}` : "una condanna in più"}: la prossima volta la pena <b>sale di un gradino</b> (recidiva).</div>`;
-  // la scala della gravita': da dove si parte, cosa ha alzato o abbassato la pena
-  const note = (s.note || (s.sconti || []).map((t) => ({ k: "", testo: t })));
-  const scala = `<div class="sent-scala">${G.map((g) => `<span class="${g === s.gravita ? "on" : ""}${s.reato && g === s.reato && g !== s.gravita ? " da" : ""}">${g}</span>`).join("")}</div>`;
-  const nota = note.length ? `<ul class="sent-note">${note.map((x) => `<li>${x.k === "recidiva" ? "▲" : x.k === "tetto" ? "•" : "▼"} ${esc(x.testo)}</li>`).join("")}</ul>` : "";
-  const piste = s.piste && s.piste.length ? `<p class="sub" style="margin-top:6px">Le piste che ti hanno tradito: ${s.piste.map((x) => `<b>${esc(x.cosa)}</b> (+${x.quanto} Tracce)`).join(", ")}.</p>` : "";
-  const perche = `<div class="sent-box"><b>Perché sei qui.</b> La tua indagine è arrivata a <b>Processo</b> (l'ultimo gradino: Tranquillo → Voci → Osservato → Indagato → Processo) e la Procura aveva un reato provato: ${esc(GRAV_SPIEGA[s.reato || s.gravita] || s.reato || s.gravita)}.${piste}
-    <div style="margin-top:8px">La pena: ${scala}${s.reato && s.reato !== s.gravita ? `<div class="sub">Partivi da <b>${esc(s.reato)}</b>, alla fine è <b>${esc(s.gravita)}</b>:</div>` : ""}${nota}</div></div>`;
-  const come = `<details class="sent-come"${(me.condanne || 0) <= 1 ? " open" : ""}><summary>Come funzionano soldi sporchi e condanne</summary><ol>
-    <li><b>Gli affari sporchi</b> (di notte, al Mercato Nero, i ricatti…) pagano in <b>soldi sporchi</b> e lasciano <b>Tracce</b>.</li>
-    <li><b>Le Tracce</b> fanno salire l'indagine di un gradino alla volta. All'Alba, chi è a <b>Processo</b> con un reato provato viene condannato; se non c'è un reato provato, il Giudice archivia.</li>
-    <li><b>I soldi sporchi</b> non servono per le cose legali e a fine partita valgono solo un quarto. Si ripuliscono (Casinò Reale, Lavanderia della setta), ma anche ripulire lascia Tracce.</li>
-    <li><b>Ripulire è un rischio.</b> Ogni volta la Finanza può scoprirti: più grossa è la somma e più spesso ripulisci, più è facile (da 3% fino a 50%, lo vedi prima di decidere). Se ti scopre: metà sequestrata, +12 Tracce e un gradino in più verso il Processo.</li>
-    <li><b>Per difenderti</b>: tieni basse le Tracce (cambia posto, fai Cicli puliti), compra l'Avvocato (−1 gradino), entra in una setta (−1 gradino), il Caveau salva fino a 5 M sporchi, lo Studio legale abbassa la multa.</li>
-  </ol></details>`;
-  return finestra(`<span class="kick" style="color:var(--sporco)">Sentenza · ${esc(s.gravita)}</span><h2>Il Giudice ti ha condannato</h2>
-    ${perche}
-    <p class="kick" style="margin-top:14px;color:var(--muted)">Cosa ti succede, uno per uno</p>
-    <div class="sent-lista">${r.join("")}</div>
-    ${pulito}${come}
+  r.push(["⚖️", `Paghi una multa di <b>${euro(s.multa)}</b>.`]);
+  if (conf > 0) r.push(["💸", `Ti portano via i soldi sporchi che avevi: <b>${euro(conf)}</b>.`]);
+  if (s.faro) r.push(["🗼", `Vai in cella al Faro per <b>${s.faro} turni</b>${s.faro >= gio ? ` (circa ${Math.round(s.faro / gio)} ${Math.round(s.faro / gio) === 1 ? "Ciclo" : "Cicli"})` : ""}.`]);
+  if (s.blocco) r.push(["📉", s.blocco === 1 ? "Alla prossima Alba i tuoi locali rendono <b>la metà</b>." : `Per le prossime <b>${s.blocco} Albe</b> i tuoi locali rendono <b>la metà</b>.`]);
+  if (nChiusi) r.push(["🔒", `${nChiusi === 1 ? "Un tuo locale resta chiuso" : nChiusi + " tuoi locali restano chiusi"} per un Ciclo${chiusi ? ": " + esc(chiusi.join(", ")) : ""}.`]);
+  if (s.sequestrati && s.sequestrati.length) r.push(["🏚️", `Ti tolgono per sempre: <b>${esc(s.sequestrati.join(", "))}</b>.`]);
+  if (s.piani) r.push(["🏢", `Perdi <b>${s.piani} piani</b> del Palazzo${s.stanzePerse && s.stanzePerse.length ? " (con " + esc(s.stanzePerse.join(", ")) + ")" : ""}.`]);
+  if (s.contatti) r.push(["📇", `Perdi i tuoi <b>${s.contatti} contatti</b> corrotti.`]);
+  for (const x of s.tesori || []) r.push(["🗝️", `La setta «${esc(x.nome)}» perde <b>${euro(x.importo)}</b> dal Tesoro (sei il Gran Maestro).`]);
+  if (s.cerchiePerse) r.push(["🥂", "I circoli esclusivi ti cacciano."]);
+  if (s.fama) r.push(["⭐", `Perdi <b>${s.fama} di fama</b>.`]);
+  const totale = s.multa + conf + tes;
+  const breve = `<div class="sent-breve"><div class="sent-tot">In tutto perdi <b>${euro(totale)}</b></div>${r.map(([i, x]) => `<div class="sent-riga"><span>${i}</span><span>${x}</span></div>`).join("")}</div>`;
+  // 2. perche': le piste, poi cosa ha alzato o abbassato la pena
+  const note = s.note || (s.sconti || []).map((x) => ({ k: /sale/.test(x) ? "recidiva" : "", testo: x }));
+  const meglio = note.filter((x) => x.k !== "recidiva" && x.k !== "tetto"), peggio = note.filter((x) => x.k === "recidiva");
+  const breveNota = (x) => ({ setta: "alla tua setta", giudice: "al Giudice amico della setta", supremo: "al Giudice supremo della setta", avvocato: "al tuo avvocato" })[x.k] || x.testo;
+  const perche = `<div class="sent-box"><b>Perché?</b> La polizia ha raccolto abbastanza prove su di te${s.piste && s.piste.length ? ", soprattutto per " + s.piste.map((x) => "<b>" + esc(x.cosa) + "</b>").join(" e ") : ""}. Il reato è <b>${esc(GRAV_SPIEGA[s.gravita] || s.gravita)}</b>.
+    ${peggio.length ? `<br>🔺 Pena più dura: avevi già una condanna.` : ""}${meglio.length ? `<br>🔻 Pena più leggera grazie ${meglio.map((x) => esc(breveNota(x))).join(" e ")}.` : ""}${s.salvi > 0 ? `<br>🛟 Hai salvato <b>${euro(s.salvi)}</b> di soldi sporchi.` : ""}</div>`;
+  // 3. adesso
+  const dopo = `<div class="sent-azzera"><b>E adesso?</b> La polizia ti lascia in pace: le Tracce ripartono quasi da zero. Ma se ti condannano di nuovo, la pena sarà più dura.${s.faro ? ` Al Faro non tiri i dadi e di notte resti in cella; a ogni tuo turno puoi fare <b>una sola cosa</b> dal telefono.` : ""}</div>`;
+  // 4. i dettagli e come funziona: chiusi, per chi vuole
+  const det = [];
+  det.push(`<li><b>Multa:</b> è una parte di tutto quello che hai (contanti, locali, azioni): ${Math.round((s.multaQuota != null ? s.multaQuota : (L.MULTA_CONDANNA[s.gravita] || 0)) * 100)}%. Più il reato è grave, più è alta.${s.legale ? " Il tuo Studio legale l'ha abbassata." : ""} Se mancano i contanti, la banca vende le tue azioni.</li>`);
+  det.push(`<li><b>Soldi sporchi:</b> a ogni condanna perdi quelli che hai in quel momento${conf ? "" : " (oggi non ne avevi, quindi niente)"}. Il Caveau del Palazzo e la cassetta di sicurezza ne salvano una parte.</li>`);
+  if (s.faro) det.push(`<li><b>Faro:</b> ${gio} turni fanno un Ciclo. Esci da solo quando finiscono.</li>`);
+  if (s.blocco) det.push(`<li><b>Entrate a metà:</b> anche lo Stipendio del Ponte Sud non arriva.</li>`);
+  const come = `<details class="sent-come"><summary>Dettagli e come funzionano le condanne</summary><ul>${det.join("")}</ul>
+    <p><b>In breve:</b> gli affari sporchi danno soldi sporchi ma lasciano Tracce. Tante Tracce = la polizia indaga, fino al Processo. Al Processo, all'Alba, ti condannano. Per evitarlo: cambia posto di notte, fai Cicli puliti, compra l'Avvocato.</p></details>`;
+  return finestra(`<span class="kick" style="color:var(--sporco)">Sentenza · reato ${esc(GRAV_SPIEGA[s.gravita] || s.gravita)}</span><h2>Sei stato condannato</h2>
+    ${breve}${perche}${dopo}${come}
     <div class="pulsanti"><button class="oro grande" id="ok">Ho capito</button></div>`, (d, c) => { d.querySelector(".fin").classList.add("sentenza"); d.querySelector("#ok").onclick = c; });
 }
 window.rileggiSentenza = () => { const me = S && S.players && S.players.find((p) => p.id === mioId); if (me && me.ultimaSentenza) finestraSentenza(me, me.ultimaSentenza); };
