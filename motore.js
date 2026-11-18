@@ -3451,11 +3451,13 @@
   // Il server in questo caso non salva; applicaSicura rimette lo stato com'era.
   function controllaNumeri(s, a) {
     const rotto = (dove) => { throw new Error("Errore del gioco: dopo l'azione \"" + (a && a.tipo) + "\" " + dove + " non è più un numero. La mossa non è stata salvata."); };
-    for (const p of s.players) for (const k of ["cash", "sporchi", "debito", "fama", "tracce"]) if (!Number.isFinite(p[k])) rotto("\"" + k + "\" di " + p.nome);
-    if (!Number.isFinite(s.tassa)) rotto("la tassa");
-    for (const st of s.sette) if (!Number.isFinite(st.tesoro)) rotto("il Tesoro della setta " + st.nome);
-    for (const k of AZIENDE) if (!Number.isFinite(s.borsa[k])) rotto("il prezzo di " + k);
-    for (const k of MONETE) if (!Number.isFinite(s.cripto[k])) rotto("il prezzo di " + k);
+    // un campo che in una partita vecchia non c'e' (undefined) non e' un errore: lo e' un numero diventato NaN o Infinito
+    const male = (x, obbligatorio) => x === undefined ? obbligatorio : !Number.isFinite(x);
+    for (const p of s.players) for (const k of ["cash", "sporchi", "debito", "fama", "tracce"]) if (male(p[k], k === "cash" || k === "sporchi" || k === "debito")) rotto("\"" + k + "\" di " + p.nome);
+    if (male(s.tassa, true)) rotto("la tassa");
+    for (const st of s.sette) if (male(st.tesoro, true)) rotto("il Tesoro della setta " + st.nome);
+    for (const k of Object.keys(s.borsa || {})) if (male(s.borsa[k], false)) rotto("il prezzo di " + k);
+    for (const k of Object.keys(s.cripto || {})) if (male(s.cripto[k], false)) rotto("il prezzo di " + k);
   }
   function applica(s, idGiocatore, a) {
     a = normalizza(a);
