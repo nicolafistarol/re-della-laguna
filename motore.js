@@ -30,7 +30,7 @@
     cicli: 8, giorni: 4,
     // come finisce la partita: a Cicli, a obiettivo (patrimonio) o libera (la chiude chi l'ha creata)
     durataCicli: [6, 8, 10, 12, 16, 20], obiettivi: [50_000_000, 100_000_000, 200_000_000], quasiTraguardo: 0.75,
-    settaOffertaMax: 10_000_000,
+    settaOffertaMax: 10_000_000, spintaForte: 0.4,
     // LE PISTE: la polizia ti scopre sempre per un motivo
     pistaLuogoNotte: 0.4,   // guai di notte x(1 + 0,4 x calore del posto)
     pistaLuogo: 6,          // Tracce in piu' all'indagine: 6 x calore^2 per ogni posto
@@ -95,6 +95,7 @@
     // --- polizia e pene
     // --- setta
     decimaMax: 1_000_000,  // ECO-06: la decima si paga solo sulle attivita', al massimo 1 M x livello della setta a ogni Alba
+    spintaForte: 0.25, // "Muovere un titolo" con una setta di livello 3 o piu' (prima 0,40)
   };
   // num(s, "chiave"): partita nuova -> il numero di N_GEN2 se c'e', altrimenti quello di N; partita vecchia -> sempre N.
   function num(s, k) { return gen2(s) && Object.prototype.hasOwnProperty.call(N_GEN2, k) ? N_GEN2[k] : N[k]; }
@@ -426,7 +427,7 @@
     if (l.owner) return avviaAstaSequestro(s);
     const minimo = baseAsta(l);
     const part = partecipantiAsta(s, minimo, q.escluso);
-    if (!part.length) { log(s, "Asta del Comune per " + l.nome + ": nessuno può offrire la base di " + euro(minimo) + ". Il terreno resta libero."); return avviaAstaSequestro(s); }
+    if (!part.length) { s.sequestrati.unshift(q); return; } // nessuno puo' partecipare adesso: il terreno resta in coda (ILL-14)
     s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: corrente(s).id, partecipanti: part, sequestro: true, minimo, escluso: q.escluso, inizio: adesso() };
     notizia(s, "Asta del Comune: si vende " + l.nome + " (sequestrato). Base d'asta " + euro(minimo) + ".", "affari");
   }
@@ -595,12 +596,24 @@
     if (esito) privato(s, p, "Voci di piazza: " + testo + " " + esito);
   }
 
+  // quanto e' probabile essere fermati se ti fermi sul Posto di blocco (0..1). La usa il fermo vero e la vista.
+  // Da "Osservato" in su ti fermano sempre; altrimenti conta quante Tracce hai, e i poliziotti comprati ti coprono.
+  function rischioPostoDiBlocco(s, p) {
+    if ((p.stato || 0) >= 2) return 1;
+    if (!((p.tracce || 0) > 25)) return 0;
+    return Math.min(1, p.tracce / 180) * (1 - protezione(s, p));
+  }
   function postoDiBlocco(s, p) {
     if (haOggetto(p, "documenti") && rng(s) < N.oggettoFalla) { togliOggetto(p, "documenti"); privato(s, p, "Al Posto di blocco l'agente guarda i tuoi documenti falsi troppo a lungo. Non ci casca."); }
     else if (haOggetto(p, "documenti")) { togliOggetto(p, "documenti"); log(s, p.nome + " passa il Posto di blocco senza problemi.", p.id); privato(s, p, "Al Posto di blocco mostri i documenti falsi. L'agente ti fa cenno di passare."); return; }
-    if (p.stato >= 2 || (p.tracce > 25 && rng(s) < p.tracce / 180)) {
+    // ILL-13: niente condanna per un tiro di dadi. Il fermo e' una perquisizione subito e un gradino verso il Processo.
+    const r = rischioPostoDiBlocco(s, p);
+    if (r > 0 && (r >= 1 || rng(s) < r)) {
+      const osservato = p.stato >= 2, perche = osservato ? "La polizia ti teneva già d'occhio (" + STATI[p.stato] + ")." : motivoPolizia(s, p);
       log(s, p.nome + " viene fermato al Posto di blocco e controllato.", p.id);
-      condanna(s, p, p.peggiorReato || "lieve", "Posto di blocco");
+      const trovato = perquisisci(s, p, "blocco");
+      p.stato = Math.min(4, Math.max(p.stato, 0) + 1); p.ultimaPista = { k: "blocco", testo: "Ti hanno fermato al Posto di blocco. " + perche, ciclo: s.ciclo + 1 };
+      privato(s, p, "Fermato al Posto di blocco. Perché: " + perche + (trovato ? "" : " Ti perquisiscono ma non trovano niente.") + " La polizia sale di un gradino: ora sei \"" + STATI[p.stato] + "\"." + (p.stato >= 4 ? " All'Alba c'è il Processo." : ""));
     } else log(s, p.nome + " passa il Posto di blocco senza problemi.", p.id);
   }
 
@@ -1255,7 +1268,8 @@
   function denuncia(s, p, idx) {
     const pr = p.prove[idx]; if (!pr) err("Prova non trovata.");
     const b = giocatore(s, pr.su);
-    b.tracce += 35; b.stato = Math.min(4, b.stato + 1);
+    b.tracce += 35; b.stato = Math.min(4, b.stato + 1); segnaTraccia(s, b, 35, "una prova consegnata alla polizia da un rivale (" + (pr.cosa || "una foto") + ")");
+    b.denunce = (b.denunce || []).filter((x) => x.ciclo >= s.ciclo - 2); b.denunce.push({ ciclo: s.ciclo });
     p.prove.splice(idx, 1);
     notizia(s, "Una denuncia anonima mette nei guai " + b.nome + ".", "voce");
     privato(s, b, "Qualcuno ti ha denunciato con una prova. Le tue Tracce sono salite.");
@@ -1328,7 +1342,7 @@
     mazzo_segnato: { nome: "Mazzo segnato", banco: ["casino", "mercato"], prezzo: 90_000, consuma: true, eff: [{ k: "ga", m: 1.4, occ: ["tavolo"] }, { k: "tr", m: 1.3, occ: ["tavolo"] }], descr: "Al tavolo truccato della Bisca +40%, ma +30% di Tracce." },
     infrarossi: { nome: "Occhialini a infrarossi", banco: ["casino"], prezzo: 150_000, raro: 1, consuma: true, salva: ["telecamere", "allarme"], descr: "Vedi i raggi degli allarmi e le telecamere." },
     passaporto: { nome: "Passaporto diplomatico", banco: ["casino"], prezzo: 600_000, raro: 2, notti: 3, salva: ["dogana", "posto_di_blocco", "retata"], descr: "LEGGENDARIO. Per 3 notti la retata, la dogana e i posti di blocco non ti toccano." },
-    doppiofondo: { nome: "Valigia a doppiofondo", banco: ["mercato"], prezzo: 200_000, raro: 1, posti: 2, eff: [{ k: "pq", m: 0.35 }], descr: "Se ti perquisiscono all'Alba, sequestrano molto meno. Resta finché non la perdi. 2 posti." },
+    doppiofondo: { nome: "Valigia a doppiofondo", banco: ["mercato"], prezzo: 200_000, raro: 1, posti: 2, eff: [{ k: "pq", m: 0.35 }], descr: "Perquisizioni meno probabili; se arrivano, prendono meno contanti e non trovano la valigetta. 2 posti." },
     timbro: { nome: "Timbro del Municipio", banco: ["mercato"], prezzo: 160_000, raro: 1, giorno: "permesso", descr: "Di giorno: il prossimo permesso passa subito e senza bollo. Ma +6 Tracce quando lo usi." },
     registratore: { nome: "Registratore a filo", banco: ["casino"], prezzo: 100_000, consuma: true, provaSicura: true, descr: "Agli affari che danno una Prova, la Prova la ottieni anche se qualcosa va storto." },
     santino: { nome: "Santino del Faro", banco: ["mercato", "porto"], prezzo: 15_000, consuma: true, eff: [{ k: "gu", m: 0.93 }], descr: "Superstizione. Ma i pescatori giurano che funziona: guai −7%." },
@@ -1681,6 +1695,10 @@
   function haOggetto(p, id) { return (p.valigetta || []).some((o) => o.id === id); }
   function togliOggetto(p, id) { const i = (p.valigetta || []).findIndex((o) => o.id === id); if (i >= 0) p.valigetta.splice(i, 1); }
   function racconta(s, p, testo, dopo) { if (!s.notte) return; (s.notte.racconto[p.id] = s.notte.racconto[p.id] || []).push(ORE[s.notte.ora + (dopo ? 1 : 0)] + " — " + testo); }
+  // I fatti che il giocatore deve leggere per primi all'Alba (NOT-04): sequestri, perquisizioni, sentenze, contatti persi...
+  // Si raccolgono durante alba() e finiscono in ultimaAlba.riepilogo[id].fatti (che ognuno vede solo per se').
+  // f = { k: tipo, testo, soldi?: puliti persi(-)/presi(+), sporchi?: idem, tracce?: Tracce in piu' }
+  function fatto(s, p, f) { if (!s.fattiAlba) return; (s.fattiAlba[p.id] = s.fattiAlba[p.id] || []).push(f); }
   function indizio(s, l) { const lv = LIVELLI_PERICOLO.indexOf(s.notte.pericolo[l]); const arr = INDIZI[l] && INDIZI[l][lv]; return arr ? arr[Math.floor(rng(s) * arr.length)] : ""; }
   function pagaMisto(s, p, costo) { // prima gli sporchi, poi i puliti
     if (p.sporchi + p.cash < costo) err("Non hai abbastanza soldi: servono " + euro(costo) + ".");
@@ -1763,13 +1781,18 @@
     inNotte2(s, p);
     const N2 = s.notte;
     if (!N2.chiuso[p.id] && !N2.viaggio[p.id]) err("Prima scegli cosa fare in quest'ora.");
+    if (N2.pronto[p.id]) for (const pr of (N2.proposte || []).filter((x) => x.a === p.id && x.stato === "attesa")) rispondiIncontro(s, p, pr.id, false); // gia' pronto e preme ancora: "no" alle proposte in sospeso
     N2.pronto[p.id] = true;
     controllaOra(s);
   }
   function tempoScaduto(s) {
     if (s.fase !== "notte" || !s.notte) err("Non è notte.");
     const N2 = s.notte;
-    if (adesso() - N2.inizio < TEMPO_ORA * 1000 - 1500) err("Il tempo non è ancora finito.");
+    // il tempo finisce a fine ora, oppure (se tutti hanno gia' scelto) 30 secondi dopo una proposta rimasta senza risposta
+    const aperte = proposteAperte(s), tuttiPronti = attivi(s).every((q) => N2.pronto[q.id]);
+    const propostaVecchia = tuttiPronti && aperte.length && aperte.every((pr) => adesso() - (pr.quando || N2.inizio) >= TEMPO_PROPOSTA * 1000 - 1500);
+    if (adesso() - N2.inizio < TEMPO_ORA * 1000 - 1500 && !propostaVecchia) err("Il tempo non è ancora finito.");
+    chiudiTutteSM(s, true); // le mani ancora aperte: chi non ha finito "sta"
     for (const q of attivi(s)) {
       if (!N2.chiuso[q.id] && !N2.viaggio[q.id]) {
         N2.daScelta[q.id] = (N2.racconto[q.id] || []).length;
@@ -1778,7 +1801,7 @@
       }
       N2.pronto[q.id] = true;
     }
-    controllaOra(s);
+    if (s.fase === "notte" && s.notte === N2 && attivi(s).every((q) => N2.pronto[q.id])) risolviOra(s); // le proposte rimaste senza risposta scadono qui
   }
   // Lo sfarzo: piu' fama e ricchezza hai, piu' entri nelle sale lussuose (0 normale, 1 VIP, 2 riservato)
   function lustro(s, p) {
@@ -1917,7 +1940,8 @@
     N2.ospite = N2.ospite || {};
     if (!se) { racconta(s, p, "Arrivi al Palazzo di " + host.nome + ", ma la festa è già finita.", true); return; }
     const paga = Math.min(se.ingresso, p.cash + p.sporchi);
-    if (paga > 0) { pagaMisto(s, p, paga); host.cash += paga; se.banco += paga; }
+    // NOT-02: niente ripulitura gratis. L'ingresso pagato con soldi sporchi arriva sporco a chi ospita.
+    if (paga > 0) { const sp0 = p.sporchi; pagaMisto(s, p, paga); const sp = sp0 - p.sporchi; host.sporchi += sp; host.cash += paga - sp; se.banco += paga; }
     N2.ospite[p.id] = idHost; se.ospiti.push(p.id);
     racconta(s, p, "Sali fino al piano " + host.piani + " del Palazzo di " + host.nome + ". Paghi l'ingresso (" + euro(paga) + ") e ti siedi al tavolo.", true);
     racconta(s, host, p.nome + " arriva alla tua serata e paga " + euro(paga) + " di ingresso.", true);
@@ -1947,8 +1971,8 @@
     importo = round(Number(importo) || 0);
     if (importo < 10_000) err("La puntata minima è 10.000 €.");
     if (importo * 2 > Math.max(0, host.cash)) err("Il banco di " + host.nome + " non copre una puntata così alta.");
-    pagaMisto(s, p, importo);
-    apriManoSM(s, p, { tipo: "serata", host: idHost, posta: importo, puoRilanciare: false });
+    const sp0 = p.sporchi; pagaMisto(s, p, importo);
+    apriManoSM(s, p, { tipo: "serata", host: idHost, posta: importo, puoRilanciare: false, sporchiPosta: sp0 - p.sporchi });
   }
   // ------------------------------------------------------------ Sette e mezzo
   // 40 carte: in ogni seme 1..7 valgono il loro numero, Fante, Cavallo e Re valgono mezzo punto.
@@ -1966,8 +1990,15 @@
     if (ta !== tb) return ta - tb;
     return b.length - a.length; // a pari punti vince chi ha usato meno carte
   }
-  // il banco (Casino privato) pesca finche' non arriva almeno a 5 e mezzo
-  function giocaBancoSM(mazzo) { const m = [mazzo.pop()]; while (totaleSM(m) < 5.5) m.push(mazzo.pop()); return m; }
+  // Il banco gioca con una regola vera (NOT-14): vede le tue carte scoperte (tutte tranne la prima).
+  // Se hai sballato non pesca: hai gia' perso. Altrimenti pesca finche' non ha almeno 5 e finche' non supera le tue carte scoperte.
+  function giocaBancoSM(mazzo, carte) {
+    const m = [mazzo.pop()];
+    if (carte && totaleSM(carte) > 7.5) return m;
+    const scoperte = carte ? totaleSM(carte.slice(1)) : 0, soglia = Math.max(5, Math.min(7.5, scoperte + 0.5));
+    while (totaleSM(m) < soglia && mazzo.length) m.push(mazzo.pop());
+    return m;
+  }
   function apriManoSM(s, p, dati) {
     const mazzo = dati.mazzo || mazzoSM(s);
     (s.manoSM = s.manoSM || {})[p.id] = { ...dati, mazzo, carte: [mazzo.pop()], rilancio: false };
@@ -1992,37 +2023,32 @@
   function chiudiManoSM(s, p, fine) {
     const m = s.manoSM[p.id]; delete s.manoSM[p.id];
     const N2 = s.notte;
-    if (m.tipo === "sfida") { // chi sfida ha finito: ora l'altro vede la proposta (non le carte)
+    if (m.tipo === "sfida") { // una mano della sfida tra due giocatori: si chiude quando hanno finito tutti e due
       const pr = N2 && (N2.proposte || []).find((x) => x.id === m.prop);
-      if (!pr) return;
-      pr.manoDa = m.carte; pr.mazzo = m.mazzo; pr.sporchiDa = (pr.sporchiDa || 0) + (m.sporchiExtra || 0);
-      pr.importo = m.posta; pr.rilancio = m.rilancio;
-      if (fine) { pr.stato = "scaduta"; restituisci_(p, pr); racconta(s, p, "È l'alba: la sfida non parte. Ti riprendi i soldi."); return; }
-      pr.stato = "attesa";
-      racconta(s, p, "Guardi le tue carte: " + testoSM(m.carte) + ". " + (m.rilancio ? "Rilanci: sul tavolo ora ci sono " + euro(m.posta) + ". " : "") + "Copri la mano e aspetti la risposta di " + giocatore(s, pr.a).nome + ".");
-      N2.chiuso[p.id] = true; controllaOra(s);
-      return;
-    }
-    if (m.tipo === "risposta") {
-      const pr = (N2.proposte || []).find((x) => x.id === m.prop); const da = giocatore(s, pr.da);
-      pr.stato = "finita"; pr.manoA = m.carte; delete pr.mazzo;
-      const esito = confrontaSM(pr.manoDa, m.carte); // >0 vince chi ha sfidato
-      const piatto = pr.importo * 2, sporchiPiatto = (pr.sporchiDa || 0) + (m.sporchiMiei || 0);
-      const vince = esito > 0 ? da : esito < 0 ? p : null, perde = vince === da ? p : vince === p ? da : null;
-      const dett = da.nome + ": " + testoSM(pr.manoDa) + " · " + p.nome + ": " + testoSM(m.carte) + ".";
+      if (!pr || pr.stato !== "in_gioco") return;
+      const mani = (N2.maniSfida = N2.maniSfida || {}); (mani[pr.id] = mani[pr.id] || {})[p.id] = m.carte; // nascoste finche' non finisce anche l'altro
+      const da = giocatore(s, pr.da), a = giocatore(s, pr.a), altro = p.id === da.id ? a : da;
+      if (!mani[pr.id][altro.id]) { racconta(s, p, "Le tue carte: " + testoSM(m.carte) + ". Copri la mano e aspetti che " + altro.nome + " finisca la sua."); return; }
+      const manoDa = mani[pr.id][da.id], manoA = mani[pr.id][a.id]; delete mani[pr.id];
+      pr.stato = "finita"; pr.manoDa = manoDa; pr.manoA = manoA; // solo adesso le carte si vedono
+      const esito = confrontaSM(manoDa, manoA); // >0 vince chi ha sfidato
+      const piatto = pr.importo * 2, sporchiPiatto = (pr.sporchiDa || 0) + (pr.sporchiA || 0);
+      const vince = esito > 0 ? da : esito < 0 ? a : null;
+      const dett = da.nome + ": " + testoSM(manoDa) + " · " + a.nome + ": " + testoSM(manoA) + ".";
       if (vince) { vince.sporchi += sporchiPiatto; vince.cash += piatto - sporchiPiatto; }
-      else { restituisci_(da, pr); p.sporchi += m.sporchiMiei || 0; p.cash += pr.importo - (m.sporchiMiei || 0); }
-      for (const [x, y] of [[da, p], [p, da]]) {
-        const mie = x === da ? pr.manoDa : m.carte, sue = x === da ? m.carte : pr.manoDa;
+      else { restituisci_(da, pr); a.sporchi += pr.sporchiA || 0; a.cash += pr.importo - (pr.sporchiA || 0); }
+      for (const [x, y] of [[da, a], [a, da]]) {
+        const mie = x === da ? manoDa : manoA, sue = x === da ? manoA : manoDa;
         (N2.ultimaMano = N2.ultimaMano || {})[x.id] = { gioco: "sm", id: "sf" + pr.id, mie, sue, totMie: totaleSM(mie), totSue: totaleSM(sue), avv: y.nome, importo: pr.importo, esito: !vince ? "pari" : vince === x ? "vinto" : "perso" };
-        racconta(s, x, "Sette e mezzo con " + y.nome + ". " + dett + " " + (!vince ? "Pari: ognuno si riprende i suoi soldi." : vince === x ? "Hai vinto " + euro(piatto) + "." : "Hai perso " + euro(pr.importo) + "."));
+        racconta(s, x, "Sette e mezzo con " + y.nome + ". " + dett + " " + (!vince ? "Pari: ognuno si riprende i suoi soldi." : vince === x ? "Hai vinto: ti porti via " + euro(piatto) + " (guadagno " + euro(pr.importo) + ")." : "Hai perso " + euro(pr.importo) + "."));
       }
-      notizia(s, "Al " + nomeLuogo(N2.dove[p.id]) + " sette e mezzo tra " + da.nome + " e " + p.nome + ": " + (vince ? "vince " + vince.nome : "finisce pari") + ".", "voce");
+      notizia(s, "Sette e mezzo tra " + da.nome + " e " + a.nome + " (" + nomeLuogo(N2.dove[a.id]) + "): " + (vince ? "vince " + vince.nome : "finisce pari") + ".", "voce");
+      if (!fine) controllaOra(s);
       return;
     }
     if (m.tipo === "bisca") {
-      const banco = giocaBancoSM(m.mazzo), esito = confrontaSM(m.carte, banco), sette = totaleSM(m.carte) === 7.5 && m.carte.length === 2;
-      const vinto = esito > 0, pari = esito === 0 && totaleSM(m.carte) <= 7.5;
+      const banco = giocaBancoSM(m.mazzo, m.carte), sballato = totaleSM(m.carte) > 7.5, esito = sballato ? -1 : confrontaSM(m.carte, banco), sette = totaleSM(m.carte) === 7.5 && m.carte.length === 2;
+      const vinto = esito > 0, pari = esito === 0 && !sballato;
       const premio = vinto ? m.posta * (sette ? 3 : 2) : pari ? m.posta : 0;
       p.sporchi += premio; // alla Bisca si paga in contanti sporchi
       (N2.ultimaMano = N2.ultimaMano || {})[p.id] = { gioco: "sm", id: "bi" + s.ciclo + "_" + m.carte.join("."), mie: m.carte, sue: banco, totMie: totaleSM(m.carte), totSue: totaleSM(banco), avv: "il banco della Bisca", importo: m.posta, esito: vinto ? "vinto" : pari ? "pari" : "perso", sette };
@@ -2030,12 +2056,16 @@
       return;
     }
     if (m.tipo === "serata") {
-      const host = giocatore(s, m.host), banco = giocaBancoSM(m.mazzo);
-      const esito = confrontaSM(m.carte, banco), sette = totaleSM(m.carte) === 7.5 && m.carte.length === 2;
-      const vinto = esito > 0, pari = esito === 0 && totaleSM(m.carte) <= 7.5; // a pari punti vince il banco, tranne se sballano tutti e due
+      const host = giocatore(s, m.host), banco = giocaBancoSM(m.mazzo, m.carte);
+      const sballato = totaleSM(m.carte) > 7.5, esito = sballato ? -1 : confrontaSM(m.carte, banco), sette = totaleSM(m.carte) === 7.5 && m.carte.length === 2;
+      const vinto = esito > 0, pari = false; // a pari punti vince il banco; chi sballa ha perso subito
       const premio = vinto ? (sette ? m.posta * 3 : m.posta * 2) : pari ? m.posta : 0;
-      const netto = premio - m.posta;
-      host.cash -= netto; p.cash += premio; if (N2.serate[m.host]) N2.serate[m.host].banco -= netto;
+      const netto = premio - m.posta, sp = Math.min(m.sporchiPosta || 0, m.posta);
+      // NOT-02: la puntata resta del tipo di soldi con cui e' stata pagata (sporchi dentro, sporchi fuori).
+      // Se vinci riprendi la tua puntata com'era e il banco ti paga il resto in puliti; se perdi, la tua puntata va al banco com'era.
+      if (vinto) { p.sporchi += sp; p.cash += m.posta - sp + netto; host.cash -= netto; }
+      else { host.sporchi += sp; host.cash += m.posta - sp; }
+      if (N2.serate[m.host]) N2.serate[m.host].banco -= netto;
       (N2.ultimaMano = N2.ultimaMano || {})[p.id] = { gioco: "sm", id: "se" + s.ciclo + "_" + (N2.ora || 0) + "_" + m.carte.join("."), mie: m.carte, sue: banco, totMie: totaleSM(m.carte), totSue: totaleSM(banco), avv: "il banco di " + host.nome, importo: m.posta, esito: vinto ? "vinto" : pari ? "pari" : "perso", sette };
       racconta(s, p, "Sette e mezzo al tavolo di " + host.nome + ". Tu: " + testoSM(m.carte) + ". Il banco: " + testoSM(banco) + ". " + (vinto ? (sette ? "Sette e mezzo reale! Vinci " : "Vinci ") + euro(premio) + "." : pari ? "Pari: ti riprendi la puntata." : "Vince il banco: perdi " + euro(m.posta) + "."));
       racconta(s, host, p.nome + (netto > 0 ? " batte il tuo banco: paghi " + euro(netto) + "." : netto < 0 ? " perde " + euro(-netto) + " al tuo tavolo." : " pareggia al tuo tavolo."));
@@ -2043,7 +2073,7 @@
     }
   }
   // all'Alba nessuna mano resta a meta': chi non ha finito, sta
-  function chiudiTutteSM(s) { for (const id of Object.keys(s.manoSM || {})) { try { chiudiManoSM(s, giocatore(s, id), true); } catch (e) { delete s.manoSM[id]; } } }
+  function chiudiTutteSM(s) { for (const id of Object.keys(s.manoSM || {})) { if (!s.manoSM[id]) continue; try { chiudiManoSM(s, giocatore(s, id), true); } catch (e) { if (!e || !e.gioco) throw e; delete s.manoSM[id]; } } }
   // Gli incontri: se un altro giocatore e' nello stesso posto, puoi offrirgli da bere, sfidarlo o seguirlo
   function quiConMe(s, p) {
     const N2 = s.notte; if (!N2 || N2.viaggio[p.id]) return [];
@@ -2062,7 +2092,7 @@
       racconta(s, p, "Ti metti in un angolo e non perdi d'occhio " + q.nome + ". Dove andrà, lo saprai.");
     } else if (tipo === "drink") {
       pagaMisto(s, p, 20_000);
-      N2.proposte.push({ id: (N2.prossimaProposta = (N2.prossimaProposta || 0) + 1), da: p.id, a: q.id, tipo, importo: 0, stato: "attesa" });
+      N2.proposte.push({ id: (N2.prossimaProposta = (N2.prossimaProposta || 0) + 1), da: p.id, a: q.id, tipo, importo: 0, stato: "attesa", quando: adesso(), ora: N2.ora });
       racconta(s, p, "Fai portare due bicchieri al tavolo di " + q.nome + ". Ora tocca a lui decidere.");
     } else if (tipo === "sfida") {
       importo = round(Number(importo) || 0);
@@ -2070,10 +2100,9 @@
       if (s.manoSM && s.manoSM[p.id]) err("Finisci prima la mano che hai in corso.");
       const sp0 = p.sporchi; pagaMisto(s, p, importo);
       const id = (N2.prossimaProposta = (N2.prossimaProposta || 0) + 1);
-      N2.proposte.push({ id, da: p.id, a: q.id, tipo, importo, sporchiDa: sp0 - p.sporchi, stato: "preparazione" });
-      racconta(s, p, "Butti " + euro(importo) + " sul tavolo davanti a " + q.nome + ": \"Sette e mezzo. Chi si avvicina di più vince tutto.\"");
-      apriManoSM(s, p, { tipo: "sfida", prop: id, posta: importo, puoRilanciare: true });
-      return; // l'ora si chiude quando hai finito di giocare la mano
+      // PT-08: le carte si danno solo se l'altro accetta. Fino ad allora i soldi restano sul tavolo.
+      N2.proposte.push({ id, da: p.id, a: q.id, tipo, importo, sporchiDa: sp0 - p.sporchi, stato: "attesa", quando: adesso(), ora: N2.ora });
+      racconta(s, p, "Butti " + euro(importo) + " sul tavolo davanti a " + q.nome + ": \"Sette e mezzo. Chi si avvicina di più vince tutto.\" Ora tocca a lui: se accetta, giocate tutti e due.");
     } else err("Incontro sconosciuto.");
     N2.chiuso[p.id] = true;
     controllaOra(s);
@@ -2089,6 +2118,7 @@
       if (pr.importo) restituisci_(da, pr); // la posta torna indietro
       racconta(s, da, p.nome + " non accetta" + (pr.tipo === "drink" ? " il bicchiere" : " la sfida") + "." + (pr.importo ? " Ti riprendi i soldi." : ""));
       racconta(s, p, "Rifiuti la proposta di " + da.nome + ".");
+      controllaOra(s);
       return;
     }
     if (pr.tipo === "drink") {
@@ -2097,11 +2127,18 @@
       racconta(s, da, p.nome + " accetta il bicchiere. Si parla, si ride. Tra una frase e l'altra capisci che " + tasche + ". +2 fama.");
       racconta(s, p, "Bevi con " + da.nome + ". Una bella serata: +2 fama. Forse hai parlato un po' troppo.");
     } else {
-      if (s.manoSM && s.manoSM[p.id]) err("Finisci prima la mano che hai in corso.");
+      if (s.manoSM && (s.manoSM[p.id] || s.manoSM[da.id])) err("C'è una mano di carte ancora aperta: prima va finita.");
+      if (p.sporchi + p.cash < pr.importo) err("Non hai abbastanza soldi per accettare: servono " + euro(pr.importo) + ".");
       const sp0 = p.sporchi; pagaMisto(s, p, pr.importo);
-      pr.stato = "in_gioco";
-      apriManoSM(s, p, { tipo: "risposta", prop: pr.id, posta: pr.importo, puoRilanciare: false, mazzo: pr.mazzo, sporchiMiei: sp0 - p.sporchi });
+      pr.stato = "in_gioco"; pr.sporchiA = sp0 - p.sporchi;
+      // un mazzo solo, diviso in due mucchi: nessuno dei due puo' pescare la carta dell'altro
+      const mazzo = mazzoSM(s), mA = mazzo.filter((c, i) => i % 2 === 0), mB = mazzo.filter((c, i) => i % 2 === 1);
+      apriManoSM(s, da, { tipo: "sfida", prop: pr.id, posta: pr.importo, puoRilanciare: false, mazzo: mA });
+      apriManoSM(s, p, { tipo: "sfida", prop: pr.id, posta: pr.importo, puoRilanciare: false, mazzo: mB });
+      racconta(s, da, p.nome + " accetta la sfida. Si danno le carte: giocate tutti e due, alla fine si scoprono.");
+      racconta(s, p, "Accetti la sfida di " + da.nome + " e metti " + euro(pr.importo) + " sul tavolo. Si danno le carte.");
     }
+    controllaOra(s);
   }
   // Le scelte dell'ora: al massimo 3, decise dal luogo e dall'ora
   // I personaggi che girano di notte: ogni ora sono in un locale diverso (lo stesso per tutti).
@@ -2353,7 +2390,15 @@
   function controllaOra(s) {
     if (s.fase !== "notte" || !s.notte) return;
     for (const p of attivi(s)) if (s.notte.viaggio[p.id]) s.notte.chiuso[p.id] = true;
-    if (attivi(s).every((p) => s.notte.pronto[p.id])) risolviOra(s);
+    if (!attivi(s).every((p) => s.notte.pronto[p.id])) return;
+    if (proposteAperte(s).length) return; // NOT-01: si aspetta la risposta (o la fine del tempo: tempoScaduto)
+    risolviOra(s);
+  }
+  // le proposte che tengono aperta l'ora: quelle senza risposta fatte a chi e' ancora in giro, e le sfide che si stanno giocando
+  const TEMPO_PROPOSTA = 30; // secondi: se sono tutti pronti e l'altro non risponde, dopo questo tempo la proposta scade
+  function proposteAperte(s) {
+    const N2 = s.notte; if (!N2) return [];
+    return (N2.proposte || []).filter((pr) => (pr.stato === "attesa" && attivi(s).some((q) => q.id === pr.a)) || (pr.stato === "in_gioco" && s.manoSM && (s.manoSM[pr.da] || s.manoSM[pr.a])));
   }
   function risolviOccasione(s, p, f) {
     const o = s.notte.occasioni.find((x) => x.n === f.n);
@@ -2472,8 +2517,10 @@
       pr.stato = "scaduta";
       const da = giocatore(s, pr.da);
       if (pr.importo) restituisci_(da, pr);
-      racconta(s, da, giocatore(s, pr.a).nome + " non ti ha risposto." + (pr.importo ? " Ti riprendi i soldi." : ""));
+      racconta(s, da, giocatore(s, pr.a).nome + " non ti ha risposto in tempo." + (pr.importo ? " Ti riprendi i soldi." : ""));
     }
+    // una sfida rimasta a meta' (non dovrebbe succedere: le mani si chiudono prima): i soldi tornano a tutti e due
+    for (const pr of N2.proposte || []) if (pr.stato === "in_gioco") { pr.stato = "scaduta"; const da = giocatore(s, pr.da), a = giocatore(s, pr.a); restituisci_(da, pr); a.sporchi += pr.sporchiA || 0; a.cash += pr.importo - (pr.sporchiA || 0); if (s.manoSM) { delete s.manoSM[da.id]; delete s.manoSM[a.id]; } }
     for (const [chi, chiSeguito] of Object.entries(N2.segue || {})) {
       const p = giocatore(s, chi), q = giocatore(s, chiSeguito);
       const dove = s.notteFatti[q.id] ? "a casa sua" : N2.viaggio[q.id] ? "verso " + nomeLuogo(N2.viaggio[q.id].verso) : "a " + nomeLuogo(N2.dove[q.id]);
@@ -2678,20 +2725,35 @@
     const pr = Math.min(N.perqMax, Math.max(0, ((p.tracce || 0) - N.perqDa) / N.perqK) + (p.stato >= 2 ? 0.08 * (p.stato - 1) : 0));
     return Math.min(0.6, pr * (1 - protezione(s, p)) * (haPiano(p, "bunker") ? 0.6 : 1) * sitMult(s, "pq") * (haOggetto(p, "doppiofondo") ? 0.35 : 1));
   }
+  // la pista piu' pesante: e' il "perche'" che la polizia ti dice quando ti viene a cercare
+  function motivoPolizia(s, p) {
+    const ps = piste(s, p).sort((a, b) => b.peso - a.peso);
+    return ps.length ? ps[0].testo : "Troppi affari sporchi: in giro si parla di te.";
+  }
+  // Una perquisizione: la stessa regola all'Alba (nel Palazzo) e al Posto di blocco (in strada).
+  // Sequestra il 30% degli sporchi non protetti e gli oggetti illegali. Ritorna null se non trovano niente.
+  function perquisisci(s, p, dove) {
+    const ill = (p.valigetta || []).filter((o) => oggettoDef(o.id).illegale);
+    const salvi = Math.min(p.sporchi || 0, (haPiano(p, "caveau") ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0));
+    const doppio = haOggetto(p, "doppiofondo"); // la Valigia a doppiofondo: meno contanti presi e gli strumenti restano
+    const presi = round(Math.max(0, (p.sporchi || 0) - salvi) * N.perqSequestro * (haPiano(p, "bunker") ? 0.5 : 1) * (doppio ? 0.4 : 1));
+    if (!presi && !ill.length) return null; // non trovano niente: la polizia se ne va (ma ti ha guardato)
+    const perche = motivoPolizia(s, p);
+    p.sporchi -= presi;
+    const nascosti = haPiano(p, "piani_segreti") || doppio;
+    if (!nascosti) p.valigetta = (p.valigetta || []).filter((o) => !oggettoDef(o.id).illegale);
+    p.tracce += 4; p.stato = Math.max(p.stato || 0, 1); p.perquisito = s.ciclo;
+    const cosa = (presi ? "Sequestrati " + euro(presi) + " in contanti sporchi" : "Niente contanti trovati") + (ill.length && !nascosti ? " e gli oggetti illegali della valigetta" : "") + "." + (salvi ? " Il caveau e la cassetta salvano " + euro(salvi) + "." : "") + (ill.length && nascosti ? " I piani segreti nascondono la valigetta." : "");
+    privato(s, p, (dove === "blocco" ? "Al Posto di blocco la polizia ti perquisisce. " : "All'alba la polizia perquisisce il tuo Palazzo. ") + "Perché: " + perche + " " + cosa);
+    fatto(s, p, { k: "perquisizione", testo: "La polizia ha perquisito il tuo Palazzo. " + cosa + " +4 Tracce.", sporchi: -presi, tracce: 4, perche });
+    notizia(s, dove === "blocco" ? "Posto di blocco: perquisita l'auto di " + p.nome + ". Sequestrati contanti di dubbia provenienza." : "Perquisizione all'alba nel Palazzo di " + p.nome + ". Sequestrati contanti di dubbia provenienza.", "scandalo");
+    return { presi, salvi, oggetti: nascosti ? 0 : ill.length, perche };
+  }
   function perquisizioni(s) {
     for (const p of s.players) {
       const pr = rischioPerquisizione(s, p);
       if (!(pr > 0) || rng(s) >= pr) continue;
-      const ill = (p.valigetta || []).filter((o) => oggettoDef(o.id).illegale);
-      const salvi = Math.min(p.sporchi || 0, (haPiano(p, "caveau") ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0));
-      const presi = round(Math.max(0, (p.sporchi || 0) - salvi) * N.perqSequestro * (haPiano(p, "bunker") ? 0.5 : 1));
-      if (!presi && !ill.length) continue; // non trovano niente: la polizia se ne va (ma ti ha guardato)
-      p.sporchi -= presi;
-      const nascosti = haPiano(p, "piani_segreti");
-      if (!nascosti) p.valigetta = (p.valigetta || []).filter((o) => !oggettoDef(o.id).illegale);
-      p.tracce += 4; p.stato = Math.max(p.stato || 0, 1); p.perquisito = s.ciclo;
-      privato(s, p, "All'alba la polizia perquisisce il tuo Palazzo: avevi lasciato troppe Tracce. " + (presi ? "Sequestrati " + euro(presi) + " in contanti sporchi" : "Niente contanti trovati") + (ill.length && !nascosti ? " e gli oggetti illegali della valigetta" : "") + "." + (salvi ? " Il caveau e la cassetta salvano " + euro(salvi) + "." : "") + (ill.length && nascosti ? " I piani segreti nascondono la valigetta." : ""));
-      notizia(s, "Perquisizione all'alba nel Palazzo di " + p.nome + ". Sequestrati contanti di dubbia provenienza.", "scandalo");
+      perquisisci(s, p, "alba");
     }
   }
 
@@ -2827,7 +2889,13 @@
           for (const m of membri) { m.sporchi += parte; m.tracce += 12; m.pulitoCiclo = false; m.peggiorReato = peggio(m.peggiorReato, "grave"); privato(s, m, "IL GRANDE COLPO (" + voti + ") è riuscito! Il caveau della Banca della Laguna è vuoto. La tua parte: " + euro(parte) + " sporchi. +12 Tracce."); }
           notizia(s, "SVALIGIATO IL CAVEAU DELLA BANCA DELLA LAGUNA. Spariti 45 milioni. La polizia brancola nel buio.", "scandalo");
         } else {
-          for (const m of membri) { m.tracce += 35; m.stato = Math.max(m.stato, 3); m.peggiorReato = peggio(m.peggiorReato, "grave"); privato(s, m, "Il Grande Colpo (" + voti + ") è fallito: allarmi, sirene, fuga a mani vuote. Il Tesoro speso è perso. +35 Tracce e sei Indagato."); }
+          for (const m of membri) {
+            const contro = !op.solo && op.voti[m.id] === false; // chi aveva votato NO paga la meta'
+            const tr = contro ? 18 : 35;
+            m.tracce += tr; m.stato = Math.max(m.stato, contro ? 2 : 3); m.peggiorReato = peggio(m.peggiorReato, contro ? "media" : "grave"); segnaTraccia(s, m, tr, "il Grande Colpo fallito della setta");
+            privato(s, m, "Il Grande Colpo (" + voti + ") è fallito: allarmi, sirene, fuga a mani vuote. Il Tesoro speso è perso. " + (contro ? "Avevi votato NO: paghi la metà. +18 Tracce e sei Osservato." : "+35 Tracce e sei Indagato."));
+            fatto(s, m, { k: "colpo", testo: "Il Grande Colpo della setta è fallito: +" + tr + " Tracce" + (contro ? " (la metà: avevi votato NO)." : ", sei Indagato."), tracce: tr });
+          }
           notizia(s, "Assalto fallito al caveau della Banca della Laguna. La polizia ha dei nomi.", "scandalo");
         }
       } else if (op.id === "giudice") {
@@ -2860,7 +2928,7 @@
     if (p.sporchi < N.settaSporchi) err("Per fondare una setta servono almeno " + euro(N.settaSporchi) + " in soldi sporchi.");
     if (!nome) err("Dai un nome alla setta.");
     p.sporchi -= N.settaCosto; // il patto di sangue: una parte va nel tesoro, il resto nel rito
-    const st = { id: "s" + s.prossimoId++, nome: String(nome).slice(0, 40), motto: String(motto || "").slice(0, 80), gm: p.id, membri: [p.id], tesoro: N.settaTesoroIniziale, operazioni: 0, pngReclutati: 0 };
+    const st = { id: "s" + s.prossimoId++, nome: String(nome).slice(0, 40), motto: String(motto || "").slice(0, 80), gm: p.id, membri: [p.id], tesoro: N.settaTesoroIniziale, operazioni: 0, pngReclutati: 0, influenza: 0, ingressi: {} };
     s.sette.push(st); p.sette.push(st.id); p.settaFondata = st.id;
     privato(s, p, "Hai fondato la setta \"" + st.nome + "\". Sei il Gran Maestro. Invita altri membri.");
     notizia(s, "Strani simboli compaiono sui muri della Laguna. Qualcuno dice che è nata una nuova setta.", "voce");
@@ -2889,10 +2957,34 @@
     if (off < 0 && p.sporchi + p.cash < -off) err("Non hai abbastanza soldi per la quota d'ingresso (" + euro(-off) + ").");
     s.inviti.splice(i, 1);
     if (off > 0) { st.tesoro -= off; p.sporchi += off; }
-    if (off < 0) { const daSporchi = Math.min(p.sporchi, -off); p.sporchi -= daSporchi; p.cash -= -off - daSporchi; st.tesoro += -off; }
+    let quotaSporchi = 0;
+    if (off < 0) { const daSporchi = Math.min(p.sporchi, -off); p.sporchi -= daSporchi; p.cash -= -off - daSporchi; st.tesoro += -off; quotaSporchi = daSporchi; }
     st.membri.push(p.id); p.sette.push(idSetta);
-    privato(s, p, "Sei entrato nella setta \"" + st.nome + "\"." + (off > 0 ? " Ricevi " + euro(off) + " in soldi sporchi." : off < 0 ? " Hai pagato la quota di " + euro(-off) + "." : "") + " Da ora il " + Math.round(N.decima * 100) + "% delle tue rendite va al Tesoro.");
+    // il patto: resta scritto quando sei entrato e con quali soldi (serve se esci o ti cacciano presto)
+    st.ingressi = st.ingressi || {}; st.ingressi[p.id] = { ciclo: s.ciclo, regalo: off > 0 ? off : 0, quota: off < 0 ? -off : 0, quotaSporchi: quotaSporchi };
+    const patto = off > 0 ? " Il patto: se esci o ti cacciano entro " + PATTO_CICLI + " Cicli, restituisci il regalo." : off < 0 ? " Il patto: se ti cacciano entro " + PATTO_CICLI + " Cicli, la quota ti torna indietro. Se esci tu, la perdi." : "";
+    privato(s, p, "Sei entrato nella setta \"" + st.nome + "\"." + (off > 0 ? " Ricevi " + euro(off) + " in soldi sporchi." : off < 0 ? " Hai pagato la quota di " + euro(-off) + "." : "") + patto + " Da ora il " + Math.round(N.decima * 100) + "% delle tue rendite va al Tesoro.");
     privato(s, gm, p.nome + " è entrato nella tua setta." + (off < 0 ? " La quota di " + euro(-off) + " è nel Tesoro." : ""));
+  }
+  // Il patto d'ingresso e' vincolante (ILL-09): chi esce o e' cacciato entro PATTO_CICLI Cicli restituisce il regalo
+  // (dagli sporchi, poi dai puliti, poi a debito); chi e' cacciato cosi' presto riprende la quota che aveva pagato.
+  const PATTO_CICLI = 2;
+  function sciogliPatto(s, st, m, cacciato) {
+    const g = st.ingressi && st.ingressi[m.id];
+    if (st.ingressi) delete st.ingressi[m.id];
+    if (!g || s.ciclo - g.ciclo >= PATTO_CICLI) return;
+    if (g.regalo > 0) {
+      const ds = Math.min(m.sporchi, g.regalo); m.sporchi -= ds;
+      if (g.regalo - ds > 0) paga(s, m, g.regalo - ds, null);
+      st.tesoro += g.regalo;
+      privato(s, m, "Il patto era chiaro: sei rimasto nella setta meno di " + PATTO_CICLI + " Cicli. Restituisci il regalo d'ingresso di " + euro(g.regalo) + (g.regalo - ds > 0 ? " (" + euro(ds) + " dagli sporchi, il resto dai tuoi soldi puliti o a debito)." : "."));
+      privato(s, giocatore(s, st.gm), m.nome + " era nella setta da meno di " + PATTO_CICLI + " Cicli: il regalo d'ingresso di " + euro(g.regalo) + " torna nel Tesoro.");
+    } else if (g.quota > 0 && cacciato) {
+      const q = Math.min(st.tesoro, g.quota), qs = Math.min(q, g.quotaSporchi || 0);
+      st.tesoro -= q; m.sporchi += qs; m.cash += q - qs;
+      privato(s, m, "Ti hanno cacciato prima di " + PATTO_CICLI + " Cicli: per il patto la quota d'ingresso ti torna indietro (" + euro(q) + ").");
+      privato(s, giocatore(s, st.gm), "Hai cacciato " + m.nome + " prima di " + PATTO_CICLI + " Cicli: per il patto la sua quota (" + euro(q) + ") esce dal Tesoro e torna a lui.");
+    }
   }
   function espelliSetta(s, p, idSetta, idMembro) {
     const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro caccia i membri.");
@@ -2901,6 +2993,7 @@
     const m = giocatore(s, idMembro);
     if (st.membri.length >= 3) st.grazia = s.ciclo + 1; st.membri = st.membri.filter((x) => x !== idMembro); m.sette = m.sette.filter((x) => x !== idSetta);
     privato(s, m, "Sei stato cacciato dalla setta \"" + st.nome + "\". Perdi tutti i suoi privilegi.");
+    sciogliPatto(s, st, m, true);
     privato(s, p, m.nome + " non fa più parte della setta.");
     for (const id of st.membri) if (id !== p.id) privato(s, giocatore(s, id), m.nome + " è stato cacciato dalla setta.");
   }
@@ -2909,15 +3002,25 @@
     if (st.gm === p.id) err("Il Gran Maestro non può lasciare la sua setta.");
     if (st.membri.length >= 3) st.grazia = s.ciclo + 1; st.membri = st.membri.filter((x) => x !== p.id); p.sette = p.sette.filter((x) => x !== idSetta);
     privato(s, p, "Hai lasciato la setta \"" + st.nome + "\".");
+    sciogliPatto(s, st, p, false);
     privato(s, giocatore(s, st.gm), p.nome + " ha lasciato la tua setta.");
   }
   function versaSetta(s, p, idSetta, importo, sporchi) {
     const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id)) err("Non sei in questa setta.");
     importo = Math.floor(importo || 0); if (importo <= 0) err("Importo non valido.");
-    if (sporchi) { if (p.sporchi < importo) err("Non hai abbastanza sporchi."); p.sporchi -= importo; }
-    else { if (p.cash < importo) err("Non hai abbastanza soldi."); p.cash -= importo; }
+    if (sporchi) { if (p.sporchi < importo) err("Non hai abbastanza sporchi."); }
+    else if (p.cash < importo) err("Non hai abbastanza soldi.");
+    // sette nate prima della v59 (senza punti Influenza): il valore si ferma qui, PRIMA del versamento.
+    // Cosi' i soldi versati non fanno mai salire di livello: l'Influenza si guadagna solo usando il Tesoro.
+    if (st.influenza == null) st.influenza = influenzaDi(s, st);
+    if (sporchi) {
+      p.sporchi -= importo;
+      // nascondere gli sporchi nel Tesoro lascia Tracce, come ripulirli (ILL-11)
+      const tr = TRACCE_PASSAMANO * importo / 1_000_000; p.tracce += tr; p.pulitoCiclo = false; segnaTraccia(s, p, tr, "i soldi sporchi versati nel Tesoro della setta");
+    } else p.cash -= importo;
     st.tesoro += importo;
   }
+  const TRACCE_PASSAMANO = 2; // Tracce per ogni milione di sporchi che cambia mano (versato nel Tesoro, regalato, ricevuto)
   // la chat della setta: la leggono solo i membri
   function msgSetta(s, p, idSetta, testo) {
     const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id)) err("Non sei in questa setta.");
@@ -3011,7 +3114,10 @@
     const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id)) err("Non sei in questa setta.");
     if (st.gm === p.id) err("Il Gran Maestro non tradisce la sua setta.");
     if (st.tradimento) err("Qualcuno ha già parlato con la polizia.");
+    { const g = st.ingressi && st.ingressi[p.id]; if (g && g.ciclo >= s.ciclo) err("Sei entrato da troppo poco: la polizia vuole uno che sa. Devi essere nella setta da almeno un'Alba."); }
     st.tradimento = { da: p.id, ciclo: s.ciclo };
+    // il Gran Maestro ha un indizio (non il nome): cosi' la Prova di fedelta' e' una scelta, non una lotteria
+    if (st.membri.length > 2) privato(s, giocatore(s, st.gm), "Vera: \"Un confratello della setta «" + st.nome + "» ha fatto una telefonata strana. Non so chi. Se è un traditore, all'Alba la polizia sa tutto. Con una Prova di fedeltà (1 milione dal Tesoro) puoi controllarne uno.\"");
     privato(s, p, "Hai chiamato un numero che non avresti dovuto conoscere. All'Alba la polizia avrà tutto sulla setta \"" + st.nome + "\": tu prendi un premio e ti cancellano molte Tracce. Se il Gran Maestro ti scopre prima con una Prova di fedeltà, sei finito.");
   }
   function provaFedelta(s, p, idSetta, idMembro) {
@@ -3023,7 +3129,8 @@
     if (st.tradimento && st.tradimento.da === idMembro) {
       st.tradimento = null;
       if (st.membri.length >= 3) st.grazia = s.ciclo + 1; st.membri = st.membri.filter((x) => x !== idMembro); m.sette = m.sette.filter((x) => x !== idSetta);
-      m.tracce += 20; m.stato = Math.max(m.stato, 1);
+      m.tracce += 20; m.stato = Math.max(m.stato, 1); segnaTraccia(s, m, 20, "i segreti che la setta ha passato alla polizia");
+      sciogliPatto(s, st, m, false);
       privato(s, p, "La Prova di fedeltà parla chiaro: " + m.nome + " stava vendendo la setta alla polizia. È fuori, e la setta ha fatto arrivare alla polizia le sue Tracce.");
       privato(s, m, "Il Gran Maestro ti ha scoperto. Sei fuori dalla setta, e qualcuno ha fatto arrivare alla polizia i tuoi segreti.");
       for (const id of st.membri) if (id !== p.id) privato(s, giocatore(s, id), m.nome + " ha tradito la setta ed è stato scoperto.");
@@ -3037,7 +3144,8 @@
       st.tesoro -= sequestro + premio; tr.cash += premio;
       tr.tracce = Math.max(0, tr.tracce - 30); tr.stato = Math.max(0, tr.stato - 1);
       if (st.membri.length >= 3) st.grazia = s.ciclo + 1; st.membri = st.membri.filter((x) => x !== tr.id); tr.sette = tr.sette.filter((x) => x !== st.id);
-      for (const id of st.membri) { const m = giocatore(s, id); m.tracce += 20; m.stato = Math.max(m.stato, 1); privato(s, m, "Un traditore ha parlato: la polizia ha sequestrato " + euro(sequestro) + " del Tesoro della setta e ora ti tiene d'occhio. Il Tesoro sepolto è salvo."); }
+      sciogliPatto(s, st, tr, false);
+      for (const id of st.membri) { const m = giocatore(s, id); m.tracce += 20; m.stato = Math.max(m.stato, 1); segnaTraccia(s, m, 20, "il traditore della setta"); privato(s, m, "Un traditore ha parlato: la polizia ha sequestrato " + euro(sequestro) + " del Tesoro della setta e ora ti tiene d'occhio. Il Tesoro sepolto è salvo."); fatto(s, m, { k: "traditore", testo: "Un traditore ha venduto la setta: sequestrati " + euro(sequestro) + " del Tesoro, +20 Tracce per te.", tracce: 20 }); }
       privato(s, tr, "Hai venduto la setta. Premio: " + euro(premio) + " puliti, e molte delle tue Tracce spariscono. Ora sei fuori, e loro lo sanno.");
       notizia(s, "Un pentito parla: la Finanza sequestra " + euro(sequestro) + " a una setta segreta della Laguna.", "scandalo");
     }
@@ -3055,6 +3163,7 @@
     privato(s, p, "Il " + chi + " ora appartiene alla setta. +6 Influenza.");
     guadagnaInfluenza(s, st, 6, "Reclutato il " + chi);
   }
+  const TETTO_SPINTA = 0.5;
   function operazione(s, p, idSetta, tipo, bersaglio, direzione) {
     inNotte(s, p);
     const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro lancia le operazioni.");
@@ -3076,17 +3185,29 @@
     if (tipo === "evasione") giocatore(s, bersaglio);
     if (tipo === "sabotaggio" && !s.sette.some((x) => x.id === bersaglio && x.id !== st.id)) err("Scegli una setta rivale.");
     if (tipo === "inchiesta" && giocatore(s, bersaglio).id === p.id) err("Scegli chi colpire.");
-    st.tesoro -= O.costo; st.operazioni += 1;
+    // ILL-01: una sola operazione per setta per notte, e un titolo si muove una volta sola per notte (chiunque lo muova)
+    if (st.opNotte === s.ciclo) err("La setta ha già fatto un'operazione stanotte: se ne fa una sola per notte.");
+    const spinte = s.spinte && s.spinte.ciclo === s.ciclo ? s.spinte.titoli : {};
+    if (tipo === "manipola" && spinte[bersaglio]) err("Stanotte qualcuno ha già mosso " + bersaglio + ": un titolo si muove una volta sola per notte.");
+    st.tesoro -= O.costo; st.operazioni += 1; st.opNotte = s.ciclo;
     const riuscita = rng(s) < 0.75;
-    for (const id of st.membri) { const m = giocatore(s, id); m.tracce += 5; m.pulitoCiclo = false; }
+    // ILL-20: le Tracce dell'operazione le prende chi la ordina; agli altri membri ne resta una
+    for (const id of st.membri) { const m = giocatore(s, id), tr = id === p.id ? 5 : 1; m.tracce += tr; if (id === p.id) m.pulitoCiclo = false; segnaTraccia(s, m, tr, "l'operazione della setta (" + O.nome + ")"); }
     if (!riuscita) { privato(s, p, O.nome + ": l'operazione è fallita. +1 Influenza (almeno ci avete provato)."); guadagnaInfluenza(s, st, 1, O.nome + " (fallita)"); notizia(s, "Fallito un misterioso piano nella Laguna.", "voce"); return; }
     if (tipo === "manipola") {
-      if (!AZIENDE.includes(bersaglio)) err("Scegli un titolo.");
-      const f = lv >= 3 ? 0.4 : 0.15;
-      s.borsa[bersaglio] *= direzione === "giu" ? 1 - f : 1 + f;
-      notizia(s, "Movimento improvviso su " + bersaglio + " (" + (direzione === "giu" ? "-" : "+") + Math.round(f * 100) + "%). Nessuno sa spiegarlo.", "borsa");
+      const f = lv >= 3 ? num(s, "spintaForte") : 0.15;
+      // il tetto: con le spinte un titolo non va oltre +50% / -50% rispetto all'ultima Alba
+      const prezzo0 = s.borsa[bersaglio], ieri = (s.borsaIeri && s.borsaIeri[bersaglio]) || prezzo0;
+      const nuovo = direzione === "giu" ? Math.min(prezzo0, Math.max(prezzo0 * (1 - f), ieri * (1 - TETTO_SPINTA))) : Math.max(prezzo0, Math.min(prezzo0 * (1 + f), ieri * (1 + TETTO_SPINTA)));
+      s.borsa[bersaglio] = nuovo; s.spinte = { ciclo: s.ciclo, titoli: { ...spinte, [bersaglio]: true } };
+      // i guadagni fatti cosi' "non tornano": la Finanza li conta come soldi senza spiegazione (pista dei soldi)
+      if (nuovo > prezzo0) for (const id of st.membri) { const m = giocatore(s, id), g = (m.azioni[bersaglio] || 0) * (nuovo - prezzo0); if (g > 0) { m.ripulitiCiclo = (m.ripulitiCiclo || 0) + g; privato(s, m, "La setta ha spinto " + bersaglio + ": le tue azioni salgono di " + euro(g) + ". Attento: la Finanza guarda i guadagni che non si spiegano."); } }
+      const mossa = Math.round((nuovo / prezzo0 - 1) * 100);
+      notizia(s, "Movimento improvviso su " + bersaglio + " (" + (mossa >= 0 ? "+" : "") + mossa + "%). Nessuno sa spiegarlo.", "borsa");
     } else if (tipo === "blackout") {
-      s.blackout = bersaglio; notizia(s, "Blackout totale a " + (NOMI_ISOLE[bersaglio] || bersaglio) + ". Nessuno ha visto niente.", "evento");
+      // ILL-03: il blackout vale da subito e per il resto di questa notte: i posti dell'isola tornano tranquilli e i guai li' si dimezzano
+      if (s.notte) { s.notte.blackout = bersaglio; for (const l of Object.keys(LUOGHI)) if (LUOGHI[l].isola === bersaglio) s.notte.pericolo[l] = "tranquillo"; }
+      notizia(s, "Blackout totale a " + (NOMI_ISOLE[bersaglio] || bersaglio) + ". Nessuno ha visto niente.", "evento");
     } else if (tipo === "evasione") {
       const b = giocatore(s, bersaglio); b.faro = 0; notizia(s, b.nome + " è evaso dal Faro!", "evento");
     } else if (tipo === "sabotaggio") {
@@ -3096,10 +3217,10 @@
       notizia(s, "Incendio nella notte in un magazzino senza nome. Si parla di una guerra tra sette.", "voce");
     } else if (tipo === "inchiesta") {
       const b = giocatore(s, bersaglio); if (!b || b.id === p.id) err("Scegli chi colpire.");
-      b.tracce += 25; b.stato = Math.max(b.stato, 1);
+      b.tracce += 25; b.stato = Math.max(b.stato, 1); segnaTraccia(s, b, 25, "un'inchiesta nata da una soffiata anonima");
       notizia(s, "La Procura apre un'inchiesta su " + b.nome + ". Una soffiata anonima, dicono.", "scandalo");
     } else if (tipo === "fantoccio") {
-      s.sindaco = p.id; s.sindacoFino = s.ciclo + 2; notizia(s, "Colpo di scena al Municipio: il Sindaco si dimette. Il nuovo Sindaco sembra sapere già cosa fare.", "politica");
+      s.sindaco = p.id; notizia(s, "Colpo di scena al Municipio: il Sindaco si dimette. Il nuovo Sindaco sembra sapere già cosa fare.", "politica");
     }
     const pt = 3 + O.costo / 1_000_000;
     privato(s, p, O.nome + ": riuscita. +" + pt + " Influenza.");
@@ -3247,10 +3368,16 @@
     importo = Math.floor(importo || 0); const a = giocatore(s, idA);
     if (a.id === p.id) err("Non puoi fare un regalo a te stesso.");
     if (importo <= 0) err("Importo non valido.");
-    if (sporchi) { if (p.sporchi < importo) err("Non hai abbastanza sporchi."); p.sporchi -= importo; a.sporchi += importo; }
+    if (sporchi) {
+      if (p.sporchi < importo) err("Non hai abbastanza sporchi."); p.sporchi -= importo; a.sporchi += importo;
+      // una valigia di contanti sporchi che cambia mano lascia Tracce a tutti e due: non si nascondono dagli amici puliti
+      const tr = Math.max(1, TRACCE_PASSAMANO * importo / 1_000_000);
+      p.tracce += tr; p.pulitoCiclo = false; segnaTraccia(s, p, tr, "i contanti sporchi passati a " + a.nome);
+      a.tracce += tr; a.pulitoCiclo = false; a.peggiorReato = peggio(a.peggiorReato, "lieve"); segnaTraccia(s, a, tr, "i contanti sporchi ricevuti da " + p.nome);
+    }
     else { if (p.cash < importo) err("Non hai abbastanza soldi."); p.cash -= importo; a.cash += importo; }
     flusso(s, p, a, importo, sporchi ? "Regalo in contanti sporchi" : "Regalo", false);
-    privato(s, a, p.nome + " ti ha dato " + euro(importo) + (sporchi ? " in contanti sporchi." : "."));
+    privato(s, a, p.nome + " ti ha dato " + euro(importo) + (sporchi ? " in contanti sporchi. Attento: i soldi sporchi che passano di mano lasciano Tracce anche a chi li riceve." : "."));
   }
 
   // ------------------------------------------------------------ pagamenti e debiti
@@ -3289,8 +3416,10 @@
     let prot = 0;
     if (Object.keys(p.corrotti).some((k) => k.startsWith("agente_"))) prot += N.prot.agente;
     if (p.corrotti.commissario) prot += N.prot.commissario;
-    for (const id of p.sette) { const st = s.sette.find((x) => x.id === id); const lv = livelloSetta(s, st); prot += [0, 0.1, 0.2, 0.3, 0.3][lv]; if (st && st.commissario) prot += 0.3; }
-    return Math.min(N.prot.max, prot);
+    // ILL-12: chi e' in piu' sette conta solo la protezione della setta migliore, non la somma
+    let setta = 0;
+    for (const id of p.sette) { const st = s.sette.find((x) => x.id === id); const lv = livelloSetta(s, st); setta = Math.max(setta, [0, 0.1, 0.2, 0.3, 0.3][lv] + (st && st.commissario ? 0.3 : 0)); }
+    return Math.min(N.prot.max, prot + setta);
   }
   // La Resa dei conti: prima della fine la Procura apre l'inchiesta finale, a tutti viene detto.
   // All'ultima Alba chi ha lasciato Tracce rischia una multa sul patrimonio (niente prigione: la partita e' finita).
@@ -3315,11 +3444,10 @@
     s.resa = [];
     for (const p of s.players) {
       if (p.fallito || (!p.peggiorReato && !(p.sporchi > 0))) continue;
+      if (p.ultimaSentenza && p.ultimaSentenza.ciclo === s.ciclo - 1 && !p.peggiorReato) { privato(s, p, "Resa dei conti: sei appena stato condannato all'ultima Alba. La Procura non ti processa due volte."); continue; } // ILL-23
       if (rng(s) >= rischioResa(s, p)) { privato(s, p, "Resa dei conti: la Procura non trova niente su di te."); continue; }
-      let gravita = p.peggiorReato || "lieve";
-      if (inSetta(p) && gravita !== "lieve") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1];
-      if (operaAttiva(s, p, "giudice") && gravita !== "lieve") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1];
-      if (haOggetto(p, "avvocato") && gravita !== "lieve") { togliOggetto(p, "avvocato"); gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; }
+      const gf = gravitaFinale(s, p, p.peggiorReato || "lieve", { senzaRecidiva: true }), gravita = gf.gravita;
+      if (gf.avvocato) togliOggetto(p, "avvocato");
       const multa = round(Math.min(0.6, PENE[gravita].multa * N.resaMulta) * Math.max(0, patrimonio(s, p, false)) * (haAttivita(s, p, "legale") ? 0.7 : 1));
       const protetti = Math.min(p.sporchi, (haPiano(p, "caveau") && gravita !== "gravissima" ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0));
       const sporchiPersi = round(p.sporchi - protetti);
@@ -3360,6 +3488,7 @@
     p.calSoldi = (p.calSoldi || 0) * 0.6;
     if (sporco && eccesso > 0) {
       p.calSoldi = Math.min(10, p.calSoldi + eccesso / 1_000_000);
+      if (p.corrotti && p.corrotti.banchiere) p.corrotti.banchiere.usi = (p.corrotti.banchiere.usi || 0) + 1;
       if (p.calSoldi >= 1) privato(s, p, "Il banchiere Lenz: \"La Finanza guarda i tuoi conti. Hai ripulito e speso più di quanto rendono i tuoi locali. Rallenta, o apri attività che giustifichino quei soldi.\"");
     }
     if (p.calSoldi < 0.2) p.calSoldi = 0;
@@ -3373,20 +3502,31 @@
       out.push({ k: "voci", peso: p.tracce, testo: st ? "La polizia ha collegato a te " + (st.cosa.startsWith("i ") || st.cosa.startsWith("il ") ? st.cosa : "«" + st.cosa + "»") + (st.ciclo === s.ciclo ? ", di questo Ciclo." : ", del Ciclo " + (st.ciclo + 1) + ".") : "Troppi affari sporchi: in giro si parla di te." });
     }
     for (const [l, c] of Object.entries(p.calore || {})) if (c >= 1) out.push({ k: "luogo", luogo: l, calore: c, peso: N.pistaLuogo * c * c, testo: "Ti hanno riconosciuto: troppe notti nello stesso posto (" + nomeLuogo(l) + ")." });
-    if (p.calSoldi > 0) out.push({ k: "soldi", peso: N.pistaSoldi * p.calSoldi, testo: "La Finanza ha visto i tuoi conti: i tuoi soldi non tornano con quello che rendono i tuoi locali." });
-    const prove = s.players.reduce((a, q) => a + (q.id === p.id ? 0 : (q.prove || []).filter((x) => x.su === p.id).length), 0);
-    if (prove) out.push({ k: "rivali", peso: N.pistaRivale * prove, testo: "Qualcuno ha fatto arrivare alla polizia una prova contro di te. Non sai chi." });
+    // ILL-02: il banchiere Lenz, se e' dei tuoi, fa sparire meta' dei conti che non tornano
+    if (p.calSoldi > 0) out.push({ k: "soldi", peso: N.pistaSoldi * p.calSoldi * (p.corrotti && p.corrotti.banchiere ? LENZ_COPRE : 1), testo: "La Finanza ha visto i tuoi conti: i tuoi soldi non tornano con quello che rendono i tuoi locali." + (p.corrotti && p.corrotti.banchiere ? " Il banchiere Lenz ne copre la metà." : "") });
+    // ILL-19: una Prova pesa solo quando viene CONSEGNATA alla polizia (la denuncia). Finche' resta in tasca a un rivale non conta.
+    const denunce = (p.denunce || []).filter((x) => x.ciclo >= s.ciclo - 2).length;
+    if (denunce) out.push({ k: "rivali", peso: N.pistaRivale * denunce, testo: "Qualcuno ha consegnato alla polizia una prova contro di te. Non sai chi." });
     const nervosi = Object.keys(p.corrotti || {}).filter((k) => p.corrotti[k] && p.corrotti[k].sospetto != null);
     if (nervosi.length) out.push({ k: "complici", peso: N.pistaComplice * nervosi.length, testo: "Un tuo complice è sotto inchiesta e ha parlato troppo." });
+    // chi e' molto famoso e' piu' guardato: prima era un +25% nascosto, ora e' una pista scritta come le altre
+    if (p.fama >= 60 && out.length) out.push({ k: "fama", peso: 0.25 * out.reduce((a, x) => a + x.peso, 0), testo: "Sei troppo famoso: giornali e polizia guardano tutto quello che fai." });
     return out;
+  }
+  const LENZ_COPRE = 0.5;
+  // Le Tracce come le vede il giocatore: una barra da 0 a 5 tacche, mai il numero.
+  const TACCHE = [1, 10, 25, 45, 70];
+  function tacche(p) { const t = (p && p.tracce) || 0; return TACCHE.filter((x) => t >= x).length; }
+  // Il controllo di fine giornata (ce ne sono 4 a Ciclo, uno a fine di ogni Giorno): quanto e' probabile che la polizia
+  // salga di un gradino. UNA sola funzione: la usano il tiro vero e la vista.
+  function rischioControllo(s, p) {
+    if (p.faro > 0) return { su: 0, tr: 0, piste: [] };
+    const ps = piste(s, p), tr = ps.reduce((a, x) => a + x.peso, 0);
+    return { su: tr > 0 ? tr / (tr + N.indagineK) * (1 - protezione(s, p)) * (poliziaOccupata(s, p) ? N.occupata : 1) : 0, tr, piste: ps };
   }
   function tiroIndagine(s, p) {
     if (p.faro > 0) return;
-    const prot = protezione(s, p);
-    const ps = piste(s, p);
-    let tr = ps.reduce((a, x) => a + x.peso, 0);
-    if (p.fama >= 60) tr *= 1.25;
-    const pUp = tr / (tr + N.indagineK) * (1 - prot) * (poliziaOccupata(s, p) ? N.occupata : 1);
+    const rc = rischioControllo(s, p), ps = rc.piste, tr = rc.tr, pUp = rc.su;
     const vecchio = p.stato;
     if (tr > 0 && rng(s) < pUp) p.stato = Math.min(4, p.stato + 1);
     else if (p.pulitoCiclo && p.stato > 0 && rng(s) < N.scendi) p.stato -= 1;
@@ -3411,45 +3551,93 @@
     log(s, p.nome + " va al Faro per " + turni + " turni (" + motivo + ").", p.id);
     notizia(s, p.nome + " è stato portato al Faro.", "scandalo");
   }
-  function condanna(s, p, gravita, motivo) {
-    gravita = gravita || "lieve";
-    if (p.condanne > 0 && gravita !== "gravissima") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) + 1];
-    if (inSetta(p) && gravita !== "lieve") { gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; privato(s, p, "Gli avvocati della setta lavorano nell'ombra: la condanna scende di un gradino."); }
-    const supremo = operaAttiva(s, p, "giudice");
-    if (supremo && gravita !== "lieve") { gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; privato(s, p, "Il Giudice supremo della setta firma la sentenza: scende di un altro gradino."); }
-    if (haOggetto(p, "avvocato")) { togliOggetto(p, "avvocato"); if (gravita !== "lieve") gravita = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(gravita) - 1]; privato(s, p, "Il tuo avvocato fa il suo lavoro: la pena scende di un gradino."); }
-    const pena = PENE[gravita];
-    let protGiudice = false;
-    for (const id of p.sette) { const st = s.sette.find((x) => x.id === id); if (st && st.giudice) protGiudice = true; }
-    if (protGiudice && rng(s) < 0.6) {
-      privato(s, p, "Il Giudice è dei vostri: il processo si chiude con un nulla di fatto.");
-      notizia(s, "Assolto " + p.nome + ". Qualcuno storce il naso.", "scandalo");
-      p.stato = 0; p.tracce *= 0.5; p.peggiorReato = null; return;
+  // ---- LE PENE. Due funzioni dicono tutto: gravitaFinale (recidiva e sconti) ed effettiPena (cosa perdi).
+  // Le usano la condanna vera, la Resa dei conti e la vista (descriviPena): la pena scritta e' sempre quella vera.
+  const TETTO_SCONTI = 2; // setta, Giudice, Giudice supremo e avvocato insieme: mai piu' di 2 gradini in meno (ILL-12)
+  // la multa e' una parte di TUTTO quello che possiedi (ILL-10): non si evita spendendo i contanti prima del Processo
+  const MULTA_CONDANNA = { lieve: 0.04, media: 0.08, grave: 0.16, gravissima: 0.30 };
+  const QUOTA_TESORO_CONDANNA = 0.3; // partite nuove: se condannano il Gran Maestro, la Procura prende una parte del Tesoro (non di quello sepolto)
+  function gravitaFinale(s, p, gravita, opz) {
+    let g = gravita || "lieve"; const note = [];
+    if (!(opz && opz.senzaRecidiva) && p.condanne > 0 && g !== "gravissima") { g = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(g) + 1]; note.push({ k: "recidiva", testo: "Hai già una condanna: la pena sale di un gradino." }); }
+    const sconti = [];
+    if (inSetta(p)) sconti.push({ k: "setta", testo: "Gli avvocati della setta lavorano nell'ombra: la pena scende di un gradino." });
+    if ((p.sette || []).some((id) => { const st = s.sette.find((x) => x.id === id); return st && st.giudice; })) sconti.push({ k: "giudice", testo: "Il Giudice è della setta: la pena scende di un gradino." });
+    if (operaAttiva(s, p, "giudice")) sconti.push({ k: "supremo", testo: "Il Giudice supremo della setta firma la sentenza: un gradino in meno." });
+    if (haOggetto(p, "avvocato")) sconti.push({ k: "avvocato", testo: "Il tuo avvocato fa il suo lavoro: la pena scende di un gradino." });
+    let usati = 0, avvocato = false;
+    for (const x of sconti) {
+      if (g === "lieve") break;
+      if (usati >= TETTO_SCONTI) { note.push({ k: "tetto", testo: "Più di " + TETTO_SCONTI + " gradini di sconto non si possono avere." }); break; }
+      g = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(g) - 1]; usati++; note.push(x); if (x.k === "avvocato") avvocato = true;
     }
-    const confiscati = p.sporchi; p.sporchi = 0;
-    const protetto = Math.min(confiscati, (haPiano(p, "caveau") && gravita !== "gravissima" ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0) + (supremo ? round(confiscati * 0.5) : 0));
-    p.sporchi = protetto;
-    const multa = round(pena.multa * Math.max(0, p.cash + valoreInvestimenti(s, p)) * (haAttivita(s, p, "legale") ? 0.7 : 1));
+    return { gravita: g, note, avvocato };
+  }
+  // che cosa succede a p con una condanna di questa gravita' (gia' finale). Non scrive niente.
+  function effettiPena(s, p, gravita) {
+    const pena = PENE[gravita], supremo = operaAttiva(s, p, "giudice"), sporchi = p.sporchi || 0;
+    const salvi = Math.min(sporchi, (haPiano(p, "caveau") && gravita !== "gravissima" ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0) + (supremo ? round(sporchi * 0.5) : 0));
+    const multa = round(MULTA_CONDANNA[gravita] * Math.max(0, patrimonio(s, p, false)) * (haAttivita(s, p, "legale") ? 0.7 : 1));
+    const aRischio = propri(s, p).filter((l) => l.tipo && ["copertura", "notte", "rischio"].includes(ATTIVITA[l.tipo].gruppo));
+    const tocca = !!pena.attivita && (p.riciclTot > 0 || gravita !== "media");
+    const chiusi = tocca && pena.attivita === "chiusa" ? aRischio : [], sequestrati = tocca && pena.attivita !== "chiusa" ? aRischio.slice() : [];
+    let pianiPersi = 0, stanzePerse = [];
+    if (tocca && pena.attivita === "confisca+") {
+      const prezioso = propri(s, p).filter((l) => !sequestrati.includes(l)).sort((a, b) => valoreLotto(b) - valoreLotto(a))[0];
+      if (prezioso) sequestrati.push(prezioso);
+      if (p.piani > 4) { pianiPersi = 4; stanzePerse = stanzeDi(p).filter((f) => { const F = FASCE_PALAZZO.find((x) => x.fun.includes(f)); return F && F.da > p.piani - 4; }); }
+    }
+    const tesori = gen2(s) ? s.sette.filter((st) => st.gm === p.id && st.tesoro > 0).map((st) => ({ setta: st.id, nome: st.nome, importo: round(st.tesoro * QUOTA_TESORO_CONDANNA) })) : [];
+    return { gravita, faro: pena.faro, blocco: pena.blocco, fama: pena.fama, multa, multaQuota: MULTA_CONDANNA[gravita] * (haAttivita(s, p, "legale") ? 0.7 : 1),
+      sporchiPersi: sporchi - salvi, sporchiSalvi: salvi, chiusi: chiusi.map((l) => l.id), sequestrati: sequestrati.map((l) => l.id), pianiPersi, stanzePerse,
+      contatti: Object.keys(p.corrotti || {}).length, tesori };
+  }
+  // La pena raccontata al giocatore PRIMA: cosa succede oggi a p se lo condannano per un reato di questa gravita'.
+  // reato = la gravita' del reato (se manca: il suo reato peggiore). Ritorna numeri e frasi pronte da mostrare.
+  function descriviPena(s, p, reato) {
+    const gf = gravitaFinale(s, p, reato || p.peggiorReato || "lieve"), e = effettiPena(s, p, gf.gravita);
+    const nomi = (ids) => ids.map((id) => lotto(s, id).nome);
+    const righe = [];
+    righe.push("Confisca di TUTTI i soldi sporchi che hai in quel momento" + (e.sporchiPersi > 0 || e.sporchiSalvi > 0 ? " (oggi: " + euro(e.sporchiPersi) + (e.sporchiSalvi ? ", " + euro(e.sporchiSalvi) + " si salvano" : "") + ")" : "") + ".");
+    righe.push("Multa: il " + Math.round(e.multaQuota * 100) + "% di tutto quello che possiedi (oggi " + euro(e.multa) + "). Se non hai i contanti la banca vende i tuoi titoli, poi va a debito.");
+    if (e.faro) righe.push(e.faro + " turni di dadi in cella al Faro: non ti muovi sul tabellone" + (e.faro > N.giorni ? " e salti la prossima notte." : " (" + N.giorni + " turni = 1 Ciclo)."));
+    if (e.blocco) righe.push("Entrate dimezzate e niente Stipendio per " + e.blocco + (e.blocco === 1 ? " Ciclo." : " Cicli."));
+    if (e.chiusi.length) righe.push("Chiusi per un Ciclo: " + nomi(e.chiusi).join(", ") + ".");
+    if (e.sequestrati.length) righe.push("Sequestrati e messi all'asta (tornano terreni vuoti): " + nomi(e.sequestrati).join(", ") + ".");
+    if (e.pianiPersi) righe.push("Perdi " + e.pianiPersi + " piani del Palazzo" + (e.stanzePerse.length ? " e le stanze: " + e.stanzePerse.map((f) => STANZE[f].nome).join(", ") : "") + ".");
+    if (e.contatti) righe.push("Perdi tutti i contatti che hai comprato (" + e.contatti + ").");
+    for (const t of e.tesori) righe.push("Sei il Gran Maestro: la Procura sequestra " + euro(t.importo) + " del Tesoro di «" + t.nome + "». Il Tesoro sepolto è salvo.");
+    righe.push("Perdi " + e.fama + " di fama. La prossima condanna sale di un gradino.");
+    return { reato: reato || p.peggiorReato || "lieve", ...e, chiusiNomi: nomi(e.chiusi), sequestratiNomi: nomi(e.sequestrati), note: gf.note.map((x) => x.testo), righe };
+  }
+  function condanna(s, p, gravita, motivo) {
+    const gf = gravitaFinale(s, p, gravita);
+    gravita = gf.gravita;
+    for (const x of gf.note) if (x.k !== "recidiva") privato(s, p, x.testo);
+    if (gf.avvocato) togliOggetto(p, "avvocato");
+    const e = effettiPena(s, p, gravita), pena = PENE[gravita];
+    const confiscati = e.sporchiPersi; p.sporchi = e.sporchiSalvi;
+    const multa = e.multa;
     paga(s, p, multa, null);
-    const coinvolte = propri(s, p).filter((l) => l.tipo && ["copertura", "notte", "rischio"].includes(ATTIVITA[l.tipo].gruppo));
-    if (pena.attivita && (p.riciclTot > 0 || gravita !== "media")) {
-      for (const l of coinvolte) {
-        if (pena.attivita === "chiusa") l.chiuso = 1;
-        else sequestra(s, l, p);
-      }
-      if (pena.attivita === "confisca+") {
-        const altri = propri(s, p).sort((a, b) => valoreLotto(b) - valoreLotto(a)).slice(0, 1);
-        for (const l of altri) sequestra(s, l, p);
-        if (p.piani > 4) { p.piani -= 4; (p.funzioniPiani || []).splice(-4); }
-      }
+    for (const id of e.chiusi) lotto(s, id).chiuso = 1;
+    const nomiSeq = e.sequestrati.map((id) => lotto(s, id).nome);
+    for (const id of e.sequestrati) sequestra(s, lotto(s, id), p);
+    if (e.pianiPersi) { p.piani -= e.pianiPersi; (p.funzioniPiani || []).splice(-e.pianiPersi); p.stanze = stanzeDi(p).filter((f) => !e.stanzePerse.includes(f)); aggiornaSkyline(s); }
+    // partite nuove: se cade il Gran Maestro, la Procura mette le mani sul Tesoro (solo quello sepolto e' al sicuro)
+    for (const t of e.tesori) {
+      const st = s.sette.find((x) => x.id === t.setta); if (!st) continue;
+      const q = Math.min(st.tesoro, t.importo); st.tesoro -= q;
+      for (const id of st.membri) privato(s, giocatore(s, id), "Il Gran Maestro della setta \"" + st.nome + "\" è stato condannato: la Procura sequestra " + euro(q) + " del Tesoro. Il Tesoro sepolto è salvo.");
     }
     if (pena.faro > 0) mandaAlFaro(s, p, pena.faro, "condanna");
     p.blocco = pena.blocco; p.fama = Math.max(0, p.fama - pena.fama);
     p.condanne += 1; p.stato = 0; p.tracce = 15; p.peggiorReato = null; p.riciclTot = 0;
     p.corrotti = {};
     if (gravita === "grave" || gravita === "gravissima") { p.cerchie = []; }
-    p.ultimaSentenza = { gravita, multa, confiscati: confiscati - protetto, faro: pena.faro, blocco: pena.blocco, motivo: motivo || "" };
-    privato(s, p, "Sentenza (" + gravita + "): confiscati " + euro(confiscati - protetto) + " di soldi sporchi, multa " + euro(multa) + (pena.faro ? ", " + pena.faro + " turni al Faro" : "") + (pena.blocco ? ", entrate bloccate per " + pena.blocco + " Cicli" : "") + ".");
+    p.ultimaSentenza = { gravita, multa, confiscati, faro: pena.faro, blocco: pena.blocco, motivo: motivo || "", ciclo: s.ciclo, chiusi: e.chiusi.length, sequestrati: nomiSeq, piani: e.pianiPersi, contatti: e.contatti, sconti: gf.note.map((x) => x.testo) };
+    const testo = "Sentenza (" + gravita + "): confiscati " + euro(confiscati) + " di soldi sporchi, multa " + euro(multa) + (pena.faro ? ", " + pena.faro + " turni al Faro" : "") + (pena.blocco ? ", entrate dimezzate per " + pena.blocco + " Cicli" : "") + (e.chiusi.length ? ", " + e.chiusi.length + " locali chiusi per un Ciclo" : "") + (nomiSeq.length ? ", sequestrati: " + nomiSeq.join(", ") : "") + (e.pianiPersi ? ", " + e.pianiPersi + " piani del Palazzo persi" : "") + (e.contatti ? ", contatti comprati persi" : "") + ".";
+    privato(s, p, testo);
+    fatto(s, p, { k: "sentenza", testo, soldi: -multa, sporchi: -confiscati });
     notizia(s, "Condannato " + p.nome + " (" + gravita + ").", "scandalo");
   }
 
@@ -4196,6 +4384,7 @@
     // carte e serate
     punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso),
     // polizia e pene
+    descriviPena, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, tacche, TETTO_SCONTI, MULTA_CONDANNA,
     rischioResa, rischioPerquisizione, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     // setta
     livelloSetta, influenzaDi, OPERE, costoOpera,
