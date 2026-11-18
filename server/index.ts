@@ -7,7 +7,7 @@
 //   { comando: "azione", partita, azione:{tipo,...} }
 // Il motore delle regole e i giocatori-computer arrivano dal progetto GitHub,
 // fissati a una versione precisa (commit), cosi' non cambiano da soli.
-// Il saldo segreto resta qui: ai giocatori arriva solo la loro "vista".
+// Il saldo segreto resta qui: ai giocatori arriva solo la loro "vista" (Laguna.vistaSicura).
 // =====================================================================
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@a8f7fef4b20da50ad92c640a6147649f22371bff/server/motore.js";
@@ -35,56 +35,33 @@ function nuovoCodice() {
   return parole[Math.floor(Math.random() * parole.length)] + "-" + Math.floor(1000 + Math.random() * 9000);
 }
 
-// Il motore toglie gia' saldi, tracce e segreti degli altri; qui togliamo anche
-// gli indizi indiretti (affari della notte, riciclo, prestiti, piani segreti).
-const ALTRI_SEGRETI = ["affariOk", "pulitoCiclo", "mosseNotte", "mossePagate", "disturbatore", "copUsata",
-  "paradisoCiclo", "ombraCicli", "prestiti", "telefonataUsata", "scontoCarico", "mercatoNero", "emergenza", "licenzaNegata", "trucchi", "lavato", "lavatoCiclo"];
-const PIANI_SEGRETI = ["caveau", "piani_segreti", "sala_insonorizzata", "bunker", "osservatorio"];
-// deno-lint-ignore no-explicit-any
-function vistaSicura(stato: any, id: string) {
-  const v = L.vista(stato, id);
-  // deno-lint-ignore no-explicit-any
-  for (const p of v.players as any[]) {
-    if (p.id === id) { delete p.tracce; continue; } // le proprie Tracce restano nascoste anche a se stessi
-    for (const k of ALTRI_SEGRETI) delete p[k];
-    if (Array.isArray(p.funzioniPiani)) p.funzioniPiani = p.funzioniPiani.map((f: string) => PIANI_SEGRETI.includes(f) ? "riservato" : f);
-    if (Array.isArray(p.stanze)) p.stanze = p.stanze.filter((f: string) => !PIANI_SEGRETI.includes(f)); // le stanze segrete degli altri non si vedono
-  }
-  // dalla cronaca pubblica tolgo le operazioni private degli altri (prestiti, investimenti, vendite)
-  // deno-lint-ignore no-explicit-any
-  v.log = (v.log as any[]).filter((r: any) => !r.chi || r.chi === id || !/prestito|restituisce|investe|vende|ipoteca|riscatta/.test(r.testo));
-  return v;
+// Questo file vuole il motore nuovo (Laguna.vistaSicura e LagunaBot.gioca). Se il commit scritto negli import qui sopra
+// e' ancora quello vecchio, meglio fermarsi subito con un messaggio chiaro che far girare una partita a meta'.
+if (typeof L?.vistaSicura !== "function" || typeof B?.gioca !== "function") {
+  throw new Error("server/index.ts e' piu' nuovo del motore che importa: aggiorna il commit negli import (lo fa pubblica.sh) e ripubblica.");
 }
 
+// Cosa vede ogni giocatore: una sola funzione, nel motore (Laguna.vistaSicura), la stessa della partita locale.
+// Le viste si calcolano PRIMA di salvare: se una non si riesce a calcolare, non viene salvato niente.
 // deno-lint-ignore no-explicit-any
-async function salvaViste(partitaId: string, stato: any, versione: number) {
+function calcolaViste(partitaId: string, stato: any, versione: number) {
   // deno-lint-ignore no-explicit-any
-  const righe = stato.players.map((p: any) => ({
-    partita_id: partitaId, player_id: p.id, versione, vista: vistaSicura(stato, p.id), aggiornata_il: new Date().toISOString(),
+  return stato.players.map((p: any) => ({
+    partita_id: partitaId, player_id: p.id, versione, vista: L.vistaSicura(stato, p.id), aggiornata_il: new Date().toISOString(),
   }));
+}
+// deno-lint-ignore no-explicit-any
+async function salvaViste(righe: any[]) {
   const { error } = await admin.from("viste").upsert(righe);
   if (error) throw error;
 }
 
-// I giocatori-computer giocano finche' non tocca a una persona.
-// Al bot si chiede la mossa UNA volta sola: le sue scelte ricordano cosa ha gia' deciso.
+// I giocatori-computer giocano finche' non tocca a una persona: una sola funzione, in bot.js (LagunaBot.gioca).
+// Gli errori veri del codice (non le mosse rifiutate) finiscono nei log, cosi' si vedono.
 // deno-lint-ignore no-explicit-any
 function giocaBot(stato: any) {
-  for (let i = 0; i < 3000 && !stato.fine; i++) {
-    // deno-lint-ignore no-explicit-any
-    let bot: any = null, a: any = null;
-    for (const p of stato.players) if (p.bot) { const x = B.prossima(stato, p); if (x) { bot = p; a = x; break; } }
-    if (!bot) return;
-    try { L.applica(stato, bot.id, a); }
-    catch (_e) {
-      try {
-        if (stato.fase === "notte") L.applica(stato, bot.id, { tipo: "pronto" });
-        else if (stato.pending?.tipo === "asta") L.applica(stato, bot.id, { tipo: "offerta", importo: 0 });
-        else if (stato.pending && stato.pending.giocatore === bot.id) L.applica(stato, bot.id, { tipo: stato.pending.tipo, si: false, importo: 0 });
-        else L.applica(stato, bot.id, bot.haTirato ? { tipo: "fine_turno" } : { tipo: "tira" });
-      } catch (_e2) { return; }
-    }
-  }
+  const r = B.gioca(stato);
+  for (const e of r.errori) console.error("Errore in una mossa dei computer:", JSON.stringify(e));
 }
 
 // come finisce la partita: solo i valori ammessi dal motore
@@ -150,8 +127,9 @@ Deno.serve(async (req) => {
         durata: durataPulita(body),
       });
       giocaBot(stato);
+      const viste = calcolaViste(partita.id, stato, 1);
       await admin.from("partite").update({ stato, in_corso: true, versione: 1 }).eq("id", partita.id);
-      await salvaViste(partita.id, stato, 1);
+      await salvaViste(viste);
       return json({ ok: true });
     }
 
@@ -177,12 +155,13 @@ Deno.serve(async (req) => {
       }
       giocaBot(stato);
       const nuova = partita.versione + 1;
+      const viste = calcolaViste(body.partita, stato, nuova); // prima di salvare: se fallisce, lo stato non cambia
       // scrittura sicura: se nel frattempo qualcun altro ha cambiato la partita, si riprova
       const { data: agg } = await admin.from("partite")
         .update({ stato, versione: nuova, aggiornata_il: new Date().toISOString(), finita: !!stato.fine })
         .eq("id", body.partita).eq("versione", partita.versione).select("id");
       if (!agg?.length) return json({ errore: "Un altro giocatore ha appena agito: riprova." }, 409);
-      await salvaViste(body.partita, stato, nuova);
+      await salvaViste(viste);
       await admin.from("azioni").insert({ partita_id: body.partita, player_id: me.player_id, azione: body.azione, esito });
       return json({ ok: true, versione: nuova });
     }
