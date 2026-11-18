@@ -23,6 +23,9 @@
   //   - una regola nuova:  if (gen2(s)) { ...regola nuova... } else { ...regola di prima... }
   // Ogni campo nuovo dello stato deve avere un ripiego (x.campo || valore): le partite vecchie non lo hanno.
   const GEN = 2;
+  // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
+  // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
+  const VERSIONE_REGOLE = 76;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -62,7 +65,7 @@
     prestitoQuota: 0.30, prestitoInt: 0.10, emergenzaInt: 0.25, ipotecaQuota: 0.5,
     ipotecaCicli: 4, ipotecaRiscatto: 1.1, debitoAlba: 0.5, // ipoteca: 4 Cicli per riscattarla pagando il 10% in piu'; debiti: a ogni Alba la Banca si prende meta' dei contanti
     candidatura: 750_000, stipendioSindaco: 750_000,
-    settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], settaInfluenza: [0, 0, 12, 35, 70], taxiMunicipio: 250_000, costoBallo: 300_000, decima: 0.15, perqDa: 25, perqK: 160, perqMax: 0.35, perqSequestro: 0.3,
+    settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], settaInfluenza: [0, 0, 12, 35, 70], rapido: { traghetto: 50_000, motoscafo: 100_000, elicottero: 300_000, jet: 600_000 }, rapidoOgni: 2, costoBallo: 300_000, decima: 0.15, perqDa: 25, perqK: 160, perqMax: 0.35, perqSequestro: 0.3,
     fasce: [[6e6, "Benestante"], [12e6, "Ricco"], [20e6, "Milionario"], [30e6, "Magnate"], [Infinity, "Sovrano"]],
     mosse: {
       nascosto: { nome: "Posto nascosto", tracce: 0.60, colto: 0.70, carico: 0.9, costo: 0 },
@@ -468,7 +471,8 @@
     else p.haTirato = true;
   }
 
-  // Viaggio rapido: una volta per Ciclo, al posto dei dadi, secondo il mezzo migliore
+  // Viaggio rapido (v76): una volta ogni 2 Cicli, al posto dei dadi, secondo i tuoi mezzi. Si paga il carburante
+  // e consuma la mossa del giorno di quel turno (niente permesso, cantiere, piano o altra mossa del giorno).
   function idxCasella(nome) { return OUTER.findIndex((c) => c[0] === nome); }
   function destinazioniRapide(s, p) {
     const d = new Map(), metti = (idx, costo, mezzo) => { if (idx !== p.pos && (!d.has(idx) || d.get(idx).costo > costo)) d.set(idx, { idx, costo, mezzo }); };
@@ -476,24 +480,36 @@
     const moli = s.lotti.filter((l) => l.tipoCasella === "molo").map((l) => l.idx);
     const eli = s.lotti.filter((l) => l.tipoCasella === "eliporto").map((l) => l.idx).concat([corona]);
     const aero = idxCasella("Aeroporto della Laguna");
-    if (qui.tipoCasella === "molo") metti(corona, 50_000, "traghetto");
-    if (p.veicoli.some((v) => ["motoscafo", "yacht", "megayacht"].includes(v))) { for (const m of moli) metti(m, 0, "motoscafo"); metti(corona, 0, "motoscafo"); }
-    if (p.veicoli.includes("elicottero") || haPiano(p, "eliporto")) for (const e of eli) metti(e, 0, "elicottero");
-    if (p.veicoli.includes("jet")) { metti(aero, 0, "jet"); for (const e of eli) metti(e, 0, "jet"); }
-    // il Municipio e' sempre raggiungibile: un taxi ti ci porta (costa, e salti il giro dei dadi)
-    metti(idxCasella("Il Municipio"), N.taxiMunicipio, "taxi");
+    const R = N.rapido;
+    if (qui.tipoCasella === "molo") metti(corona, R.traghetto, "traghetto");
+    if (p.veicoli.some((v) => ["motoscafo", "yacht", "megayacht"].includes(v))) { for (const m of moli) metti(m, R.motoscafo, "motoscafo"); metti(corona, R.motoscafo, "motoscafo"); }
+    if (p.veicoli.includes("elicottero") || haPiano(p, "eliporto")) for (const e of eli) metti(e, R.elicottero, "elicottero");
+    if (p.veicoli.includes("jet")) { metti(aero, R.jet, "jet"); for (const e of eli) metti(e, R.jet, "jet"); }
+    // (fino alla v75 c'era anche il taxi per il Municipio: tolto, al Municipio si arriva coi dadi)
     return [...d.values()];
   }
+  // fra quanti Cicli puoi rifare il viaggio rapido (0 = adesso)
+  function cicliAlRapido(s, p) { return p.rapidoCiclo == null ? 0 : Math.max(0, N.rapidoOgni - (s.ciclo - p.rapidoCiclo)); }
+  // perche' adesso non puoi fare il viaggio rapido ("" = puoi)
+  function motivoNoRapido(s, p) {
+    if (s.fase !== "giorno" || corrente(s).id !== p.id) return "Non è il tuo turno.";
+    if (p.haTirato || p.doppi) return "Il viaggio rapido si fa al posto dei dadi, a inizio turno.";
+    if (s.pending) return "Prima finisci la scelta in corso.";
+    if (p.faro > 0) return "Sei al Faro.";
+    const n = cicliAlRapido(s, p);
+    if (n > 0) return "Il viaggio rapido si fa una volta ogni " + N.rapidoOgni + " Cicli: il prossimo fra " + n + (n === 1 ? " Ciclo." : " Cicli.");
+    if (p.azioneGiornoFatta) return "Hai già usato la mossa del giorno: il viaggio rapido la consuma.";
+    return "";
+  }
   function viaggioRapido(s, p, idx) {
-    if (s.fase !== "giorno" || corrente(s).id !== p.id) err("Non è il tuo turno.");
-    if (p.haTirato || p.doppi) err("Il viaggio rapido si fa al posto dei dadi, a inizio turno.");
-    if (s.pending) err("Prima finisci la scelta in corso.");
-    if (p.faro > 0) err("Sei al Faro.");
-    if (p.rapidoCiclo === s.ciclo) err("Il viaggio rapido si fa una volta per Ciclo.");
+    { const m = motivoNoRapido(s, p); if (m) err(m); }
     const dest = destinazioniRapide(s, p).find((x) => x.idx === idx);
     if (!dest) err("Con i tuoi mezzi lì non ci arrivi.");
-    if (p.cash < dest.costo) err("Il traghetto costa " + euro(dest.costo) + ".");
-    p.cash -= dest.costo; p.rapidoCiclo = s.ciclo; p.haTirato = true; p.inner = false; p.pos = idx;
+    const NOME_MEZZO = { traghetto: "Il traghetto", motoscafo: "Il carburante del motoscafo", elicottero: "Il carburante dell'elicottero", jet: "Il carburante del jet" };
+    if (p.cash < dest.costo) err((NOME_MEZZO[dest.mezzo] || "Il viaggio") + " costa " + euro(dest.costo) + ".");
+    p.cash -= dest.costo; if (dest.costo) flusso(s, p, null, dest.costo, "Viaggio rapido (" + dest.mezzo + ")", false);
+    p.rapidoCiclo = s.ciclo; p.rapidoTurno = s.ciclo * 100 + s.giorno * 10 + s.turno; p.azioneGiornoFatta = true;
+    p.haTirato = true; p.inner = false; p.pos = idx;
     const c = casella(s, p);
     const COME = { taxi: "prende un taxi per il centro", traghetto: "prende il traghetto", motoscafo: "attraversa la laguna in motoscafo", elicottero: "atterra in elicottero", jet: "atterra con il jet" };
     log(s, p.nome + " " + COME[dest.mezzo] + ": " + c.nome + ".", p.id);
@@ -1357,7 +1373,7 @@
     infrarossi: { nome: "Occhialini a infrarossi", banco: ["casino"], prezzo: 150_000, raro: 1, consuma: true, salva: ["telecamere", "allarme"], descr: "Vedi i raggi degli allarmi e le telecamere." },
     passaporto: { nome: "Passaporto diplomatico", banco: ["casino"], prezzo: 600_000, raro: 2, notti: 3, salva: ["dogana", "posto_di_blocco", "retata"], descr: "LEGGENDARIO. Per 3 notti la retata, la dogana e i posti di blocco non ti toccano." },
     doppiofondo: { nome: "Valigia a doppiofondo", banco: ["mercato"], prezzo: 200_000, raro: 1, posti: 2, eff: [{ k: "pq", m: 0.35 }], descr: "Perquisizioni meno probabili; se arrivano, prendono meno contanti e non trovano la valigetta. 2 posti." },
-    timbro: { nome: "Timbro del Municipio", banco: ["mercato"], prezzo: 160_000, raro: 1, giorno: "permesso", descr: "Di giorno: il prossimo permesso passa subito e senza bollo. Ma +6 Tracce quando lo usi." },
+    timbro: { nome: "Timbro del Municipio", banco: ["mercato"], prezzo: 160_000, raro: 1, giorno: "permesso", descr: "Di giorno, quando chiedi un permesso, scegli tu se usarlo: il permesso passa subito (e senza bollo nelle partite nuove). Ma +6 Tracce. Se non lo usi resta in valigetta." },
     registratore: { nome: "Registratore a filo", banco: ["casino"], prezzo: 100_000, consuma: true, provaSicura: true, descr: "Agli affari che danno una Prova, la Prova la ottieni anche se qualcosa va storto." },
     santino: { nome: "Santino del Faro", banco: ["mercato", "porto"], prezzo: 15_000, consuma: true, eff: [{ k: "gu", m: 0.93 }], descr: "Superstizione. Ma i pescatori giurano che funziona: guai −7%." },
     drone: { nome: "Drone silenzioso", banco: ["porto"], prezzo: 260_000, raro: 1, posti: 2, notti: 2, eff: [{ k: "gu", m: 0.6, luoghi: ["villa", "porto"] }], descr: "Alla Villa e al Porto vedi tutto dall'alto: guai −40% per 2 notti. 2 posti." },
@@ -2586,7 +2602,7 @@
   }
 
   // ------------------------------------------------------------ permessi e cantieri (stile Hotel)
-  function chiediPermesso(s, p, idLotto) {
+  function chiediPermesso(s, p, idLotto, usaTimbro) {
     if (s.fase !== "giorno" || corrente(s).id !== p.id) err("Non è il tuo turno.");
     if (s.pending) err("Prima finisci la scelta in corso.");
     const l = lotto(s, idLotto);
@@ -2596,11 +2612,14 @@
     if (l.lvl >= 5) err("Il lotto è già al massimo.");
     const turno = s.ciclo * 100 + s.giorno * 10 + s.turno;
     if (p.permessoTurno === turno) err("Al Municipio si va una volta per turno.");
+    if (p.rapidoTurno === turno) err("Oggi hai usato la mossa del giorno per il viaggio rapido: il permesso lo chiedi al prossimo turno.");
     const primo = s.principianti && !p.primoPermesso;
-    if (gen2(s)) return permessoSicuro(s, p, l, primo, turno);
+    // il Timbro falso si usa solo se lo chiedi tu (azione con timbro: true); se no resta in valigetta (v76)
+    if (usaTimbro && !haOggetto(p, "timbro")) err("Non hai il Timbro del Municipio in valigetta.");
+    const timbro = !!usaTimbro;
+    if (gen2(s)) return permessoSicuro(s, p, l, primo, turno, timbro);
     p.permessoTurno = turno;
     p.primoPermesso = true;
-    const timbro = haOggetto(p, "timbro");
     if (timbro) { togliOggetto(p, "timbro"); p.tracce += 6; segnaTraccia(s, p, 6, "Timbro falso del Municipio"); }
     const x = primo || timbro ? 0 : rng(s), soglia = Math.min(0.95, 0.55 * sitMult(s, "pe"));
     p.esitoPermesso = { n: (s.nPermessi = (s.nPermessi || 0) + 1), lotto: l.id, esito: x < soglia ? "approvato" : x < 0.85 ? "rimandato" : "negato", motivo: "", bollo: 0 };
@@ -2627,9 +2646,9 @@
     const rinvio = motivoRinvio(s, p), bollo = bolloPermesso(s, p, l);
     return { bollo, sicuro: gen2(s) && !rinvio, rinvio, gratisPerche: !gen2(s) ? "" : p.municipioOggi ? "sei al Municipio di persona" : bollo === 0 ? "è il tuo primo permesso" : "" };
   }
-  function permessoSicuro(s, p, l, primo, turno) {
-    // il Timbro falso salta la coda e il bollo (ma lascia Tracce); le situazioni dell'Alba rendono il Municipio piu' lento o piu' veloce
-    const timbro = haOggetto(p, "timbro"), pe = sitMult(s, "pe");
+  function permessoSicuro(s, p, l, primo, turno, timbro) {
+    // il Timbro falso (se lo usi) salta la coda e il bollo (ma lascia Tracce); le situazioni dell'Alba rendono il Municipio piu' lento o piu' veloce
+    const pe = sitMult(s, "pe");
     const rinvio = primo || timbro ? null : (pe < 1 && rng(s) > pe ? { testo: "L'ufficio è quasi fermo per via di quello che succede in città." } : motivoRinvio(s, p));
     const bollo = timbro ? 0 : round(bolloPermesso(s, p, l) * clamp(1 / pe, 0.5, 2.5));
     if (timbro && !rinvio) { togliOggetto(p, "timbro"); p.tracce += 6; segnaTraccia(s, p, 6, "Timbro falso del Municipio"); }
@@ -2812,6 +2831,15 @@
     const dopo = livelloSetta(s, st);
     if (dopo > prima) { st.livelloNotificato = dopo; for (const id of st.membri) privato(s, giocatore(s, id), "La setta \"" + st.nome + "\" sale al livello " + dopo + " (" + Math.round(st.influenza) + " punti Influenza)."); }
   }
+  // perdere Influenza (v76): non si scende mai sotto la soglia del livello che la setta ha adesso
+  function perdiInfluenza(s, st, punti, motivo) {
+    if (!st || !(punti > 0)) return 0;
+    const inf = influenzaDi(s, st), pavimento = N.settaInfluenza[livelloSetta(s, st)] || 0;
+    const dopo = Math.max(pavimento, Math.round((inf - punti) * 10) / 10), perso = Math.round((inf - dopo) * 10) / 10;
+    st.influenza = dopo;
+    if (perso > 0) { st.infLog = st.infLog || []; st.infLog.push({ ciclo: s.ciclo, punti: -perso, motivo }); if (st.infLog.length > 10) st.infLog.splice(0, st.infLog.length - 10); }
+    return perso;
+  }
   // ---- le Grandi Opere: costano tanto dal Tesoro e si fanno solo se i membri votano a favore
   const OPERE = {
     amnistia: { nome: "L'Amnistia", costo: 12_000_000, lv: 2,
@@ -2948,6 +2976,7 @@
     inNotte(s, p);
     if (p.settaFondata) err("Hai già fondato una setta.");
     if ((p.sette || []).length) err("Sei già in una setta: per fondarne una tua devi prima uscire.");
+    if (marchiato(s, p)) err("Hai venduto una setta: fino al Ciclo " + (p.marchiatoFino + 1) + " nessuno ti segue in una setta nuova.");
     if (p.sporchi < N.settaSporchi) err("Per fondare una setta servono almeno " + euro(N.settaSporchi) + " in soldi sporchi.");
     if (!nome) err("Dai un nome alla setta.");
     p.sporchi -= N.settaCosto; // il patto di sangue: una parte va nel tesoro, il resto nel rito
@@ -2961,6 +2990,7 @@
     const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro invita.");
     const q = giocatore(s, idInvitato); if (!q || q.id === p.id) err("Scegli chi invitare.");
     if (st.membri.includes(idInvitato)) err("È già un membro.");
+    if (marchiato(s, q)) err(q.nome + " ha venduto una setta: fino al Ciclo " + (q.marchiatoFino + 1) + " nessuna setta lo prende.");
     offerta = Math.round(Number(offerta) || 0);
     if (Math.abs(offerta) > N.settaOffertaMax) err("L'offerta può essere al massimo di " + euro(N.settaOffertaMax) + ".");
     if (offerta > st.tesoro) err("Il Tesoro della setta non ha " + euro(offerta) + " da regalare.");
@@ -2977,6 +3007,7 @@
     if (!si || !st) { s.inviti.splice(i, 1); if (gm && st) privato(s, gm, p.nome + " ha rifiutato l'invito nella tua setta." + (motivo ? " " + String(motivo).slice(0, 120) : "")); return; }
     const off = inv.offerta || 0;
     if (off > 0 && st.tesoro < off) { s.inviti.splice(i, 1); privato(s, p, "Il Tesoro della setta non ha più i soldi promessi: l'invito non vale più."); privato(s, gm, "L'invito a " + p.nome + " è saltato: nel Tesoro mancano i soldi promessi."); return; }
+    if (marchiato(s, p)) err("Hai venduto una setta: fino al Ciclo " + (p.marchiatoFino + 1) + " nessuna setta ti prende.");
     if (off < 0 && p.sporchi + p.cash < -off) err("Non hai abbastanza soldi per la quota d'ingresso (" + euro(-off) + ").");
     s.inviti.splice(i, 1);
     if (off > 0) { st.tesoro -= off; p.sporchi += off; }
@@ -3140,15 +3171,24 @@
     { const g = st.ingressi && st.ingressi[p.id]; if (g && g.ciclo >= s.ciclo) err("Sei entrato da troppo poco: la polizia vuole uno che sa. Devi essere nella setta da almeno un'Alba."); }
     st.tradimento = { da: p.id, ciclo: s.ciclo };
     // il Gran Maestro ha un indizio (non il nome): cosi' la Prova di fedelta' e' una scelta, non una lotteria
-    if (st.membri.length > 2) privato(s, giocatore(s, st.gm), "Vera: \"Un confratello della setta «" + st.nome + "» ha fatto una telefonata strana. Non so chi. Se è un traditore, all'Alba la polizia sa tutto. Con una Prova di fedeltà (1 milione dal Tesoro) puoi controllarne uno.\"");
+    if (st.membri.length > 2) privato(s, giocatore(s, st.gm), "Vera: \"Un confratello della setta «" + st.nome + "» ha fatto una telefonata strana. Non so chi. Se è un traditore, all'Alba la polizia sa tutto. Con una Prova di fedeltà (" + euro(costoProvaFedelta(s, st)) + " dal Tesoro) puoi controllarne uno.\"");
     privato(s, p, "Hai chiamato un numero che non avresti dovuto conoscere. All'Alba la polizia avrà tutto sulla setta \"" + st.nome + "\": tu prendi un premio e ti cancellano molte Tracce. Se il Gran Maestro ti scopre prima con una Prova di fedeltà, sei finito.");
+  }
+  // quanto costa la prossima Prova di fedelta' (v76): il 10% del Tesoro, almeno 2 milioni;
+  // nello stesso Ciclo la seconda costa il doppio, la terza il quadruplo (st.prove = { ciclo, n })
+  const PROVA_FEDELTA_MIN = 2_000_000, PROVA_FEDELTA_PCT = 0.1, PROVA_FEDELTA_INFLUENZA = 3;
+  function costoProvaFedelta(s, st) {
+    const n = st.prove && st.prove.ciclo === s.ciclo ? st.prove.n || 0 : 0;
+    return Math.max(PROVA_FEDELTA_MIN, round((st.tesoro || 0) * PROVA_FEDELTA_PCT)) * Math.pow(2, n);
   }
   function provaFedelta(s, p, idSetta, idMembro) {
     const st = settaMia(s, p, idSetta);
     if (!st.membri.includes(idMembro) || idMembro === p.id) err("Scegli un membro.");
-    const costo = 1_000_000; if (st.tesoro < costo) err("La Prova di fedeltà costa " + euro(costo) + " dal Tesoro.");
+    const costo = costoProvaFedelta(s, st); if (st.tesoro < costo) err("La Prova di fedeltà costa " + euro(costo) + " dal Tesoro.");
     st.tesoro -= costo;
+    st.prove = { ciclo: s.ciclo, n: (st.prove && st.prove.ciclo === s.ciclo ? st.prove.n || 0 : 0) + 1 };
     const m = giocatore(s, idMembro);
+    privato(s, m, "Il Gran Maestro ti ha messo alla prova.");
     if (st.tradimento && st.tradimento.da === idMembro) {
       st.tradimento = null;
       if (st.membri.length >= 3) st.grazia = s.ciclo + 1; st.membri = st.membri.filter((x) => x !== idMembro); m.sette = m.sette.filter((x) => x !== idSetta);
@@ -3157,8 +3197,15 @@
       privato(s, p, "La Prova di fedeltà parla chiaro: " + m.nome + " stava vendendo la setta alla polizia. È fuori, e la setta ha fatto arrivare alla polizia le sue Tracce.");
       privato(s, m, "Il Gran Maestro ti ha scoperto. Sei fuori dalla setta, e qualcuno ha fatto arrivare alla polizia i tuoi segreti.");
       for (const id of st.membri) if (id !== p.id) privato(s, giocatore(s, id), m.nome + " ha tradito la setta ed è stato scoperto.");
-    } else privato(s, p, "La Prova di fedeltà su " + m.nome + ": è fedele. Per ora.");
+    } else {
+      const perso = perdiInfluenza(s, st, PROVA_FEDELTA_INFLUENZA, "Prova di fedeltà inutile su " + m.nome);
+      privato(s, p, "La Prova di fedeltà su " + m.nome + ": è fedele. Ma l'ha capito, e la setta ne parla: " + (perso > 0 ? "−" + perso + " Influenza." : "per fortuna il livello della setta tiene."));
+      privato(s, m, "Era una prova inutile: sei stato fedele.");
+      m.provato = { setta: st.id, ciclo: s.ciclo }; // per i bot: un fedele messo alla prova a volte se ne va
+    }
   }
+  const MARCHIO_CICLI = 4;
+  function marchiato(s, p) { return p.marchiatoFino != null && s.ciclo <= p.marchiatoFino; }
   function tradimentiAllAlba(s) {
     for (const st of s.sette) {
       const t = st.tradimento; if (!t) continue; st.tradimento = null;
@@ -3170,6 +3217,12 @@
       sciogliPatto(s, st, tr, false);
       for (const id of st.membri) { const m = giocatore(s, id); m.tracce += 20; m.stato = Math.max(m.stato, 1); segnaTraccia(s, m, 20, "il traditore della setta"); privato(s, m, "Un traditore ha parlato: la polizia ha sequestrato " + euro(sequestro) + " del Tesoro della setta e ora ti tiene d'occhio. Il Tesoro sepolto è salvo."); fatto(s, m, { k: "traditore", testo: "Un traditore ha venduto la setta: sequestrati " + euro(sequestro) + " del Tesoro, +20 Tracce per te.", tracce: 20 }); }
       privato(s, tr, "Hai venduto la setta. Premio: " + euro(premio) + " puliti, e molte delle tue Tracce spariscono. Ora sei fuori, e loro lo sanno.");
+      // la vendetta della setta (v76): il Gran Maestro tiene una Prova sul traditore, e per 4 Cicli nessuna setta lo prende
+      const gm = giocatore(s, st.gm);
+      if (gm && gm.id !== tr.id) { gm.prove = gm.prove || []; gm.prove.push({ su: tr.id, ciclo: s.ciclo + 1, cosa: "i segreti che ha lasciato nella setta" }); }
+      tr.marchiatoFino = s.ciclo + MARCHIO_CICLI;
+      for (const id of st.membri) privato(s, giocatore(s, id), tr.nome + " ci ha venduti. Il Gran Maestro ha una Prova su di lui.");
+      privato(s, tr, "La setta ha tenuto qualcosa su di te. E per " + MARCHIO_CICLI + " Cicli nessuna setta ti vorrà.");
       notizia(s, "Un pentito parla: la Finanza sequestra " + euro(sequestro) + " a una setta segreta della Laguna.", "scandalo");
     }
   }
@@ -3334,7 +3387,50 @@
     if (k.tipo === "notarile") notizia(s, "Firmato dal notaio un contratto tra " + da.nome + " e " + a.nome + ".", "affari");
     privato(s, da, a.nome + " ha accettato il contratto.");
   }
+  // Patto sulla parola scaduto (v76): chi deve pagare ha tempo fino all'Alba dopo (app Banca o "Paga ora" in Contratti).
+  // Se all'Alba dopo non ha pagato: rompe la parola (-8 fama, niente Favori per 2 Cicli, Gazzetta) e il patto e' "rotto".
+  // I patti scaduti prima della v76 (senza k.scadutoCiclo) non hanno questa scadenza: si possono solo pagare.
+  function pagatoreDi(s, k) { const da = giocatore(s, k.da), a = giocatore(s, k.a); return k.chiPagaDopo === "da" ? [da, a] : [a, da]; }
+  function restoPatto(k) { return Math.max(0, (k.pagoDopo || 0) - (k.pagatoDopo || 0)); }
+  function chiudiPattoPagato(s, k, pagatore, ricevente) {
+    k.stato = "chiuso"; k.pagato = true;
+    privato(s, ricevente, pagatore.nome + " ha mantenuto la parola: il patto è pagato (" + euro(k.pagoDopo) + ").");
+    privato(s, pagatore, "Hai mantenuto la parola con " + ricevente.nome + ": il patto è chiuso.");
+  }
+  // un regalo in soldi puliti dall'app Banca conta come pagamento dei patti sulla parola scaduti verso quella persona
+  function contaRegaloPatti(s, p, a, importo) {
+    let resto = importo;
+    for (const k of s.contratti || []) {
+      if (resto <= 0) break;
+      if (k.stato !== "scaduto" || k.tipo === "notarile" || !k.pagoDopo) continue;
+      const [pg, rc] = pagatoreDi(s, k); if (pg.id !== p.id || rc.id !== a.id) continue;
+      const quota = Math.min(resto, restoPatto(k)); k.pagatoDopo = (k.pagatoDopo || 0) + quota; resto -= quota;
+      if (restoPatto(k) <= 0) chiudiPattoPagato(s, k, pg, rc);
+    }
+  }
+  function pagaPatto(s, p, id) {
+    if (s.fine || s.fase === "pacchetti") err("Adesso non si paga.");
+    const k = (s.contratti || []).find((x) => x.id === id); if (!k) err("Patto non trovato.");
+    if (k.stato !== "scaduto" || k.tipo === "notarile") err("Questo patto non è da pagare.");
+    const [pg, rc] = pagatoreDi(s, k); if (pg.id !== p.id) err("Non sei tu che devi pagare questo patto.");
+    const resto = restoPatto(k); if (p.cash < resto) err("Per pagare il patto servono " + euro(resto) + " puliti.");
+    p.cash -= resto; rc.cash += resto; k.pagatoDopo = (k.pagatoDopo || 0) + resto;
+    flusso(s, p, rc, resto, "Patto sulla parola: pagato", false);
+    chiudiPattoPagato(s, k, p, rc);
+  }
   function scadenzeContratti(s) {
+    // prima: i patti sulla parola scaduti all'Alba scorsa e ancora non pagati diventano parola rotta
+    for (const k of s.contratti) {
+      if (k.stato !== "scaduto" || k.tipo === "notarile" || k.scadutoCiclo == null || s.ciclo <= k.scadutoCiclo) continue;
+      if (restoPatto(k) <= 0) { k.stato = "chiuso"; continue; }
+      const [pg, rc] = pagatoreDi(s, k);
+      k.stato = "rotto";
+      pg.fama = Math.max(0, (pg.fama || 0) - FAMA_PAROLA_ROTTA);
+      pg.senzaParola = s.ciclo + 2;
+      notizia(s, pg.nome + " non mantiene la parola data a " + rc.nome + ".", "fama");
+      privato(s, pg, "Non hai pagato il patto sulla parola con " + rc.nome + " (" + euro(restoPatto(k)) + "): −" + FAMA_PAROLA_ROTTA + " fama, e fino al Ciclo " + (pg.senzaParola + 1) + " nessuno accetterà Favori da te.");
+      privato(s, rc, pg.nome + " non ha pagato il patto sulla parola. Tutta la Laguna lo sa.");
+    }
     for (const k of s.contratti) {
       if (k.stato !== "attivo" || k.scadenza > s.ciclo || !k.pagoDopo) { if (k.stato === "attivo" && !k.pagoDopo && k.scadenza <= s.ciclo) k.stato = "chiuso"; continue; }
       const da = giocatore(s, k.da), a = giocatore(s, k.a);
@@ -3356,9 +3452,9 @@
           notizia(s, pagatore.nome + " non onora per intero il contratto firmato dal notaio con " + ricevente.nome + ".", "affari");
         }
       } else {
-        k.stato = "scaduto";
-        privato(s, ricevente, "Scade il patto sulla parola con " + pagatore.nome + ": " + euro(k.pagoDopo) + ". Nessuno lo farà rispettare per te.");
-        privato(s, pagatore, "Scade il patto sulla parola con " + ricevente.nome + ": dovresti pagare " + euro(k.pagoDopo) + ". Paga dall'app Banca, se vuoi mantenere la parola.");
+        k.stato = "scaduto"; k.scadutoCiclo = s.ciclo;
+        privato(s, ricevente, "Scade il patto sulla parola con " + pagatore.nome + ": " + euro(k.pagoDopo) + ". Ha tempo fino alla prossima Alba per pagarti. Se non paga, rompe la parola davanti a tutti.");
+        privato(s, pagatore, "Scade il patto sulla parola con " + ricevente.nome + ": devi pagare " + euro(k.pagoDopo) + " entro la prossima Alba. Paga dall'app Contratti (\"Paga ora\") o dall'app Banca. Se non paghi: −" + FAMA_PAROLA_ROTTA + " fama, la Gazzetta lo scrive e per 2 Cicli nessuno si fida di te.");
       }
     }
   }
@@ -3412,6 +3508,7 @@
     }
     else { if (p.cash < importo) err("Non hai abbastanza soldi."); p.cash -= importo; a.cash += importo; }
     flusso(s, p, a, importo, sporchi ? "Regalo in contanti sporchi" : "Regalo", false);
+    if (!sporchi) contaRegaloPatti(s, p, a, importo);
     p.haRegalato = true;
     privato(s, a, p.nome + " ti ha dato " + euro(importo) + (sporchi ? " in contanti sporchi. Attento: i soldi sporchi che passano di mano lasciano Tracce anche a chi li riceve." : "."));
   }
@@ -3426,6 +3523,21 @@
     silenzio: { nome: "Il Silenzio", spiega: "Brucia tutte le Prove che ha su di te. Fino alla fine del prossimo Ciclo non può denunciarti, ricattarti o pagare scandali su di te." },
     mano: { nome: "La Mano", spiega: "Stanotte deve farsi trovare nel posto e all'ora che dici tu." },
   };
+  // la frase che spiega il Favore nella finestra del patto, con i nomi e il verso giusto (v76)
+  // deveIo = lo devo io; altro = il nome dell'altro giocatore del patto. Sempre detta a chi guarda la finestra ("tu").
+  function testoFavorePatto(tipo, deveIo, altro) {
+    const T = {
+      voto: deveIo ? ["Alle prossime elezioni la tua fama diventa punti per " + altro + ". Oppure: il tuo voto su una Grande Opera lo decide " + altro + "."]
+        : ["Alle prossime elezioni la fama di " + altro + " diventa punti per te. Oppure: il voto di " + altro + " su una Grande Opera lo decidi tu."],
+      passo: deveIo ? [altro + ", per i suoi prossimi 4 turni, non paga affitti né pedaggi sui tuoi terreni."]
+        : ["Per i tuoi prossimi 4 turni non paghi affitti né pedaggi sui terreni di " + altro + "."],
+      silenzio: deveIo ? ["Bruci tutte le Prove che hai su " + altro + ". Fino alla fine del prossimo Ciclo non puoi denunciare né ricattare " + altro + ", né pagare scandali su di lui o lei."]
+        : [altro + " brucia tutte le Prove che ha su di te. Fino alla fine del prossimo Ciclo non può denunciarti, ricattarti o pagare scandali su di te."],
+      mano: deveIo ? ["Una notte, quando lo chiede " + altro + ", devi farti trovare nel posto e all'ora che dice lui o lei."]
+        : ["Una notte, quando vuoi tu, " + altro + " deve farsi trovare nel posto e all'ora che dici tu."],
+    };
+    return T[tipo] ? T[tipo][0] : "";
+  }
   const MAX_FAVORI_APERTI = 3, FAVORI_CHIUSI_TENUTI = 40, FAMA_PAROLA_ROTTA = 8;
   function tipoFavore(t) { return typeof t === "string" && Object.prototype.hasOwnProperty.call(FAVORI, t) ? t : null; }
   function favori(s) { if (!Array.isArray(s.favori)) s.favori = []; return s.favori; }
@@ -4551,7 +4663,7 @@
       quando: (s, p) => p.cash > 4_000_000 && !p.veicoli.length, consiglio: "Uno yacht non è solo lusso: lo noleggi ai turisti e rende a ogni Alba. Guarda l'app Lusso." },
     { id: "viaggio_rapido", gruppo: "giorno", lv: 0, nome: "Viaggio rapido", fatto: (a) => a.tipo === "viaggio_rapido", pubblico: "ha preso il traghetto invece di tirare i dadi",
       indizio: "I dadi non sono l'unico modo per muoversi.", spiega: "Una volta per Ciclo, invece dei dadi, vai dove vuoi col traghetto da un Molo o con i tuoi mezzi.",
-      quando: (s, p) => s.ciclo >= 1 && destinazioniRapide(s, p).length > 0, consiglio: "Vuoi arrivare su un'isola precisa? Una volta per Ciclo, invece dei dadi, puoi fare un viaggio rapido. Cerca il tasto vicino ai dadi." },
+      quando: (s, p) => s.ciclo >= 1 && destinazioniRapide(s, p).length > 0, consiglio: "Vuoi arrivare su un'isola precisa? Una volta ogni 2 Cicli, invece dei dadi, puoi fare un viaggio rapido col tuo mezzo. Costa il carburante e la mossa del giorno. Cerca il tasto vicino ai dadi." },
     { id: "prestito", gruppo: "giorno", lv: 0, nome: "Chiedere un prestito", fatto: (a) => a.tipo === "prestito" || a.tipo === "ipoteca",
       indizio: "Quando mancano i contanti, c'è chi li presta.", spiega: "La Banca presta fino al 30% di quello che hai. Gli interessi si pagano a ogni Alba.",
       quando: (s, p) => p.cash < 300_000 && propri(s, p).length >= 2, consiglio: "Sei a corto di contanti. La Banca ti presta una parte di quello che hai, o ti dà soldi su un terreno con l'ipoteca. App Banca." },
@@ -4683,7 +4795,7 @@
   // Al Faro, di giorno, queste azioni contano come "la telefonata del turno" (una sola). Una riga per tema.
   const AZIONI_TELEFONO_FARO = [
     "investi", "vendi", "restituisci", "ipoteca", "riscatta",                       // banca e Borsa
-    "articolo", "contratto", "rispondi_contratto", "regala", "denuncia",            // tra giocatori
+    "articolo", "contratto", "rispondi_contratto", "regala", "paga_patto", "denuncia",            // tra giocatori
     "favore_usa", "favore_rompi", "ricatto", "rispondi_ricatto",                    // Favori e ricatti
     "versa_setta", "lava_setta", "proponi_opera", "vota_opera", "rispondi_invito", "invita_setta", "espelli_setta", "lascia_setta", // setta
     "campagna", "legge", "tasse", "evasione",                                       // politica e tasse
@@ -4820,7 +4932,7 @@
       case "proponi_lotto": return proponiLotto(s, p, a.a, a.lotto, a.prezzo, a.compro);
       case "rispondi_proposta": return rispondiProposta(s, p, a.id, !!a.si, a.motivo);
       // ---- costruire, Palazzo, lusso
-      case "permesso": return chiediPermesso(s, p, a.lotto);
+      case "permesso": return chiediPermesso(s, p, a.lotto, a.timbro === true);
       case "regalo_assessore": return regaloAssessore(s, p, a.lotto);
       case "costruisci": return costruisci(s, p, a.lotto, a.attivita);
       case "licenza": return chiediLicenza(s, p);
@@ -4848,6 +4960,7 @@
       case "contratto": return proponiContratto(s, p, a.contratto);
       case "rispondi_contratto": return rispondiContratto(s, p, a.id, !!a.si);
       case "regala": return regala(s, p, a.a, a.importo, !!a.sporchi);
+      case "paga_patto": return pagaPatto(s, p, a.id);
       case "denuncia": return denuncia(s, p, a.prova);
       case "favore_usa": return usaFavore(s, p, a);
       case "favore_rompi": return rompiFavore(s, p, a.id);
@@ -4940,7 +5053,7 @@
     const v = JSON.parse(JSON.stringify(s));
     delete v.rngState; delete v.seed;
     delete v.manoSM; // le mani di Sette e mezzo (con il mazzo!): la tua, senza mazzo, sta in v.notte.manoSM
-    v.versioneMotore = VERSIONE; v.gen = s.gen || 1; // con che motore e' stata calcolata questa vista, e di che generazione e' la partita
+    v.versioneMotore = VERSIONE; v.versioneRegole = VERSIONE_REGOLE; v.gen = s.gen || 1; // con che motore e' stata calcolata questa vista, e di che generazione e' la partita
     v.players = v.players.map((p) => {
       if (p.id === idGiocatore) { delete p.tracce; return p; } // le proprie Tracce non si vedono come numero
       const q = {};
@@ -5049,7 +5162,7 @@
     // scoperte e consigli
     SCOPERTE: SCOPERTE.map(({ id, gruppo, lv, nome, indizio, spiega }) => ({ id, gruppo, lv, nome, indizio, spiega })),
     // mercato nero a rotazione e situazioni dell'Alba (v70)
-    STRUMENTI, BANCHI, SITUAZIONI, descriviSituazione, sitAttive, oggettoDef, postiUsati, prezzoOggetto, VERSIONE_REGOLE: 75,
+    STRUMENTI, BANCHI, SITUAZIONI, descriviSituazione, sitAttive, oggettoDef, postiUsati, prezzoOggetto, VERSIONE_REGOLE, costoProvaFedelta, cicliAlRapido, motivoNoRapido, testoFavorePatto, restoPatto,
     // Favori e ricatti (v74)
     FAVORI, motivoNoFavore: (s, idDeve, idA, tipo) => motivoNoFavore(s, giocatore(s, idDeve), giocatore(s, idA), tipo),
     // Servizi dei contatti e Fedina pulita (v75)
