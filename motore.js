@@ -83,12 +83,12 @@
   // Vuoto finche' nessuno ne aggiunge: num(s, k) allora da' sempre N[k].
   const N_GEN2 = {
     // --- economia e Palazzo
-    pianoRendGrow: 1.05,   // ECO-01: la rendita dei piani cresce meno del loro costo (partite lunghe: centinaia di milioni, non miliardi)
-    borsaMu: 0.36,         // ECO-05: la Borsa rende circa il 12% a Ciclo: il posto sicuro per i soldi fermi
+    pianoRendGrow: 1.04,   // ECO-01: la rendita dei piani cresce meno del loro costo. Il rapporto diceva 1,05: provato insieme agli altri ritocchi dava 800 M a 20 Cicli, con 1,04 circa 600 M
+    borsaMu: 0.24,         // ECO-05: la Borsa rende circa l'8% a Ciclo (con 0,36 l'Investitore vinceva 7 partite su 10 a 12 Cicli)
     // --- giorno: terreni, affitti, permessi
-    affLvl: [1, 3, 8, 16, 30, 50], // GIO-02: l'affitto cresce con l'attivita' (prima [1, 1, 4, 12, 26, 45])
+    affLvl: [1, 7, 18, 36, 65, 100], // GIO-02: l'affitto cresce con l'attivita' (prima [1, 1, 4, 12, 26, 45]): livello 1 = 105% del prezzo del terreno, livello 2 = 270%
     lussoRend: 0.85,       // PT-13: Hotel e Boutique di lusso rendono il 15% in meno del Ristorante, ma danno fama a ogni Alba
-    permessoBollo: 0.05,   // il permesso e' sicuro ma si paga: 5% del prezzo del terreno (gratis se sei fermo sul Municipio)
+    permessoBollo: 0.10,   // il permesso e' sicuro ma si paga: 10% del prezzo del terreno (gratis se sei fermo sul Municipio)
     terrenoInizialeMin: 350_000, // ECO-03: terreni iniziali di valore vicino
     // --- notte e affari illegali
     illegaleLivello: [1, 1, 1.5, 2.5, 4], // ECO-02
