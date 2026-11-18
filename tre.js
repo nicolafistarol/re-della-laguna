@@ -7,10 +7,20 @@
 // =====================================================================
 import * as THREE from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
-import * as M3 from "./mondo3d.js?v=65";
+import * as M3 from "./mondo3d.js?v=66";
 
 // Il mondo modellato (isole, strada, ponti, mare) al posto della foto. ?foto = torna alla foto.
-const MONDO = (() => { try { const q = location.search; if (q.includes("foto")) return false; if (q.includes("mondo=3d")) return true; return localStorage.getItem("laguna_mondo") !== "foto"; } catch (e) { return true; } })();
+// Normale: il DIORAMA = la foto stessa in rilievo. Il vecchio mondo a cubetti solo con ?mondo=3d.
+const MONDO = (() => { try { return location.search.includes("mondo=3d"); } catch (e) { return false; } })();
+// rilievo della foto: R = altezza (0-1), G = mare (per le onde). Fatto da attrezzi/rilievo.py
+const RIL = { dati: null, w: 0, h: 0 }, ALTO = 1.8;
+export function altezzaFoto(xp, yp) {
+  if (!RIL.dati) return 0;
+  const x = Math.max(0, Math.min(RIL.w - 1, Math.round(xp / 100 * (RIL.w - 1)))), y = Math.max(0, Math.min(RIL.h - 1, Math.round(yp / 100 * (RIL.h - 1))));
+  return RIL.dati[(y * RIL.w + x) * 4] / 255 * ALTO;
+}
+const altSu = (p) => altezzaFoto((p.x + W / 2) / W * 100, (p.z + H / 2) / H * 100);
+let tempoMare = { value: 0 };
 export function mondoNuovo() { return MONDO; }
 let M = null, mare3 = null, Q = 0;                 // il mondo costruito, il mare, l'altezza della strada
 const posCasella = new Map(), posLotto = new Map(); // id casella -> punto sulla strada / punto del lotto
@@ -36,7 +46,8 @@ export function avvia(mondo, mappaDom, urlMappa) {
   if (attivo) return true;
   if (!supportato()) return false;
   contenitore = mondo; strato = mappaDom;
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+  try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "default" }); }
+  catch (e) { try { renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false }); } catch (e2) { console.error(e2); return false; } }
   renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
@@ -50,7 +61,7 @@ export function avvia(mondo, mappaDom, urlMappa) {
   scena.fog = new THREE.Fog("#0b2a3a", 170, 330);
 
   camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.5, 900);
-  camera.position.set(0, 112, 92);
+  camera.position.set(0, MONDO ? 112 : 128, MONDO ? 92 : 72);
 
   if (MONDO) {
     scena.background = new THREE.Color("#9fd3ea"); scena.fog = new THREE.Fog("#9fd3ea", 160, 360);
@@ -60,8 +71,30 @@ export function avvia(mondo, mappaDom, urlMappa) {
   const tex = new THREE.TextureLoader().load(urlMappa);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  piano = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0 }));
-  piano.rotation.x = -Math.PI / 2; piano.receiveShadow = true;
+  const geo = new THREE.PlaneGeometry(W, H, 320, 180);
+  const matFoto = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, metalness: 0 });
+  const texRil = new THREE.TextureLoader().load("img/rilievo.png?v=66", (t) => {
+    // le altezze vanno nella geometria (cosi' le ombre e la luce sono vere) e servono ai pezzi
+    const c = document.createElement("canvas"); c.width = t.image.width; c.height = t.image.height;
+    const g = c.getContext("2d"); g.drawImage(t.image, 0, 0);
+    RIL.dati = g.getImageData(0, 0, c.width, c.height).data; RIL.w = c.width; RIL.h = c.height;
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) pos.setZ(i, altezzaFoto((pos.getX(i) + W / 2) / W * 100, (H / 2 - pos.getY(i)) / H * 100));
+    pos.needsUpdate = true; geo.computeVertexNormals(); firmaPrima = "";
+  });
+  // il mare si muove: nelle zone d'acqua la foto ondeggia appena e luccica
+  matFoto.onBeforeCompile = (sh) => {
+    sh.uniforms.tempo = tempoMare; sh.uniforms.ril = { value: texRil };
+    sh.fragmentShader = "uniform float tempo; uniform sampler2D ril;\n" + sh.fragmentShader.replace("#include <map_fragment>", `
+      float mm = texture2D(ril, vMapUv).g;
+      vec2 uvM = vMapUv + mm * vec2(sin(vMapUv.y * 260.0 + tempo * 1.4), cos(vMapUv.x * 300.0 + tempo * 1.1)) * 0.0006;
+      vec4 sampledDiffuseColor = texture2D(map, uvM);
+      diffuseColor *= sampledDiffuseColor;
+      float onda = sin(vMapUv.x * 90.0 + vMapUv.y * 60.0 + tempo * 0.9) * sin(vMapUv.y * 110.0 - vMapUv.x * 40.0 - tempo * 0.7);
+      diffuseColor.rgb *= 1.0 + mm * onda * 0.035;`);
+  };
+  piano = new THREE.Mesh(geo, matFoto);
+  piano.rotation.x = -Math.PI / 2; piano.receiveShadow = true; piano.castShadow = true;
   scena.add(piano);
   const mare = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshStandardMaterial({ color: "#1d6f86", roughness: 0.6 }));
   mare.rotation.x = -Math.PI / 2; mare.position.y = -0.05; scena.add(mare);
@@ -83,7 +116,9 @@ export function avvia(mondo, mappaDom, urlMappa) {
   controlli.enableDamping = true; controlli.dampingFactor = 0.08;
   controlli.screenSpacePanning = false;
   controlli.minDistance = 16; controlli.maxDistance = 200;
-  controlli.minPolarAngle = MONDO ? 0.05 : 0.15; controlli.maxPolarAngle = MONDO ? 1.4 : 0.9;
+  controlli.minPolarAngle = MONDO ? 0.05 : 0.2; controlli.maxPolarAngle = MONDO ? 1.4 : 0.85;
+  // il diorama regge solo pochi gradi di rotazione: oltre si vede che e' una foto
+  if (!MONDO) { controlli.minAzimuthAngle = -0.12; controlli.maxAzimuthAngle = 0.12; }
   if (MONDO) { controlli.minDistance = 7; controlli.maxDistance = 230; controlli.addEventListener("start", () => { if (modo === "segui") seguiFino = 0; }); }
   if (MONDO) collegaTocchi(renderer.domElement);
   controlli.zoomToCursor = true;
@@ -266,12 +301,13 @@ export function aggiorna({ caselle, torri: tt, giocatori }) {
       const p = daMappa(c.x, c.y);
       const base = new THREE.Mesh(geoBox, new THREE.MeshStandardMaterial({ color: c.spento ? "#2a2f3a" : c.colore, roughness: 0.6, transparent: !!c.spento, opacity: c.spento ? 0.35 : 1 }));
       const grande = c.tipo === "angolo";
-      base.scale.set(grande ? 3 : 2.2, 0.35, grande ? 3 : 2.2); base.position.set(p.x, 0.17, p.z); base.receiveShadow = true; base.castShadow = true;
+      const hb = altezzaFoto(c.x, c.y);
+      base.scale.set(grande ? 3 : 2.2, 0.35, grande ? 3 : 2.2); base.position.set(p.x, hb + 0.17, p.z); base.receiveShadow = true; base.castShadow = true;
       gruppoBasi.add(base);
       if (c.proprietario && (c.livello > 0 || c.cantiere) && !c.spento) {
         const e = edificio(c.proprietario, c.livello, c.cantiere);
         // l'edificio sta un po' dietro la casella, cosi' non copre il prezzo
-        e.position.set(p.x, 0.35, p.z - 2.4); gruppoEdifici.add(e);
+        e.position.set(p.x, altSu({ x: p.x, z: p.z - 2.4 }) + 0.35, p.z - 2.4); gruppoEdifici.add(e);
       }
     }
     const perIsola = {};
@@ -279,7 +315,7 @@ export function aggiorna({ caselle, torri: tt, giocatori }) {
       if (t.spento) continue;
       const m = torre(t.colore, t.piani);
       if (MONDO && M.centri[t.isola]) { const k = (perIsola[t.isola] = (perIsola[t.isola] || 0) + 1) - 1, c = M.centri[t.isola]; m.position.set(c.x + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 4.2, 0.9, c.z); }
-      else { const p = daMappa(t.x, t.y); m.position.set(p.x, 0, p.z); }
+      else { const p = daMappa(t.x, t.y); m.position.set(p.x, altezzaFoto(t.x, t.y), p.z); }
       gruppoTorri.add(m);
     }
   }
@@ -453,6 +489,7 @@ let tPrima = performance.now();
 function frame() {
   controlli.update();
   if (MONDO) return frameMondo();
+  tempoMare.value = performance.now() / 1000;
   adattaVista();
   // le pedine seguono la pedina HTML (che il gioco sposta casella per casella) e saltano a ogni passo
   for (const [id, ped] of pedine) {
@@ -464,7 +501,7 @@ function frame() {
     ped.mesh.position.x += (ped.target.x - ped.mesh.position.x) * 0.25;
     ped.mesh.position.z += (ped.target.z - ped.mesh.position.z) * 0.25;
     ped.salto = Math.max(0, ped.salto - 0.07);
-    ped.mesh.position.y = Math.sin(ped.salto * Math.PI) * 1.4;
+    ped.mesh.position.y = altSu(ped.mesh.position) + Math.sin(ped.salto * Math.PI) * 1.4;
   }
   renderer.render(scena, camera);
   proiettaHtml();
@@ -522,7 +559,7 @@ function proiettaHtml() {
       else { punto = daMappa(x, y); punto.y = alto + Q + (el.classList.contains("isola-nome") ? 8 : 0); }
       v.copy(punto);
     } else v.copy(daMappa(x, y));
-    if (!MONDO) v.y = alto;
+    if (!MONDO) v.y = alto + altezzaFoto(x, y);
     v.project(camera);
     const dietro = lontano || v.z > 1 || v.x < -1.3 || v.x > 1.3 || v.y < -1.3 || v.y > 1.3;
     el.style.visibility = dietro ? "hidden" : "";

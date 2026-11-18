@@ -11,12 +11,14 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=65";
+import * as Tre from "./tre.js?v=66";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
-function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=65";   // ?veloce = senza animazioni (per le prove)
+// chiave nuova: la vecchia scelta "2D" (laguna_3d) non conta piu', il diorama parte da solo
+function vuole3D() { try { return localStorage.getItem("laguna_vista") !== "piatta"; } catch (e) { return true; } }
+let AVVISO3D = false;
+import * as Loc from "./locale.js?v=66";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -550,7 +552,7 @@ function disegna() {
   $("#mondo").style.display = notte && !S.fine ? "none" : "block";
   $("#mondo").classList.toggle("notte", !!notte);
   document.body.classList.toggle("di-notte", !!notte);
-  if (!TRE3D && vuole3D() && !VELOCE_2D) { try { TRE3D = Tre.avvia($("#mondo"), $("#mappa"), "img/mappa-hd.jpg"); if (TRE3D) { Tre.sonoIo(mioId); Tre.suCasella((id, x, y) => schedaCasella(id, x, y)); } } catch (e) { console.error(e); TRE3D = false; } }
+  if (!TRE3D && vuole3D() && !VELOCE_2D) { try { TRE3D = Tre.avvia($("#mondo"), $("#mappa"), "img/mappa-hd.jpg"); if (TRE3D) { Tre.sonoIo(mioId); Tre.suCasella((id, x, y) => schedaCasella(id, x, y)); } } catch (e) { console.error(e); TRE3D = false; } if (!TRE3D && !AVVISO3D) { AVVISO3D = true; toast("Il tabellone 3D non parte su questo browser (WebGL spento o non supportato). Vedi il tabellone piatto. In Chrome: Impostazioni → Sistema → attiva \"Usa accelerazione grafica\".", "warn"); } }
   $("#mondo").classList.toggle("tre", TRE3D);
   if (TRE3D) Tre.impostaNotte(!!notte);
   Suono.ambiente(notte ? "notte" : "giorno");
@@ -898,7 +900,7 @@ function collegaComandiVista(me) {
   const modoV = (m) => { Tre.impostaModo(m, mioId); document.querySelectorAll("#vSegui,#vLibera,#vAlto").forEach((b) => b.classList.toggle("attivo", b.id === { segui: "vSegui", libera: "vLibera", alto: "vAlto" }[m])); };
   if ($("#vSegui")) { $("#vSegui").onclick = () => modoV("segui"); $("#vLibera").onclick = () => modoV("libera"); $("#vAlto").onclick = () => modoV("alto"); }
   $("#zMio").onclick = () => { const notte = S.fase === "notte" && S.notte; const [x, y] = notte ? posLuogo(S.notte.dove[mioId], me) : puntoMappa(disp[mioId] || me); if (TRE3D && Tre.mondoNuovo() && Tre.seguiPedina(mioId)) return; TRE3D ? Tre.centraSu(x, y) : centraSu(x, y); };
-  $("#z3d").onclick = () => { try { localStorage.setItem("laguna_3d", TRE3D ? "0" : "1"); } catch (e) { } location.reload(); };
+  $("#z3d").onclick = () => { try { localStorage.setItem("laguna_vista", TRE3D ? "piatta" : "3d"); } catch (e) { } location.reload(); };
 }
 
 // ------------------------------------------------------------ la carta principale (in basso)
