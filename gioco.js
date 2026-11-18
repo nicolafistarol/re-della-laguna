@@ -15,7 +15,7 @@ const LOCALE = location.search.includes("locale");  // ?locale = partita contro 
 // Se non arriva o non parte, si gioca lo stesso sulla foto piatta e un avviso dice il perché. ?cubetti = il vecchio mondo a cubetti, solo per confronto.
 let Tre = null, motivo3D = "", provato3D = false;
 const CUBETTI = location.search.includes("cubetti");
-import(CUBETTI ? "./cubetti.js?v=79" : "./tre.js?v=79").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
+import(CUBETTI ? "./cubetti.js?v=80" : "./tre.js?v=80").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
@@ -32,7 +32,7 @@ function avviso3D() {
   d.querySelector("#av3dSi").onclick = () => location.reload();
   d.querySelector("#av3dNo").onclick = () => { motivo3D = ""; d.remove(); };
 }
-import * as Loc from "./locale.js?v=79";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=80";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -760,7 +760,7 @@ function disegna() {
   const cron = S.log.filter((r) => !/ tira \d( e \d)+\.$/.test(r.testo) && !(r.chi && r.chi !== mioId && PRIVATI.test(r.testo))).slice(-4);
   $("#radice").innerHTML = `
   <div class="hud-alto">
-    <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${statoCollegamento(p) ? `<span class="non-coll"> · ${statoCollegamento(p)}</span>` : ""}${notte && p.id === mioId ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · hai deciso" : " · decidi…") : ""}</div>${(p.fedina || 0) >= 2 ? `<div class="s fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">⚖️ Fedina ${p.fedina}</div>` : ""}</div></div>`).join("")}</div>
+    <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${statoCollegamento(p) ? `<span class="non-coll"> · ${statoCollegamento(p)}</span>` : ""}${notte && p.id === mioId ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · hai deciso" : " · decidi…") : ""}</div><div class="s liv-chip">Liv. ${p.livello ?? "?"} · fama ${p.fama ?? "?"}</div>${(p.fedina || 0) >= 2 ? `<div class="s fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">⚖️ Fedina ${p.fedina}</div>` : ""}</div></div>`).join("")}</div>
     <div class="fase vetro">${faseTesto}</div>
     <div class="saldo vetro">
       <div class="riga" style="justify-content:space-between"><span class="kick" style="color:var(--muted)">I tuoi soldi</span><button class="piccolo" id="occhio" style="padding:2px 8px">${saldoNascosto ? "Mostra" : "Nascondi"}</button></div>
@@ -858,6 +858,9 @@ function casellaHtml(l) {
   else { cls += " spec"; dentro = ICO_CASELLA[l.nome] || ico("stella"); sotto = NOME_BREVE[l.nome] || nomeCorto; }
   return `<div class="${cls}" data-cas="${l.id}" title="${esc(tit)}" style="${stile}"><i>${dentro}</i>${extra}<span class="cn">${esc(sotto)}</span></div>`;
 }
+// la Legenda sta subito sotto i nomi dei giocatori (prima ci finiva sopra quando i nomi andavano su due righe)
+function posLegenda() { const lg = $(".legenda"), ch = $(".hud-alto .chips"); if (!lg || !ch) return; const b = ch.getBoundingClientRect(); if (b.height) lg.style.top = Math.round(b.bottom + 6) + "px"; }
+window.addEventListener("resize", () => posLegenda());
 function legenda() {
   return `<div class="legenda vetro"><div class="riga" style="gap:6px"><button class="piccolo" id="legTasto">${ico("mappa")} Legenda</button><button class="piccolo ${soloMiei ? "oro" : ""}" id="mieiTasto">${ico("stella")} Cosa ho</button><button class="piccolo" id="guidaTasto" title="Come si gioca">📖 Guida</button></div><div class="leg-dentro">
     <div><span class="lg terreno"><em>60k</em></span> Terreno libero: il numero è il prezzo</div>
@@ -1088,6 +1091,7 @@ function collegaComandiVista(me) {
     document.querySelectorAll(".miei-pannello [data-app]").forEach((b) => b.onclick = () => apriApp(b.dataset.app));
   }
   $("#mondo").classList.toggle("solo-miei", soloMiei);
+  posLegenda();
   const lt = $("#legTasto"); if (lt) { $(".legenda").classList.toggle("aperta", legendaAperta); lt.onclick = () => { legendaAperta = !legendaAperta; $(".legenda").classList.toggle("aperta", legendaAperta); }; }
   $("#zPiu").onclick = () => TRE3D ? Tre.avvicina(0.7) : zoomA(vista.z * 1.35);
   $("#zMeno").onclick = () => TRE3D ? Tre.avvicina(1.4) : zoomA(vista.z / 1.35);
@@ -1723,8 +1727,8 @@ function primaPagina(ciclo, compatta) {
 }
 function potentiHtml() {
   const ORD = ["Sovrano", "Magnate", "Milionario", "Ricco", "Benestante"];
-  const cl = [...S.players].map((p) => ({ p, f: p.id === mioId ? L.fascia(S, p) : p.fascia })).sort((a, b) => (ORD.indexOf(a.f) < 0 ? 9 : ORD.indexOf(a.f)) - (ORD.indexOf(b.f) < 0 ? 9 : ORD.indexOf(b.f)) || (b.p.fama || 0) - (a.p.fama || 0));
-  return `<div class="g-sez"><span class="g-sez-t">I più potenti della Laguna</span>${cl.map((x, i) => `<p class="g-breve"><b>${i + 1}. ${esc(x.p.nome)}</b> · ${esc(x.f || "?")} · fama ${x.p.fama ?? "?"}${S.sindaco === x.p.id ? " · Sindaco" : ""}</p>`).join("")}<span class="sub" style="font-size:11px">La Gazzetta non conosce i conti di nessuno: solo come vivono.</span></div>`;
+  const cl = [...S.players].map((p) => ({ p, f: p.id === mioId ? L.fascia(S, p) : p.fascia })).sort((a, b) => (b.p.livello || 0) - (a.p.livello || 0) || (ORD.indexOf(a.f) < 0 ? 9 : ORD.indexOf(a.f)) - (ORD.indexOf(b.f) < 0 ? 9 : ORD.indexOf(b.f)) || (b.p.fama || 0) - (a.p.fama || 0));
+  return `<div class="g-sez"><span class="g-sez-t">I giocatori della Laguna</span><table class="g-potenti"><tr><th></th><th>Chi</th><th>Livello</th><th>Fama</th><th>Vive da</th></tr>${cl.map((x, i) => `<tr${x.p.id === mioId ? ' class="io"' : ""}><td>${i + 1}</td><td><b>${esc(x.p.nome)}</b>${S.sindaco === x.p.id ? " 🎗️" : ""}${x.p.id === mioId ? " (tu)" : ""}</td><td>${x.p.livello ?? "?"}</td><td>${x.p.fama ?? "?"}</td><td>${esc(x.f || "?")}</td></tr>`).join("")}</table><span class="sub" style="font-size:11px">Il Livello sale con i soldi e non scende. La Gazzetta non conosce i conti di nessuno: solo come vivono.${S.sindaco ? " 🎗️ = Sindaco." : ""}</span></div>`;
 }
 // le situazioni in corso nella Laguna (durano 1 o 2 Cicli)
 function situazioniHtml() {
@@ -1734,7 +1738,7 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 79: ["<b>Ripulire è un rischio.</b> Ogni volta che ripulisci soldi sporchi (Casinò, ShadowCoin, paradiso fiscale, la tua banca) la Finanza può scoprirti. Il rischio parte dal 3-6% e sale con la somma (+4% per ogni milione oltre il primo) e con quante volte hai ripulito negli ultimi 3 Cicli (+5% a volta), fino a un massimo del 50%. Lo vedi scritto prima di decidere.", "Se ti scopre: ti sequestra metà della somma, il resto resta sporco, +12 Tracce e l'indagine sale di un gradino. Il banchiere Lenz dalla tua parte abbassa il rischio. Somme piccole e pause tengono basso il pericolo."], 78: ["<b>Sentenza spiegata.</b> Quando ti condannano si apre una finestra grande: perché sei finito a Processo, quanto è grave la pena (e cosa l'ha alzata o abbassata), e ogni effetto uno per uno: cosa perdi, quanto e per quanto tempo. In fondo, in breve, come funzionano soldi sporchi e condanne.", "Puoi rileggere l'ultima sentenza dall'app Soldi sporchi, nella scheda «Le tue piste»."],
+const NOVITA = { 80: ["<b>Gazzetta: i giocatori.</b> In cima alla Gazzetta, anche dal telefono, c'è la tabella di tutti i giocatori: Livello, fama e come vivono (Benestante, Ricco…). Prima il Livello degli altri non si vedeva."], 79: ["<b>Ripulire è un rischio.</b> Ogni volta che ripulisci soldi sporchi (Casinò, ShadowCoin, paradiso fiscale, la tua banca) la Finanza può scoprirti. Il rischio parte dal 3-6% e sale con la somma (+4% per ogni milione oltre il primo) e con quante volte hai ripulito negli ultimi 3 Cicli (+5% a volta), fino a un massimo del 50%. Lo vedi scritto prima di decidere.", "Se ti scopre: ti sequestra metà della somma, il resto resta sporco, +12 Tracce e l'indagine sale di un gradino. Il banchiere Lenz dalla tua parte abbassa il rischio. Somme piccole e pause tengono basso il pericolo."], 78: ["<b>Sentenza spiegata.</b> Quando ti condannano si apre una finestra grande: perché sei finito a Processo, quanto è grave la pena (e cosa l'ha alzata o abbassata), e ogni effetto uno per uno: cosa perdi, quanto e per quanto tempo. In fondo, in breve, come funzionano soldi sporchi e condanne.", "Puoi rileggere l'ultima sentenza dall'app Soldi sporchi, nella scheda «Le tue piste»."],
   77: ["<b>Chi esce dalla partita.</b> Accanto al nome di chi ha chiuso il gioco compare \"non collegato\". Se resta via più di 3 minuti, al suo posto gioca il computer e la partita va avanti; quando torna riprende lui.", "<b>Esci dalla partita</b> (in fondo al telefono) ora è vero: il tuo posto passa al computer e gli altri continuano. Chi ha creato la partita può anche far giocare subito il computer al posto di chi non c'è.", "<b>Sala d'attesa.</b> Chi esce dalla sala libera il suo posto; chi ha creato la partita vede chi non è collegato e può mettere il computer al suo posto."],
   76: ["<b>Viaggio rapido.</b> Ora si fa una volta ogni 2 Cicli e costa il carburante: motoscafo 100.000 €, elicottero 300.000 €, jet 600.000 €. Ti costa anche la mossa del giorno. Il taxi per il Municipio non c'è più: ti candidi a Sindaco allo sportello, o dal telefono pagando il doppio.",
   "<b>Il Timbro del Municipio</b> non si consuma più da solo: quando chiedi un permesso il gioco ti chiede se vuoi usarlo.",
@@ -1769,7 +1773,7 @@ function appGazzetta() {
   const cicli = [...new Set(S.gazzetta.map((g) => g.ciclo))].sort((a, b) => b - a);
   const c = gazzettaCiclo && cicli.includes(gazzettaCiclo) ? gazzettaCiclo : cicli[0] || S.ciclo + 1;
   return `<div class="riga" style="justify-content:space-between;margin-bottom:8px"><button class="piccolo" data-gciclo="${c - 1}" ${cicli.includes(c - 1) ? "" : "disabled"}>‹ Ciclo prima</button><button class="piccolo" data-gciclo="${c + 1}" ${cicli.includes(c + 1) ? "" : "disabled"}>Ciclo dopo ›</button></div>`
-    + situazioniHtml() + primaPagina(c) + (c === (cicli[0] || 0) ? `<div class="giornale" style="margin-top:10px">${potentiHtml()}</div>` : "");
+    + `<div class="giornale" style="margin-bottom:10px">${potentiHtml()}</div>` + situazioniHtml() + primaPagina(c);
 }
 // Ultim'ora: le notizie grosse scorrono in alto mentre giochi
 const codaUltimOra = []; let ultimOraAttiva = false;

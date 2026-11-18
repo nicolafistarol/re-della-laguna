@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 79;
+  const VERSIONE_REGOLE = 80;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -5146,6 +5146,7 @@
       if (Array.isArray(q.funzioniPiani)) q.funzioniPiani = q.funzioniPiani.map((f) => PIANI_SEGRETI.includes(f) ? "riservato" : f);
       if (Array.isArray(q.stanze)) q.stanze = q.stanze.filter((f) => !PIANI_SEGRETI.includes(f));
       q.fascia = fascia(s, s.players.find((x) => x.id === p.id)); // l'unica cosa pubblica sulla ricchezza: Benestante, Ricco...
+      q.livello = p.livello || 0; // il Livello (0-4) si vede: lo scrive la Gazzetta (v80)
       return q;
     });
     v.log = v.log.filter((r) => !r.chi || r.chi === idGiocatore || !CRONACA_PRIVATA.test(r.testo));

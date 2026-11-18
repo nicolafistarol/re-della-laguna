@@ -695,3 +695,10 @@ button.spento{opacity:.55}
 .sent-come ol{margin:6px 0 0;padding-left:20px}
 .sent-come li{margin:4px 0}
 @media(max-width:600px){.fin.sentenza{padding:16px}.fin.sentenza h2{font-size:27px}.sent-q{font-size:17px}}
+
+.g-potenti{width:100%;border-collapse:collapse;font-family:Georgia,serif;font-size:13px;color:#222;margin:4px 0}
+.g-potenti th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#666;text-align:left;padding:2px 4px;border-bottom:1px solid #bbb}
+.g-potenti td{padding:4px;border-bottom:1px dotted #ccc;vertical-align:top}
+.g-potenti td:nth-child(3),.g-potenti td:nth-child(4),.g-potenti th:nth-child(3),.g-potenti th:nth-child(4){text-align:center}
+.g-potenti tr.io td{background:rgba(201,162,39,.18)}
+@media(max-width:700px){.hud-alto .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;max-width:calc(100vw - 20px);margin-bottom:56px}.hud-alto .chips::-webkit-scrollbar{display:none}.hud-alto .chip{flex:0 0 auto}}
