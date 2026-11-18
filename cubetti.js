@@ -7,12 +7,12 @@
 // =====================================================================
 import * as THREE from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
-import * as M3 from "./cubetti-mondo.js?v=85";
+import * as M3 from "./cubetti-mondo.js?v=86";
 
 // Il mondo modellato (isole, strada, ponti, mare) al posto della foto. ?foto = torna alla foto.
 const MONDO = (() => { try { const q = location.search; if (q.includes("foto")) return false; if (q.includes("mondo=3d")) return true; return localStorage.getItem("laguna_mondo") !== "foto"; } catch (e) { return true; } })();
 export function mondoNuovo() { return MONDO; }
-let M = null, mare3 = null, Q = 0;                 // il mondo costruito, il mare, l'altezza della strada
+let M = null, mare3 = null, cielo3 = null, Q = 0;                 // il mondo costruito, il mare, l'altezza della strada
 const posCasella = new Map(), posLotto = new Map(); // id casella -> punto sulla strada / punto del lotto
 let pts = [], nCas = 0;                            // punti della strada per indice di casella
 let suCasellaCb = null; export function suCasella(f) { suCasellaCb = f; }
@@ -42,6 +42,7 @@ export function avvia(mondo, mappaDom, urlMappa) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  if (MONDO) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; }
   renderer.domElement.className = "tre-canvas";
   mondo.prepend(renderer.domElement);
 
@@ -53,8 +54,8 @@ export function avvia(mondo, mappaDom, urlMappa) {
   camera.position.set(0, 112, 92);
 
   if (MONDO) {
-    scena.background = new THREE.Color("#9fd3ea"); scena.fog = new THREE.Fog("#9fd3ea", 160, 360);
-    mare3 = M3.mare(); scena.add(mare3);
+    scena.background = new THREE.Color("#cfe6f2"); scena.fog = new THREE.Fog("#cfe6f2", 220, 760);
+    cielo3 = M3.cielo(); scena.add(cielo3);
   } else {
   // il piano con la foto, piu' un mare largo intorno cosi' non si vede mai il vuoto
   const tex = new THREE.TextureLoader().load(urlMappa);
@@ -74,6 +75,7 @@ export function avvia(mondo, mappaDom, urlMappa) {
   luceSole.castShadow = true;
   luceSole.shadow.mapSize.set(2048, 2048);
   Object.assign(luceSole.shadow.camera, { left: -95, right: 95, top: 60, bottom: -60, near: 1, far: 300 });
+  if (MONDO) { luceSole.shadow.mapSize.set(4096, 4096); luceSole.shadow.bias = -0.0004; luceSole.shadow.normalBias = 0.02; }
   scena.add(luceSole);
 
   gruppoBasi = new THREE.Group(); gruppoEdifici = new THREE.Group(); gruppoTorri = new THREE.Group();
@@ -153,8 +155,9 @@ export function impostaNotte(n) {
   luceAmb.color.set(n ? "#8aa2ff" : "#fff6e5");
   luceSole.intensity = n ? 0.25 : 1.6;
   luceSole.color.set(n ? "#7d8cff" : "#ffe2b0");
-  const cielo = MONDO ? "#9fd3ea" : "#0b2a3a";
-  scena.background.set(n ? "#050816" : cielo); scena.fog.color.set(n ? "#050816" : cielo);
+  const cielo = MONDO ? "#cfe6f2" : "#0b2a3a";
+  scena.background.set(n ? "#0a1024" : cielo); scena.fog.color.set(n ? "#0a1024" : cielo);
+  if (MONDO) { if (cielo3) cielo3.material.uniforms.uNotte.value = n ? 1 : 0; if (mare3) mare3.userData.notte(n); if (M) M.lampioni.userData.accendi(n); M3.accendiCitta(n); luceSole.position.set(n ? 50 : -60, 90, n ? -30 : 40); const d = luceSole.position.clone().normalize(); if (cielo3) cielo3.material.uniforms.uSole.value.copy(d); if (mare3) mare3.material.uniforms.uSole.value.copy(d); }
   gruppoEdifici.children.concat(gruppoTorri.children).forEach((m) => accendiFinestre(m, n));
 }
 function accendiFinestre(obj, n) {
@@ -300,6 +303,7 @@ function costruisciMondo(caselle) {
   const cs = [...caselle].sort((a, b) => a.idx - b.idx);
   M = M3.costruisci(cs.map((c) => { const p = daMappa(c.x, c.y); return { x: p.x, z: p.z, isola: c.isola || "Corona", ponte: c.tipo === "angolo" }; }));
   Q = M.quota; scena.add(M.mondo); scena.add(cartelli);
+  mare3 = M3.mare(M.fuori); scena.add(mare3); if (notte) { mare3.userData.notte(true); M.lampioni.userData.accendi(true); M3.accendiCitta(true); }
   // l'isolotto del Faro, con il faro vero
   const fp = daMappa(84, 81), isl = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 5.6, 1.2, 9), new THREE.MeshStandardMaterial({ color: "#6f6a62", roughness: 1, flatShading: true }));
   isl.position.set(fp.x, 0.3, fp.z); scena.add(isl);
@@ -473,6 +477,8 @@ function frame() {
 function frameMondo() {
   const ora = performance.now(), dt = Math.min(0.05, (ora - tPrima) / 1000); tPrima = ora;
   if (mare3) mare3.userData.onda(ora / 1000);
+  if (M && M.barche) M.barche.userData.muovi(ora / 1000);
+  if (cielo3) cielo3.position.copy(camera.position);
   // la visuale non scappa dal mondo e non va sott'acqua
   const t = controlli.target, lim = (v, a) => Math.max(-a, Math.min(a, v));
   const nx = lim(t.x, W / 2 + 15), nz = lim(t.z, H / 2 + 15);
