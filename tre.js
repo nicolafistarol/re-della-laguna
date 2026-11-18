@@ -459,7 +459,7 @@ function dipingi(caselle) {
   for (const c of caselle) {
     const d = perId.get(c.id); if (!d) continue;
     const rx = d.sp * (c.tipo === "angolo" ? 0.46 : 0.35), ry = rx * d.sen, sp = c.spento ? 0.35 : 1;
-    T.quota(d.q + 2.2, 0.22); Lu.quota(d.q + 2.2, 0.4);
+    const qp = (d.grezza < d.q + 5 ? Math.max(d.q, d.grezza) : d.q) + 2.2; T.quota(qp, 0.22); Lu.quota(qp, 0.4);   // sui ponti la piazzola sta sull'impalcato
     if (c.terreno) {
       // terreno: piazzola del colore del quartiere; libero = bordo chiaro sottile; di qualcuno = alone del suo colore (oro in piu' se e' tuo)
       T.disco(d.px, d.py, rx, ry, lin(c.coloreSerie), 0.42 * sp);
@@ -470,7 +470,7 @@ function dipingi(caselle) {
       } else T.disco(d.px, d.py, rx * 1.04, ry * 1.04, CREMA, 0.75 * sp, 0.88);
     } else {
       // posto speciale: piazzola scura col bordo d'oro (i ponti: doppio bordo)
-      T.disco(d.px, d.py, rx, ry, NAVY, 0.62 * sp); T.disco(d.px, d.py, rx * 1.04, ry * 1.04, ORO, 0.85 * sp, 0.86);
+      T.disco(d.px, d.py, rx, ry, NAVY, 0.42 * sp); T.disco(d.px, d.py, rx * 1.04, ry * 1.04, ORO, 0.85 * sp, 0.86);
       if (c.tipo === "angolo") T.disco(d.px, d.py, rx * 0.7, ry * 0.7, ORO, 0.7 * sp, 0.86);
     }
   }
