@@ -1327,6 +1327,7 @@ function aggiornaPanorama(me) {
     const q = S.players.find((x) => x.id === id); if (!q) return;
     punti.push({ ...Pano.daFoto(0.38 + k * 0.12, 0.62), testo: esc(q.nome) + " è qui", icona: `<b style="color:${q.colore};font-size:18px">${esc(q.nome[0])}</b>`, classe: "persona", azione: () => finestraIncontro(me, id) });
   });
+  for (let k = 0; k < (N2.incappucciati || 0); k++) punti.push({ ...Pano.daFoto(0.62 + k * 0.08, 0.62), testo: "Incappucciato", icona: `<b style="font-size:18px">?</b>`, classe: "persona", azione: () => toast("Sotto il cappuccio non sai chi è.") });
   Pano.mostra(V.img, punti, { yaw: 0 });
 }
 const ICO_SCELTA = { ballo: "maschera", ricettatore: "mercato", rito: "setta", scava: "faro", jet: "aereo", doganiere: "handshake", tavolo: "casino", brinda: "gala", serata: "casino", spa: "stella", occ: "sconosciuto", ricicla: "ricicla", banchiere: "handshake", polizia: "handshake", articolo: "gazzetta", setta: "setta", paradiso: "ricicla", foto: "macchina", aspetta: "orologio" };
@@ -1355,6 +1356,7 @@ function scenaNotte(me) {
   const testa = bannerMano() + bannerCv + `<div class="scena-testa">
       <div class="kick" style="color:var(--cielo)">${ico("luna")} ore ${L.ORE[N2.ora]} · ${6 - N2.ora} ${6 - N2.ora === 1 ? "ora" : "ore"} all'alba${isola ? " · " + esc(isola) : ""}${N2.pericoloQui && !v && !aCasa ? ` · <span style="color:${COLORE_POLIZIA[N2.pericoloQui]}">polizia ${N2.pericoloQui}</span>` : ""}</div>
       <h1>${esc(nome)}</h1>${sala ? `<div class="sala">${ico("stella")} ${esc(sala)}</div>` : ""}
+      ${N2.incappucciati ? `<div class="qui-altri"><span class="persona incappucciato"><span class="pall" style="background:#222">?</span>${N2.incappucciati === 1 ? "Un incappucciato" : N2.incappucciati + " incappucciati"}</span> <span class="sub">confratelli della setta: sotto il cappuccio non sai chi sono</span></div>` : ""}
       ${quiAltri.length ? `<div class="qui-altri">${quiAltri.map((p) => `<button class="persona" data-persona="${p.id}"><span class="pall" style="background:${p.colore}">${esc(p.nome[0])}</span>${esc(p.nome)}</button>`).join(" ")} <span class="sub">${quiAltri.length === 1 ? "è qui con te: toccalo" : "sono qui con te: toccali"}</span></div>` : ""}
       ${me.giroPg && !me.faro ? `<div class="sub giro-pg">🔭 Dal cannocchiale: ${Object.entries(me.giroPg).map(([k, l]) => `${{ banchiere: "Lenz", commissario: "Vargas", doganiere: "il doganiere", giornalista: "la giornalista" }[k]} → <b>${esc(nomeLuogo(l))}</b>`).join(" · ")}</div>` : ""}
       ${resto !== null && !aCasa && !me.faro ? `<div class="tempo"><div class="barra" id="barraTempo" style="width:${(resto / (N2.tempo || 120)) * 100}%"></div></div><div class="sub" id="contoTempo">${resto <= 20 ? testoTempo(resto) : ""}</div>` : ""}
@@ -1705,7 +1707,7 @@ function situazioniHtml() {
 const NOVITA = { 76: ["<b>Viaggio rapido.</b> Ora si fa una volta ogni 2 Cicli e costa il carburante: motoscafo 100.000 €, elicottero 300.000 €, jet 600.000 €. Ti costa anche la mossa del giorno. Il taxi per il Municipio non c'è più: ti candidi a Sindaco allo sportello, o dal telefono pagando il doppio.",
   "<b>Il Timbro del Municipio</b> non si consuma più da solo: quando chiedi un permesso il gioco ti chiede se vuoi usarlo.",
   "<b>Prova di fedeltà.</b> Costa il 10% del Tesoro (almeno 2 milioni), e di più se la rifai nello stesso Ciclo. Il membro lo sa. Se era fedele, la setta perde 3 Influenza.",
-  "<b>Chi vende la setta paga.</b> Il Gran Maestro tiene una Prova sul traditore, e per 4 Cicli nessuna setta lo prende.",
+  "<b>Chi vende la setta paga.</b> Il Gran Maestro tiene una Prova sul traditore, e per 4 Cicli nessuna setta lo prende. Al rito, sotto il cappuccio, solo il Gran Maestro sa chi c'è.",
   "<b>Patto sulla parola.</b> Quando scade, chi deve pagare ha tempo fino all'Alba dopo (\"Paga ora\" nell'app Contratti). Se non paga, rompe la parola: −8 fama. Quando qualcuno rompe la parola (anche un Favore) esce in Ultim'ora e compare un avviso a tutti e due.",
   "<b>Versione nuova.</b> Se il gioco è stato aggiornato, in alto compare \"C'è una versione nuova del gioco\": tocca Aggiorna."], 75: ["<b>I Servizi dei contatti.</b> Un poliziotto o un banchiere comprato ora ti fa un Servizio per Ciclo: una transenna sul tabellone, una retata dove vuoi tu, il conto di un rivale, un carico tenuto da parte. App Soldi sporchi, La tua rete.",
   "<b>Attento all'umore.</b> Ogni Servizio rende il contatto più nervoso: più lo usi, prima gli Affari Interni arrivano a lui. E poi a te.",

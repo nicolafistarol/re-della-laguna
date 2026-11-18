@@ -3095,6 +3095,18 @@
     st.convocazione = { ciclo: s.ciclo, luogo, ora, fatto: false };
     for (const id of st.membri) privato(s, giocatore(s, id), (id === p.id ? "Hai convocato" : "Il Gran Maestro convoca") + " la setta \"" + st.nome + "\": stanotte alle " + ORE[ora] + ", " + LUOGHI[luogo].nome + "." + (id === p.id ? "" : " Chi viene partecipa al rito."));
   }
+  // sotto il cappuccio (v76): stanotte, nel posto della convocazione, un membro che non e' il Gran Maestro
+  // non vede chi sono gli altri confratelli (Gran Maestro compreso). Torna gli id da nascondere a p.
+  function incappucciatiPer(s, p) {
+    const N2 = s.notte; if (!N2 || N2.viaggio[p.id]) return [];
+    const via = new Set();
+    for (const id of p.sette || []) {
+      const st = s.sette.find((x) => x.id === id), c = st && st.convocazione;
+      if (!c || c.ciclo !== s.ciclo || st.gm === p.id || N2.dove[p.id] !== c.luogo) continue;
+      for (const m of st.membri) if (m !== p.id && N2.dove[m] === c.luogo) via.add(m);
+    }
+    return [...via];
+  }
   function convocazioneDi(s, p) { // la convocazione di stanotte per una setta di cui p fa parte
     for (const id of p.sette || []) { const st = s.sette.find((x) => x.id === id); const c = st && st.convocazione; if (c && c.ciclo === s.ciclo && !c.fatto) return { st, c }; }
     return null;
@@ -3127,7 +3139,9 @@
     N2.rito = N2.rito || {};
     for (const m of presenti) {
       m.tracce = Math.max(0, m.tracce - 8); m.fama += 2; N2.rito[m.id] = true;
-      racconta(s, m, "Il rito della setta \"" + st.nome + "\". " + presenti.map((x) => x.nome).join(", ") + " sotto lo stesso cappuccio. Qualcuno fa sparire un po' delle tue Tracce, e per il resto della notte la setta ti copre: meno pericoli negli affari.");
+      // v76: i nomi dei presenti li sa solo il Gran Maestro; gli altri sanno solo quanti sono
+      const chi = m.id === st.gm ? presenti.map((x) => x.nome).join(", ") + " sotto lo stesso cappuccio." : "Siete in " + presenti.length + " sotto il cappuccio.";
+      racconta(s, m, "Il rito della setta \"" + st.nome + "\". " + chi + " Qualcuno fa sparire un po' delle tue Tracce, e per il resto della notte la setta ti copre: meno pericoli negli affari.");
     }
     const assenti = st.membri.filter((id) => !presenti.some((x) => x.id === id)).map((id) => giocatore(s, id).nome);
     if (assenti.length) racconta(s, p, "Non si sono presentati: " + assenti.join(", ") + ".");
@@ -5105,6 +5119,7 @@
         daScelta: s.notte.daScelta[idGiocatore], inizioRacc: s.notte.inizioRacc[idGiocatore] || 0,
         scelte: me ? scelteNotte(s, me) : [],
         qui: me ? quiConMe(s, me).map((x) => x.id) : [],
+        incappucciati: 0,
         caloreQui: me ? ((me.calore || {})[s.notte.dove[idGiocatore]] || 0) : 0,
         pericoloQui: me && !s.notte.viaggio[idGiocatore] && s.notte.dove[idGiocatore] !== "palazzo" ? s.notte.pericolo[s.notte.dove[idGiocatore]] : null,
         protezione: me ? (me.corrotti && me.corrotti["agente_" + (LUOGHI[s.notte.dove[idGiocatore]] || {}).isola] ? 0.6 : 1) * (me.corrotti && me.corrotti.commissario ? 0.8 : 1) * (poliziaOccupata(s, me) ? N.occupata : 1) * (dovePersonaggio(s, "commissario") === s.notte.dove[idGiocatore] && !(me.corrotti || {}).commissario ? 1.35 : 1) * sitMult(s, "gu", { luogo: s.notte.dove[idGiocatore] }) : 1,
@@ -5119,6 +5134,8 @@
         piuTardi: me && !s.notte.viaggio[idGiocatore] ? s.notte.occasioni.filter((o) => !o.preso && o.luogo === s.notte.dove[idGiocatore] && o.dalle > s.notte.ora && (!o.riservata || o.riservata === idGiocatore)).length : 0,
         chiamate: s.notte.occasioni.filter((o) => o.riservata === idGiocatore && !o.preso).map((o) => ({ n: o.n, luogo: o.luogo, alle: o.alle, nome: OCCASIONI.find((x) => x.id === o.id).nome })),
       };
+      // sotto il cappuccio: i confratelli al rito non hanno nome (ne' posto) per chi non e' il Gran Maestro; resta solo quanti sono
+      if (me) { const via = incappucciatiPer(s, me); if (via.length) { for (const id of via) v.notte.dove[id] = null; v.notte.qui = v.notte.qui.filter((id) => !via.includes(id)); v.notte.incappucciati = via.length; } }
     }
     if (s.riepOra) v.riepOra = { n: s.riepOra.n, ciclo: s.riepOra.ciclo, da: s.riepOra.da, a: s.riepOra.a, mio: s.riepOra.per[idGiocatore] || null };
     { const me = s.players.find((x) => x.id === idGiocatore); if (me) { v.lustro = lustro(s, me); v.livelloPalazzo = livelloPalazzo(me); const su = poliziaOccupata(s, me); v.poliziaSu = su ? su.nome : null; } }
