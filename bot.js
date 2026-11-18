@@ -250,6 +250,83 @@ function manoBot(o, i, L, s) {
   if (s !== f.uso.luogo) return L.luogoAperto(o, f.uso.luogo, i) ? { tipo: "vai", luogo: f.uso.luogo } : null;
   return { tipo: "aspetta" };
 }
+// v75 — I Servizi dei contatti e la Fedina pulita. Di giorno, nel turno del bot.
+// Prova ogni mossa una sola volta per turno (se il motore la rifiuta, non la ripete).
+const SPORCHI_BOT = ["Furbo", "Spavaldo", "Esperto"];
+function serviziFedinaBot(o, i, n, L) {
+  if (i.faro > 0) return null;
+  const tent = o.ciclo * 100 + o.giorno * 10 + o.turno;
+  i._sf = i._sf && i._sf.t === tent ? i._sf : { t: tent, k: {} };
+  const una = (k, a) => { if (!a || i._sf.k[k]) return null; i._sf.k[k] = !0; return a; };
+  const C = L.CASELLE, rivali = o.players.filter((q) => q.id !== i.id && !q.fallito);
+  const avanti = (da, a) => (a - da + C) % C;
+  // il Sindaco toglie la transenna se e' sulla sua strada e lui ha la polizia vicina
+  if (o.sindaco === i.id && o.transenna && o.transenna.da !== i.id && i.togliCiclo !== o.ciclo && (i.tracce || 0) > 25) {
+    const d = avanti(i.pos, o.transenna.pos);
+    if (d >= 1 && d <= 18) { const a = una("togli", { tipo: "togli_transenna" }); if (a) return a; }
+  }
+  // i Servizi: solo i bot sporchi, e solo con contatti tranquilli
+  if (SPORCHI_BOT.includes(n)) {
+    const c = i.corrotti || {}, libero = (k) => c[k] && c[k].sospetto == null && c[k].servizioCiclo !== o.ciclo;
+    if (libero("commissario") && o.ciclo % 2 === 0 && !(o.ordineVargas && o.ordineVargas.ciclo === o.ciclo)) {
+      const somma = {};
+      for (const q of rivali) for (const [l, v] of Object.entries(q.calore || {})) if (l !== "palazzo") somma[l] = (somma[l] || 0) + v;
+      const best = Object.entries(somma).sort((x, y) => y[1] - x[1])[0];
+      const a = una("vargas", { tipo: "servizio", chi: "commissario", luogo: best && best[1] > 0 ? best[0] : "porto" }); if (a) return a;
+    }
+    if ((i.stato || 0) < 2 && o.transennaCiclo !== o.ciclo) {
+      for (const k of Object.keys(c).filter((x) => x.startsWith("agente_") && libero(x) && o.ciclo - (c[x].dal || 0) >= 2)) {
+        const isola = k.slice(7);
+        const lotti = o.lotti.filter((l) => l.giro === "o" && l.tipoCasella === "lotto" && l.isola === isola && !o.players.some((q) => !q.fallito && !q.inner && q.pos === l.idx));
+        for (const q of rivali.filter((q) => (q.stato || 0) >= 2 && !(q.faro > 0))) {
+          const l = lotti.find((l) => { const d = avanti(q.pos, l.idx); return d === 10 || d === 11; });
+          if (l) { const a = una("agente", { tipo: "servizio", chi: "agente", isola, pos: l.idx }); if (a) return a; }
+        }
+      }
+    }
+  }
+  // la Fedina pulita
+  const fed = i.fedina || 0;
+  if (fed >= 6 && !i.operaFatta && i.cash > 6e6 && L.OPERE_PUBBLICHE) {
+    const libere = L.ISOLE.filter((x) => !(o.opere || []).some((op) => op.isola === x));
+    const conta = (x) => o.lotti.filter((l) => l.owner === i.id && l.isola === x).length;
+    const isola = libere.sort((a, b) => conta(b) - conta(a))[0];
+    if (isola) { const a = una("opera", { tipo: "opera_pubblica", isola, opera: ["teatro", "parco", "scuola"][o.ciclo % 3] }); if (a) return a; }
+  }
+  if (fed >= 4 || i.fascicolo) {
+    const f = i.fascicolo;
+    if (f && f.indizi.length && (f.indizi.length >= 2 || f.albe >= 3)) { const a = una("pubblica", { tipo: "inchiesta_pubblica" }); if (a) return a; }
+    if (!f && fed >= 4) {
+      const silenzio = (id) => (o.favori || []).some((x) => x.tipo === "silenzio" && x.stato === "attivo" && x.deve === i.id && x.a === id);
+      const ok = rivali.filter((q) => !silenzio(q.id) && !((i.inchiestaBlocco || {})[q.id] > o.ciclo));
+      let b = ok.filter((q) => (q.stato || 0) >= 1).sort((x, y) => (y.stato || 0) - (x.stato || 0))[0];
+      if (!b) { const primo = ok.slice().sort((x, y) => L.patrimonio(o, y, !0) - L.patrimonio(o, x, !0))[0]; if (primo && (primo.tracce || 0) > 20) b = primo; }
+      if (b) { const a = una("inchiesta", { tipo: "inchiesta_apri", bersaglio: b.id }); if (a) return a; }
+    }
+  }
+  if (fed >= 2 && i.espostoCiclo !== o.ciclo && !(i.espostoStop != null && i.espostoStop >= o.ciclo) && !(o.esposto && o.esposto.ciclo === o.ciclo)) {
+    const somma = {};
+    for (const q of rivali) for (const [l, v] of Object.entries(q.calore || {})) if (l !== "palazzo" && l !== "faro") somma[l] = (somma[l] || 0) + v;
+    const best = Object.entries(somma).sort((x, y) => y[1] - x[1])[0];
+    if (best && best[1] >= 1) { const a = una("esposto", { tipo: "esposto", luogo: best[0] }); if (a) return a; }
+  }
+  return null;
+}
+// di notte: il doganiere (solo se il bot e' al Porto o all'Aeroporto)
+function doganiereBot(o, i, n, L, dove) {
+  if (!SPORCHI_BOT.includes(n) || (dove !== "porto" && dove !== "aeroporto")) return null;
+  const c = (i.corrotti || {}).doganiere; if (!c || c.sospetto != null) return null;
+  i._dog = i._dog && i._dog.ciclo === o.ciclo ? i._dog : { ciclo: o.ciclo, lista: !1, ris: !1 };
+  if (c.servizioCiclo !== o.ciclo && !i._dog.lista) { i._dog.lista = !0; return { tipo: "servizio", chi: "doganiere" }; }
+  const ar = i.arrivi;
+  if (ar && ar.ciclo === o.ciclo && ar.riservato == null && ar.lista.length && !i._dog.ris) {
+    i._dog.ris = !0;
+    const val = (x) => { const O = L.OCCASIONI.find((y) => y.nome === x.nome); return O && O.guadagno ? O.guadagno[1] : 0; };
+    const best = ar.lista.slice().sort((x, y) => val(y) - val(x))[0];
+    return { tipo: "servizio", chi: "doganiere", n: best.n };
+  }
+  return null;
+}
 function grandiBot(o, i, n) {
     if (!o.grandi || !t.GRANDI || (i.livello || 0) < 4 || i.faro > 0) return null;
     const oggi = o.ciclo * 10 + o.giorno;
@@ -371,6 +448,7 @@ function grandiBot(o, i, n) {
         { const gr = grandiBot(o, i, n); if (gr) return gr; }
         { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); const iv = invitoBot(o, i, LL); if (iv) return iv; const op = operaBot(o, i, n, LL); if (op) return op; const lv = lavaBot(o, i, n, LL); if (lv) return lv; }
         if (LF && LF.FAVORI && !i.haTirato) { const pv = provaBot(o, i, n, LF); if (pv) return pv; }
+        if (LF && LF.SERVIZI) { const sf = serviziFedinaBot(o, i, n, LF); if (sf) return sf; }
         { const sosp = Object.keys(i.corrotti || {}).find((k) => i.corrotti[k].sospetto && i.stato >= 1);
           if (sosp) return { tipo: "scarica_contatto", chiave: sosp }; }
         if (!i.haTirato) {
@@ -449,6 +527,9 @@ function grandiBot(o, i, n) {
             const l = i._n;
             { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); if (LL && LL.FAVORI) { const mb = manoBot(o, i, LL, s); if (mb) return mb; } }
             if (n.serate && n.serate[i.id]) return c >= 5 ? { tipo: "torna_a_casa" } : { tipo: "aspetta" }; // chi ospita resta a casa
+            { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); if (LL && LL.SERVIZI) { const dg = doganiereBot(o, i, e, LL, s); if (dg) return dg; } }
+            // v75: con un esposto in giro il Furbo e l'Esperto 1 volta su 2 restano a casa; sotto inchiesta saltano gli affari
+            if (l.casa === void 0) l.casa = ["Furbo", "Esperto"].includes(e) && ((o.esposto && o.esposto.ciclo === o.ciclo && Math.random() < 0.5) || i.sottoInchiesta === o.ciclo);
             { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); const cv = convocazioneBot(o, i, LL, s); if (cv) return cv; }
             // se una persona vera e' nello stesso posto, a volte il bot si fa avanti
             if (s !== "palazzo" && !l.proposto && !n.chiuso[i.id] && !n.viaggio[i.id]) {
@@ -472,7 +553,7 @@ function grandiBot(o, i, n) {
               p = i.cash + i.sporchi,
               // i furbi si fermano appena la polizia li osserva; lo spavaldo solo quando e' indagato
               // chi e' gia' molto ricco rischia piu' di quanto guadagna stanotte: lo spavaldo no, lui rischia sempre
-              d = ["Legale", "Costruttore", "Investitore"].includes(e) || 0 === a || i.stato >= ("Spavaldo" === e ? 2 : 1) || (i.arresti >= 2 && i.stato >= 1) || ("Spavaldo" !== e && t.patrimonio(o, i, !1) > 4e7) || ("Spavaldo" !== e && o.resaAnnunciata),
+              d = ["Legale", "Costruttore", "Investitore"].includes(e) || 0 === a || l.casa || i.stato >= ("Spavaldo" === e ? 2 : 1) || (i.arresti >= 2 && i.stato >= 1) || ("Spavaldo" !== e && t.patrimonio(o, i, !1) > 4e7) || ("Spavaldo" !== e && o.resaAnnunciata),
               f = u.find((o) => o.O.legale && i.cash > 6e5);
             if (f) return { tipo: "occasione", n: f.n, oggetti: [] };
             if (d)
