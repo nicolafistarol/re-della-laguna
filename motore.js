@@ -3429,11 +3429,7 @@
       if (restoPatto(k) <= 0) { k.stato = "chiuso"; continue; }
       const [pg, rc] = pagatoreDi(s, k);
       k.stato = "rotto";
-      pg.fama = Math.max(0, (pg.fama || 0) - FAMA_PAROLA_ROTTA);
-      pg.senzaParola = s.ciclo + 2;
-      notizia(s, pg.nome + " non mantiene la parola data a " + rc.nome + ".", "fama");
-      privato(s, pg, "Non hai pagato il patto sulla parola con " + rc.nome + " (" + euro(restoPatto(k)) + "): −" + FAMA_PAROLA_ROTTA + " fama, e fino al Ciclo " + (pg.senzaParola + 1) + " nessuno accetterà Favori da te.");
-      privato(s, rc, pg.nome + " non ha pagato il patto sulla parola. Tutta la Laguna lo sa.");
+      paroleRotta(s, pg, rc, "il patto sulla parola (" + euro(restoPatto(k)) + ")", "Non hai pagato il patto sulla parola.", false);
     }
     for (const k of s.contratti) {
       if (k.stato !== "attivo" || k.scadenza > s.ciclo || !k.pagoDopo) { if (k.stato === "attivo" && !k.pagoDopo && k.scadenza <= s.ciclo) k.stato = "chiuso"; continue; }
@@ -3577,12 +3573,17 @@
   function rompiParola(s, f, perche) {
     const deve = giocatore(s, f.deve), a = giocatore(s, f.a);
     f.stato = "rotto";
+    paroleRotta(s, deve, a, FAVORI[f.tipo].nome, perche, !!f.prova);
+    if (f.origine === "ricatto" && f.prova) { a.prove = a.prove || []; a.prove.push({ ...f.prova, rifiutata: true }); f.prova = null; }
+  }
+  // le conseguenze della parola rotta, uguali per un Favore e per un patto sulla parola non pagato (v76):
+  // -8 fama, niente Favori per 2 Cicli, notizia in Ultim'ora (tipo "parola") e un messaggio chiaro a tutti e due
+  function paroleRotta(s, deve, a, cosa, perche, prova) {
     deve.fama = Math.max(0, (deve.fama || 0) - FAMA_PAROLA_ROTTA);
     deve.senzaParola = s.ciclo + 2;
-    notizia(s, deve.nome + " non mantiene la parola data a " + a.nome + ".", "fama");
-    privato(s, deve, (perche ? perche + " " : "") + "Hai rotto la parola data a " + a.nome + ": −" + FAMA_PAROLA_ROTTA + " fama, e fino al Ciclo " + (deve.senzaParola + 1) + " nessuno accetterà Favori da te.");
-    privato(s, a, deve.nome + " ha rotto la parola che ti aveva dato (" + FAVORI[f.tipo].nome + ")." + (f.prova ? " La Prova che tenevi in pegno torna a te: ora puoi denunciarlo." : ""));
-    if (f.origine === "ricatto" && f.prova) { a.prove = a.prove || []; a.prove.push({ ...f.prova, rifiutata: true }); f.prova = null; }
+    notizia(s, deve.nome + " non mantiene la parola data a " + a.nome + ".", "parola");
+    privato(s, deve, (perche ? perche + " " : "") + "Hai rotto la parola con " + a.nome + ": −" + FAMA_PAROLA_ROTTA + " fama, e fino al Ciclo " + (deve.senzaParola + 1) + " nessuno accetterà Favori da te.");
+    privato(s, a, deve.nome + " non ha mantenuto la parola: " + cosa + "." + (prova ? " La Prova torna a te." : ""));
   }
   function favoreMio(s, p, id) { const f = favori(s).find((x) => x.id === id); if (!f) err("Favore non trovato."); return f; }
   function usaFavore(s, p, a) {

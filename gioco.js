@@ -522,9 +522,23 @@ function controllaVersione(v) {
   return true;
 }
 window.lagunaControllaVersione = controllaVersione; // per le prove automatiche
+// la parola rotta si deve vedere subito (v76): a chi la rompe e a chi la subisce compare un avviso con gli effetti
+const parolaVista = new Set(); let parolaPronta = false;
+function avvisiParola(v) {
+  const me = (v.players || []).find((p) => p.id === mioId); if (!me) return;
+  const nuovi = [];
+  for (const m of me.messaggi || []) { const k = m.ciclo + "|" + m.testo; if (parolaVista.has(k)) continue; parolaVista.add(k); if (parolaPronta && /Hai rotto la parola con |non ha mantenuto la parola: /.test(m.testo)) nuovi.push(m.testo); }
+  parolaPronta = true;
+  if (!nuovi.length) return;
+  const mia = nuovi.some((t) => /Hai rotto la parola con /.test(t));
+  toast(mia ? "Hai rotto la parola: −8 fama." : "Qualcuno non ha mantenuto la parola con te.");
+  finestra(`<span class="kick" style="color:var(--sporco)">🧵 La parola rotta</span><h2>${mia ? "Hai rotto la parola" : "Non ha mantenuto la parola"}</h2>${nuovi.map((t) => `<p>${esc(t)}</p>`).join("")}<p class="sub">Lo sa tutta la Laguna: è sulla Gazzetta.</p><div class="pulsanti"><button class="oro" id="ok">Ho capito</button></div>`, (d, c) => d.querySelector("#ok").onclick = c);
+}
+window.lagunaAvvisiParola = avvisiParola; // per le prove automatiche
 function riceviVista(v) {
   const j = JSON.stringify(v); if (j === ultimaVistaJson) return; ultimaVistaJson = j;
   try { controllaVersione(v); } catch (e) { console.warn("versione", e); }
+  try { avvisiParola(v); } catch (e) { console.warn("parola", e); }
   if (!S) { (v.gazzetta || []).forEach((g) => gazzettaVista.add(g.ciclo + "|" + g.testo)); }
   if (!S) { S = v; S.players.forEach((p) => disp[p.id] = copiaPos(p)); ultimoLog = S.log[S.log.length - 1] || null; ultimoFlusso = Math.max(0, ...(S.flussi || []).map((f) => f.n)); segnoTurno = ultimoFlusso; disegna(); mostraNovita(); return; }
   coda.push(v);
@@ -1644,8 +1658,8 @@ function appVisibile(me, a) {
 // Prima pagina per ogni Ciclo (titolone, foto, sezioni), "Ultim'ora" che scorre in alto quando succede
 // qualcosa di grosso, e i più potenti per fascia (mai i saldi).
 const gazzettaVista = new Set();
-const PESO_NOTIZIA = { scandalo: 9, allarme: 8, evento: 7, politica: 6, borsa: 5, affari: 4, fama: 3, notarile: 2, voce: 2, notizia: 1 };
-const SEZIONI_GAZZETTA = [["Cronaca nera", ["scandalo", "allarme"]], ["Politica", ["politica"]], ["Affari", ["affari", "notarile", "notizia"]], ["Mondanità", ["fama"]], ["Si dice che…", ["voce"]], ["La Laguna", ["evento"]]];
+const PESO_NOTIZIA = { scandalo: 9, parola: 8, allarme: 8, evento: 7, politica: 6, borsa: 5, affari: 4, fama: 3, notarile: 2, voce: 2, notizia: 1 };
+const SEZIONI_GAZZETTA = [["Cronaca nera", ["scandalo", "allarme", "parola"]], ["Politica", ["politica"]], ["Affari", ["affari", "notarile", "notizia"]], ["Mondanità", ["fama"]], ["Si dice che…", ["voce"]], ["La Laguna", ["evento"]]];
 function fotoNotizia(g) {
   const x = g.testo;
   const regole = [[/Porto|carico|container/i, "img/notte-porto.jpg"], [/Casin/i, "img/notte-casino.jpg"], [/Faro|arrestat|cella|Processo|condann|Procura/i, "img/notte-faro.jpg"], [/Borsa|titol|cripto|Coin|Token/i, "img/corona.jpg"],
@@ -1692,7 +1706,7 @@ const NOVITA = { 76: ["<b>Viaggio rapido.</b> Ora si fa una volta ogni 2 Cicli e
   "<b>Il Timbro del Municipio</b> non si consuma più da solo: quando chiedi un permesso il gioco ti chiede se vuoi usarlo.",
   "<b>Prova di fedeltà.</b> Costa il 10% del Tesoro (almeno 2 milioni), e di più se la rifai nello stesso Ciclo. Il membro lo sa. Se era fedele, la setta perde 3 Influenza.",
   "<b>Chi vende la setta paga.</b> Il Gran Maestro tiene una Prova sul traditore, e per 4 Cicli nessuna setta lo prende.",
-  "<b>Patto sulla parola.</b> Quando scade, chi deve pagare ha tempo fino all'Alba dopo (\"Paga ora\" nell'app Contratti). Se non paga, rompe la parola: −8 fama e la Gazzetta lo scrive.",
+  "<b>Patto sulla parola.</b> Quando scade, chi deve pagare ha tempo fino all'Alba dopo (\"Paga ora\" nell'app Contratti). Se non paga, rompe la parola: −8 fama. Quando qualcuno rompe la parola (anche un Favore) esce in Ultim'ora e compare un avviso a tutti e due.",
   "<b>Versione nuova.</b> Se il gioco è stato aggiornato, in alto compare \"C'è una versione nuova del gioco\": tocca Aggiorna."], 75: ["<b>I Servizi dei contatti.</b> Un poliziotto o un banchiere comprato ora ti fa un Servizio per Ciclo: una transenna sul tabellone, una retata dove vuoi tu, il conto di un rivale, un carico tenuto da parte. App Soldi sporchi, La tua rete.",
   "<b>Attento all'umore.</b> Ogni Servizio rende il contatto più nervoso: più lo usi, prima gli Affari Interni arrivano a lui. E poi a te.",
   "<b>La Fedina pulita.</b> Ogni Ciclo senza atti sporchi la fa crescere. A 2 puoi firmare un esposto, a 4 aprire un'inchiesta su un rivale, a 6 donare un'opera alla città. App Municipio, «Cittadino onesto».",
