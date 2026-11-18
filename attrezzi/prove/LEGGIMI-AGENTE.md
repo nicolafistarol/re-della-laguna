@@ -1,0 +1,12 @@
+# Regole per chi programma Re della Laguna (questa sessione)
+- Repo: /home/claude/re-della-laguna, ramo `dinamiche`. Fai commit piccoli e frequenti su questo ramo. NON fare push, NON pubblicare su Supabase: lo fa l'orchestratore.
+- Specifica: /home/claude/prove/ACCORDO.md (sezione c). Seguila; se un punto non si può fare o è sbagliato rispetto al codice, scegli l'opzione più sicura e scrivilo nel resoconto.
+- File: motore.js (regole, vista), bot.js (giocatori-computer), gioco.js (interfaccia, modulo ES), locale.js, stile.css. server/ NON toccare (si genera dopo con terser).
+- Il motore oggi ha anche: STRUMENTI del mercato nero, SITUAZIONI dell'Alba (sitMult), gen2 / num(s, chiave) / N_GEN2 per i numeri delle partite nuove, vista() con CAMPI_PUBBLICI (dei giocatori ALTRI passa solo quello che c'e' in lista: i campi nuovi pubblici vanno aggiunti li'), VERSIONE_REGOLE e NOVITA (gioco.js) per la finestra "Novita'".
+- ATTENZIONE: nei template `${...}` su una riga non usare `//`, solo `/* */`. vista() non deve mai modificare lo stato vero. Campi nuovi sempre creati al volo (s.favori = s.favori || []): ci sono partite vere gia' iniziate.
+- Controlli dopo ogni modifica: `cp gioco.js /tmp/g.mjs && node --check /tmp/g.mjs`; `node --check motore.js bot.js`.
+- Simulazione: `node /home/claude/prove/sim.js /home/claude/re-della-laguna/motore.js /home/claude/re-della-laguna/bot.js 200 12` (0 errori; vincitore mediano oggi ~120 M; stampa vittorie e media per carattere).
+- Partite vecchie: `node /home/claude/prove/vecchia.js /tmp/motore-v65.js /tmp/bot-v65.js /home/claude/re-della-laguna/motore.js /home/claude/re-della-laguna/bot.js` (10 su 10 senza errori).
+- Browser: server locale `cd /home/claude/re-della-laguna && nohup python3 -m http.server 8765 &` poi `python3 /home/claude/prove/gioca.py 200` (gioca da solo, stampa errori della pagina) e `python3 /home/claude/prove/foto.py URL out.png 1280 800 3000 ...passi` (screenshot; passi: "text=Chiudi", "fill:input=Nicola", "text=Inizia", "wait:2000", "js:<codice>"). Guarda gli screenshot con lo strumento Read.
+- Testi per i giocatori: italiano semplice, frasi brevi. La consigliera si chiama Vera.
+- Alla fine: aggiungi una voce in NOVITA (gioco.js) con chiave = nuovo VERSIONE_REGOLE (motore, alzalo di 1) che spiega in 3-5 frasi semplici le novita'. Scrivi il resoconto in /home/claude/prove/rapporto-<nome>.md: cosa hai fatto, cosa no e perche', come l'hai provato, numeri della simulazione prima/dopo.
