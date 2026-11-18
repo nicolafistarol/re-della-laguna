@@ -11,14 +11,14 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=72";
+import * as Tre from "./tre.js?v=73";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 // chiave nuova: la vecchia scelta "2D" (laguna_3d) non conta piu', il diorama parte da solo
 function vuole3D() { try { return localStorage.getItem("laguna_vista") !== "piatta"; } catch (e) { return true; } }
 let AVVISO3D = false;
-import * as Loc from "./locale.js?v=72";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=73";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -72,69 +72,161 @@ function leggiLocale() { try { return JSON.parse(localStorage.getItem("laguna_on
 function sfondo(img) { $("#sfondo").style.backgroundImage = `url('${img}')`; }
 
 // ------------------------------------------------------------ suoni (generati dal browser) e musica (due brani originali in musica/)
+// Tutto passa da WebAudio: sull'iPhone il volume di un <audio> non si cambia da codice, quello di un GainNode si'.
+//   master ── musica (un brano alla volta, in loop senza salto, con dissolvenza vera)
+//          └─ effetti (suoni sintetizzati: niente file)
+// Il tasto del suono spegne tutto (master a zero e brano fermato).
 const Suono = (() => {
-  let ctx = null, master = null, eco = null, acceso = true, modo = null, timer = null, drone = [];
+  let ctx = null, master = null, busMusica = null, busEffetti = null, eco = null, acceso = true, modo = null;
   try { acceso = localStorage.getItem("laguna_audio") !== "0"; } catch (e) { }
+  const VOL_MASTER = 0.9, VOL_MUSICA = 0.34, VOL_EFFETTI = 0.6;
   function avvia() {
-    if (ctx) { if (ctx.state === "suspended") ctx.resume(); return; }
+    if (ctx) { if (ctx.state !== "running") ctx.resume().catch(() => { }); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-    ctx = new AC(); master = ctx.createGain(); master.gain.value = acceso ? 0.55 : 0; master.connect(ctx.destination);
-    // un'eco morbida per dare spazio
+    try { ctx = new AC(); } catch (e) { ctx = null; return; }
+    master = ctx.createGain(); master.gain.value = acceso ? VOL_MASTER : 0; master.connect(ctx.destination);
+    busMusica = ctx.createGain(); busMusica.gain.value = VOL_MUSICA; busMusica.connect(master);
+    busEffetti = ctx.createGain(); busEffetti.gain.value = VOL_EFFETTI; busEffetti.connect(master);
+    // un'eco morbida per dare spazio agli effetti
     eco = ctx.createDelay(1); eco.delayTime.value = 0.33; const fb = ctx.createGain(); fb.gain.value = 0.32; const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2200;
-    eco.connect(lp); lp.connect(fb); fb.connect(eco); lp.connect(master);
-    if (modo) ambiente(modo, true);
+    eco.connect(lp); lp.connect(fb); fb.connect(eco); lp.connect(busEffetti);
+    if (ctx.state !== "running") ctx.resume().catch(() => { });
+    if (!modo) modo = "giorno"; // la musica parte gia' dalla prima schermata, al primo tocco
+    suonaBrano();
   }
-  function nota(f, t0, dur, vol, tipo = "sine", conEco = true) {
-    if (!ctx) return;
-    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = tipo; o.frequency.value = f;
+  const ok = () => ctx && acceso;
+  function nota(f, t0, dur, vol, tipo = "sine", conEco = true, fFine) {
+    if (!ok()) return;
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = tipo; o.frequency.setValueAtTime(f, t0);
+    if (fFine) o.frequency.exponentialRampToValueAtTime(fFine, t0 + dur);
     g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(g); g.connect(master); if (conEco) g.connect(eco); o.start(t0); o.stop(t0 + dur + 0.05);
+    o.connect(g); g.connect(busEffetti); if (conEco) g.connect(eco); o.start(t0); o.stop(t0 + dur + 0.05);
   }
-  function rumore(t0, dur, vol, freq) {
-    if (!ctx) return;
+  function rumore(t0, dur, vol, freq, q = 1.2, tipo = "bandpass") {
+    if (!ok()) return;
     const b = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate), d = b.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
-    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = b; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = 1.2; g.gain.value = vol;
-    s.connect(f); f.connect(g); g.connect(master); s.start(t0);
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = b; f.type = tipo; f.frequency.value = freq; f.Q.value = q; g.gain.value = vol;
+    s.connect(f); f.connect(g); g.connect(busEffetti); s.start(t0);
   }
-  const PENTA = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3, 784];
-  // la colonna sonora: due brani originali (musica/giorno.mp3 e musica/notte.mp3, composti da musica/compositore.py,
-  // nessun diritto), in loop, con dissolvenza quando si passa dal giorno alla notte
-  const VOL_MUSICA = 0.38, brani = {}; let sfuma = null;
-  function brano(k) { if (!brani[k]) { const a = new Audio("musica/" + k + ".mp3?v=64"); a.loop = true; a.preload = "auto"; a.volume = 0; brani[k] = a; } return brani[k]; }
+  const adesso = () => ctx.currentTime + 0.01;
+  // ---- la colonna sonora: due brani originali (musica/giorno.mp3 e musica/notte.mp3, composti da musica/compositore.py,
+  // nessun diritto). Si scaricano una volta, si decodificano e si suonano con un AudioBufferSource in loop:
+  // il punto di giunta e' esatto (32 battute), quindi niente "buco" dell'MP3. Mai due brani insieme:
+  // quello vecchio sfuma e si ferma, poi entra quello nuovo.
+  const DURATA = { giorno: 32 * 4 * 60 / 92, notte: 32 * 4 * 60 / 76 }; // secondi veri del brano composto
+  const buffer = {}, inArrivo = {}; let voce = null, giro = 0;
+  function carica(k) {
+    if (buffer[k]) return Promise.resolve(buffer[k]);
+    if (!inArrivo[k]) inArrivo[k] = fetch("musica/" + k + ".mp3?v=64").then((r) => { if (!r.ok) throw new Error("musica"); return r.arrayBuffer(); })
+      .then((ab) => new Promise((si, no) => { const p = ctx.decodeAudioData(ab, si, no); if (p && p.then) p.then(si, no); }))
+      .then((b) => { buffer[k] = b; return b; }).catch((e) => { delete inArrivo[k]; throw e; });
+    return inArrivo[k];
+  }
+  // dove comincia davvero il suono: alcuni browser lasciano in testa il silenzio dell'MP3 (circa 25 ms)
+  function inizioVero(b) {
+    const d = b.getChannelData(0), max = Math.min(d.length, Math.round(b.sampleRate * 0.08));
+    for (let i = 0; i < max; i++) if (Math.abs(d[i]) > 0.0015) return Math.max(0, i - 8) / b.sampleRate;
+    return 0;
+  }
+  function spegniVoce(sec) {
+    const v = voce; voce = null; if (!v) return 0;
+    const t = ctx.currentTime;
+    try { v.g.gain.cancelScheduledValues(t); v.g.gain.setValueAtTime(v.g.gain.value, t); v.g.gain.linearRampToValueAtTime(0, t + sec); v.src.stop(t + sec + 0.05); } catch (e) { }
+    return sec;
+  }
   function suonaBrano() {
-    if (!modo) return;
-    const cur = modo === "notte" ? "notte" : "giorno", a = brano(cur);
-    if (!acceso) { for (const x of Object.values(brani)) x.pause(); return; }
-    if (a.paused) a.play().catch(() => { });
-    clearInterval(sfuma);
-    sfuma = setInterval(() => {
-      let fatto = true;
-      for (const [k, x] of Object.entries(brani)) {
-        const v = k === cur ? VOL_MUSICA : 0, d = v - x.volume;
-        if (Math.abs(d) > 0.02) { x.volume = Math.max(0, Math.min(1, x.volume + Math.sign(d) * 0.02)); fatto = false; }
-        else { x.volume = v; if (v === 0 && !x.paused) x.pause(); }
-      }
-      if (fatto) clearInterval(sfuma);
-    }, 70);
+    if (!ctx || !modo) return;
+    const k = modo === "notte" ? "notte" : "giorno", mio = ++giro;
+    if (!acceso) { spegniVoce(0.15); return; }
+    if (voce && voce.k === k) return;
+    const attesa = spegniVoce(0.9); // il vecchio sfuma e tace...
+    carica(k).then((b) => {
+      if (mio !== giro || !acceso) return; // nel frattempo e' cambiato qualcosa: lascio stare
+      const parte = Math.max(ctx.currentTime + 0.05, ctx.currentTime + attesa - 0.25); // ...poi entra il nuovo
+      const src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = b; src.loop = true;
+      const t0 = inizioVero(b); src.loopStart = t0; src.loopEnd = Math.min(b.duration, t0 + (DURATA[k] || b.duration));
+      g.gain.setValueAtTime(0, parte); g.gain.linearRampToValueAtTime(1, parte + 1.4);
+      src.connect(g); g.connect(busMusica); src.start(parte, t0);
+      voce = { k, src, g };
+    }).catch(() => { });
   }
   function ambiente(m, forza) {
     if (m === modo && !forza) return; modo = m;
     if (ctx) suonaBrano();
   }
+  // la musica si abbassa quando un suono importante deve sentirsi bene (Alba, vittoria), poi risale
+  function sottofondo(sec) { if (!ok()) return; const t = ctx.currentTime, g = busMusica.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(VOL_MUSICA * 0.3, t + 0.25); g.linearRampToValueAtTime(VOL_MUSICA * 0.3, t + sec); g.linearRampToValueAtTime(VOL_MUSICA, t + sec + 1.2); }
+  // scheda nascosta: la musica tace, gli avvisi no
+  document.addEventListener("visibilitychange", () => { if (!ctx || !busMusica) return; const t = ctx.currentTime, g = busMusica.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(document.hidden ? 0 : VOL_MUSICA, t + 0.6); });
+  const peso = (importo) => Math.max(0, Math.min(3, Math.floor(Math.log10(Math.max(1, importo || 0)) - 4))); // 10k→0, 100k→1, 1M→2, 10M→3
   return {
     avvia, ambiente,
     acceso: () => acceso,
-    cambia() { acceso = !acceso; try { localStorage.setItem("laguna_audio", acceso ? "1" : "0"); } catch (e) { } avvia(); if (master) master.gain.value = acceso ? 0.55 : 0; suonaBrano(); },
-    dado() { if (!ctx) return; const t = ctx.currentTime; for (let i = 0; i < 9; i++) rumore(t + i * 0.09 + Math.random() * 0.04, 0.07, 0.5 - i * 0.04, 2500 + Math.random() * 1500); },
-    passo(mio) { if (!ctx) return; nota(mio ? 880 : 660, ctx.currentTime, 0.08, mio ? 0.06 : 0.03, "square", false); },
-    soldi(su) { if (!ctx) return; const t = ctx.currentTime; if (su) { nota(1046.5, t, 0.25, 0.08); nota(1318.5, t + 0.08, 0.4, 0.08); nota(1568, t + 0.16, 0.5, 0.06); } else { nota(392, t, 0.3, 0.07, "triangle"); nota(311.1, t + 0.12, 0.45, 0.07, "triangle"); } },
-    avviso() { if (!ctx) return; const t = ctx.currentTime; nota(880, t, 0.25, 0.045); nota(1174.7, t + 0.1, 0.35, 0.045); },
-    telefono() { if (!ctx) return; const t = ctx.currentTime; for (let i = 0; i < 2; i++) { nota(1318.5, t + i * 0.18, 0.12, 0.05, "sine", false); nota(1760, t + i * 0.18 + 0.06, 0.12, 0.05, "sine", false); } },
+    cambia() {
+      acceso = !acceso; try { localStorage.setItem("laguna_audio", acceso ? "1" : "0"); } catch (e) { }
+      avvia(); if (!ctx) return;
+      const t = ctx.currentTime; master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(master.gain.value, t); master.gain.linearRampToValueAtTime(acceso ? VOL_MASTER : 0, t + 0.12);
+      suonaBrano();
+    },
+    // dadi: colpetti sul tavolo che rallentano, poi si fermano
+    dado() { if (!ok()) return; const t = adesso(); let x = 0; for (let i = 0; i < 9; i++) { x += 0.05 + i * 0.012; rumore(t + x + Math.random() * 0.02, 0.06, 0.55 - i * 0.045, 1800 + Math.random() * 1800); nota(190 + Math.random() * 60, t + x, 0.05, 0.05 - i * 0.004, "triangle", false); } },
+    // un passo sul tabellone: un "tic" morbido, solo per le tue mosse (quelle degli altri non fanno rumore)
+    passo(mio) { if (!ok() || !mio) return; nota(1320, adesso(), 0.06, 0.035, "sine", false, 880); },
+    soldi(su, importo) { if (!ok()) return; const t = adesso(), n = peso(importo); if (su) { [1046.5, 1318.5, 1568, 2093, 2637].slice(0, 2 + n).forEach((f, i) => nota(f, t + i * 0.075, 0.3 + i * 0.05, 0.07)); } else { nota(392, t, 0.3, 0.06, "triangle"); nota(311.1, t + 0.12, 0.45, 0.06, "triangle"); if (n >= 2) nota(233.1, t + 0.26, 0.6, 0.06, "triangle"); } },
+    // acquisto: cassetto del registratore + campanello
+    acquisto() { if (!ok()) return; const t = adesso(); rumore(t, 0.09, 0.5, 900, 0.8); rumore(t + 0.07, 0.05, 0.4, 3200, 2); nota(1975.5, t + 0.12, 0.7, 0.07); nota(2637, t + 0.14, 0.9, 0.05); nota(3951, t + 0.14, 0.5, 0.02); },
+    // affitto incassato: monete che cadono (di piu' se la cifra e' grande)
+    affittoIncassato(importo) { if (!ok()) return; const t = adesso(), n = 3 + peso(importo) * 2; for (let i = 0; i < n; i++) { const f = 2200 + Math.random() * 1800; nota(f, t + i * 0.055 + Math.random() * 0.02, 0.18, 0.045, "sine", i % 2 === 0); rumore(t + i * 0.055, 0.03, 0.12, 5200, 3); } nota(1568, t + n * 0.055 + 0.05, 0.5, 0.06); },
+    // affitto pagato: il portafogli che si svuota (tre note che scendono)
+    affittoPagato(importo) { if (!ok()) return; const t = adesso(), n = peso(importo); rumore(t, 0.12, 0.3, 500, 0.7); [392, 329.6, 261.6, 196].slice(0, 2 + Math.min(2, n)).forEach((f, i) => nota(f, t + 0.05 + i * 0.13, 0.4, 0.07, "triangle")); },
+    // l'Alba: campane lontane e un accordo che si apre
+    alba() { if (!ok()) return; sottofondo(3.2); const t = adesso(); [[392, 0], [587.3, 0.35], [784, 0.7], [987.8, 1.05], [1174.7, 1.4]].forEach(([f, d]) => { nota(f, t + d, 2.2, 0.06); nota(f * 2.01, t + d, 1.4, 0.015); }); nota(196, t, 3, 0.05, "triangle"); },
+    // cala la notte: due note basse e un soffio
+    notte() { if (!ok()) return; const t = adesso(); nota(220, t, 1.6, 0.06, "triangle"); nota(164.8, t + 0.5, 2.2, 0.07, "triangle"); nota(659.3, t + 1, 1.8, 0.025); rumore(t, 1.2, 0.12, 700, 0.5, "lowpass"); },
+    // polizia: sirena a due toni, breve
+    polizia() { if (!ok()) return; const t = adesso(); for (let i = 0; i < 4; i++) { nota(i % 2 ? 620 : 830, t + i * 0.3, 0.3, 0.05, "sawtooth", false); nota(i % 2 ? 622 : 833, t + i * 0.3, 0.3, 0.03, "square", false); } },
+    // la serratura della cella
+    cella() { if (!ok()) return; const t = adesso(); rumore(t, 0.2, 0.6, 300, 0.8); nota(110, t, 0.5, 0.12, "triangle", true, 55); rumore(t + 0.28, 0.08, 0.5, 2400, 3); },
+    // salita di livello: arpeggio d'oro che sale
+    livello() { if (!ok()) return; sottofondo(1.6); const t = adesso(); [523.3, 659.3, 784, 1046.5, 1318.5, 1568].forEach((f, i) => nota(f, t + i * 0.085, 0.6 + i * 0.08, 0.065)); nota(2093, t + 0.6, 1.4, 0.05); },
+    // vittoria: una piccola fanfara
+    vittoria() { if (!ok()) return; sottofondo(4.5); const t = adesso(); const F = [[392, 0, .22], [392, .22, .22], [392, .44, .22], [523.3, .66, .7], [466.2, 1.36, .22], [523.3, 1.58, .22], [587.3, 1.8, .22], [784, 2.02, 1.6]]; F.forEach(([f, d, l]) => { nota(f, t + d, l + 0.25, 0.07, "sawtooth"); nota(f / 2, t + d, l + 0.25, 0.06, "triangle"); nota(f * 1.5, t + d, l + 0.2, 0.025); }); [1046.5, 1318.5, 1568, 2093].forEach((f, i) => nota(f, t + 2.1 + i * 0.09, 1.6, 0.045)); },
+    // il martelletto dell'asta
+    asta() { if (!ok()) return; const t = adesso(); [0, 0.16].forEach((d) => { rumore(t + d, 0.05, 0.7, 1100, 1.5); nota(150, t + d, 0.12, 0.14, "triangle", true, 90); }); },
+    // una carta girata sul tavolo
+    carta() { if (!ok()) return; const t = adesso(); rumore(t, 0.09, 0.3, 4200, 0.9, "highpass"); },
+    // l'attimo prima di sapere com'e' andata: un battito che accelera
+    suspense() { if (!ok()) return; const t = adesso(); [0, 0.34, 0.62, 0.84, 1.0].forEach((d, i) => nota(70, t + d, 0.18, 0.13 + i * 0.01, "sine", false, 45)); },
+    esito(bene) { if (!ok()) return; const t = adesso(); if (bene) { nota(659.3, t, 0.3, 0.07); nota(987.8, t + 0.09, 0.6, 0.07); } else { nota(207.7, t, 0.5, 0.08, "sawtooth"); nota(155.6, t + 0.14, 0.8, 0.08, "sawtooth"); } },
+    clic() { if (!ok()) return; nota(1500, adesso(), 0.035, 0.02, "sine", false, 1100); },
+    avviso() { if (!ok()) return; const t = adesso(); nota(880, t, 0.25, 0.04); nota(1174.7, t + 0.1, 0.35, 0.04); },
+    telefono() { if (!ok()) return; const t = adesso(); for (let i = 0; i < 2; i++) { nota(1318.5, t + i * 0.18, 0.12, 0.05, "sine", false); nota(1760, t + i * 0.18 + 0.06, 0.12, 0.05, "sine", false); } },
   };
 })();
-addEventListener("pointerdown", () => Suono.avvia(), { capture: true });
-addEventListener("keydown", () => Suono.avvia(), { capture: true });
+// il primo tocco sblocca l'audio (sull'iPhone serve un gesto vero: tocco, clic o tasto)
+for (const ev of ["pointerdown", "touchend", "click", "keydown"]) addEventListener(ev, () => Suono.avvia(), { capture: true, passive: true });
+if (location.search.includes("provasuono")) window.Suono = Suono; // solo per le prove automatiche dell'audio
+
+// qualche icona in piu' (Lucide, licenza ISC) per i tasti e gli avvisi: cosi' niente emoji, che cambiano da un computer all'altro
+const ICONE_E = {
+  "suono-si": '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+  "suono-no": '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/>',
+  lucchetto: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  attenzione: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  corona: '<path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>',
+  libro: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  fatto: '<path d="M20 6 9 17l-5-5"/>',
+  altro: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  giu: '<path d="m6 9 6 6 6-6"/>',
+  su: '<path d="m18 15-6-6-6 6"/>',
+  freccia: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  medaglia: '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>',
+  candela: '<path d="M9 9h6v12H9z"/><path d="M12 2c1.5 1.6 2 2.7 2 3.6A2 2 0 0 1 12 7.5a2 2 0 0 1-2-1.9c0-.9.5-2 2-3.6z"/>',
+  binocolo: '<circle cx="6.5" cy="16" r="3.5"/><circle cx="17.5" cy="16" r="3.5"/><path d="M10 16h4"/><path d="M4 13 6 5h3l1 8"/><path d="m20 13-2-8h-3l-1 8"/>',
+  pacco: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+};
+function icoE(nome, cls = "") { const p = ICONE_E[nome]; return p ? `<svg class="lic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>` : ico(nome, cls); }
 
 // ------------------------------------------------------------ server
 async function chiama(corpo) {
@@ -593,12 +685,12 @@ function disegna() {
   ${notte ? scenaNotte(me)
       : `<div class="ticker">${cron.map((r) => `<div class="${r.chi === mioId ? "mia" : ""}">${esc(r.testo)}</div>`).join("")}</div>`}
   ${notte ? "" : comandiVista() + legenda()}
-  <button class="vetro audio" id="audio" aria-label="${Suono.acceso() ? "Spegni" : "Accendi"} i suoni">${Suono.acceso() ? "🔊" : "🔇"}</button>
+  <button class="vetro audio ${Suono.acceso() ? "" : "spento"}" id="audio" title="${Suono.acceso() ? "Spegni musica e suoni" : "Accendi musica e suoni"}" aria-label="${Suono.acceso() ? "Spegni" : "Accendi"} musica e suoni">${icoE(Suono.acceso() ? "suono-si" : "suono-no")}</button>
   ${notte ? "" : `<div class="carta vetro">${animando ? `<div class="sub">…</div>` : cartaGiorno(me)}</div>`}`;
   $("#occhio").onclick = () => { saldoNascosto = !saldoNascosto; disegna(); };
   document.querySelectorAll(".chip.tratta").forEach((c) => c.onclick = () => finestraTratta(me, c.dataset.gioc));
   if (!notte) collegaComandiVista(me); applicaVista(); if (!notte) apriMappaVicino(me);
-  $("#audio").onclick = () => { Suono.cambia(); $("#audio").textContent = Suono.acceso() ? "🔊" : "🔇"; };
+  $("#audio").onclick = () => { Suono.cambia(); const b = $("#audio"), si = Suono.acceso(); b.innerHTML = icoE(si ? "suono-si" : "suono-no"); b.classList.toggle("spento", !si); b.title = si ? "Spegni musica e suoni" : "Accendi musica e suoni"; b.setAttribute("aria-label", b.title); };
   const rc = document.querySelector(".scena .righe"); if (rc) rc.scrollTop = rc.scrollHeight;
   disegnaTelefono(me);
   if (animando) return;
@@ -1543,7 +1635,11 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 72: ["<b>Tabellone nuovo.</b> È la foto della Laguna in rilievo, con il mare che si muove. Da lontano vedi segnalini piccoli; avvicinati con + per vedere i prezzi, ancora di più per i nomi. I Palazzi dei giocatori sono colonne di luce del loro colore.", "<b>Partita più sicura.</b> Un valore sbagliato non blocca più la partita, e nessuno può spiare le carte degli altri a Sette e mezzo."], 70: ["<b>Strumenti del mercato nero.</b> Al Mercato Nero, al Porto e al Casinò ogni notte ci sono 3 strumenti diversi, presi a caso tra 24. Ognuno è unico: chi arriva prima lo prende. Ci sono strumenti rari e leggendari. Quelli grossi occupano 2 posti nella valigetta, che resta della stessa misura: scegli bene cosa portarti.",
+const NOVITA = { 73: ["<b>Aste giuste.</b> Chi rinuncia non può più offrire, la base d'asta è il 60% del prezzo e le offerte si scoprono solo alla fine.",
+  "<b>Trucchi chiusi.</b> La spinta in Borsa della setta non si ripete più a volontà, il Casinò privato non ripulisce gratis, le pene si calcolano in un modo solo e chiaro.",
+  "<b>Notte.</b> Le proposte tra giocatori non spariscono più, e il Sette e mezzo tra giocatori si gioca davvero.",
+  "<b>Musica e suoni rifatti:</b> funzionano anche su iPhone.",
+  "<b>Solo nelle partite nuove:</b> permessi sicuri ma con un bollo, affitti che crescono di più con il livello, Palazzo che non fa più esplodere i soldi nelle partite lunghe."], 72: ["<b>Tabellone nuovo.</b> È la foto della Laguna in rilievo, con il mare che si muove. Da lontano vedi segnalini piccoli; avvicinati con + per vedere i prezzi, ancora di più per i nomi. I Palazzi dei giocatori sono colonne di luce del loro colore.", "<b>Partita più sicura.</b> Un valore sbagliato non blocca più la partita, e nessuno può spiare le carte degli altri a Sette e mezzo."], 70: ["<b>Strumenti del mercato nero.</b> Al Mercato Nero, al Porto e al Casinò ogni notte ci sono 3 strumenti diversi, presi a caso tra 24. Ognuno è unico: chi arriva prima lo prende. Ci sono strumenti rari e leggendari. Quelli grossi occupano 2 posti nella valigetta, che resta della stessa misura: scegli bene cosa portarti.",
   "<b>Come si usano.</b> Prima di un affare scegli cosa portare. Alcuni ti salvano da un pericolo, altri fanno rendere di più un colpo preciso, altri tolgono Tracce. Alcuni funzionano in coppia, per esempio Maschera + Guanti. Il Timbro del Municipio si usa di giorno: il permesso è sicuro, ma lascia Tracce.",
   "<b>Situazioni della Laguna.</b> A ogni Alba succede qualcosa: uno sciopero chiude il Porto, l'alta marea abbassa gli affitti di Sole, un black-out spegne le telecamere di Corona, la Finanza cerca i contanti… Sono più di 100. Durano 1 o 2 Cicli e aiutano alcuni e colpiscono altri.",
   "<b>Prepararsi.</b> Metà delle situazioni la Gazzetta le annuncia un Ciclo prima, in \"Si dice che…\". Le altre arrivano a sorpresa. Cosa succede adesso lo vedi in Gazzetta, nel riquadro \"Adesso in Laguna\".",

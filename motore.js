@@ -4391,7 +4391,7 @@
     // scoperte e consigli
     SCOPERTE: SCOPERTE.map(({ id, gruppo, lv, nome, indizio, spiega }) => ({ id, gruppo, lv, nome, indizio, spiega })),
     // mercato nero a rotazione e situazioni dell'Alba (v70)
-    STRUMENTI, BANCHI, SITUAZIONI, descriviSituazione, sitAttive, oggettoDef, postiUsati, prezzoOggetto, VERSIONE_REGOLE: 72,
+    STRUMENTI, BANCHI, SITUAZIONI, descriviSituazione, sitAttive, oggettoDef, postiUsati, prezzoOggetto, VERSIONE_REGOLE: 73,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;
