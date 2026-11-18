@@ -442,6 +442,7 @@
   function partecipantiAsta(s, minimo, escluso) { return s.players.filter((x) => !x.fallito && x.faro === 0 && x.id !== escluso && x.cash >= minimo).map((x) => x.id); }
   function iniziaTurno(s) {
     const p = corrente(s);
+    if (s.transenna && s.transenna.da === p.id) s.transenna = null; // la transenna resta fino al prossimo turno di chi l'ha messa
     p.haTirato = false; p.azioneGiornoFatta = false; p.doppi = 0; p.dadi = null; p.agenziaUsata = false; p.agenziaSconto = false; p.municipioOggi = false;
     s.pending = null;
     if (p.faro > 0) {
@@ -514,6 +515,12 @@
   function casella(s, p) { return s.lotti.find((l) => l.giro === "o" && l.idx === p.pos); }
 
   function atterra(s, p, c) {
+    // la transenna di un agente comprato: un Posto di blocco in piu', uguale a quello del Ponte Est (v75)
+    if (s.transenna && p.pos === s.transenna.pos) {
+      log(s, p.nome + " si ferma alla transenna di " + c.nome + ".");
+      postoDiBlocco(s, p, c.nome);
+      if (p.faro > 0) return;
+    }
     if (c.tipoCasella === "lotto" || c.tipoCasella === "molo") {
       if (c.owner == null) { s.pending = { tipo: "compra", lotto: c.id, giocatore: p.id }; return; }
       if (c.owner === p.id) return;
@@ -605,18 +612,19 @@
     if (!((p.tracce || 0) > 25)) return 0;
     return Math.min(1, p.tracce / 180) * (1 - protezione(s, p));
   }
-  function postoDiBlocco(s, p) {
+  function postoDiBlocco(s, p, transenna) {
     if (haOggetto(p, "documenti") && rng(s) < N.oggettoFalla) { togliOggetto(p, "documenti"); privato(s, p, "Al Posto di blocco l'agente guarda i tuoi documenti falsi troppo a lungo. Non ci casca."); }
-    else if (haOggetto(p, "documenti")) { togliOggetto(p, "documenti"); log(s, p.nome + " passa il Posto di blocco senza problemi.", p.id); privato(s, p, "Al Posto di blocco mostri i documenti falsi. L'agente ti fa cenno di passare."); return; }
+    else if (haOggetto(p, "documenti")) { togliOggetto(p, "documenti"); log(s, p.nome + " passa " + (transenna ? "la transenna" : "il Posto di blocco") + " senza problemi.", p.id); privato(s, p, "Al Posto di blocco mostri i documenti falsi. L'agente ti fa cenno di passare."); return; }
     // ILL-13: niente condanna per un tiro di dadi. Il fermo e' una perquisizione subito e un gradino verso il Processo.
     const r = rischioPostoDiBlocco(s, p);
     if (r > 0 && (r >= 1 || rng(s) < r)) {
       const osservato = p.stato >= 2, perche = osservato ? "La polizia ti teneva già d'occhio (" + STATI[p.stato] + ")." : motivoPolizia(s, p);
       log(s, p.nome + " viene fermato al Posto di blocco e controllato.", p.id);
       const trovato = perquisisci(s, p, "blocco");
-      p.stato = Math.min(4, Math.max(p.stato, 0) + 1); p.ultimaPista = { k: "blocco", testo: "Ti hanno fermato al Posto di blocco. " + perche, ciclo: s.ciclo + 1 };
+      p.stato = Math.min(4, Math.max(p.stato, 0) + 1); p.ultimaPista = { k: transenna ? "transenna" : "blocco", testo: (transenna ? "Ti hanno fermato alla transenna di " + transenna + ". " : "Ti hanno fermato al Posto di blocco. ") + perche, ciclo: s.ciclo + 1 };
+      if (transenna && s.transenna) { const da = s.players.find((x) => x.id === s.transenna.da), ag = da && (da.corrotti || {})["agente_" + s.transenna.isola]; if (ag) ag.servizi = (ag.servizi || 0) + 1; } // l'agente si e' esposto
       privato(s, p, "Fermato al Posto di blocco. Perché: " + perche + (trovato ? "" : " Ti perquisiscono ma non trovano niente.") + " La polizia sale di un gradino: ora sei \"" + STATI[p.stato] + "\"." + (p.stato >= 4 ? " All'Alba c'è il Processo." : ""));
-    } else log(s, p.nome + " passa il Posto di blocco senza problemi.", p.id);
+    } else log(s, p.nome + " passa " + (transenna ? "la transenna" : "il Posto di blocco") + " senza problemi.", p.id);
   }
 
   function compra(s, p, si) {
@@ -1231,6 +1239,7 @@
     p.tracce += 4; p.pulitoCiclo = false; p.macchia = true;
     p.peggiorReato = peggio(p.peggiorReato, chi === "agente" || chi === "doganiere" ? "media" : "grave");
     privato(s, p, "Accordo fatto: ora hai dalla tua parte " + (chi === "agente" ? "l'agente di " + NOMI_ISOLE[isola] : chi === "commissario" ? "il Commissario Vargas" : chi === "doganiere" ? "il doganiere dell'Aeroporto" : "il banchiere Lenz") + ".");
+    presentaContatto(s, p, chi);
     return true;
   }
   function ricicla(s, p, metodo, importo) {
@@ -1674,6 +1683,7 @@
     let r = 0.03 + 0.02 * Math.min(5, c.usi || 0) + Math.min(0.1, p.tracce / 1000);
     if (k.startsWith("agente_") && s.leggi.includes("polizia_doppia_" + k.slice(7))) r += 0.05;
     if (k === "commissario") r += 0.02;
+    r += 0.03 * Math.min(4, c.servizi || 0); // ogni Servizio lo rende piu' nervoso (v75)
     return Math.min(0.35, r);
   }
   function affariInterni(s, p, k) {
@@ -1733,6 +1743,8 @@
       if (s.retataAnnunciata) lvp = Math.min(2, lvp + 1);
       s.notte.pericolo[l] = LIVELLI_PERICOLO[lvp];
     }
+    s.transenna = null; // la transenna finisce con la Notte
+    retateNotte(s); // la retata di Vargas e i controlli dell'esposto
     // occasioni nascoste nei luoghi aperti
     let n = 1;
     for (const l of Object.keys(LUOGHI)) {
@@ -3668,6 +3680,313 @@
     return ricatti(s).some((r) => r.da === p.id && r.stato === "attesa") || favori(s).some((f) => f.a === p.id && f.origine === "ricatto" && vivo(f));
   }
 
+  // ------------------------------------------------------------ I SERVIZI DEI CONTATTI (v75)
+  // Ogni contatto comprato fa un Servizio per Ciclo. Ogni Servizio lo rende piu' nervoso (rischioContatto sale).
+  const SERVIZI = {
+    agente: { nome: "La transenna", tracce: 3 },
+    commissario: { nome: "Sposta la retata", tracce: 4 },
+    banchiere: { nome: "Fammi vedere il conto", tracce: 2 },
+    doganiere: { nome: "Cosa arriva stanotte?", tracce: 2 },
+  };
+  const PRESENTAZIONE = {
+    agente: "Se ti serve un posto di blocco dove dico io, chiedi.",
+    commissario: "Le retate le decido io. Anche dove.",
+    banchiere: "I conti degli altri? Li vedo tutti.",
+    doganiere: "So cosa arriva prima che arrivi.",
+  };
+  const MITTENTE_CONTATTO = { agente: "L'agente", commissario: "Vargas", banchiere: "Lenz", doganiere: "Il doganiere" };
+  // la prima volta che compri un contatto, lui si presenta (una volta sola per tipo)
+  function presentaContatto(s, p, chi) {
+    p.presentati = p.presentati || {};
+    if (p.presentati[chi] || !PRESENTAZIONE[chi]) return;
+    p.presentati[chi] = true;
+    privato(s, p, MITTENTE_CONTATTO[chi] + ": «" + PRESENTAZIONE[chi] + "» (app Soldi sporchi, La tua rete)");
+  }
+  function mioTurnoDiGiorno(s, p, cosa) {
+    if (s.fase !== "giorno" || corrente(s).id !== p.id) err((cosa || "Questa cosa") + " si fa nel tuo turno, di giorno.");
+    if (p.faro > 0) err("Sei al Faro.");
+  }
+  function servizio(s, p, a) {
+    const chi = a.chi;
+    if (!Object.prototype.hasOwnProperty.call(SERVIZI, chi || "")) err("Contatto sconosciuto.");
+    if (chi === "agente" && !ISOLE.includes(a.isola)) err("Scegli l'isola dell'agente.");
+    const k = chi === "agente" ? "agente_" + a.isola : chi;
+    const c = (p.corrotti || {})[k];
+    if (!c) err("Non hai questo contatto.");
+    if (p.faro > 0) err("Sei al Faro.");
+    if (c.sospetto != null) err("È sotto inchiesta: non risponde al telefono.");
+    // il doganiere: la seconda telefonata (quale carico tenere da parte) fa parte dello stesso Servizio
+    if (chi === "doganiere" && a.n != null) return riservaCarico(s, p, a.n);
+    if (c.servizioCiclo === s.ciclo) err("Questo Ciclo ti ha già fatto un Servizio.");
+    if (chi === "agente") {
+      mioTurnoDiGiorno(s, p, "La transenna");
+      if (s.pending) err("Prima finisci la scelta in corso.");
+      if (s.ciclo - (c.dal || 0) < 2) err("L'agente non si fida ancora: deve passare un altro Ciclo.");
+      const l = s.lotti.find((x) => x.giro === "o" && x.idx === a.pos);
+      if (!l || l.tipoCasella !== "lotto" || l.isola !== a.isola) err("Scegli una via di " + NOMI_ISOLE[a.isola] + ".");
+      if (s.players.some((q) => !q.fallito && !q.inner && q.pos === a.pos)) err("Lì adesso c'è una pedina: scegli un'altra casella.");
+      if (s.transennaCiclo === s.ciclo) err("In questo Ciclo c'è già stata una transenna.");
+      s.transenna = { pos: a.pos, isola: a.isola, da: p.id };
+      s.transennaCiclo = s.ciclo;
+      notizia(s, "Posto di blocco a sorpresa in " + l.nome + ", " + NOMI_ISOLE[a.isola] + ". Chi ci si ferma viene controllato.", "evento");
+      log(s, "Posto di blocco a sorpresa in " + l.nome + ".");
+      privato(s, p, "L'agente di " + NOMI_ISOLE[a.isola] + ": «Fatto. In " + l.nome + " c'è la transenna fino al tuo prossimo turno. Attento: vale anche per te.»");
+    } else if (chi === "commissario") {
+      mioTurnoDiGiorno(s, p, "La retata");
+      if (s.pending) err("Prima finisci la scelta in corso.");
+      if (!LUOGHI[a.luogo] || a.luogo === "palazzo") err("Scegli un posto della notte.");
+      if (s.ordineVargas && s.ordineVargas.ciclo === s.ciclo) err("Stanotte Vargas ha già altri ordini.");
+      s.ordineVargas = { luogo: a.luogo, da: p.id, ciclo: s.ciclo };
+      privato(s, p, "Vargas: «Stanotte a " + nomeLuogo(a.luogo) + " ci saranno i miei uomini. Per tutti.»");
+    } else if (chi === "banchiere") {
+      if (s.fase === "notte") inNotte(s, p);
+      else if (s.fase !== "giorno") err("Adesso non si può.");
+      const b = s.players.find((x) => x.id === a.bersaglio);
+      if (!b || b.id === p.id || b.fallito) err("Scegli un rivale.");
+      p.contiVisti = p.contiVisti || {};
+      const cv = { ciclo: s.ciclo, puliti: Math.round((b.cash || 0) / 1e6), sporchi: Math.round((b.sporchi || 0) / 1e6) };
+      p.contiVisti[b.id] = cv;
+      privato(s, p, "Lenz: «" + b.nome + " ha circa " + cv.puliti + " milioni puliti e circa " + cv.sporchi + " milioni sporchi. Io non ti ho detto niente.»");
+    } else if (chi === "doganiere") {
+      inNotte(s, p);
+      const lv = livelloSblocco(s, p);
+      const lista = s.notte.occasioni.filter((o) => (o.luogo === "porto" || o.luogo === "aeroporto") && !o.preso && (!o.riservata || o.riservata === p.id)).filter((o) => {
+        const O = OCCASIONI.find((x) => x.id === o.id); return O && O.sblocco <= lv && (!O.soloSetta || inSetta(p)) && o.alle > s.notte.ora;
+      }).map((o) => ({ n: o.n, nome: OCCASIONI.find((x) => x.id === o.id).nome, luogo: o.luogo, dalle: o.dalle, alle: o.alle }));
+      p.arrivi = { ciclo: s.ciclo, lista, riservato: null };
+      privato(s, p, lista.length ? "Il doganiere: «Stanotte arrivano: " + lista.map((x) => x.nome + " (" + nomeLuogo(x.luogo) + ", dalle " + ORE[x.dalle] + " alle " + ORE[x.alle] + ")").join("; ") + ". Dimmi quale tengo da parte per te.»" : "Il doganiere: «Stanotte non arriva niente per te. Riprova domani.»");
+    }
+    c.servizioCiclo = s.ciclo; c.servizi = (c.servizi || 0) + 1;
+    const tr = SERVIZI[chi].tracce;
+    p.tracce += tr; segnaTraccia(s, p, tr, "un Servizio di " + nomeContatto(k));
+    p.pulitoCiclo = false; p.macchia = true;
+    return true;
+  }
+  function riservaCarico(s, p, n) {
+    inNotte(s, p);
+    const ar = p.arrivi;
+    if (!ar || ar.ciclo !== s.ciclo) err("Prima chiedi al doganiere cosa arriva stanotte.");
+    if (ar.riservato != null) err("Il doganiere ti ha già tenuto da parte un carico.");
+    if (!ar.lista.some((x) => x.n === n)) err("Questo carico non era nella lista.");
+    const o = s.notte.occasioni.find((x) => x.n === n);
+    if (!o || o.preso) err("Troppo tardi: qualcuno l'ha già preso.");
+    if (o.riservata && o.riservata !== p.id) err("Troppo tardi: è già di un altro.");
+    o.riservata = p.id; ar.riservato = n;
+    privato(s, p, "Il doganiere: «Tengo da parte " + OCCASIONI.find((x) => x.id === o.id).nome + " per te. " + nomeLuogo(o.luogo) + ", prima delle " + ORE[o.alle] + ".»");
+    return true;
+  }
+  // la contromossa del Sindaco: gratis, una volta per Ciclo, nel suo turno
+  function togliTransenna(s, p) {
+    mioTurnoDiGiorno(s, p, "Togliere la transenna");
+    if (s.sindaco !== p.id) err("Solo il Sindaco può far togliere una transenna.");
+    if (!s.transenna) err("Non c'è nessuna transenna.");
+    if (p.togliCiclo === s.ciclo) err("In questo Ciclo hai già fatto togliere una transenna.");
+    const l = s.lotti.find((x) => x.giro === "o" && x.idx === s.transenna.pos);
+    p.togliCiclo = s.ciclo; s.transenna = null;
+    notizia(s, "Il Sindaco fa togliere la transenna di " + (l ? l.nome : "via") + ".", "evento");
+    log(s, "Il Sindaco " + p.nome + " fa togliere la transenna di " + (l ? l.nome : "via") + ".");
+  }
+  // l'umore dei contatti, per la vista (calcolato senza scrivere)
+  function umoreContatti(s, p) {
+    const u = {};
+    for (const k of Object.keys(p.corrotti || {})) {
+      const c = p.corrotti[k];
+      if (c && c.sospetto != null) { u[k] = "inchiesta"; continue; }
+      const r = rischioContatto(s, p, k);
+      u[k] = r < 0.08 ? "tranquillo" : r <= 0.15 ? "teso" : "nervoso";
+    }
+    return u;
+  }
+
+  // ------------------------------------------------------------ LA FEDINA PULITA (v75)
+  // Ogni Ciclo senza macchie: +1. A 2 l'Esposto, a 4 l'Inchiesta, a 6 l'Opera pubblica. Un atto sporco: si riparte da 0.
+  const POTERI_FEDINA = {
+    2: "Vera: «Sei pulito da 2 Cicli: ora la polizia ti ascolta. Dal Municipio, \"Cittadino onesto\", puoi firmare un esposto su un posto della notte.»",
+    4: "Vera: «4 Cicli puliti. Ora in Procura ti credono: dal Municipio puoi aprire un'Inchiesta vera su un rivale.»",
+    6: "Vera: «6 Cicli puliti: sei il cittadino modello della Laguna. Dal Municipio puoi donare un'opera alla città, con il tuo nome sopra.»",
+  };
+  const OPERE_PUBBLICHE = { teatro: { nome: "Teatro", art: "il " }, parco: { nome: "Parco", art: "il " }, scuola: { nome: "Scuola", art: "la " } };
+  const COSTO_OPERA_PUBBLICA = 3_000_000;
+  function opere(s) { if (!Array.isArray(s.opere)) s.opere = []; return s.opere; }
+  function fedinaSporca(s, p) { return !!p.macchia || inSetta(p) || Object.keys(p.corrotti || {}).length > 0 || (p.evasione || 0) > 0; }
+  // all'Alba, dopo le rate dei contatti: il contatore della Fedina
+  function albaFedina(s, p) {
+    const prima = p.fedina || 0;
+    p.fedina = fedinaSporca(s, p) ? 0 : prima + 1;
+    p.macchia = false;
+    if (prima > 0 && p.fedina === 0) { privato(s, p, "Vera: «La tua Fedina pulita è andata. Si ricomincia da zero.»"); ritiraFascicolo(s, p); }
+    if (p.fedina !== prima && POTERI_FEDINA[p.fedina]) privato(s, p, POTERI_FEDINA[p.fedina]);
+  }
+  // la Fedina scende sotto 4 con un fascicolo aperto: accuse ritirate
+  function ritiraFascicolo(s, p) {
+    if (!p.fascicolo) return;
+    const b = s.players.find((x) => x.id === p.fascicolo.su);
+    p.inchiestaBlocco = p.inchiestaBlocco || {}; p.inchiestaBlocco[p.fascicolo.su] = s.ciclo + 2;
+    p.fascicolo = null;
+    p.fama = Math.max(0, (p.fama || 0) - 5);
+    notizia(s, p.nome + " ritira le accuse contro " + (b ? b.nome : "un rivale") + ": non è più credibile.", "voce");
+    privato(s, p, "Il tuo fascicolo è chiuso: senza Fedina pulita in Procura non ti credono più. −5 fama.");
+  }
+  function controllaFedina(p, quanto) { if ((p.fedina || 0) < quanto) err("Ti serve Fedina pulita " + quanto + "."); }
+  function luogoEsposto(l) { return !!LUOGHI[l] && l !== "palazzo" && l !== "faro"; }
+  function esposto(s, p, luogo) {
+    mioTurnoDiGiorno(s, p, "L'esposto");
+    controllaFedina(p, 2);
+    if (!luogoEsposto(luogo)) err("Scegli un posto della notte.");
+    if (p.espostoCiclo === s.ciclo) err("In questo Ciclo hai già firmato un esposto.");
+    if (p.espostoStop != null && p.espostoStop >= s.ciclo) err("Dopo l'allarme inutile, la polizia per ora non ti ascolta.");
+    if (s.esposto && s.esposto.ciclo === s.ciclo) err("La polizia ha già una segnalazione per stanotte.");
+    s.esposto = { luogo, da: p.id, ciclo: s.ciclo };
+    p.espostoCiclo = s.ciclo;
+    notizia(s, "Un cittadino ha segnalato movimenti sospetti. Stanotte la polizia promette controlli.", "voce");
+    privato(s, p, "Esposto firmato: stanotte la polizia sarà a " + nomeLuogo(luogo) + ". Se nessuno fa affari lì, perdi 4 di fama.");
+  }
+  // all'inizio dell'Alba, prima che aggiornaPiste() svuoti luoghiNotte
+  function esitoEsposto(s) {
+    const e = s.esposto; if (!e) return;
+    s.esposto = null;
+    const p = s.players.find((x) => x.id === e.da); if (!p) return;
+    const colti = s.players.filter((q) => q.id !== p.id && (q.luoghiNotte || {})[e.luogo]).length;
+    if (colti > 0) {
+      p.fama = (p.fama || 0) + 4;
+      privato(s, p, "Il tuo esposto ha colto nel segno: stanotte a " + nomeLuogo(e.luogo) + " c'era chi faceva affari (" + colti + (colti === 1 ? " persona" : " persone") + "). +4 fama.");
+      notizia(s, "I controlli di stanotte a " + nomeLuogo(e.luogo) + " hanno dato frutti.", "voce");
+    } else {
+      p.fama = Math.max(0, (p.fama || 0) - 4); p.espostoStop = s.ciclo + 1;
+      privato(s, p, "Esposto a vuoto: a " + nomeLuogo(e.luogo) + " stanotte non c'era nessuno. −4 fama, e per un Ciclo la polizia non ti ascolta.");
+      notizia(s, "Controlli a vuoto stanotte a " + nomeLuogo(e.luogo) + ". Allarme inutile.", "voce");
+    }
+  }
+  // all'inizio della notte: la retata di Vargas e i controlli dell'esposto (il blackout vince)
+  function retateNotte(s) {
+    const metti = (luogo, chi, msg) => {
+      if (!LUOGHI[luogo]) return;
+      if (s.blackout && LUOGHI[luogo].isola === s.blackout) { if (chi) privato(s, chi, msg); return; }
+      s.notte.pericolo[luogo] = "pericoloso";
+    };
+    const ov = s.ordineVargas;
+    if (ov && ov.ciclo === s.ciclo) metti(ov.luogo, s.players.find((x) => x.id === ov.da), "Vargas: «Col blackout, niente retata.»");
+    const e = s.esposto;
+    if (e && e.ciclo === s.ciclo) metti(e.luogo, s.players.find((x) => x.id === e.da), "Col blackout la polizia non va a " + nomeLuogo(e.luogo) + " stanotte. L'esposto conta lo stesso all'Alba.");
+  }
+  // L'Inchiesta: un fascicolo alla volta, un indizio vero a ogni Alba (se c'e')
+  function chiavePista(x) { return x.k + (x.luogo ? ":" + x.luogo : ""); }
+  function testoIndizio(s, b, x) {
+    if (x.k === "voci") {
+      const st = (b.storiaTracce || []).filter((y) => y.ciclo >= s.ciclo - 2).sort((m, n) => n.quanto - m.quanto)[0];
+      return st ? b.nome + " è stato collegato a «" + st.cosa + "» nel Ciclo " + (st.ciclo + 1) + "." : b.nome + " fa troppi affari sporchi: in giro se ne parla.";
+    }
+    if (x.k === "luogo") return b.nome + " è stato visto troppe notti a " + nomeLuogo(x.luogo) + ".";
+    if (x.k === "soldi") return b.nome + " ha ripulito e speso più di quanto rendono i suoi locali.";
+    if (x.k === "complici") return "Un contatto di " + b.nome + " è sotto inchiesta e sta parlando.";
+    if (x.k === "ricatto") return b.nome + " tiene qualcuno in pugno con un ricatto.";
+    return b.nome + " ha qualcosa da nascondere.";
+  }
+  const PISTE_INDIZIO = ["voci", "luogo", "soldi", "complici", "ricatto"];
+  function inchiestaApri(s, p, idB) {
+    mioTurnoDiGiorno(s, p, "L'inchiesta");
+    controllaFedina(p, 4);
+    if (p.fascicolo) err("Hai già un fascicolo aperto: un'inchiesta alla volta.");
+    const b = s.players.find((x) => x.id === idB);
+    if (!b || b.id === p.id) err("Scegli un rivale.");
+    if (b.fallito) err(b.nome + " è fallito.");
+    if ((p.inchiestaBlocco || {})[b.id] > s.ciclo) err("Su di lui hai già indagato da poco.");
+    controllaSilenzio(s, p, b.id);
+    p.fascicolo = { su: b.id, aperto: s.ciclo, albe: 0, indizi: [] };
+    b.sottoInchiesta = s.ciclo;
+    privato(s, b, "Vera: «Qualcuno fa domande su di te in Procura. Non so chi.»");
+    privato(s, p, "Hai aperto un fascicolo su " + b.nome + ". Ogni Alba un indizio vero, se c'è. Con due indizi pubblichi. Lui sa che qualcuno indaga, non sa chi.");
+  }
+  // all'Alba, dopo aggiornaPiste() di tutti e prima dei processi
+  function albaFascicoli(s) {
+    for (const p of s.players) {
+      const f = p.fascicolo; if (!f) continue;
+      const b = s.players.find((x) => x.id === f.su);
+      if (!b) { p.fascicolo = null; continue; }
+      f.albe += 1;
+      if (f.indizi.length < 2) {
+        const presi = new Set(f.indizi.map(chiavePista));
+        const ps = piste(s, b).filter((x) => PISTE_INDIZIO.includes(x.k) && x.peso > 0 && !presi.has(chiavePista(x)));
+        if (ps.length) {
+          let r = rng(s) * ps.reduce((a, y) => a + y.peso, 0), scelta = ps[0];
+          for (const y of ps) { r -= y.peso; if (r <= 0) { scelta = y; break; } }
+          const testo = testoIndizio(s, b, scelta);
+          f.indizi.push({ k: scelta.k, luogo: scelta.luogo || null, testo, ciclo: s.ciclo });
+          privato(s, p, "Fascicolo su " + b.nome + ": nuovo indizio. " + testo);
+        } else privato(s, p, f.albe === 1 && !f.indizi.length ? "Fascicolo su " + b.nome + ": su di lui non c'è niente da trovare. Per ora." : "Fascicolo su " + b.nome + ": stanotte niente di nuovo.");
+      }
+      if (f.albe >= 4) {
+        p.fascicolo = null;
+        p.inchiestaBlocco = p.inchiestaBlocco || {}; p.inchiestaBlocco[b.id] = s.ciclo + 2;
+        privato(s, p, "Fascicolo su " + b.nome + " archiviato: troppo tempo senza pubblicare.");
+      }
+    }
+  }
+  function effettoInchiesta(n) { return n >= 2 ? { fama: 15, tracce: 25, stato: 1, mia: 6 } : { fama: 6, tracce: 10, stato: 0, mia: 2 }; }
+  function inchiestaPubblica(s, p) {
+    mioTurnoDiGiorno(s, p, "Pubblicare l'inchiesta");
+    const f = p.fascicolo;
+    if (!f || !f.indizi.length) err("Ti serve almeno un indizio.");
+    const b = giocatore(s, f.su);
+    controllaSilenzio(s, p, b.id);
+    const e = effettoInchiesta(f.indizi.length);
+    b.fama = Math.max(0, (b.fama || 0) - e.fama);
+    b.tracce = (b.tracce || 0) + e.tracce; segnaTraccia(s, b, e.tracce, "l'inchiesta di " + p.nome);
+    if (e.stato && (b.stato || 0) < 3) {
+      b.stato = Math.min(3, (b.stato || 0) + 1);
+      b.ultimaPista = { k: "inchiesta", testo: "L'inchiesta di " + p.nome + " sulla Gazzetta.", ciclo: s.ciclo + 1 };
+    }
+    p.fama = (p.fama || 0) + e.mia;
+    if (f.indizi.length >= 2) notizia(s, "INCHIESTA di " + p.nome + " su " + b.nome + ". " + f.indizi[0].testo + " " + f.indizi[1].testo, "scandalo");
+    else notizia(s, p.nome + " accusa " + b.nome + ": " + f.indizi[0].testo.replace(/\.$/, "") + ". Per ora è un indizio solo.", "scandalo");
+    privato(s, b, p.nome + " ha pubblicato un'inchiesta su di te: −" + e.fama + " fama" + (e.stato ? " e la polizia sale di un gradino" : "") + ".");
+    privato(s, p, "Inchiesta pubblicata: +" + e.mia + " fama.");
+    p.inchiestaBlocco = p.inchiestaBlocco || {}; p.inchiestaBlocco[b.id] = s.ciclo + 3;
+    p.fascicolo = null;
+  }
+  function nomeOpera(o) { const O = OPERE_PUBBLICHE[o.opera] || { nome: "Opera", art: "l'" }; return O.nome; }
+  function operaPubblica(s, p, isola, tipo) {
+    mioTurnoDiGiorno(s, p, "L'opera pubblica");
+    controllaFedina(p, 6);
+    if (p.operaFatta) err("Hai già donato un'opera alla città: una sola a partita.");
+    if (!Object.prototype.hasOwnProperty.call(OPERE_PUBBLICHE, tipo || "")) err("Scegli teatro, parco o scuola.");
+    if (!ISOLE.includes(isola)) err("Scegli un'isola.");
+    const gia = opere(s).find((o) => o.isola === isola);
+    if (gia) err("Qui c'è già " + OPERE_PUBBLICHE[gia.opera].art + nomeOpera(gia) + (gia.nome ? " di " + gia.nome : "") + ".");
+    if (p.cash < COSTO_OPERA_PUBBLICA) err("Servono " + euro(COSTO_OPERA_PUBBLICA) + " puliti.");
+    p.cash -= COSTO_OPERA_PUBBLICA;
+    flusso(s, p, null, COSTO_OPERA_PUBBLICA, "Opera pubblica a " + NOMI_ISOLE[isola], true);
+    opere(s).push({ isola, opera: tipo, di: p.id, nome: p.nome, ciclo: s.ciclo });
+    s.valore[isola] = clamp(s.valore[isola] + 1, 1, 10);
+    p.fama = (p.fama || 0) + 8; p.operaFatta = true;
+    notizia(s, p.nome + " dona alla città " + OPERE_PUBBLICHE[tipo].art + OPERE_PUBBLICHE[tipo].nome + " di " + NOMI_ISOLE[isola] + ". L'isola vale di più per tutti.", "evento");
+    log(s, p.nome + " dona alla città " + OPERE_PUBBLICHE[tipo].art + OPERE_PUBBLICHE[tipo].nome + " di " + NOMI_ISOLE[isola] + ".");
+  }
+  // condanna: Fedina a zero, fascicolo ritirato, targhe tolte
+  function fedinaCondanna(s, p) {
+    p.fedina = 0;
+    ritiraFascicolo(s, p);
+    for (const o of opere(s)) if (o.di === p.id) {
+      o.di = null; o.nome = null;
+      notizia(s, "Tolta la targa " + (o.opera === "scuola" ? "dalla Scuola" : "dal " + nomeOpera(o)) + " di " + NOMI_ISOLE[o.isola] + ".", "scandalo");
+    }
+  }
+  // l'azione macchia la Fedina? (per l'avviso "perdi la Fedina pulita" prima di confermare). Non scrive niente.
+  function macchiaAzione(s, p, a) {
+    if (!a || !p) return false;
+    switch (a.tipo) {
+      case "corrompi": case "ricicla": case "ricicla_banca": case "ricettatore": case "busta_licenza": case "regalo_assessore":
+      case "ricatto": case "servizio": case "fonda_setta": case "lava_setta": return true;
+      case "chiamata": return !!a.si;
+      case "rispondi_invito": return !!a.si;
+      case "evasione": return (Number(a.quota) || 0) > 0;
+      case "articolo": case "regala": case "versa_setta": return !!a.sporchi;
+      case "compra_oggetto": { const O = oggettoDef(a.oggetto); return !!(O && O.illegale) || (p.sporchi || 0) > 0; }
+      case "occasione": { const o = s.notte && s.notte.occasioni.find((x) => x.n === a.n); const O = o && OCCASIONI.find((x) => x.id === o.id); return !!(O && !O.legale); }
+      default: return false;
+    }
+  }
+
   // ------------------------------------------------------------ pagamenti e debiti
   // Il tasso VERO che un giocatore paga sul suo debito a ogni Alba (lo stesso numero ovunque: app Banca, finestre, messaggi).
   //   debito d'emergenza 25% · Ereditiera 0% · altrimenti il tasso dei prestiti (10%, o quello deciso da chi comanda la Banca della Laguna)
@@ -3924,6 +4243,7 @@
     annullaRicatti(s, p);
     p.condanne += 1; p.stato = 0; p.tracce = 15; p.peggiorReato = null; p.riciclTot = 0;
     p.corrotti = {};
+    fedinaCondanna(s, p);
     if (gravita === "grave" || gravita === "gravissima") { p.cerchie = []; }
     p.ultimaSentenza = { gravita, multa, confiscati, faro: pena.faro, blocco: pena.blocco, motivo: motivo || "", ciclo: s.ciclo, chiusi: e.chiusi.length, sequestrati: nomiSeq, piani: e.pianiPersi, contatti: e.contatti, sconti: gf.note.map((x) => x.testo) };
     const testo = "Sentenza (" + gravita + "): confiscati " + euro(confiscati) + " di soldi sporchi, multa " + euro(multa) + (pena.faro ? ", " + pena.faro + " turni al Faro" : "") + (pena.blocco ? ", entrate dimezzate per " + pena.blocco + " Cicli" : "") + (e.chiusi.length ? ", " + e.chiusi.length + " locali chiusi per un Ciclo" : "") + (nomiSeq.length ? ", sequestrati: " + nomiSeq.join(", ") : "") + (e.pianiPersi ? ", " + e.pianiPersi + " piani del Palazzo persi" : "") + (e.contatti ? ", contatti comprati persi" : "") + ".";
@@ -3938,6 +4258,7 @@
     s.fase = "alba";
     const riepilogo = {};
     const lussoAltri = {}; for (const p of s.players) lussoAltri[p.id] = p.lussoCiclo || 0; // per la pubblicita' della TV
+    esitoEsposto(s); // prima che aggiornaPiste() svuoti luoghiNotte
     chiudiCantieri(s);
     perquisizioni(s);
     s.retataAnnunciata = false;
@@ -4006,6 +4327,7 @@
         r.corruzione += base;
         affariInterni(s, p, k);
       }
+      albaFedina(s, p); // la Fedina pulita: dopo le rate dei contatti
       // tracce che calano
       p.tracce *= 1 - (p.pulitoCiclo ? N.decayPulito : N.decaySporco);
       if (p.pulitoCiclo) p.ombraCicli = (p.ombraCicli || 0) + 1; else p.ombraCicli = 0;
@@ -4014,6 +4336,8 @@
       aggiornaPiste(s, p, r.rendite);
       r.consiglio = consiglioVera(s, p);
     }
+    albaFascicoli(s); // l'Inchiesta: un indizio a fascicolo, prima dei processi
+    s.ordineVargas = null;
     // processo per chi e' arrivato allo stato 4
     for (const p of s.players) if (p.stato >= 4) {
       if (!p.peggiorReato) { annullaRicatti(s, p); p.stato = 1; p.tracce *= 0.5; privato(s, p, "Il Giudice archivia: non ci sono reati provati."); notizia(s, "Archiviata l'indagine su " + p.nome + ".", "voce"); }
@@ -4268,6 +4592,12 @@
     { id: "ricatto", gruppo: "potere", lv: 1, nome: "Usare una Prova", fatto: (a) => a.tipo === "ricatto",
       indizio: "Una Prova consegnata vale una volta sola.", spiega: "Con una Prova puoi denunciare un rivale, oppure mostrargliela e chiedergli un Favore. È un reato grave.",
       quando: (s, p) => (p.prove || []).length > 0, consiglio: "Hai una Prova in tasca. Puoi mandarla alla polizia, oppure usarla: app Prove." },
+    { id: "servizio", gruppo: "notte", lv: 1, nome: "Chiedere un Servizio", fatto: (a) => a.tipo === "servizio",
+      indizio: "Un poliziotto comprato non serve solo a chiudere un occhio.", spiega: "Ogni contatto comprato ti fa un Servizio per Ciclo. Ma ogni Servizio lo rende più nervoso.",
+      quando: (s, p) => Object.keys(p.corrotti || {}).length > 0, consiglio: "Hai un contatto a libro paga e non gli hai mai chiesto niente. App Soldi sporchi, La tua rete." },
+    { id: "fedina", gruppo: "potere", lv: 0, nome: "La Fedina pulita", fatto: (a) => a.tipo === "esposto" || a.tipo === "inchiesta_apri" || a.tipo === "opera_pubblica",
+      indizio: "Chi non si sporca mai, prima o poi viene ascoltato.", spiega: "Ogni Ciclo senza atti sporchi fa crescere la Fedina. A 2, 4 e 6 Cicli si aprono poteri solo per chi è pulito.",
+      quando: (s, p) => (p.fedina || 0) >= 2 && p.espostoCiclo == null, consiglio: "Sei pulito da 2 Cicli: ora la polizia ti ascolta. Dal Municipio puoi firmare un esposto su un posto della notte." },
     { id: "incontro", gruppo: "notte", lv: 0, nome: "Incontrare un rivale di notte", fatto: (a) => a.tipo === "incontro",
       indizio: "Di notte gli altri giocatori sono in giro come te.", spiega: "Se sei nello stesso posto di un altro puoi offrirgli un drink, sfidarlo o proporgli un affare.",
       quando: (s, p) => s.ciclo >= 1, consiglio: "Di notte, se finisci nello stesso posto di un altro giocatore, lo vedi. Puoi offrirgli un drink o sfidarlo." },
@@ -4333,7 +4663,7 @@
     favore_usa: "Favori", favore_rompi: "Favori", ricatto: "Ricatti", rispondi_ricatto: "Ricatti",
     // notte: affari, soldi sporchi, contatti
     occasione: "Affari della notte", ricettatore: "Ricettatore (merce rubata)", ballo: "Ballo in Maschera", ricicla: "Soldi ripuliti", ricicla_banca: "Soldi ripuliti",
-    corrompi: "Corruzione", scarica_contatto: "Corruzione", compra_oggetto: "Mercato Nero", chiamata: "Lavoretti al telefono", soffiata: "Soffiate", spa: "Notte",
+    corrompi: "Corruzione", scarica_contatto: "Corruzione", servizio: "Corruzione", togli_transenna: "Corruzione", opera_pubblica: "Opere pubbliche", compra_oggetto: "Mercato Nero", chiamata: "Lavoretti al telefono", soffiata: "Soffiate", spa: "Notte",
     // serate e carte
     sm: "Sette e mezzo", carte: "Sette e mezzo", serata: "Serate", gioca_serata: "Serate", vai_serata: "Serate",
     // setta
@@ -4377,7 +4707,7 @@
   //    nelle tabelle (STANZE, LUOGHI...) e farebbero trovare cose che non esistono. Fanno eccezione i testi liberi;
   //  - liste e oggetti solo dove sono previsti (oggetti, contratto).
   // Chi aggiunge un'azione con un campo-numero nuovo lo scrive in CAMPI_NUMERO (e in CAMPI_SOLDI se sono soldi).
-  const CAMPI_NUMERO = ["importo", "prezzo", "offerta", "ingresso", "quota", "tasso", "n", "quanti", "idx", "ora", "prova", "pagoOra", "pagoDopo", "cicli"];
+  const CAMPI_NUMERO = ["importo", "prezzo", "offerta", "ingresso", "quota", "tasso", "n", "quanti", "idx", "ora", "prova", "pagoOra", "pagoDopo", "cicli", "pos"];
   const CAMPI_SOLDI = ["importo", "prezzo", "ingresso", "pagoOra", "pagoDopo"];
   const CAMPI_TESTO = ["testo", "motto", "motivo"]; // scritti dal giocatore: non si usano mai per cercare in una tabella
   const CAMPI_LISTA = ["oggetti"], CAMPI_OGGETTO = ["contratto"];
@@ -4521,6 +4851,13 @@
       case "favore_rompi": return rompiFavore(s, p, a.id);
       case "ricatto": return ricatto(s, p, a.prova, a.favore);
       case "rispondi_ricatto": return rispondiRicatto(s, p, a.id, a.scelta);
+      // ---- Servizi dei contatti e Fedina pulita (v75)
+      case "servizio": return servizio(s, p, a);
+      case "togli_transenna": return togliTransenna(s, p);
+      case "esposto": return esposto(s, p, a.luogo);
+      case "inchiesta_apri": return inchiestaApri(s, p, a.bersaglio);
+      case "inchiesta_pubblica": return inchiestaPubblica(s, p);
+      case "opera_pubblica": return operaPubblica(s, p, a.isola, a.opera);
       // ---- politica
       case "candidati": return candidati(s, p);
       case "campagna": return campagna(s, p, a.importo);
@@ -4612,6 +4949,7 @@
       return q;
     });
     v.log = v.log.filter((r) => !r.chi || r.chi === idGiocatore || !CRONACA_PRIVATA.test(r.testo));
+    { const mio = v.players.find((x) => x.id === idGiocatore), vero = s.players.find((x) => x.id === idGiocatore); if (mio && vero) mio.umoreContatti = umoreContatti(s, vero); }
     { const mio = v.players.find((x) => x.id === idGiocatore), vero = s.players.find((x) => x.id === idGiocatore); if (mio && vero) { mio.rischioPerq = Math.round(rischioPerquisizione(s, vero) * 100); if (s.notte && haPiano(vero, "osservatorio")) mio.giroPg = Object.fromEntries(Object.keys(GIRO).map((k) => [k, dovePersonaggio(s, k)])); } }
     // le offerte all'asta sono segrete: vedi solo la tua
     if (v.grandi) for (const g of Object.values(v.grandi)) if (g.offerte) g.offerte = g.offerte[idGiocatore] ? { [idGiocatore]: g.offerte[idGiocatore] } : {};
@@ -4626,6 +4964,12 @@
       .map((f) => f.deve === idGiocatore || f.a === idGiocatore ? f : { id: f.id, deve: f.deve, a: f.a, tipo: f.tipo, stato: f.stato, uso: f.uso });
     // ricatti: solo quelli dove sei tu (chi ricatta o chi e' ricattato)
     v.ricatti = (s.ricatti || []).filter((r) => r.da === idGiocatore || r.a === idGiocatore);
+    // v75: la transenna la vedono tutti, ma chi l'ha messa solo lui; l'ordine di Vargas solo chi l'ha dato;
+    // dell'esposto gli altri sanno solo che c'e' (non dove ne' di chi). Le opere pubbliche sono di tutti.
+    if (s.transenna) v.transenna = s.transenna.da === idGiocatore ? { ...s.transenna } : { pos: s.transenna.pos, isola: s.transenna.isola }; else delete v.transenna;
+    if (!(s.ordineVargas && s.ordineVargas.da === idGiocatore)) delete v.ordineVargas;
+    if (s.esposto) v.esposto = s.esposto.da === idGiocatore ? { ...s.esposto } : { ciclo: s.esposto.ciclo }; else delete v.esposto;
+    v.opere = (s.opere || []).map((o) => ({ ...o }));
     v.contratti = s.contratti.filter((k) => k.da === idGiocatore || k.a === idGiocatore || (k.tipo === "notarile" && k.stato !== "proposto")).map((k) => (k.da === idGiocatore || k.a === idGiocatore) ? k : { id: k.id, da: k.da, a: k.a, tipo: k.tipo, stato: k.stato });
     if (v.pending && v.pending.tipo === "asta") v.pending.offerte = Object.fromEntries(Object.keys(s.pending.offerte).map((k) => [k, k === idGiocatore ? s.pending.offerte[k] : "segreta"]));
     if (v.ultimaAlba) v.ultimaAlba.riepilogo = { [idGiocatore]: s.ultimaAlba.riepilogo[idGiocatore] };
@@ -4703,9 +5047,12 @@
     // scoperte e consigli
     SCOPERTE: SCOPERTE.map(({ id, gruppo, lv, nome, indizio, spiega }) => ({ id, gruppo, lv, nome, indizio, spiega })),
     // mercato nero a rotazione e situazioni dell'Alba (v70)
-    STRUMENTI, BANCHI, SITUAZIONI, descriviSituazione, sitAttive, oggettoDef, postiUsati, prezzoOggetto, VERSIONE_REGOLE: 74,
+    STRUMENTI, BANCHI, SITUAZIONI, descriviSituazione, sitAttive, oggettoDef, postiUsati, prezzoOggetto, VERSIONE_REGOLE: 75,
     // Favori e ricatti (v74)
     FAVORI, motivoNoFavore: (s, idDeve, idA, tipo) => motivoNoFavore(s, giocatore(s, idDeve), giocatore(s, idA), tipo),
+    // Servizi dei contatti e Fedina pulita (v75)
+    SERVIZI, OPERE_PUBBLICHE, COSTO_OPERA_PUBBLICA, effettoInchiesta, umoreContatti,
+    macchiaAzione: (s, id, a) => { const p = s.players.find((x) => x.id === id); return !!p && macchiaAzione(s, p, a); },
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;
