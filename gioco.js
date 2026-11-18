@@ -11,12 +11,12 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=63";
+import * as Tre from "./tre.js?v=64";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 function vuole3D() { try { return localStorage.getItem("laguna_3d") !== "0"; } catch (e) { return true; } }
-import * as Loc from "./locale.js?v=63";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=64";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -69,7 +69,7 @@ function salvaLocale() { try { localStorage.setItem("laguna_online", JSON.string
 function leggiLocale() { try { return JSON.parse(localStorage.getItem("laguna_online") || "{}"); } catch (e) { return {}; } }
 function sfondo(img) { $("#sfondo").style.backgroundImage = `url('${img}')`; }
 
-// ------------------------------------------------------------ suoni e musica (generati dal browser, niente file da scaricare)
+// ------------------------------------------------------------ suoni (generati dal browser) e musica (due brani originali in musica/)
 const Suono = (() => {
   let ctx = null, master = null, eco = null, acceso = true, modo = null, timer = null, drone = [];
   try { acceso = localStorage.getItem("laguna_audio") !== "0"; } catch (e) { }
@@ -96,28 +96,34 @@ const Suono = (() => {
     s.connect(f); f.connect(g); g.connect(master); s.start(t0);
   }
   const PENTA = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3, 784];
+  // la colonna sonora: due brani originali (musica/giorno.mp3 e musica/notte.mp3, composti da musica/compositore.py,
+  // nessun diritto), in loop, con dissolvenza quando si passa dal giorno alla notte
+  const VOL_MUSICA = 0.38, brani = {}; let sfuma = null;
+  function brano(k) { if (!brani[k]) { const a = new Audio("musica/" + k + ".mp3?v=64"); a.loop = true; a.preload = "auto"; a.volume = 0; brani[k] = a; } return brani[k]; }
+  function suonaBrano() {
+    if (!modo) return;
+    const cur = modo === "notte" ? "notte" : "giorno", a = brano(cur);
+    if (!acceso) { for (const x of Object.values(brani)) x.pause(); return; }
+    if (a.paused) a.play().catch(() => { });
+    clearInterval(sfuma);
+    sfuma = setInterval(() => {
+      let fatto = true;
+      for (const [k, x] of Object.entries(brani)) {
+        const v = k === cur ? VOL_MUSICA : 0, d = v - x.volume;
+        if (Math.abs(d) > 0.02) { x.volume = Math.max(0, Math.min(1, x.volume + Math.sign(d) * 0.02)); fatto = false; }
+        else { x.volume = v; if (v === 0 && !x.paused) x.pause(); }
+      }
+      if (fatto) clearInterval(sfuma);
+    }, 70);
+  }
   function ambiente(m, forza) {
-    return; // musica tolta: era brutta. Una colonna sonora vera arrivera' da file registrati.
     if (m === modo && !forza) return; modo = m;
-    if (!ctx) return;
-    clearInterval(timer); drone.forEach((x) => { try { x.stop(); } catch (e) { } }); drone = [];
-    if (m === "notte") {
-      for (const f of [55, 82.4, 110]) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = "sine"; o.frequency.value = f; g.gain.value = 0.035; o.connect(g); g.connect(master); o.start(); drone.push(o); }
-      timer = setInterval(() => { const t = ctx.currentTime; rumore(t, 2.5, 0.05, 400); if (Math.random() < 0.35) nota([523.3, 622.3, 784, 932.3][Math.floor(Math.random() * 4)], t + 0.5, 3, 0.03, "sine"); }, 3200);
-    } else if (m === "giorno") {
-      let k = 0;
-      timer = setInterval(() => {
-        const t = ctx.currentTime, accordi = [[0, 2, 4], [3, 5, 7], [1, 4, 6], [2, 4, 8]], a = accordi[Math.floor(k / 4) % 4];
-        nota(PENTA[a[k % 3]] / 2, t, 1.2, 0.05, "triangle"); if (k % 2 === 0) nota(PENTA[a[(k + 1) % 3]], t + 0.25, 0.8, 0.035, "sine");
-        if (k % 8 === 0) nota(PENTA[a[0]] / 4, t, 2.5, 0.05, "sine", false);
-        k++;
-      }, 520);
-    }
+    if (ctx) suonaBrano();
   }
   return {
     avvia, ambiente,
     acceso: () => acceso,
-    cambia() { acceso = !acceso; try { localStorage.setItem("laguna_audio", acceso ? "1" : "0"); } catch (e) { } avvia(); if (master) master.gain.value = acceso ? 0.55 : 0; },
+    cambia() { acceso = !acceso; try { localStorage.setItem("laguna_audio", acceso ? "1" : "0"); } catch (e) { } avvia(); if (master) master.gain.value = acceso ? 0.55 : 0; suonaBrano(); },
     dado() { if (!ctx) return; const t = ctx.currentTime; for (let i = 0; i < 9; i++) rumore(t + i * 0.09 + Math.random() * 0.04, 0.07, 0.5 - i * 0.04, 2500 + Math.random() * 1500); },
     passo(mio) { if (!ctx) return; nota(mio ? 880 : 660, ctx.currentTime, 0.08, mio ? 0.06 : 0.03, "square", false); },
     soldi(su) { if (!ctx) return; const t = ctx.currentTime; if (su) { nota(1046.5, t, 0.25, 0.08); nota(1318.5, t + 0.08, 0.4, 0.08); nota(1568, t + 0.16, 0.5, 0.06); } else { nota(392, t, 0.3, 0.07, "triangle"); nota(311.1, t + 0.12, 0.45, 0.07, "triangle"); } },
