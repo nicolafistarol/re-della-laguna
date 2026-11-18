@@ -7,7 +7,7 @@
 // =====================================================================
 import * as THREE from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
-import * as M3 from "./cubetti-mondo.js?v=77";
+import * as M3 from "./cubetti-mondo.js?v=78";
 
 // Il mondo modellato (isole, strada, ponti, mare) al posto della foto. ?foto = torna alla foto.
 const MONDO = (() => { try { const q = location.search; if (q.includes("foto")) return false; if (q.includes("mondo=3d")) return true; return localStorage.getItem("laguna_mondo") !== "foto"; } catch (e) { return true; } })();

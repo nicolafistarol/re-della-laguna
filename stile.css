@@ -673,3 +673,25 @@ button.spento{opacity:.55}
 .bv-prezzo{font-size:16px;font-weight:700}.bv-su{color:#5fd38a;font-size:12px;font-weight:600}.bv-giu{color:#ff7a7a;font-size:12px;font-weight:600}.bv-pari{color:var(--testo2,#aaa);font-size:12px}
 .bv-mio{font-size:13px}.bv-tot{gap:3px}.bv-grande{font-size:22px}.bv-sez{margin:10px 0 2px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;opacity:.75}
 .chip .non-coll{color:#ffb3b3;font-weight:700}
+/* Punto 29: la sentenza in una finestra grande */
+.fin.sentenza{width:min(760px,96vw);max-height:92vh;border:1px solid rgba(255,107,107,.55)}
+.fin.sentenza h2{font-size:34px}
+.sent-box{background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.5;margin-top:8px}
+.sent-scala{display:flex;gap:4px;margin:6px 0}
+.sent-scala span{flex:1;text-align:center;padding:5px 2px;border-radius:8px;background:rgba(255,255,255,.06);color:var(--muted);font-size:13px;text-transform:capitalize}
+.sent-scala span.da{outline:1px dashed var(--muted)}
+.sent-scala span.on{background:var(--sporco);color:#1a0505;font-weight:700}
+.sent-note{margin:4px 0 0;padding-left:18px;font-size:13px;color:var(--muted)}
+.sent-lista{display:flex;flex-direction:column;gap:8px}
+.sent-eff{display:flex;gap:12px;align-items:flex-start;background:rgba(255,255,255,.05);border:1px solid var(--bordo);border-radius:14px;padding:10px 12px}
+.sent-ico{font-size:26px;line-height:1;flex:none;width:32px;text-align:center}
+.sent-tit{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:15px}
+.sent-q{font-size:19px;font-weight:700;white-space:nowrap}
+.sent-dur{font-size:12.5px;color:var(--oro);margin-top:2px}
+.sent-perche{font-size:13px;line-height:1.45;color:var(--muted);margin-top:3px}
+.sent-azzera{margin-top:12px;font-size:13.5px;line-height:1.55;background:rgba(95,211,141,.07);border:1px solid rgba(95,211,141,.3);border-radius:14px;padding:10px 14px}
+.sent-come{margin-top:12px;font-size:13.5px;line-height:1.5}
+.sent-come summary{cursor:pointer;font-weight:700;color:var(--oro)}
+.sent-come ol{margin:6px 0 0;padding-left:20px}
+.sent-come li{margin:4px 0}
+@media(max-width:600px){.fin.sentenza{padding:16px}.fin.sentenza h2{font-size:27px}.sent-q{font-size:17px}}

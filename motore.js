@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 77;
+  const VERSIONE_REGOLE = 78;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -4353,8 +4353,16 @@
     return { reato: reato || p.peggiorReato || "lieve", ...e, chiusiNomi: nomi(e.chiusi), sequestratiNomi: nomi(e.sequestrati), note: gf.note.map((x) => x.testo), righe };
   }
   function condanna(s, p, gravita, motivo) {
+    const reato = gravita || "lieve";
     const gf = gravitaFinale(s, p, gravita);
     gravita = gf.gravita;
+    // per la finestra della sentenza (punto 29): perche' e cosa si salva, letti PRIMA di cambiare lo stato
+    const salviDa = [];
+    if (haPiano(p, "caveau") && gravita !== "gravissima") salviDa.push("il Caveau del Palazzo (fino a 5 M)");
+    if (haOggetto(p, "cassetta")) salviDa.push("la cassetta di sicurezza (1 M)");
+    if (operaAttiva(s, p, "giudice")) salviDa.push("il Giudice supremo della setta (metà)");
+    const piste = (p.storiaTracce || []).slice().sort((a, b) => b.quanto - a.quanto).slice(0, 3).map((x) => ({ cosa: x.cosa, quanto: x.quanto }));
+    const cerchiePerse = (gravita === "grave" || gravita === "gravissima") && (p.cerchie || []).length > 0, legale = haAttivita(s, p, "legale");
     for (const x of gf.note) if (x.k !== "recidiva") privato(s, p, x.testo);
     if (gf.avvocato) togliOggetto(p, "avvocato");
     const e = effettiPena(s, p, gravita), pena = PENE[gravita];
@@ -4378,7 +4386,10 @@
     p.corrotti = {};
     fedinaCondanna(s, p);
     if (gravita === "grave" || gravita === "gravissima") { p.cerchie = []; }
-    p.ultimaSentenza = { gravita, multa, confiscati, faro: pena.faro, blocco: pena.blocco, motivo: motivo || "", ciclo: s.ciclo, chiusi: e.chiusi.length, sequestrati: nomiSeq, piani: e.pianiPersi, contatti: e.contatti, sconti: gf.note.map((x) => x.testo) };
+    p.ultimaSentenza = { gravita, multa, confiscati, faro: pena.faro, blocco: pena.blocco, motivo: motivo || "", ciclo: s.ciclo, chiusi: e.chiusi.length, sequestrati: nomiSeq, piani: e.pianiPersi, contatti: e.contatti, sconti: gf.note.map((x) => x.testo),
+      reato, note: gf.note.map((x) => ({ k: x.k, testo: x.testo })), fama: pena.fama, salvi: e.sporchiSalvi, salviDa: e.sporchiSalvi > 0 ? salviDa : [], multaQuota: e.multaQuota, legale,
+      chiusiNomi: e.chiusi.map((id) => lotto(s, id).nome), stanzePerse: e.stanzePerse.map((f) => (STANZE[f] || { nome: f }).nome), tesori: e.tesori.map((x) => ({ nome: x.nome, importo: x.importo })),
+      cerchiePerse, piste, condanneTot: p.condanne, tracceDopo: p.tracce };
     const testo = "Sentenza (" + gravita + "): confiscati " + euro(confiscati) + " di soldi sporchi, multa " + euro(multa) + (pena.faro ? ", " + pena.faro + " turni al Faro" : "") + (pena.blocco ? ", entrate dimezzate per " + pena.blocco + " Cicli" : "") + (e.chiusi.length ? ", " + e.chiusi.length + " locali chiusi per un Ciclo" : "") + (nomiSeq.length ? ", sequestrati: " + nomiSeq.join(", ") : "") + (e.pianiPersi ? ", " + e.pianiPersi + " piani del Palazzo persi" : "") + (e.contatti ? ", contatti comprati persi" : "") + ".";
     privato(s, p, testo);
     fatto(s, p, { k: "sentenza", testo, soldi: -multa, sporchi: -confiscati });
