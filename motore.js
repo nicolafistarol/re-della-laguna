@@ -5114,12 +5114,14 @@
       v.notte = {
         ora: s.notte.ora, dove: { ...s.notte.dove },
         viaggio: Object.fromEntries(Object.entries(s.notte.viaggio).map(([k, x]) => [k, { verso: k === idGiocatore ? x.verso : null, restano: k === idGiocatore ? x.restano : null, serata: k === idGiocatore ? x.serata || null : null }])),
-        chiuso: s.notte.chiuso, racconto: s.notte.racconto[idGiocatore] || [],
-        pronto: s.notte.pronto, inizio: s.notte.inizio, tempo: TEMPO_ORA, adesso: adesso(),
+        chiuso: { [idGiocatore]: !!s.notte.chiuso[idGiocatore] }, racconto: s.notte.racconto[idGiocatore] || [],
+        pronto: { [idGiocatore]: !!(s.notte.pronto && s.notte.pronto[idGiocatore]) }, inizio: s.notte.inizio, tempo: TEMPO_ORA, adesso: adesso(),
         daScelta: s.notte.daScelta[idGiocatore], inizioRacc: s.notte.inizioRacc[idGiocatore] || 0,
         scelte: me ? scelteNotte(s, me) : [],
         qui: me ? quiConMe(s, me).map((x) => x.id) : [],
         incappucciati: 0,
+        // v76: di notte non si sa chi stai aspettando: arriva solo quanti non hanno ancora finito l'ora (te escluso)
+        mancano: attivi(s).filter((x) => x.id !== idGiocatore && !(s.notte.pronto && s.notte.pronto[x.id])).length,
         caloreQui: me ? ((me.calore || {})[s.notte.dove[idGiocatore]] || 0) : 0,
         pericoloQui: me && !s.notte.viaggio[idGiocatore] && s.notte.dove[idGiocatore] !== "palazzo" ? s.notte.pericolo[s.notte.dove[idGiocatore]] : null,
         protezione: me ? (me.corrotti && me.corrotti["agente_" + (LUOGHI[s.notte.dove[idGiocatore]] || {}).isola] ? 0.6 : 1) * (me.corrotti && me.corrotti.commissario ? 0.8 : 1) * (poliziaOccupata(s, me) ? N.occupata : 1) * (dovePersonaggio(s, "commissario") === s.notte.dove[idGiocatore] && !(me.corrotti || {}).commissario ? 1.35 : 1) * sitMult(s, "gu", { luogo: s.notte.dove[idGiocatore] }) : 1,
@@ -5135,6 +5137,7 @@
         chiamate: s.notte.occasioni.filter((o) => o.riservata === idGiocatore && !o.preso).map((o) => ({ n: o.n, luogo: o.luogo, alle: o.alle, nome: OCCASIONI.find((x) => x.id === o.id).nome })),
       };
       // sotto il cappuccio: i confratelli al rito non hanno nome (ne' posto) per chi non e' il Gran Maestro; resta solo quanti sono
+      v.notteFatti = { [idGiocatore]: !!(s.notteFatti && s.notteFatti[idGiocatore]) }; // chi e' gia' a casa non si sa
       if (me) { const via = incappucciatiPer(s, me); if (via.length) { for (const id of via) v.notte.dove[id] = null; v.notte.qui = v.notte.qui.filter((id) => !via.includes(id)); v.notte.incappucciati = via.length; } }
     }
     if (s.riepOra) v.riepOra = { n: s.riepOra.n, ciclo: s.riepOra.ciclo, da: s.riepOra.da, a: s.riepOra.a, mio: s.riepOra.per[idGiocatore] || null };

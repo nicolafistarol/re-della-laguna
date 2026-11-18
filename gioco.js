@@ -731,7 +731,7 @@ function disegna() {
   const cron = S.log.filter((r) => !/ tira \d( e \d)+\.$/.test(r.testo) && !(r.chi && r.chi !== mioId && PRIVATI.test(r.testo))).slice(-4);
   $("#radice").innerHTML = `
   <div class="hud-alto">
-    <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${notte ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · ha deciso" : " · decide…") : ""}</div>${(p.fedina || 0) >= 2 ? `<div class="s fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">⚖️ Fedina ${p.fedina}</div>` : ""}</div></div>`).join("")}</div>
+    <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${notte && p.id === mioId ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · hai deciso" : " · decidi…") : ""}</div>${(p.fedina || 0) >= 2 ? `<div class="s fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">⚖️ Fedina ${p.fedina}</div>` : ""}</div></div>`).join("")}</div>
     <div class="fase vetro">${faseTesto}</div>
     <div class="saldo vetro">
       <div class="riga" style="justify-content:space-between"><span class="kick" style="color:var(--muted)">I tuoi soldi</span><button class="piccolo" id="occhio" style="padding:2px 8px">${saldoNascosto ? "Mostra" : "Nascondi"}</button></div>
@@ -1100,8 +1100,7 @@ function cartaNotte(me) {
   if (S.notteFatti[mioId]) return `<div class="titolo">Sei a casa</div><div class="sub">Per te la notte è finita. Gli altri girano ancora: all'Alba si scopre tutto.</div>`;
   const v = N2.viaggio[mioId];
   if (v) return `<div class="titolo">In viaggio verso ${esc(nomeLuogo(v.verso))}…</div><div class="sub">Arrivi tra ${v.restano === 1 ? "un'ora" : v.restano + " ore"}.</div>`;
-  const altri = S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !N2.chiuso[p.id]);
-  if (N2.chiuso[mioId]) return `<div class="titolo">Hai deciso.</div><div class="sub">${altri.length ? "Aspetti che " + altri.map((p) => esc(p.nome)).join(", ") + (altri.length > 1 ? " decidano" : " decida") + "…" : "L'ora sta per finire…"}</div>`;
+  if (N2.chiuso[mioId]) return `<div class="titolo">Hai deciso.</div><div class="sub">${attesaNotte(N2) || "L'ora sta per finire…"}</div>`;
   const dove = N2.dove[mioId];
   const ultima = [...N2.racconto].reverse().find((r) => r.includes("Arrivi a")) || "";
   const indizio = ultima.includes(nomeLuogo(dove)) ? ultima.split(". ").slice(1).join(". ") : "";
@@ -1335,6 +1334,8 @@ function righeNotte(lista) { return lista.map((r) => { const [o, ...t] = r.split
 // l'orologio del server: se quello del computer e' avanti o indietro, il conto alla rovescia si corregge
 let scartoOrologio = 0, ultimoAdesso = null;
 function oraServer() { const N2 = S && S.notte; if (N2 && N2.adesso && N2.adesso !== ultimoAdesso) { ultimoAdesso = N2.adesso; scartoOrologio = N2.adesso - Date.now(); } return Date.now() + scartoOrologio; }
+// di notte non si dice chi stai aspettando: solo quanti (v76)
+function attesaNotte(N2) { const n = (N2 && N2.mancano) || 0; return n ? "Aspettiamo ancora " + n + (n === 1 ? " giocatore" : " giocatori") + "…" : ""; }
 function restoOra() { const N2 = S.notte; if (!N2 || !N2.inizio) return null; return Math.max(0, Math.ceil((N2.tempo || 120) - (oraServer() - N2.inizio) / 1000)); }
 function scenaNotte(me) {
   const N2 = S.notte, dove = N2.dove[mioId], v = N2.viaggio[mioId];
@@ -1349,7 +1350,7 @@ function scenaNotte(me) {
   const nome = me.faro ? "In cella, al Faro" : aCasa ? "Il tuo Palazzo" : v ? "In viaggio verso " + (v.serata ? "il Palazzo di " + (S.players.find((x) => x.id === v.serata) || {}).nome : nomeLuogo(v.verso)) : serOsp ? "Palazzo di " + serOsp.nome + " · piano " + serOsp.piani : nomeLuogo(dove, true);
   const isola = !v && !aCasa && dove !== "palazzo" && L.LUOGHI[dove] ? L.NOMI_ISOLE[L.LUOGHI[dove].isola] || "" : "";
   const quiAltri = v || aCasa || dove === "palazzo" ? [] : S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !N2.viaggio[p.id] && N2.dove[p.id] === dove);
-  const mancano = S.players.filter((p) => p.id !== mioId && !p.faro && !S.notteFatti[p.id] && !(N2.pronto && N2.pronto[p.id]));
+  const mancano = N2.mancano || 0; // v76: solo quanti, mai chi
   const resto = restoOra();
   const cvN = N2.convocazione, traCv = cvN ? cvN.ora - N2.ora : 0;
   const bannerCv = cvN && traCv >= -2 ? `<div class="conv-banner">🕯️ <span>Rito della setta: <b>${esc(L.LUOGHI[cvN.luogo].nome)}</b> alle <b>${L.ORE[cvN.ora]}</b> · ${traCv > 0 ? "tra " + traCv + (traCv === 1 ? " ora" : " ore") : traCv === 0 ? "<b>adesso</b>" : "è iniziato"}${N2.dove[mioId] === cvN.luogo ? " · sei qui" : ""}</span>${N2.dove[mioId] !== cvN.luogo && !N2.viaggio[mioId] && !N2.chiuso[mioId] ? `<button class="piccolo oro" data-cvvai="${cvN.luogo}">Vai</button>` : ""}</div>` : "";
@@ -1364,7 +1365,7 @@ function scenaNotte(me) {
   let corpo = "";
   const racc = N2.racconto || [];
   if (me.faro) corpo = `<div class="storia">Sei in cella. Fuori la Laguna si muove senza di te.</div>`;
-  else if (aCasa) corpo = `<div class="storia">Per te la notte è finita. ${mancano.length ? "Sono ancora in giro: " + mancano.map((p) => esc(p.nome)).join(", ") + "." : ""} All'alba si scopre tutto.</div>`;
+  else if (aCasa) corpo = `<div class="storia">Per te la notte è finita. ${mancano ? (mancano === 1 ? "Qualcuno è ancora in giro." : "Altri sono ancora in giro.") : ""} All'alba si scopre tutto.</div>`;
   else if (!scelto && !v) {
     const intro = racc.slice(N2.inizioRacc || 0);
     const scelte = N2.scelte || [];
@@ -1378,7 +1379,7 @@ function scenaNotte(me) {
     const da = v && N2.daScelta === undefined ? N2.inizioRacc || 0 : N2.daScelta !== undefined ? N2.daScelta : N2.inizioRacc || 0;
     const storia = racc.slice(da);
     corpo = `<div class="righe grandi">${storia.length ? righeNotte(storia) : v ? `<p>Arrivi tra ${v.restano === 1 ? "un'ora" : v.restano + " ore"}.</p>` : ""}</div>${riquadroEsito(me)}
-      ${pronto ? `<div class="attesa">${mancano.length ? "Aspetti " + mancano.map((p) => esc(p.nome)).join(", ") + "…" : "L'ora sta finendo…"}</div>` : `<button class="oro grande avanti" data-a="avanti">Avanti</button>`}`;
+      ${pronto ? `<div class="attesa">${attesaNotte(N2) || "L'ora sta finendo…"}</div>` : `<button class="oro grande avanti" data-a="avanti">Avanti</button>`}`;
   }
   // le animazioni non devono ripartire a ogni aggiornamento: ricordo quando e' iniziata questa scena
   const chiave = img + "|" + S.ciclo, nuova = !inizioScena[chiave];
@@ -1709,7 +1710,7 @@ const NOVITA = { 76: ["<b>Viaggio rapido.</b> Ora si fa una volta ogni 2 Cicli e
   "<b>Prova di fedeltà.</b> Costa il 10% del Tesoro (almeno 2 milioni), e di più se la rifai nello stesso Ciclo. Il membro lo sa. Se era fedele, la setta perde 3 Influenza.",
   "<b>Chi vende la setta paga.</b> Il Gran Maestro tiene una Prova sul traditore, e per 4 Cicli nessuna setta lo prende. Al rito, sotto il cappuccio, solo il Gran Maestro sa chi c'è.",
   "<b>Patto sulla parola.</b> Quando scade, chi deve pagare ha tempo fino all'Alba dopo (\"Paga ora\" nell'app Contratti). Se non paga, rompe la parola: −8 fama. Quando qualcuno rompe la parola (anche un Favore) esce in Ultim'ora e compare un avviso a tutti e due.",
-  "<b>Versione nuova.</b> Se il gioco è stato aggiornato, in alto compare \"C'è una versione nuova del gioco\": tocca Aggiorna."], 75: ["<b>I Servizi dei contatti.</b> Un poliziotto o un banchiere comprato ora ti fa un Servizio per Ciclo: una transenna sul tabellone, una retata dove vuoi tu, il conto di un rivale, un carico tenuto da parte. App Soldi sporchi, La tua rete.",
+  "<b>Notte più segreta.</b> Di notte non vedi più chi sta ancora decidendo: solo quanti giocatori aspettiamo. <b>Versione nuova.</b> Se il gioco è stato aggiornato, in alto compare \"C'è una versione nuova del gioco\": tocca Aggiorna."], 75: ["<b>I Servizi dei contatti.</b> Un poliziotto o un banchiere comprato ora ti fa un Servizio per Ciclo: una transenna sul tabellone, una retata dove vuoi tu, il conto di un rivale, un carico tenuto da parte. App Soldi sporchi, La tua rete.",
   "<b>Attento all'umore.</b> Ogni Servizio rende il contatto più nervoso: più lo usi, prima gli Affari Interni arrivano a lui. E poi a te.",
   "<b>La Fedina pulita.</b> Ogni Ciclo senza atti sporchi la fa crescere. A 2 puoi firmare un esposto, a 4 aprire un'inchiesta su un rivale, a 6 donare un'opera alla città. App Municipio, «Cittadino onesto».",
   "<b>Basta un atto sporco</b> e la Fedina torna a zero. Prima di una mossa sporca il gioco te lo dice. La Fedina degli altri la vedi accanto al loro nome."], 74: ["<b>I Favori.</b> In un patto (app Contratti) ora puoi chiedere un Favore: un voto alle elezioni, un passaggio gratis sui suoi terreni, un silenzio, un appuntamento di notte. Il gioco lo fa rispettare.",
