@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 84;
+  const VERSIONE_REGOLE = 85;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -1862,6 +1862,7 @@
         racconta(s, p, msg); privato(s, p, msg);
       }
     }
+    denunceBot(s); // v85: qualche computer furbo vende una persona alla polizia
     manoInizioNotte(s);
     log(s, "Cala la Notte sul Ciclo " + (s.ciclo + 1) + ".");
     for (const b of s.players) if (b.bot && b.faro === 0 && haPiano(b, "casino_privato") && rng(s) < 0.5) apriSerataSenzaOra(s, b, [50_000, 100_000][Math.floor(rng(s) * 2)]);
@@ -2407,9 +2408,9 @@
     if (O.costo > 0) pagaMisto(s, p, O.costo);
     o.preso = p.id;
     s.notte.fatto[p.id] = { n, oggetti };
+    if (!O.legale) { p.luoghiNotte = p.luoghiNotte || {}; p.luoghiNotte[o.luogo] = true; p.abitudini = p.abitudini || {}; p.abitudini[o.luogo] = (p.abitudini[o.luogo] || 0) + 1; }
     if (aScelte && !O.legale && O.guadagno && COLPI[O.id]) return iniziaColpo(s, p, o, O, oggetti);
     s.notte.chiuso[p.id] = true;
-    if (!O.legale) { p.luoghiNotte = p.luoghiNotte || {}; p.luoghiNotte[o.luogo] = true; }
     racconta(s, p, O.legale ? O.nome + ": ci stai." : O.nome + ": accetti." + (oggetti.length ? " Porti con te: " + oggetti.map((x) => oggettoDef(x).nome.toLowerCase()).join(", ") + "." : ""));
     risolviOccasione(s, p, s.notte.fatto[p.id]);
     controllaOra(s);
@@ -2512,6 +2513,50 @@
     const N2 = s.notte; if (!N2) return [];
     return (N2.proposte || []).filter((pr) => (pr.stato === "attesa" && attivi(s).some((q) => q.id === pr.a)) || (pr.stato === "in_gioco" && s.manoSM && (s.manoSM[pr.da] || s.manoSM[pr.a])));
   }
+  // ================================================================ LA SOFFIATA CONTRO UN RIVALE (v85)
+  // Una telefonata anonima: fai il nome di un rivale e il posto. Se stanotte lui lavora li', la polizia lo aspetta.
+  // 1 volta su 4 l'informatore parla e il rivale sa chi e' stato. Anche i computer piu' furbi la fanno.
+  const N_DENUNCIA = { costo: 100_000, rischio: 1.9, tradisce: 0.25 };
+  const LUOGHI_AFFARI = ["porto", "marina", "bisca", "mercato", "club", "villa", "aeroporto"];
+  function denunciatoQui(s, p, luogo) { return !!(s.notte && (s.notte.denunce || []).some((d) => d.su === p.id && d.luogo === luogo)); }
+  function soffiataRivale(s, p, su, luogo) {
+    oraLibera(s, p);
+    s.notte.denunce = s.notte.denunce || [];
+    if (s.notte.denunce.some((d) => d.da === p.id)) err("Stanotte hai già fatto una soffiata.");
+    const q = s.players.find((x) => x.id === su); if (!q || q.id === p.id) err("Su chi vuoi fare la soffiata?");
+    if (!LUOGHI_AFFARI.includes(luogo)) err("In quale posto pensi che lavori?");
+    pagaMisto(s, p, N_DENUNCIA.costo);
+    fattoDenuncia(s, p, q, luogo);
+    s.notte.chiuso[p.id] = true;
+    racconta(s, p, "Da una cabina telefonica chiami la polizia, voce bassa: «Stanotte " + q.nome + " lavora a " + LUOGHI[luogo].nome + ".» Adesso è nelle loro mani.");
+    controllaOra(s);
+  }
+  function fattoDenuncia(s, p, q, luogo) {
+    s.notte.denunce = s.notte.denunce || [];
+    s.notte.denunce.push({ da: p.id, su: q.id, luogo });
+    if (rng(s) < N_DENUNCIA.tradisce) privato(s, q, "Un informatore ti chiama di nascosto: «" + p.nome + " ha fatto il tuo nome alla polizia. Stanotte ti aspettano a " + LUOGHI[luogo].nome + ".»");
+  }
+  // all'inizio della notte i computer piu' furbi possono vendere una persona alla polizia
+  function denunceBot(s) {
+    const persone = s.players.filter((x) => !x.bot && !x.faro);
+    if (!persone.length) return;
+    for (const b of s.players) {
+      if (!b.bot || b.faro || !["Furbo", "Spavaldo"].includes(b.strat) || rng(s) >= 0.3) continue;
+      const q = persone[Math.floor(rng(s) * persone.length)];
+      const preferiti = Object.keys(q.abitudini || {}).filter((l) => LUOGHI_AFFARI.includes(l)); // i posti dove lavora di solito
+      const luogo = preferiti.length && rng(s) < 0.7 ? preferiti[Math.floor(rng(s) * preferiti.length)] : LUOGHI_AFFARI[Math.floor(rng(s) * 5)];
+      fattoDenuncia(s, b, q, luogo);
+    }
+  }
+  // esito per chi ha fatto la soffiata
+  function esitoDenuncia(s, p, luogo, guaio, nomeAffare) {
+    for (const d of (s.notte.denunce || []).filter((x) => x.su === p.id && x.luogo === luogo && !x.fatto)) {
+      d.fatto = true; const da = giocatore(s, d.da);
+      if (guaio) { da.prove.push({ su: p.id, ciclo: s.ciclo + 1, cosa: "la soffiata su " + nomeAffare }); privato(s, da, "La tua soffiata ha colpito: la polizia ha sorpreso " + p.nome + " durante «" + nomeAffare + "». E tu hai una Prova contro di lui."); }
+      else privato(s, da, p.nome + " era davvero a " + LUOGHI[luogo].nome + ", ma è riuscito a scamparla.");
+      racconta(s, p, "Qualcuno aveva fatto il tuo nome: la polizia ti aspettava qui.");
+    }
+  }
   // la probabilita' di un guaio in un'occasione (senza toccare lo stato)
   function rischioOccasione(s, p, o, O, usati) {
     const isola = LUOGHI[o.luogo].isola;
@@ -2527,6 +2572,7 @@
     if (dovePersonaggio(s, "commissario") === o.luogo && !p.corrotti.commissario) pg *= 1.35; // il Commissario e' qui stanotte
     pg *= sitMult(s, "gu", { luogo: o.luogo }) * strumentiMult(s, p, "gu", usati, { luogo: o.luogo, occ: O.id }); // situazioni e strumenti
     pg = Math.min(0.95, pg);
+    if (denunciatoQui(s, p, o.luogo)) pg = Math.min(0.95, pg * N_DENUNCIA.rischio); // v85: un rivale ha fatto il tuo nome
     if (o.luogo === "porto" && operaAttiva(s, p, "porto")) pg = 0; // Grande Opera: il Porto e' della setta
     return pg;
   }
@@ -2709,6 +2755,7 @@
     { l: "Ti nascondi e aspetti", d: "Se il pericolo è vero, una volta su due passa oltre. Perdi un po' di tempo e di carico.", k: "aspetta" },
     { l: "Tiri dritto", d: "Se il pericolo è vero ti prende in pieno. Se non lo è, il sangue freddo paga: +15%.", k: "dritto" },
   ];
+  function rng2(s, p, C) { return ((C.n * 7 + s.ciclo * 13 + p.id.length) % 3) !== 0; } // 2 volte su 3 te ne accorgi (fisso: la vista non tira dadi)
   function iniziaColpo(s, p, o, O, oggetti) {
     s.notte.colpi = s.notte.colpi || {};
     s.notte.colpi[p.id] = { n: o.n, oggetti, passo: 0, gu: 1, ga: 1, tr: 1, quando: adesso(), storia: [] };
@@ -2723,6 +2770,7 @@
     const ultimo = C.passo >= passi.length;
     return { nome: O.nome, luogo: o.luogo, passo: C.passo, passi: passi.length + 1, rischio: Math.round(pg * 100), bottino: g, tracce: Math.round(O.tracce * 0.75 * C.tr), quando: C.quando, tempo: TEMPO_BIVIO, adesso: adesso(), storia: C.storia,
       testo: ultimo ? "Il momento della verità. " + C.segnale : passi[C.passo].t, segnale: ultimo ? C.segnaleBrutto : null,
+      venduto: denunciatoQui(s, p, o.luogo) && rng2(s, p, C) ? "Stanotte qui ci sono più divise del solito. Come se aspettassero qualcuno." : null,
       opzioni: (ultimo ? ULTIMA : passi[C.passo].o).map((x) => ({ l: x.l, d: x.d, costo: x.costo || 0, gu: x.gu || null, ga: x.ga || null })) };
   }
   function sceltaColpo(s, p, i, esitato, muto) {
@@ -2788,6 +2836,7 @@
     const guaio = cx ? cx.guaio : O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
     let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p) : 0;
     guadagno *= sitMult(s, "ga", { luogo: o.luogo, occ: O.id }) * strumentiMult(s, p, "ga", usati, { luogo: o.luogo, occ: O.id }) * (cx ? cx.ga : 1);
+    if (denunciatoQui(s, p, o.luogo)) esitoDenuncia(s, p, o.luogo, guaio, O.nome);
     if (guaio) {
       const G = PERICOLI[guaio];
       const extra = sitSalvaExtra(s, guaio);
@@ -5344,6 +5393,7 @@
       // ---- notte: affari, oggetti, contatti, soldi sporchi
       case "occasione": return prendiOccasione(s, p, a.n, a.oggetti, !!a.scelte);
       case "colpo": return sceltaColpo(s, p, a.i, !!a.esitato);
+      case "soffiata_rivale": return soffiataRivale(s, p, a.su, a.luogo);
       case "compra_oggetto": return compraOggetto(s, p, a.oggetto);
       case "soffiata": return soffiata(s, p, a.luogo);
       case "foto": return fotografa(s, p, a.bersaglio);
@@ -5455,6 +5505,7 @@
         ora: s.notte.ora, dove: { ...s.notte.dove },
         viaggio: Object.fromEntries(Object.entries(s.notte.viaggio).map(([k, x]) => [k, { verso: k === idGiocatore ? x.verso : null, restano: k === idGiocatore ? x.restano : null, serata: k === idGiocatore ? x.serata || null : null }])),
         colpo: me ? colpoVisibile(s, me) : null,
+        puoTradire: me ? !((s.notte.denunce || []).some((d) => d.da === me.id)) : false,
         chiuso: { [idGiocatore]: !!s.notte.chiuso[idGiocatore] }, racconto: s.notte.racconto[idGiocatore] || [],
         pronto: { [idGiocatore]: !!(s.notte.pronto && s.notte.pronto[idGiocatore]) }, inizio: s.notte.inizio, tempo: TEMPO_ORA, adesso: adesso(),
         daScelta: s.notte.daScelta[idGiocatore], inizioRacc: s.notte.inizioRacc[idGiocatore] || 0,
