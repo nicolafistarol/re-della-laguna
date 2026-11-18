@@ -1,0 +1,59 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Proto 3 — Diorama a livelli</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#0b2a3a;font-family:system-ui,sans-serif}canvas{display:block;touch-action:none}
+#barra{position:fixed;left:10px;bottom:10px;display:flex;gap:8px;flex-wrap:wrap}button{background:rgba(8,16,30,.72);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:8px 12px;font-size:14px}
+#info{position:fixed;right:10px;top:10px;color:#fff;font:12px ui-monospace,monospace;background:rgba(8,16,30,.6);padding:6px 8px;border-radius:8px}
+.nome{position:fixed;transform:translate(-50%,-50%);color:#fff;font:600 15px Georgia,serif;letter-spacing:.04em;text-shadow:0 2px 8px rgba(0,20,40,.9);background:rgba(8,16,30,.45);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap;backdrop-filter:blur(3px)}
+#titolo{position:fixed;left:50%;top:22px;transform:translateX(-50%);color:#fff;font:600 28px Georgia,serif;text-shadow:0 2px 12px rgba(0,0,0,.8);opacity:0;pointer-events:none}</style>
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script></head>
+<body><div id="nomi"></div><div id="titolo"></div><div id="barra"><button id="bN">Giorno / Notte</button><button id="bT">⟵ Arcipelago</button></div><div id="info"></div>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { creaRilievo, creaCamera } from "../proto1/rilievo.js";
+import { creaPezzi, statoDemo, POS_CASA } from "../proto1/pezzi.js";
+import { creaFoto3D } from "./foto3d.js";
+const Q = new URLSearchParams(location.search), num = (k, d) => Q.has(k) ? Number(Q.get(k)) : d;
+const telefono = Math.min(innerWidth, innerHeight) < 500;
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1)); renderer.setSize(innerWidth, innerHeight); document.body.prepend(renderer.domElement);
+const scena = new THREE.Scene();
+const R = await creaRilievo({ urlFoto: "../proto1/mappa-hd.jpg", urlGeo: "../proto1/geo.png", urlJson: "../proto1/geo.json", urlMare: "../proto1/mare-base.png", renderer, qualita: num("q", telefono ? 0.7 : 1) });
+scena.add(R.gruppo);
+const C = creaCamera(R, renderer.domElement, { parallasse: 1 });
+// pedine = automobiline vere (KayKit City Builder Bits, CC0), tinte col colore del giocatore
+const L = new GLTFLoader(); const auto = await Promise.all(["car_sedan", "car_taxi", "car_hatchback", "car_stationwagon"].map((n) => L.loadAsync("modelli/" + n + ".gltf").then((g) => g.scene)));
+let nAuto = 0;
+const modelli = { pedina(colore) { const g = auto[nAuto++ % auto.length].clone(true); g.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set(colore).lerp(new THREE.Color("#fff"), 0.35); o.material.emissive = new THREE.Color(colore); o.material.emissiveIntensity = 0.12; } }); g.scale.setScalar(1.25); const w = new THREE.Group(); w.add(g);
+  const an = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.05, 8, 28).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: colore })); an.position.y = 0.03; w.add(an); return w; } };
+const pezzi = creaPezzi(R, scena, { scala: num("scala", 1), modelli: Q.has("pedoni") ? null : modelli }); pezzi.aggiorna(statoDemo());
+
+// ---- livello 2: dentro un'isola (foto dell'isola in rilievo)
+const NOMI = { Ambra: "Isola Ambra", Palma: "Isola Palma", Corona: "Isola Corona", Flamingo: "Isola Flamingo", Sole: "Isola Sole" };
+const isole = {}; const caricaIsola = async (k) => isole[k] || (isole[k] = await creaFoto3D(`isole/${k.toLowerCase()}.jpg`, `isole/${k.toLowerCase()}-prof.png`, renderer));
+let isola = null, f = 0, fT = 0, vista = null;        // f: 0 = arcipelago, 1 = dentro l'isola
+async function entra(k) { vista = await caricaIsola(k); isola = k; fT = 1; C.S.libero = true;
+  const d = R.suolo(...POS_CASA[k]).sub(R.cam0); C.S.yawT = Math.atan2(-d.x, -d.z); C.S.pitchT = Math.atan2(d.y, Math.hypot(d.x, d.z)) + R.P.theta; C.S.zoomT = 3.4; document.getElementById("titolo").textContent = NOMI[k]; }
+function esci() { fT = 0; C.S.libero = false; Object.assign(C.S, { yawT: 0, pitchT: 0, zoomT: 1 }); }
+const boxNomi = document.getElementById("nomi"); const etich = Object.keys(NOMI).map((k) => { const e = document.createElement("div"); e.className = "nome"; e.textContent = NOMI[k]; e.onclick = () => entra(k); boxNomi.append(e); const p = R.suolo(...POS_CASA[k]); p.y += 9; return { e, p }; });
+document.getElementById("bT").onclick = esci;
+addEventListener("pointermove", (e) => { if (vista) vista.punta(e.clientX / innerWidth * 2 - 1, e.clientY / innerHeight * 2 - 1); });
+let notte = num("notte", 0), notteT = notte; document.getElementById("bN").onclick = () => notteT = notteT > .5 ? 0 : 1;
+function misura() { renderer.setSize(innerWidth, innerHeight); C.misura(innerWidth, innerHeight); } misura(); addEventListener("resize", misura);
+if (Q.has("isola")) { await entra(Q.get("isola")); if (Q.has("f")) { const x = num("f", 1); f = x; fT = x; Object.assign(C.S, { yaw: C.S.yawT, pitch: C.S.pitchT, zoom: 1 + (C.S.zoomT - 1) * Math.min(1, x * 1.6) }); C.S.zoomT = C.S.zoom; } }
+if (Q.has("zoom")) { C.S.libero = true; C.S.zoomT = C.S.zoom = num("zoom", 1); C.S.yawT = C.S.yaw = THREE.MathUtils.degToRad(num("yaw", 0)); C.S.pitchT = C.S.pitch = THREE.MathUtils.degToRad(num("pitch", 0)); }
+if (Q.has("pulito")) { document.getElementById("barra").style.display = "none"; document.getElementById("info").style.display = "none"; }
+const orol = new THREE.Clock(); let t = 0, fps = 0, ult = performance.now(); const v3 = new THREE.Vector3();
+renderer.setAnimationLoop(() => { const dt = Math.min(.05, orol.getDelta()); t += dt; notte += (notteT - notte) * Math.min(1, dt * 2.5); if (!Q.has("f")) f += (fT - f) * Math.min(1, dt * 2.2);
+  R.tempo(Q.has("t") ? num("t", 0) : t); R.notte(notte); pezzi.impostaNotte(notte);
+  if (!C.S.libero && !Q.has("fermo")) { C.S.orbT = Math.sin(t * .25) * .014; C.S.alzaT = Math.sin(t * .19) * .006; }
+  C.aggiorna(dt); renderer.autoClear = true; let tri = 0, ch = 0;
+  if (f < 0.995) { renderer.render(scena, C.camera); tri += renderer.info.render.triangles; ch += renderer.info.render.calls; }
+  const dentro = THREE.MathUtils.smoothstep(f, 0.45, 1);
+  if (vista && dentro > 0.003) { vista.U.uA.value = dentro; vista.U.uNotte.value = notte; vista.aggiorna(dt, Q.has("t") ? 0 : t, innerWidth / innerHeight, 1 - dentro); renderer.autoClear = false; renderer.clearDepth(); renderer.render(vista.scena, vista.camera); tri += renderer.info.render.triangles; ch += renderer.info.render.calls; }
+  for (const { e, p } of etich) { v3.copy(p).project(C.camera); e.style.left = (v3.x * .5 + .5) * innerWidth + "px"; e.style.top = (-v3.y * .5 + .5) * innerHeight + "px"; e.style.opacity = String(Math.max(0, 1 - f * 3)); e.style.pointerEvents = f > .2 ? "none" : "auto"; }
+  document.getElementById("titolo").style.opacity = String(dentro);
+  const ora = performance.now(); fps += (1000 / Math.max(1, ora - ult) - fps) * .05; ult = ora; window.__info = { chiamate: ch, triangoli: tri, fps: Math.round(fps) };
+  document.getElementById("info").textContent = `${ch} draw call · ${(tri / 1000) | 0}k triangoli · ${Math.round(fps)} fps`; });
+window.__pronto = true;
+</script></body></html>

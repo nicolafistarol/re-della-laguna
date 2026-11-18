@@ -1,0 +1,43 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Proto 1 — Foto in rilievo</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#0b2a3a;font-family:system-ui,sans-serif}canvas{display:block;touch-action:none}
+#barra{position:fixed;left:10px;bottom:10px;display:flex;gap:8px}#barra button{background:rgba(8,16,30,.72);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:8px 12px;font-size:14px}
+#info{position:fixed;right:10px;top:10px;color:#fff;font:12px ui-monospace,monospace;background:rgba(8,16,30,.6);padding:6px 8px;border-radius:8px}</style>
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script></head>
+<body><div id="barra"><button id="bN">Giorno / Notte</button><button id="bO">Vista iniziale</button></div><div id="info"></div>
+<script type="module">
+import * as THREE from "three";
+import { creaRilievo, creaCamera } from "./rilievo.js";
+import { creaPezzi, statoDemo } from "./pezzi.js";
+const Q = new URLSearchParams(location.search), num = (k, d) => Q.has(k) ? Number(Q.get(k)) : d;
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+const telefono = Math.min(innerWidth, innerHeight) < 500;
+renderer.setPixelRatio(Math.min(telefono ? 2 : 2, devicePixelRatio || 1)); renderer.setSize(innerWidth, innerHeight); document.body.prepend(renderer.domElement);
+const scena = new THREE.Scene();
+const R = await creaRilievo({ urlFoto: "mappa-hd.jpg", urlGeo: "geo.png", urlJson: "geo.json", urlMare: "mare-base.png", renderer, qualita: num("q", telefono ? 0.7 : 1) });
+scena.add(R.gruppo);
+const C = creaCamera(R, renderer.domElement, { parallasse: num("par", 1) }); R.U.uTaglio.value = num("taglio", 1);
+const pezzi = Q.has("nudo") ? null : creaPezzi(R, scena, { scala: num("scala", 1) });
+if (pezzi) pezzi.aggiorna(statoDemo());
+let notte = num("notte", 0), notteT = notte;
+function misura() { renderer.setSize(innerWidth, innerHeight); C.misura(innerWidth, innerHeight); } misura(); addEventListener("resize", misura);
+// parametri per le foto di prova: ?az=gradi (orbita) &el=gradi (alza) &zoom= &yaw= &pitch= (gradi) &t= (tempo fisso)
+C.S.libero = Q.has("az") || Q.has("el") || Q.has("libero");
+C.S.orbT = C.S.orbita = THREE.MathUtils.degToRad(num("az", 0)); C.S.alzaT = C.S.alza = THREE.MathUtils.degToRad(num("el", 0));
+C.S.zoomT = C.S.zoom = num("zoom", 1); C.S.yawT = C.S.yaw = THREE.MathUtils.degToRad(num("yaw", 0)); C.S.pitchT = C.S.pitch = THREE.MathUtils.degToRad(num("pitch", 0));
+document.getElementById("bN").onclick = () => { notteT = notteT > 0.5 ? 0 : 1; };
+document.getElementById("bO").onclick = () => { Object.assign(C.S, { yawT: 0, pitchT: 0, zoomT: 1 }); };
+if (Q.has("pulito")) { document.getElementById("barra").style.display = "none"; document.getElementById("info").style.display = "none"; }
+const orologio = new THREE.Clock(); let t = 0, fps = 0, ult = performance.now();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(0.05, orologio.getDelta()); t += dt; notte += (notteT - notte) * Math.min(1, dt * 2.5);
+  R.tempo(Q.has("t") ? num("t", 0) : t); R.notte(notte); if (pezzi) pezzi.impostaNotte(notte);
+  // se nessuno tocca, la camera respira appena: si sente il volume
+  if (!C.S.libero && !Q.has("fermo")) { C.S.orbT = Math.sin(t * 0.25) * 0.014; C.S.alzaT = Math.sin(t * 0.19) * 0.006; }
+  C.aggiorna(dt); renderer.render(scena, C.camera);
+  const ora = performance.now(); fps += (1000 / Math.max(1, ora - ult) - fps) * 0.05; ult = ora;
+  const i = renderer.info.render; window.__info = { chiamate: i.calls, triangoli: i.triangles, fps: Math.round(fps), geometrie: renderer.info.memory.geometries, texture: renderer.info.memory.textures };
+  document.getElementById("info").textContent = `${i.calls} draw call · ${(i.triangles / 1000) | 0}k triangoli · ${Math.round(fps)} fps`;
+});
+window.__pronto = true;
+</script></body></html>
