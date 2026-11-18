@@ -215,7 +215,7 @@ function schermataProvaLocale(seed) {
       <span class="sub">Tu contro Rocco, Vera e Dario (giocatori-computer).</span>
       <div class="campo"><label for="nomeLoc">Come ti chiami?</label><input id="nomeLoc" maxlength="24" placeholder="Scrivi il tuo nome" value="${esc(nomeLocale() === "Tu" ? "" : nomeLocale())}"></div>
       <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">${sceltaDurataHtml()}
-        <label class="check"><input type="checkbox" id="princL" ${principianti ? "checked" : ""}> Partita guidata: Vera ti dà consigli e le cose si scoprono piano piano (consigliata la prima volta)</label></div>
+        <label class="check"><input type="checkbox" id="princL" ${principianti ? "checked" : ""}> Partita guidata: ${CONSIGLIERA}, la tua segretaria, ti consiglia una cosa da provare a ogni Alba (consigliata la prima volta)</label></div>
       <button class="oro grande" id="via">Inizia</button>${tastoGuida()}
       <a href="${location.pathname}" style="align-self:stretch;text-align:center;padding:12px;border-radius:12px;text-decoration:none;font-weight:800;color:#fff;background:rgba(79,195,247,.18);border:1px solid rgba(79,195,247,.6)">👥 Gioca online con gli amici</a></div>`);
     collegaTastoGuida(); if (guidaMaiVista()) apriGuida(0);
@@ -1420,6 +1420,31 @@ function chiediViaggio(me, luogo) {
 }
 
 // ------------------------------------------------------------ il telefono
+// ---- Coder F: consigliera, parole uniche, icone in più -------------------------------------------------
+// La consigliera si chiama Bianca (la tua segretaria). Il motore scrive ancora i suoi messaggi come "Vera: ...":
+// qui si cambia solo come si mostrano. "Vera" resta il nome di un'avversaria nella prova da solo.
+const CONSIGLIERA = "Bianca";
+const RE_CONSIGLIERA = /^(?:Vera|Bianca): ?/;
+function daConsigliera(t) { return RE_CONSIGLIERA.test(t || ""); }
+function testoConsigliera(t) { return String(t || "").replace(RE_CONSIGLIERA, "").replace(/^"/, "").replace(/"$/, "").replace(/" \(/, " ("); }
+// Glossario unico (una parola = una cosa): i testi che arrivano dal motore passano di qui prima di essere mostrati nel telefono.
+const PAROLE_UNICHE = [[/\bil pacchetto\b/g, "la storia"], [/l'Azione del giorno/g, "la mossa del giorno"], [/\bAsta del Comune\b/g, "Asta del Municipio"], [/\bComune della Laguna\b/g, "Municipio"], [/\bla serie completa\b/g, "tutte le vie del gruppo"], [/\btracce\b/g, "Tracce"], [/\bpoker\b/g, "Sette e mezzo"], [/ a la Banca/g, " alla Banca"], [/\bCicli in cella\b/g, "turni fermo"]];
+function parole(t) { let x = String(t || ""); for (const [re, con] of PAROLE_UNICHE) x = x.replace(re, con); return x; }
+function maiuscola(t) { return t ? t[0].toUpperCase() + t.slice(1) : t; }
+// icone a linea che mancano in icone.js (stesso stile Lucide): niente emoji nel telefono e nella guida
+const ICONE_F = {
+  lucchetto: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 10 0v4" />',
+  libro: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /> <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />',
+  attento: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /> <path d="M12 9v4" /> <path d="M12 17h.01" />',
+  cellulare: '<rect width="14" height="20" x="5" y="2" rx="2" ry="2" /> <path d="M12 18h.01" />',
+  fiamma: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />',
+  gente: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <path d="M16 3.13a4 4 0 0 1 0 7.75" />',
+  spunta: '<path d="M20 6 9 17l-5-5" />',
+  pugnale: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5" /> <path d="m13 19 6-6" /> <path d="m16 16 4 4" /> <path d="m19 21 2-2" />',
+  fumetto: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />',
+  cassa: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /> <path d="m3.3 7 8.7 5 8.7-5" /> <path d="M12 22V12" />',
+};
+function icoF(nome, cls = "") { const p = ICONE_F[nome]; return p ? `<svg class="lic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>` : ico(nome, cls); }
 // al Faro (in prigione) queste app non si possono usare: non hanno azioni da "telefonata"
 const SPENTE_FARO = ["imprese", "agenzia", "palazzo", "lusso", "valigetta", "sporchi", "grandi"];
 const APPS = [
@@ -1445,28 +1470,34 @@ const APPS = [
 ];
 // ogni messaggio arriva da una persona: stessa persona = stessa conversazione
 const MITTENTI = [
-  [/^Vera:/, "Vera", ico("vera"), "#ff5fa2"],
+  [RE_CONSIGLIERA, CONSIGLIERA, ico("vera"), "#ff5fa2"],
+  [/^Nuova scoperta/, "Da scoprire", ico("stella"), "#e0a526"],
+  [/^Un personaggio ti dice|^Vedi spesso un'auto|^La Gazzetta fa il tuo nome|^Ti senti più tranquillo|perquisisce/i, "Un amico fidato", ico("amico"), "#2f6fe0"],
   [/numero sconosciuto|Squilla il telefono|Lavoretto fatto|Riattacchi/i, "Numero sconosciuto", ico("sconosciuto"), "#555"],
-  [/^Municipio:|ottieni il permesso/i, "Municipio", ico("municipio"), "#5c7f99"],
+  [/^Municipio:|ottieni il permesso|^Asta del Comune|^Sei il Sindaco/i, "Municipio", ico("municipio"), "#5c7f99"],
   [/busta passa di mano/i, "L'assessore", ico("handshake"), "#7a5c2c"],
+  [/Sentenza|Giudice|convocazione/i, "Tribunale della Laguna", ico("tribunale"), "#8d1f2c"],
   [/gruista|Porto Container/i, "Gruista del Porto", ico("porto"), "#c97a2c"],
   [/Mercato Nero|venditore/i, "Venditore del Mercato", ico("mercato"), "#8a5a2c"],
-  [/Sentenza|Giudice|convocazione/i, "Tribunale della Laguna", ico("tribunale"), "#8d1f2c"],
   [/boss straniero/i, "Lo straniero", ico("maschera"), "#111"],
   [/foto|Prova/i, "Il fotografo", ico("macchina"), "#3a3f4b"],
   [/setta|Gran Maestro|invito segreto/i, "Messaggio senza firma", ico("setta"), "#3b1d5c"],
-  [/Sindaco/i, "Comune della Laguna", ico("municipio"), "#5c7f99"],
-  [/polizia|perquisisce|contatto corrotto|pentito|Si parla di te|auto della polizia|Gazzetta fa il tuo nome|tranquillo: nessuno/i, "Un amico fidato", ico("amico"), "#2f6fe0"],
+  [/Sindaco/i, "Municipio", ico("municipio"), "#5c7f99"],
+  [/polizia|contatto corrotto|pentito|Si parla di te|auto della polizia|tranquillo: nessuno/i, "Un amico fidato", ico("amico"), "#2f6fe0"],
   [/Banca|prestito|interessi/i, "Banca Centrale", ico("banca"), "#2f6fe0"],
 ];
+// Tre pesi (CH-14). Cronaca = cose già successe e senza niente da fare: non accendono il pallino rosso.
+const AVVISI_GIOCO = ["Da scoprire", "Avvisi del gioco"];
+function messaggioMinore(t) { return /^Nuova scoperta|è rimandata\.|^Ripuliti |^La setta ha ripulito/.test(t || ""); }
+function messaggiNuovi(me) { const m = me.messaggi || []; let n = 0; for (let i = letti(); i < m.length; i++) if (!messaggioMinore(m[i].testo)) n++; return n; }
 function mittente(testo) {
   if (S) for (const p of S.players) if (p.id !== mioId && (testo.startsWith(p.nome + " ") || testo.includes(" da " + p.nome))) return [p.nome, esc(p.nome[0]), p.colore];
   for (const [re, nome, ico, col] of MITTENTI) if (re.test(testo)) return [nome, ico, col];
-  return ["Notifiche", ico("notizie"), "#444"];
+  return ["Avvisi del gioco", ico("notizie"), "#444"];
 }
 function conversazioni(me) {
   const conv = new Map();
-  (me.messaggi || []).forEach((m, i) => { const [nome, ico, col] = mittente(m.testo); if (!conv.has(nome)) conv.set(nome, { nome, ico, col, msg: [] }); conv.get(nome).msg.push({ ...m, i, testo: m.testo.replace(/^Vera: /, "").replace(/^Municipio: /, "") }); });
+  (me.messaggi || []).forEach((m, i) => { const [nome, ico, col] = mittente(m.testo); if (!conv.has(nome)) conv.set(nome, { nome, ico, col, msg: [] }); conv.get(nome).msg.push({ ...m, i, testo: maiuscola(parole(testoConsigliera(m.testo).replace(/^Municipio: /, ""))) }); });
   return [...conv.values()].sort((a, b) => b.msg[b.msg.length - 1].i - a.msg[a.msg.length - 1].i);
 }
 let chatAperta = null;
@@ -1595,7 +1626,7 @@ function adessoPuoi(me, nuovi) {
   if (caldo && caldo[1] >= 2) out.push({ testo: "Al " + (L.LUOGHI[caldo[0]] || {}).nome + " ti conoscono: stanotte cambia posto.", app: "sporchi" });
   if (nuovi) out.push({ testo: nuovi === 1 ? "Hai un messaggio nuovo." : "Hai " + nuovi + " messaggi nuovi.", app: "messaggi" });
   const cons = ((S.ultimaAlba || {}).riepilogo || {})[mioId]?.consiglio;
-  if (S.consigli !== false && cons && (me.scoperte || {})[cons.id] === undefined) out.push({ testo: "Vera: " + cons.testo, app: APP_DI_SCOPERTA[cons.id] || "scoperte" });
+  if (S.consigli !== false && cons && (me.scoperte || {})[cons.id] === undefined) out.push({ testo: CONSIGLIERA + ": " + parole(cons.testo), app: APP_DI_SCOPERTA[cons.id] || "scoperte" });
   return out.slice(0, 3);
 }
 function homeTelefono(me, nuovi) {
@@ -1616,7 +1647,7 @@ function homeTelefono(me, nuovi) {
 function apriApp(k) { segnaAppVista(k); telAperto = true; app = k; chatAperta = null; if (k === "messaggi") segnaLetti((io().messaggi || []).length); disegnaTelefono(io()); }
 function disegnaTelefono(me) {
   const box = $("#telefonoBox");
-  const nuovi = Math.max(0, (me.messaggi || []).length - letti());
+  const nuovi = messaggiNuovi(me);
   if (!telAperto) {
     box.innerHTML = `<button class="tel-tasto vetro" id="apriTel" aria-label="Apri il telefono">📱${nuovi ? `<span class="badge">${nuovi}</span>` : ""}</button>`;
     $("#apriTel").onclick = () => { telAperto = true; app = null; disegnaTelefono(me); };
@@ -1715,15 +1746,18 @@ function appBanca(me, miTurno) {
 }
 function appMessaggi(me, miTurno) {
     const cv = conversazioni(me);
-    if (!cv.length) return `<p class="sub">Nessun messaggio.</p>`;
+    if (!cv.length) return `<p class="sub">Nessun messaggio, per ora. Qui ti scrivono le persone della Laguna${S.consigli !== false ? " e " + CONSIGLIERA + ", la tua segretaria" : ""}.</p>`;
     const c = chatAperta && cv.find((x) => x.nome === chatAperta);
     if (c) {
       segnaChat(c.nome, c.msg.length);
-      return `<div class="chat-testa"><button class="piccolo" id="tornaChat">‹</button><span class="avatar" style="background:${c.col}">${c.ico}</span><b>${esc(c.nome)}</b></div>
-        <div class="chat">${c.msg.map((m) => `<div class="bolla">${esc(m.testo)}<span>Ciclo ${m.ciclo}</span></div>`).join("")}</div>`;
+      return `<div class="chat-testa"><button class="piccolo" id="tornaChat" aria-label="Torna ai messaggi">‹</button><span class="avatar" style="background:${c.col}">${c.ico}</span><b>${esc(c.nome)}</b>${c.nome === CONSIGLIERA ? `<span class="sub">la tua segretaria</span>` : ""}</div>
+        <div class="chat">${c.msg.map((m) => `<div class="bolla">${esc(m.testo)}<span>Ciclo ${m.ciclo}</span></div>`).join("")}</div>
+        ${AVVISI_GIOCO.includes(c.nome) ? "" : `<p class="sub chat-nota">${c.nome === CONSIGLIERA ? CONSIGLIERA + " ti scrive quando c'è qualcosa da sapere. Non serve rispondere." : "A questi messaggi non si risponde: si agisce."}</p>`}`;
     }
-    return cv.map((c) => { const ult = c.msg[c.msg.length - 1]; const nuovi = c.msg.length - lettiChat(c.nome);
-      return `<button class="conv" data-chat="${esc(c.nome)}"><span class="avatar" style="background:${c.col}">${c.ico}</span><span class="cv-t"><b>${esc(c.nome)}</b><span>${esc(ult.testo.slice(0, 70))}${ult.testo.length > 70 ? "…" : ""}</span></span>${nuovi > 0 ? `<span class="pallino">${nuovi}</span>` : ""}</button>`; }).join("");
+    const riga = (c) => { const ult = c.msg[c.msg.length - 1]; const nuovi = c.msg.length - lettiChat(c.nome);
+      return `<button class="conv" data-chat="${esc(c.nome)}"><span class="avatar" style="background:${c.col}">${c.ico}</span><span class="cv-t"><b>${esc(c.nome)}${c.nome === CONSIGLIERA ? ` <i class="cv-ruolo">la tua segretaria</i>` : ""}</b><span>${esc(ult.testo.slice(0, 70))}${ult.testo.length > 70 ? "…" : ""}</span></span>${nuovi > 0 ? `<span class="pallino ${AVVISI_GIOCO.includes(c.nome) ? "grigio" : ""}">${nuovi}</span>` : ""}</button>`; };
+    const persone = cv.filter((x) => !AVVISI_GIOCO.includes(x.nome)), avvisi = cv.filter((x) => AVVISI_GIOCO.includes(x.nome));
+    return (persone.length ? persone.map(riga).join("") : `<p class="sub">Nessuno ti ha ancora scritto.</p>`) + (avvisi.length ? `<span class="gruppo-t msg-sez">Avvisi del gioco</span>` + avvisi.map(riga).join("") : "");
 }
 function appValigetta(me, miTurno) {
     const v = me.valigetta || [], posti = S.postiValigetta;
@@ -1789,7 +1823,7 @@ function appScoperte(me, miTurno) {
     const GRUPPI = [["giorno", "Di giorno"], ["notte", "Di notte"], ["potere", "Potere e rivali"]];
     return `<div class="scheda"><h4>${ico("stella")} Hai scoperto ${n} cose su ${tutte.length}</h4>
         <div style="height:8px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden;margin:6px 0"><div style="height:100%;width:${Math.round(n / tutte.length * 100)}%;background:var(--oro)"></div></div>
-        <span class="sub">Ogni cosa nuova che provi ti dà +1 fama.${S.consigli !== false ? " Vera, a ogni Alba, ti suggerisce una cosa che puoi fare subito." : " Partita senza consigli: tocca a te scoprire tutto."}</span></div>` +
+        <span class="sub">Ogni cosa nuova che provi ti dà +1 fama.${S.consigli !== false ? " " + CONSIGLIERA + ", a ogni Alba, ti suggerisce una cosa che puoi fare subito." : " Partita senza consigli: tocca a te scoprire tutto."}</span></div>` +
       GRUPPI.map(([g, titolo]) => `<div class="scheda"><h4>${titolo}</h4>${tutte.filter((x) => x.gruppo === g).map((x) => {
         const ok = fatte[x.id] !== undefined, aperta = x.lv <= S.sblocco;
         return `<div class="liv"><span class="liv-n" style="${ok ? "background:#2e7d4f" : ""}">${ok ? "✓" : aperta ? "?" : x.lv}</span><div><b>${ok ? esc(x.nome) : aperta ? "Da scoprire" : "Livello " + x.lv}</b><div class="sub" style="font-size:12px">${ok ? esc(x.spiega) : aperta ? esc(x.indizio) : "Si apre quando sali al Livello " + x.lv + "."}</div></div></div>`;
@@ -1865,8 +1899,8 @@ const LIVELLI = [
 ];
 // Chi conta nella Laguna: dove trovarli, quando, cosa fanno per te
 const PERSONAGGI = [
-  { id: "vera", nome: "Vera", ruolo: "La tua consigliera", ico: "vera", col: "#ff5fa2", dove: null, quando: "sempre", lv: 0,
-    fa: "Ti avvisa quando sali di livello, quando c'è un'occasione e quando rischi troppo.", costo: "Gratis", come: "Ti scrive lei: la trovi nell'app Messaggi." },
+  { id: "vera", nome: CONSIGLIERA, ruolo: "La tua segretaria", ico: "vera", col: "#ff5fa2", dove: null, quando: "sempre", lv: 0,
+    fa: "Ti avvisa quando sali di Livello, quando c'è un'occasione e quando rischi troppo. Nella partita guidata ti dà un consiglio a ogni Alba.", costo: "Gratis", come: "Ti scrive lei: la trovi nell'app Messaggi." },
   { id: "agente", nome: "L'agente di quartiere", ruolo: "Polizia di un'isola", ico: "siren", col: "#2f6fe0", dove: "club", quando: "notte", lv: 1,
     fa: "Chiude un occhio sui tuoi affari in un'isola: meno guai con le pattuglie.", costo: "250.000 €, poi 125.000 € a Ciclo", come: "Di notte al Club Neon: scegli \"Parla con un agente fuori servizio\"." },
   { id: "vargas", nome: "Il Commissario Vargas", ruolo: "Capo della polizia", ico: "siren", col: "#1e3a8a", dove: "club", quando: "notte", lv: 1,
@@ -2491,7 +2525,7 @@ function appPalazzo(me, miTurno) {
   const stanze = F.map((f, i) => `<div class="pal-gruppo" style="--c:${COL_FASCE[i]}"><h4 style="color:${COL_FASCE[i]}">${f.nome} · da ${f.da} ${f.da === 1 ? "piano" : "piani"}</h4>${f.fun.map((id) => { const x = poss.find((y) => y.id === id), S2 = L.STANZE[id], q = ICO_QUANDO[S2.quando];
     return `<div class="pal-stanza ${x.ce ? "mia" : x.ok ? "" : "chiusa"}"><div class="riga"><b style="flex:1">${esc(S2.nome)}</b><span class="tag">${ico(q[0])} ${q[1]}</span></div><div>${esc(S2.descr)}</div><div class="sub">Esempio: ${esc(S2.esempio)}</div>
       <div class="riga" style="margin-top:6px">${x.ce ? `<span class="tag" style="color:var(--pulito)">✔ ce l'hai</span>` : x.ok ? `<button class="oro" data-stanza="${id}" ${possono && me.cash >= x.costo ? "" : "disabled"}>Compra · ${euro(x.costo)}</button>${!possono ? `<span class="sub">${mioTurno() && !me.haTirato ? "dopo i dadi" : "nel tuo turno"}</span>` : me.cash < x.costo ? `<span class="sub">non hai abbastanza</span>` : ""}` : `<span class="sub">${ico("chiave")} ${esc(x.perche)} · ${euro(x.costo)}</span>`}</div></div>`; }).join("")}</div>`).join("");
-  const vera = S.consigli !== false && n < 2 ? `<div class="scheda" style="border:1px solid rgba(255,95,162,.4)"><b style="color:#ff5fa2">${ico("vera")} Vera</b><p style="margin:4px 0 0">Il Palazzo è il tuo salvadanaio: i piani rendono a ogni Alba e non te li tocca nessuno coi dadi. A 6 piani diventa un Attico e si aprono le stanze per la notte, come il Casinò privato.</p></div>` : "";
+  const vera = S.consigli !== false && n < 2 ? `<div class="scheda" style="border:1px solid rgba(255,95,162,.4)"><b style="color:#ff5fa2">${ico("vera")} ${CONSIGLIERA}</b><p style="margin:4px 0 0">Il Palazzo è il tuo salvadanaio: i piani rendono a ogni Alba e non te li tocca nessuno coi dadi. A 6 piani diventa un Attico e si aprono le stanze per la notte, come il Casinò privato.</p></div>` : "";
   return testa + vera + inizia + costruisci + meta + `<h4 style="margin:12px 0 4px">Com'è il tuo Palazzo</h4>` + torre + `<h4 style="margin:12px 0 4px">Le stanze speciali</h4>` + stanze;
 }
 function finestraVeicolo() {
@@ -2683,7 +2717,7 @@ function appAffare(me, k, t) {
     <div class="ib"><b>1</b><span><b>Ti paga.</b> A ogni Alba la Banca incassa ${euro(G.pubblicita)} più tutti gli interessi dei prestiti degli altri. Si divide per quote: con ${mie} ${mie === 1 ? "quota" : "quote"} su 10 ti arriva circa <b>${euro(Math.round(G.pubblicita * mie / 10))}</b> più la parte degli interessi.</span></div>
     <div class="ib"><b>2</b><span><b>Chi comanda decide:</b> il tasso dei prestiti degli altri (5%, 10% o 20%), può bloccare il conto di un rivale per un Ciclo e può ripulire soldi sporchi nella sua banca.</span></div>
     <div class="ib"><b>3</b><span><b>Il rischio:</b> se chi comanda finisce Indagato, la Finanza commissaria la banca: niente utili e niente poteri. E chi ha più quote ti ruba il comando.</span></div>
-    <span class="sub">Esempio: Vera ha un grosso debito → alzi il tasso al 20%: ogni Alba lei paga di più e quei soldi arrivano a chi ha le quote.</span></div>`;
+    <span class="sub">Esempio: un rivale ha un grosso debito → alzi il tasso al 20%: a ogni Alba lui paga di più e quei soldi arrivano a chi ha le quote.</span></div>`;
   return testa + breve + quote + poteri;
 }
 function collegaTV(box, me) {
