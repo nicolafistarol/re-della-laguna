@@ -153,6 +153,103 @@ function settaNotteBot(o, i, e, L, s) {
   }
   return null;
 }
+// ---------------------------------------------------------------- Favori e ricatti (v74)
+// Quanto vale un Favore per il bot. "deve" = il bot lo dovrebbe (allora alcuni Favori non li promette mai: Infinity).
+const PESO_FAVORE = { Spavaldo: 0.7, Furbo: 1, Esperto: 1, Investitore: 1.2, Costruttore: 1.2, Legale: 1.5 };
+function valoreFavore(o, i, n, tipo, altro, deve, L) {
+  const chi = deve ? i : altro; // chi lo dovrebbe
+  if (tipo === "voto") return deve && (i.fama || 0) >= 40 && (o.candidati[altro.id] !== undefined || (altro.fama || 0) >= 25) ? Infinity : 3e5;
+  if (tipo === "passo") { const mx = L.propri(o, chi).concat(o.lotti.filter((l) => l.owner === chi.id && l.serie === "Moli")).reduce((a, l) => Math.max(a, L.affitto(o, l) || 0), 0); return Math.max(2e5, mx / 2); }
+  if (tipo === "silenzio") { if (deve && n === "Legale") return Infinity; const k = ((deve ? i : altro).prove || []).filter((x) => x.su === (deve ? altro : i).id).length; return k ? 15e5 * k : 2e5; }
+  if (tipo === "mano") return deve && (i.stato || 0) >= 2 ? Infinity : 25e4;
+  return Infinity;
+}
+// un patto con un Favore: il bot fa i conti (soldi che riceve, soldi che paga, terreno che passa di mano)
+function rispostaPattoBot(o, i, n, k, L) {
+  const no = { tipo: "rispondi_contratto", id: k.id, si: !1 };
+  if (!k.favore || !L || !L.FAVORI) return no;
+  const da = o.players.find((x) => x.id === k.da); if (!da) return no;
+  let riceve = (k.chiPagaOra === "da" ? k.pagoOra : 0) + (k.chiPagaDopo === "da" ? k.pagoDopo : 0);
+  let paga = (k.chiPagaOra === "a" ? k.pagoOra : 0) + (k.chiPagaDopo === "a" ? k.pagoDopo : 0);
+  if (k.lottoCeduto) { const l = o.lotti.find((x) => x.id === k.lottoCeduto); if (!l) return no; if (l.owner === i.id) paga += l.prezzo; else riceve += l.prezzo; }
+  const meta = k.tipo === "notarile" ? Math.round(0.02 * (k.pagoOra + k.pagoDopo) / 2) : 0;
+  if (i.cash < (k.chiPagaOra === "a" ? k.pagoOra : 0) + meta + 1e5) return no;
+  const botDeve = k.favore.deve === "a";
+  if (L.motivoNoFavore(o, botDeve ? i.id : da.id, botDeve ? da.id : i.id, k.favore.tipo)) return no;
+  const v = valoreFavore(o, i, n, k.favore.tipo, da, botDeve, L);
+  if (!isFinite(v)) return no;
+  const ok = botDeve ? riceve - paga >= v * (PESO_FAVORE[n] || 1) : paga - riceve <= v * 0.8;
+  return { tipo: "rispondi_contratto", id: k.id, si: !!ok };
+}
+// il bot ricattato: pari se puo', se no accetta (o confessa se e' pulito, o lo Spavaldo a volte rifiuta)
+function rispostaRicattoBot(o, i, n, r, L) {
+  if ((i.prove || []).some((x) => x.su === r.da)) return { tipo: "rispondi_ricatto", id: r.id, scelta: "pari" };
+  const puo = !L.motivoNoFavore(o, i.id, r.da, r.tipo);
+  let scelta;
+  if ((i.stato || 0) >= 2 || (i.tracce || 0) > 40) scelta = "accetto";
+  else if ((i.tracce || 0) < 15 && !(i.stato || 0)) scelta = "confesso";
+  else scelta = n === "Spavaldo" && Math.random() < 0.3 ? "rifiuto" : "accetto";
+  if (scelta === "accetto" && !puo) scelta = "rifiuto";
+  return { tipo: "rispondi_ricatto", id: r.id, scelta };
+}
+// il bot usa i Favori che ha in mano. "giorno" = e' il suo turno, prima dei dadi.
+function usaFavoriBot(o, i, n, L, inizioTurno) {
+  const miei = (o.favori || []).filter((f) => f.a === i.id && f.stato === "aperto");
+  if (!miei.length) return null;
+  const tent = o.ciclo * 100 + o.giorno * 10 + (o.fase === "notte" ? 9 : 0);
+  i._favTent = i._favTent && i._favTent.t === tent ? i._favTent : { t: tent, id: {} };
+  const prova = (f, a) => { if (i._favTent.id[f.id]) return null; i._favTent.id[f.id] = !0; return a; };
+  for (const f of miei) {
+    const deve = o.players.find((x) => x.id === f.deve); if (!deve || deve.fallito) continue;
+    const scadeOra = f.scade - 1 <= o.ciclo;
+    if (f.tipo === "voto" && o.candidati && o.candidati[i.id] !== undefined) { const a = prova(f, { tipo: "favore_usa", id: f.id }); if (a) return a; }
+    if (f.tipo === "silenzio" && ((i.stato || 0) >= 2 || scadeOra)) { const a = prova(f, { tipo: "favore_usa", id: f.id }); if (a) return a; }
+    if (f.tipo === "passo" && inizioTurno && o.fase === "giorno") {
+      const suoi = o.lotti.filter((l) => l.owner === deve.id && l.giro === "o");
+      const caro = suoi.sort((a, b) => (L.affitto(o, b) || 0) - (L.affitto(o, a) || 0))[0];
+      const dist = caro ? (caro.idx - i.pos + L.CASELLE) % L.CASELLE : -1;
+      if ((caro && dist >= 8 && dist <= 13) || scadeOra) { const a = prova(f, { tipo: "favore_usa", id: f.id }); if (a) return a; }
+    }
+    if (f.tipo === "mano" && o.fase === "giorno") {
+      const st = (o.sette || []).find((x) => x.gm === i.id && x.membri.includes(deve.id) && x.convocazione && x.convocazione.ciclo === o.ciclo && !x.convocazione.fatto);
+      if (st && !(deve.faro > 0) && L.luogoAperto(o, st.convocazione.luogo, deve)) { const a = prova(f, { tipo: "favore_usa", id: f.id, luogo: st.convocazione.luogo, ora: st.convocazione.ora }); if (a) return a; }
+    }
+  }
+  return null;
+}
+// il bot e' al suo turno, di giorno: ricatta (Furbo, Spavaldo, Esperto) o denuncia il primo in classifica (gli altri)
+function provaBot(o, i, n, L) {
+  if (i._provaCiclo === o.ciclo || !(i.prove || []).length) return null;
+  i._provaCiclo = o.ciclo;
+  const silenzio = (id) => (o.favori || []).some((f) => f.tipo === "silenzio" && f.stato === "attivo" && f.deve === i.id && f.a === id);
+  if (["Furbo", "Spavaldo", "Esperto"].includes(n)) {
+    if ((o.ricatti || []).some((r) => r.da === i.id && r.stato === "attesa")) return null;
+    for (let k = 0; k < i.prove.length; k++) {
+      const pr = i.prove[k]; if (pr.rifiutata) continue;
+      const b = o.players.find((x) => x.id === pr.su);
+      if (!b || b.fallito || (b.stato || 0) < 1 || silenzio(b.id)) continue;
+      if (o.principianti && !b.bot && o.ciclo < 3) continue;
+      if (b.senzaParola != null && o.ciclo <= b.senzaParola) continue;
+      const caro = o.lotti.some((l) => l.owner === b.id && (L.affitto(o, l) || 0) >= 3e5);
+      const tipo = caro ? "passo" : o.candidati && o.candidati[i.id] !== undefined ? "voto" : "silenzio";
+      if (L.motivoNoFavore(o, b.id, i.id, tipo)) continue;
+      return { tipo: "ricatto", prova: k, favore: tipo };
+    }
+    return null;
+  }
+  // Legale, Costruttore, Investitore: mai ricatti. Denunciano, e solo il primo in classifica.
+  const primo = o.players.filter((x) => !x.fallito).sort((a, b) => L.patrimonio(o, b, true) - L.patrimonio(o, a, true))[0];
+  if (!primo || primo.id === i.id || silenzio(primo.id)) return null;
+  const k = i.prove.findIndex((x) => x.su === primo.id);
+  return k >= 0 ? { tipo: "denuncia", prova: k } : null;
+}
+// di notte: il bot che deve La Mano va all'appuntamento e aspetta
+function manoBot(o, i, L, s) {
+  const f = (o.favori || []).find((x) => x.tipo === "mano" && x.stato === "attivo" && x.deve === i.id && x.uso && x.uso.ciclo === o.ciclo && o.notte.ora <= x.uso.ora);
+  if (!f) return null;
+  if (s !== f.uso.luogo) return L.luogoAperto(o, f.uso.luogo, i) ? { tipo: "vai", luogo: f.uso.luogo } : null;
+  return { tipo: "aspetta" };
+}
 function grandiBot(o, i, n) {
     if (!o.grandi || !t.GRANDI || (i.livello || 0) < 4 || i.faro > 0) return null;
     const oggi = o.ciclo * 10 + o.giorno;
@@ -250,8 +347,11 @@ function grandiBot(o, i, n) {
       const a = o.inviti.find((o) => o.a === i.id);
       if (a) return rispostaInvito(o, i, n, a);
       { const vo = votoBot(o, i, n); if (vo) return vo; }
+      const LF = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null);
+      { const rc = (o.ricatti || []).find((x) => x.a === i.id && x.stato === "attesa"); if (rc && LF && LF.FAVORI) return rispostaRicattoBot(o, i, n, rc, LF); }
       const s = o.contratti.find((o) => o.a === i.id && "proposto" === o.stato);
-      if (s) return { tipo: "rispondi_contratto", id: s.id, si: !1 };
+      if (s) return s.favore ? rispostaPattoBot(o, i, n, s, LF) : { tipo: "rispondi_contratto", id: s.id, si: !1 };
+      if (LF && LF.FAVORI && o.fase !== "pacchetti" && !o.fine && !(o.fase === "notte" && (o.notteFatti[i.id] || (o.notte && o.notte.viaggio[i.id])))) { const fu = usaFavoriBot(o, i, n, LF, o.fase === "giorno" && t.corrente(o).id === i.id && !i.haTirato && !o.pending); if (fu) return fu; }
       if ("giorno" === o.fase) {
         if (t.corrente(o).id !== i.id) return null;
         const r = o.pending;
@@ -270,6 +370,7 @@ function grandiBot(o, i, n) {
         if (r) return null;
         { const gr = grandiBot(o, i, n); if (gr) return gr; }
         { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); const iv = invitoBot(o, i, LL); if (iv) return iv; const op = operaBot(o, i, n, LL); if (op) return op; const lv = lavaBot(o, i, n, LL); if (lv) return lv; }
+        if (LF && LF.FAVORI && !i.haTirato) { const pv = provaBot(o, i, n, LF); if (pv) return pv; }
         { const sosp = Object.keys(i.corrotti || {}).find((k) => i.corrotti[k].sospetto && i.stato >= 1);
           if (sosp) return { tipo: "scarica_contatto", chiave: sosp }; }
         if (!i.haTirato) {
@@ -346,6 +447,7 @@ function grandiBot(o, i, n) {
               c = n.ora;
             (i._n && i._n.ciclo === o.ciclo) || (i._n = { ciclo: o.ciclo, visti: [], ric: !1, corr: !1, aspettato: 0 });
             const l = i._n;
+            { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); if (LL && LL.FAVORI) { const mb = manoBot(o, i, LL, s); if (mb) return mb; } }
             if (n.serate && n.serate[i.id]) return c >= 5 ? { tipo: "torna_a_casa" } : { tipo: "aspetta" }; // chi ospita resta a casa
             { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); const cv = convocazioneBot(o, i, LL, s); if (cv) return cv; }
             // se una persona vera e' nello stesso posto, a volte il bot si fa avanti

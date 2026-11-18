@@ -518,6 +518,7 @@
       if (c.owner == null) { s.pending = { tipo: "compra", lotto: c.id, giocatore: p.id }; return; }
       if (c.owner === p.id) return;
       const owner = giocatore(s, c.owner);
+      if (passoLibero(s, p, owner.id)) { log(s, p.nome + " passa gratis da " + c.nome + ": Passo libero di " + owner.nome + "."); return; }
       let dovuto;
       if (c.tipoCasella === "molo") dovuto = N.moloFee[moliDi(s, owner).length];
       else dovuto = affitto(s, c);
@@ -918,6 +919,7 @@
     } else if (a.scelta === "scandalo") {
       const b = giocatore(s, a.bersaglio);
       if (!b || b.id === p.id) err("Scegli un rivale.");
+      controllaSilenzio(s, p, b.id);
       const credibile = b.tracce > 25 || b.stato >= 1 || (p.prove || []).some((x) => x.su === b.id);
       if (credibile) {
         b.fama = Math.max(0, b.fama - 15); b.tracce += 12;
@@ -1115,6 +1117,7 @@
     prossimoTurno(s);
   }
   function prossimoTurno(s) {
+    contaPasso(s, corrente(s)); // il Passo libero conta i turni di chi lo usa (anche al Faro)
     s.turno += 1;
     if (s.turno >= s.ordine.length) {
       s.turno = 0;
@@ -1269,6 +1272,7 @@
   function denuncia(s, p, idx) {
     const pr = p.prove[idx]; if (!pr) err("Prova non trovata.");
     const b = giocatore(s, pr.su);
+    controllaSilenzio(s, p, b.id);
     b.tracce += 35; b.stato = Math.min(4, b.stato + 1); segnaTraccia(s, b, 35, "una prova consegnata alla polizia da un rivale (" + (pr.cosa || "una foto") + ")");
     b.denunce = (b.denunce || []).filter((x) => x.ciclo >= s.ciclo - 2); b.denunce.push({ ciclo: s.ciclo });
     p.prove.splice(idx, 1);
@@ -1762,6 +1766,7 @@
         racconta(s, p, msg); privato(s, p, msg);
       }
     }
+    manoInizioNotte(s);
     log(s, "Cala la Notte sul Ciclo " + (s.ciclo + 1) + ".");
     for (const b of s.players) if (b.bot && b.faro === 0 && haPiano(b, "casino_privato") && rng(s) < 0.5) apriSerataSenzaOra(s, b, [50_000, 100_000][Math.floor(rng(s) * 2)]);
     apriOra(s, true);
@@ -2491,6 +2496,8 @@
         else racconta(s, p, "Arrivi a " + LUOGHI[v.verso].nome + ". " + indizio(s, v.verso), true);
       }
     }
+    // 2b. La Mano: chi ha promesso un appuntamento a quest'ora deve essere li'
+    manoOra(s);
     // 3. gli incontri
     const gruppi = {};
     for (const p of s.players) {
@@ -2831,6 +2838,7 @@
     const st = s.sette.find((x) => x.id === idSetta); if (!st || !st.membri.includes(p.id)) err("Non sei in questa setta.");
     if (!st.opera) err("Non c'è niente da votare.");
     if (st.gm === p.id) err("Il Gran Maestro propone: votano gli altri membri (a parità decide lui).");
+    if (st.opera.promessi && st.opera.promessi[p.id]) { const q = s.players.find((x) => x.id === st.opera.promessi[p.id]); err("Il tuo voto è promesso a " + (q ? q.nome : "un altro") + "."); }
     st.opera.voti[p.id] = !!si;
     if (motivo) msgSetta(s, p, idSetta, (si ? "Voto SÌ: " : "Voto NO: ") + String(motivo).slice(0, 120));
   }
@@ -3235,6 +3243,7 @@
     importo = Math.floor(importo || 0);
     if (importo < 125_000) err("Un articolo costa almeno 125.000 €.");
     const b = giocatore(s, idBersaglio); // prima si controlla di chi si parla, poi si paga
+    if (tono === "scandalo") controllaSilenzio(s, p, b.id);
     if (sporchi) { if (p.sporchi < importo * 0.8) err("Non hai abbastanza sporchi."); p.sporchi -= importo * 0.8; p.tracce += 3; p.macchia = true; }
     else { if (p.cash < importo) err("Non hai abbastanza soldi."); p.cash -= importo; }
     const forza = Math.min(20, Math.round(importo / 50_000));
@@ -3272,6 +3281,14 @@
       scadenza: s.ciclo + Math.max(1, Math.min(4, Math.floor(c.cicli || 1))), garanzia: c.garanzia || null,
       lottoCeduto: c.lottoCeduto || null, testo: String(c.testo || "").slice(0, 400), stato: "proposto",
     };
+    // un Favore dentro il patto: favore = "voto"|"passo"|"silenzio"|"mano", favoreDeve = "da" (chi propone) | "a" (chi riceve)
+    if (c.favore != null && c.favore !== "" && c.favore !== "nessuno") {
+      const ft = tipoFavore(typeof c.favore === "object" ? c.favore.tipo : c.favore); if (!ft) err("Favore sconosciuto.");
+      const chi = (typeof c.favore === "object" ? c.favore.deve : c.favoreDeve) === "a" ? "a" : "da";
+      k.favore = { tipo: ft, deve: chi };
+      const deve = chi === "da" ? p : a, ha = chi === "da" ? a : p;
+      controllaFavore(s, deve, ha, ft);
+    }
     // quello che prometto IO lo controllo subito (quello che chiedo all'altro lo controlla lui quando firma: i suoi conti sono segreti)
     if (k.chiPagaOra === "da" && k.pagoOra > p.cash) err("Non hai " + euro(k.pagoOra) + " puliti per il pagamento iniziale.");
     if (k.chiPagaDopo === "da" && k.pagoDopo > limitePatto(s, p)) err("Non puoi promettere più di quanto possiedi: al massimo " + euro(limitePatto(s, p)) + ".");
@@ -3296,10 +3313,12 @@
     if (k.pagoDopo > limitePatto(s, dopo)) err(dopo === a ? "Non puoi promettere più di quanto possiedi: al massimo " + euro(limitePatto(s, a)) + "." : da.nome + " non può più garantire la cifra promessa.");
     if (k.garanzia) { const l = s.lotti.find((x) => x.id === k.garanzia); if (!l || l.owner !== dopo.id) err("La garanzia non è più un terreno di " + dopo.nome + "."); }
     if (k.lottoCeduto) { const l = s.lotti.find((x) => x.id === k.lottoCeduto); if (!l || (l.owner !== da.id && l.owner !== a.id)) err("Il terreno da cedere non è più di uno dei due."); if (l.cantiere) err("C'è un cantiere aperto su quel terreno: aspetta l'Alba."); }
+    if (k.favore) controllaFavore(s, k.favore.deve === "da" ? da : a, k.favore.deve === "da" ? a : da, k.favore.tipo);
     da.cash -= meta; a.cash -= meta;
     pagatore.cash -= k.pagoOra; ricevente.cash += k.pagoOra; flusso(s, pagatore, ricevente, k.pagoOra, "Patto: pagamento iniziale", k.tipo === "notarile");
     if (k.lottoCeduto) { const l = lotto(s, k.lottoCeduto); if (l.owner === da.id) l.owner = a.id; else if (l.owner === a.id) l.owner = da.id; }
     k.stato = "attivo";
+    if (k.favore) { const fv = nuovoFavore(s, k.favore.deve === "da" ? da : a, k.favore.deve === "da" ? a : da, k.favore.tipo, "patto"); k.favore.id = fv.id; }
     if (k.tipo === "notarile") notizia(s, "Firmato dal notaio un contratto tra " + da.nome + " e " + a.nome + ".", "affari");
     privato(s, da, a.nome + " ha accettato il contratto.");
   }
@@ -3381,7 +3400,272 @@
     }
     else { if (p.cash < importo) err("Non hai abbastanza soldi."); p.cash -= importo; a.cash += importo; }
     flusso(s, p, a, importo, sporchi ? "Regalo in contanti sporchi" : "Regalo", false);
+    p.haRegalato = true;
     privato(s, a, p.nome + " ti ha dato " + euro(importo) + (sporchi ? " in contanti sporchi. Attento: i soldi sporchi che passano di mano lasciano Tracce anche a chi li riceve." : "."));
+  }
+
+  // ------------------------------------------------------------ I FAVORI (dinamica 1) e IL RICATTO (dinamica 2)
+  // Un Favore e' una promessa che il gioco fa rispettare. Nasce da un patto (proponiContratto) o da un ricatto.
+  // Stato: s.favori = [{ id, deve, a, tipo, origine, nato, scade, stato, uso, prova }] (campo creato al volo: partite vecchie).
+  // I cicli dentro lo stato sono quelli "veri" (da 0); a schermo si scrive sempre +1, come per i contratti.
+  const FAVORI = {
+    voto: { nome: "Il Voto", spiega: "Alle prossime elezioni la sua fama diventa punti per te. Oppure: il suo voto su una Grande Opera lo decidi tu." },
+    passo: { nome: "Passo libero", spiega: "Per i tuoi prossimi 4 turni non paghi affitti né pedaggi sui suoi terreni." },
+    silenzio: { nome: "Il Silenzio", spiega: "Brucia tutte le Prove che ha su di te. Fino alla fine del prossimo Ciclo non può denunciarti, ricattarti o pagare scandali su di te." },
+    mano: { nome: "La Mano", spiega: "Stanotte deve farsi trovare nel posto e all'ora che dici tu." },
+  };
+  const MAX_FAVORI_APERTI = 3, FAVORI_CHIUSI_TENUTI = 40, FAMA_PAROLA_ROTTA = 8;
+  function tipoFavore(t) { return typeof t === "string" && Object.prototype.hasOwnProperty.call(FAVORI, t) ? t : null; }
+  function favori(s) { if (!Array.isArray(s.favori)) s.favori = []; return s.favori; }
+  function ricatti(s) { if (!Array.isArray(s.ricatti)) s.ricatti = []; return s.ricatti; }
+  function vivo(f) { return f.stato === "aperto" || f.stato === "attivo"; }
+  function senzaParola(s, p) { return p.senzaParola != null && s.ciclo <= p.senzaParola; }
+  // il motivo per cui "deve" non puo' promettere questo Favore ad "a" (null = puo')
+  function motivoNoFavore(s, deve, a, tipo) {
+    if (!tipoFavore(tipo)) return "Favore sconosciuto.";
+    if (deve.fallito) return deve.nome + " è fallito: non può promettere niente.";
+    if (deve.id === a.id) return "Non puoi fare un Favore a te stesso.";
+    if (senzaParola(s, deve)) return "Nessuno si fida della parola di " + deve.nome + " fino al Ciclo " + (deve.senzaParola + 1) + ".";
+    const fs = favori(s);
+    if (fs.filter((f) => f.deve === deve.id && vivo(f)).length >= MAX_FAVORI_APERTI) return deve.nome + " ha già promesso troppo: 3 Favori aperti.";
+    if (fs.some((f) => f.deve === deve.id && f.a === a.id && f.tipo === tipo && vivo(f))) return "Questo Favore te lo deve già.";
+    return null;
+  }
+  function controllaFavore(s, deve, a, tipo) { const m = motivoNoFavore(s, deve, a, tipo); if (m) err(m); }
+  // il Silenzio promesso: chi lo deve non puo' fare niente contro chi lo ha in mano
+  function silenzioAttivo(s, p, idB) { return favori(s).find((f) => f.tipo === "silenzio" && f.stato === "attivo" && f.deve === p.id && f.a === idB) || null; }
+  function controllaSilenzio(s, p, idB) {
+    const f = silenzioAttivo(s, p, idB);
+    if (f) err("Hai promesso il Silenzio a " + giocatore(s, idB).nome + " fino al Ciclo " + (f.uso.fino + 1) + ".");
+  }
+  function nuovoFavore(s, deve, a, tipo, origine, prova) {
+    const f = { id: "f" + s.prossimoId++, deve: deve.id, a: a.id, tipo, origine, nato: s.ciclo, scade: s.ciclo + 4, stato: "aperto", uso: null, prova: prova || null };
+    favori(s).push(f);
+    privato(s, a, deve.nome + " ti deve un Favore: " + FAVORI[tipo].nome + ". Lo trovi in Rubrica, \"I miei fili\". Vale fino al Ciclo " + (f.scade + 1) + ".");
+    privato(s, deve, "Devi un Favore a " + a.nome + ": " + FAVORI[tipo].nome + ". Se non lo mantieni, rompi la parola.");
+    return f;
+  }
+  // la parola rotta: a mano (favore_rompi) o da sola (non ti presenti alla Mano)
+  function rompiParola(s, f, perche) {
+    const deve = giocatore(s, f.deve), a = giocatore(s, f.a);
+    f.stato = "rotto";
+    deve.fama = Math.max(0, (deve.fama || 0) - FAMA_PAROLA_ROTTA);
+    deve.senzaParola = s.ciclo + 2;
+    notizia(s, deve.nome + " non mantiene la parola data a " + a.nome + ".", "fama");
+    privato(s, deve, (perche ? perche + " " : "") + "Hai rotto la parola data a " + a.nome + ": −" + FAMA_PAROLA_ROTTA + " fama, e fino al Ciclo " + (deve.senzaParola + 1) + " nessuno accetterà Favori da te.");
+    privato(s, a, deve.nome + " ha rotto la parola che ti aveva dato (" + FAVORI[f.tipo].nome + ")." + (f.prova ? " La Prova che tenevi in pegno torna a te: ora puoi denunciarlo." : ""));
+    if (f.origine === "ricatto" && f.prova) { a.prove = a.prove || []; a.prove.push({ ...f.prova, rifiutata: true }); f.prova = null; }
+  }
+  function favoreMio(s, p, id) { const f = favori(s).find((x) => x.id === id); if (!f) err("Favore non trovato."); return f; }
+  function usaFavore(s, p, a) {
+    const f = favoreMio(s, p, a.id);
+    if (f.a !== p.id) err("Questo Favore non è tuo da usare.");
+    if (f.stato !== "aperto") err("Questo Favore è già stato usato o è chiuso.");
+    const deve = giocatore(s, f.deve);
+    if (f.tipo === "voto") {
+      if (a.opera) {
+        const st = s.sette.find((x) => x.opera && x.membri.includes(p.id) && x.membri.includes(deve.id));
+        if (!st) err("Il Voto su una Grande Opera vale solo se siete tutti e due nella setta che sta votando.");
+        if (st.gm === deve.id) err(deve.nome + " è il Gran Maestro: non vota la Grande Opera.");
+        st.opera.voti[deve.id] = !!a.si; st.opera.promessi = st.opera.promessi || {}; st.opera.promessi[deve.id] = p.id;
+        f.stato = "pagato"; f.uso = { opera: true, si: !!a.si };
+        msgSetta(s, p, st.id, deve.nome + " vota " + (a.si ? "SÌ" : "NO") + " sulla Grande Opera: era una promessa.");
+        privato(s, deve, p.nome + " ha usato il tuo Voto: sulla Grande Opera hai votato " + (a.si ? "SÌ" : "NO") + ".");
+        return;
+      }
+      if (s.candidati[p.id] === undefined) err("Il Voto si usa quando sei candidato.");
+      f.stato = "attivo"; f.uso = { elezione: true };
+      notizia(s, deve.nome + " sostiene " + p.nome + " alle elezioni.", "politica");
+      privato(s, deve, p.nome + " ha usato il tuo Voto: alle elezioni la tua fama conta per lui.");
+      return;
+    }
+    if (f.tipo === "passo") {
+      if (s.fase !== "giorno") err("Il Passo libero si usa di giorno.");
+      f.stato = "attivo"; f.uso = { turni: 4 };
+      notizia(s, deve.nome + " apre le porte a " + p.nome + ": Passo libero per 4 turni.", "affari");
+      return;
+    }
+    if (f.tipo === "silenzio") {
+      const prima = (deve.prove || []).length;
+      deve.prove = (deve.prove || []).filter((x) => x.su !== p.id);
+      const n = prima - deve.prove.length;
+      f.stato = "attivo"; f.uso = { fino: s.ciclo + 1, bruciate: n };
+      // i ricatti che aveva in corso contro di te si chiudono: la Prova e' bruciata
+      for (const r of ricatti(s)) if (r.da === deve.id && r.a === p.id && r.stato === "attesa") { r.stato = "annullato"; r.prova = null; }
+      privato(s, p, n ? deve.nome + " ha bruciato " + n + (n === 1 ? " Prova" : " Prove") + " su di te." : deve.nome + " non aveva niente su di te. Per ora.");
+      privato(s, deve, p.nome + " ha usato il tuo Silenzio" + (n ? ": hai bruciato " + n + (n === 1 ? " Prova" : " Prove") + " su di lui" : "") + ". Fino alla fine del Ciclo " + (f.uso.fino + 1) + " non puoi fare niente contro di lui.");
+      return;
+    }
+    if (f.tipo === "mano") {
+      const ora = Math.floor(Number(a.ora));
+      if (!(ora >= 1 && ora <= 5)) err("Scegli un'ora tra le 23:00 e le 03:00.");
+      const luogo = typeof a.luogo === "string" && Object.prototype.hasOwnProperty.call(LUOGHI, a.luogo) ? a.luogo : null;
+      if (!luogo || luogo === "palazzo") err("Scegli un posto della Laguna.");
+      if (!luogoAperto(s, luogo, deve)) err(deve.nome + " non può entrare a " + nomeLuogo(luogo) + ".");
+      if (deve.faro > 0) err(deve.nome + " è al Faro: stanotte non può venire.");
+      if (s.fase === "notte") { if (!s.notte || ora < s.notte.ora + 2) err("È troppo tardi: servono almeno 2 ore per arrivare. Scegli un'ora dopo le " + ORE[Math.min(6, s.notte ? s.notte.ora + 1 : 1)] + "."); }
+      else if (s.fase !== "giorno") err("Adesso non si può.");
+      f.stato = "attivo"; f.uso = { luogo, ora, ciclo: s.ciclo };
+      privato(s, deve, p.nome + " incassa La Mano: stanotte alle " + ORE[ora] + " devi essere a " + nomeLuogo(luogo) + ". Se non ci sei, rompi la parola.");
+      privato(s, p, "Hai incassato La Mano: stanotte alle " + ORE[ora] + " " + deve.nome + " deve essere a " + nomeLuogo(luogo) + ".");
+      return;
+    }
+    err("Favore sconosciuto.");
+  }
+  function rompiFavore(s, p, id) {
+    const f = favoreMio(s, p, id);
+    if (f.deve !== p.id) err("Questo Favore non lo devi tu.");
+    if (f.stato !== "aperto") err("Questo Favore non si può più rompere.");
+    rompiParola(s, f);
+  }
+  // Passo libero: chi lo ha in mano non paga affitti e pedaggi sui terreni del debitore
+  function passoLibero(s, p, idOwner) { return favori(s).find((f) => f.tipo === "passo" && f.stato === "attivo" && f.a === p.id && f.deve === idOwner) || null; }
+  function contaPasso(s, p) {
+    for (const f of favori(s)) if (f.tipo === "passo" && f.stato === "attivo" && f.a === p.id) {
+      f.uso.turni -= 1;
+      if (f.uso.turni <= 0) { f.stato = "pagato"; privato(s, p, "Il Passo libero di " + giocatore(s, f.deve).nome + " è finito."); }
+    }
+  }
+  // Il Voto alle elezioni: punti in piu' per il candidato (al massimo 2 Voti), in meno per chi lo deve se e' candidato anche lui
+  function puntiVoti(s) {
+    const punti = {}, usati = [];
+    for (const f of favori(s)) {
+      if (f.tipo !== "voto" || f.stato !== "attivo" || !(f.uso && f.uso.elezione)) continue;
+      if (s.candidati[f.a] === undefined) continue;
+      if (usati.filter((x) => x.a === f.a).length >= 2) continue;
+      const deve = s.players.find((x) => x.id === f.deve); if (!deve) continue;
+      const v = clamp(deve.fama || 0, 5, 40);
+      punti[f.a] = (punti[f.a] || 0) + v;
+      if (s.candidati[f.deve] !== undefined) punti[f.deve] = (punti[f.deve] || 0) - v;
+      usati.push(f);
+    }
+    return punti;
+  }
+  function chiudiVotiElezioni(s) { for (const f of favori(s)) if (f.tipo === "voto" && f.stato === "attivo" && f.uso && f.uso.elezione) f.stato = "pagato"; }
+  // La Mano: all'inizio della notte, chi e' al Faro non puo' venire (il Favore torna aperto)
+  function manoInizioNotte(s) {
+    for (const f of favori(s)) if (f.tipo === "mano" && f.stato === "attivo" && f.uso && f.uso.ciclo === s.ciclo) {
+      const deve = giocatore(s, f.deve);
+      if (deve.faro > 0) { f.stato = "aperto"; f.uso = null; privato(s, giocatore(s, f.a), deve.nome + " è al Faro: stanotte non può venire. La Mano resta da usare."); }
+    }
+  }
+  // La Mano: quando si chiude l'ora dell'appuntamento si guarda chi c'e'
+  function manoOra(s) {
+    const N2 = s.notte; if (!N2) return;
+    for (const f of favori(s)) if (f.tipo === "mano" && f.stato === "attivo" && f.uso && f.uso.ciclo === s.ciclo && f.uso.ora === N2.ora) {
+      const deve = giocatore(s, f.deve), a = giocatore(s, f.a);
+      const presente = !N2.viaggio[deve.id] && N2.dove[deve.id] === f.uso.luogo;
+      if (presente) {
+        f.stato = "pagato";
+        racconta(s, deve, deve.nome + " è venuto, come promesso."); racconta(s, a, deve.nome + " è venuto, come promesso.");
+      } else rompiParola(s, f, "Non ti sei presentato a " + nomeLuogo(f.uso.luogo) + " alle " + ORE[f.uso.ora] + ".");
+    }
+  }
+  // all'Alba, subito dopo i contratti
+  function scadenzeFavori(s) {
+    // i ricatti senza risposta: valgono come un rifiuto
+    for (const r of ricatti(s)) if (r.stato === "attesa") {
+      const da = s.players.find((x) => x.id === r.da), a = s.players.find((x) => x.id === r.a);
+      if (da && r.prova) { da.prove = da.prove || []; da.prove.push({ ...r.prova, rifiutata: true }); }
+      r.prova = null; r.stato = "rifiutato";
+      if (da) privato(s, da, (a ? a.nome : "La tua vittima") + " non ha risposto al ricatto prima dell'Alba: vale come un no. La Prova torna a te: ora puoi solo denunciarlo.");
+      if (a) privato(s, a, "Non hai risposto al ricatto di " + (da ? da.nome : "un rivale") + ": vale come un no. Ora può denunciarti.");
+    }
+    for (const f of favori(s)) {
+      const deve = s.players.find((x) => x.id === f.deve), a = s.players.find((x) => x.id === f.a);
+      if (f.stato === "attivo" && f.tipo === "silenzio" && f.uso && s.ciclo >= f.uso.fino) { f.stato = "pagato"; f.prova = null; continue; }
+      // una Mano rimasta attiva (non dovrebbe succedere: si controlla nella notte) torna da usare
+      if (f.stato === "attivo" && f.tipo === "mano" && f.uso && f.uso.ciclo <= s.ciclo) { f.stato = "aperto"; f.uso = null; }
+      if (f.stato === "aperto" && (f.scade <= s.ciclo || (deve && deve.fallito))) {
+        f.stato = "scaduto"; f.prova = null;
+        if (deve) privato(s, deve, "Il Favore che dovevi a " + (a ? a.nome : "?") + " (" + FAVORI[f.tipo].nome + ") è scaduto. Nessuna punizione.");
+        if (a) privato(s, a, "Il Favore che ti doveva " + (deve ? deve.nome : "?") + " (" + FAVORI[f.tipo].nome + ") è scaduto: non l'hai usato in tempo.");
+      }
+      if (f.stato === "pagato") f.prova = null; // la Prova in pegno e' bruciata
+    }
+    const chiusi = s.favori.filter((f) => !vivo(f));
+    if (chiusi.length > FAVORI_CHIUSI_TENUTI) { const via = new Set(chiusi.slice(0, chiusi.length - FAVORI_CHIUSI_TENUTI)); s.favori = s.favori.filter((f) => !via.has(f)); }
+    const rc = ricatti(s).filter((r) => r.stato !== "attesa");
+    if (rc.length > FAVORI_CHIUSI_TENUTI) { const via = new Set(rc.slice(0, rc.length - FAVORI_CHIUSI_TENUTI)); s.ricatti = s.ricatti.filter((r) => !via.has(r)); }
+  }
+  // condanna o archiviazione: i ricatti in attesa dove c'entra p si annullano, la Prova non prova piu' niente
+  function annullaRicatti(s, p) {
+    for (const r of ricatti(s)) if (r.stato === "attesa" && (r.da === p.id || r.a === p.id)) {
+      r.stato = "annullato"; r.prova = null;
+      const altro = s.players.find((x) => x.id === (r.da === p.id ? r.a : r.da));
+      if (altro) privato(s, altro, "Il ricatto tra te e " + p.nome + " non vale più: la Procura ha chiuso il suo caso.");
+    }
+  }
+  // IL RICATTO: mostri una Prova al rivale e gli chiedi un Favore. A viso aperto. Reato grave.
+  function ricatto(s, p, idx, tipo) {
+    if (s.fase !== "giorno" && s.fase !== "notte") err("Adesso non si può.");
+    const pr = (p.prove || [])[idx]; if (!pr || typeof idx !== "number") err("Prova non trovata.");
+    if (pr.rifiutata) err("Questa Prova l'ha già vista. Ora puoi solo denunciarlo.");
+    tipo = tipoFavore(tipo); if (!tipo) err("Scegli il Favore che vuoi.");
+    if (ricatti(s).some((r) => r.da === p.id && r.stato === "attesa")) err("Hai già un ricatto aperto.");
+    const b = giocatore(s, pr.su);
+    if (senzaParola(s, b)) err(b.nome + " non ha più una parola da dare. Puoi solo denunciarlo.");
+    controllaFavore(s, b, p, tipo);
+    controllaSilenzio(s, p, b.id);
+    p.prove.splice(idx, 1);
+    const prova = { su: pr.su, ciclo: pr.ciclo, cosa: pr.cosa };
+    p.tracce += 6; segnaTraccia(s, p, 6, "un ricatto");
+    p.peggiorReato = peggio(p.peggiorReato, "grave"); p.pulitoCiclo = false; p.macchia = true;
+    const r = { id: "r" + s.prossimoId++, da: p.id, a: b.id, tipo, prova, ciclo: s.ciclo, stato: "attesa" };
+    ricatti(s).push(r);
+    if (haPiano(b, "ufficio_stampa") && rng(s) < 0.5) {
+      r.stato = "smascherato"; r.prova = null;
+      p.tracce += 10; segnaTraccia(s, p, 10, "il ricatto smascherato dall'Ufficio stampa di " + b.nome);
+      p.fama = Math.max(0, (p.fama || 0) - 8);
+      notizia(s, "L'Ufficio stampa di " + b.nome + " denuncia un tentato ricatto. Dietro c'è " + p.nome + ".", "scandalo");
+      privato(s, p, "L'Ufficio stampa di " + b.nome + " ti ha smascherato: il ricatto è sulla Gazzetta. +10 Tracce, −8 fama, e la Prova è bruciata.");
+      privato(s, b, "Il tuo Ufficio stampa ha smascherato " + p.nome + ": voleva ricattarti. La Prova su di te è bruciata.");
+      return r.id;
+    }
+    privato(s, b, p.nome + " ha una Prova su di te (" + (prova.cosa || "una foto") + ", Ciclo " + prova.ciclo + "). In cambio del silenzio vuole: " + FAVORI[tipo].nome + ". Rispondi prima dell'Alba.");
+    privato(s, p, "Hai mostrato la Prova a " + b.nome + ". Vuoi: " + FAVORI[tipo].nome + ". Deve rispondere prima dell'Alba.");
+    return r.id;
+  }
+  function rispondiRicatto(s, p, id, scelta) {
+    const r = ricatti(s).find((x) => x.id === id);
+    if (!r || r.a !== p.id || r.stato !== "attesa") err("Ricatto non trovato.");
+    const da = giocatore(s, r.da);
+    if (scelta === "accetto") {
+      controllaFavore(s, p, da, r.tipo);
+      nuovoFavore(s, p, da, r.tipo, "ricatto", r.prova);
+      r.stato = "accettato"; r.prova = null;
+      privato(s, da, p.nome + " accetta: ti deve " + FAVORI[r.tipo].nome + ". La Prova resta in pegno finché non lo paga.");
+      return;
+    }
+    if (scelta === "rifiuto") {
+      da.prove = da.prove || []; da.prove.push({ ...r.prova, rifiutata: true });
+      r.stato = "rifiutato"; r.prova = null;
+      privato(s, da, p.nome + " rifiuta il ricatto. La Prova torna a te: ora puoi solo denunciarlo.");
+      return;
+    }
+    if (scelta === "confesso") {
+      p.tracce += 17; segnaTraccia(s, p, 17, "la tua confessione");
+      da.tracce += 25; segnaTraccia(s, da, 25, "il ricatto confessato da " + p.nome); da.stato = Math.max(da.stato || 0, 1);
+      da.peggiorReato = peggio(da.peggiorReato, "grave");
+      r.stato = "confessato"; r.prova = null;
+      notizia(s, p.nome + " confessa in Procura e fa un nome: " + da.nome + " lo ricattava.", "scandalo");
+      privato(s, da, p.nome + " ha confessato e ha fatto il tuo nome: +25 Tracce, e la polizia ti guarda.");
+      return;
+    }
+    if (scelta === "pari") {
+      const i = (p.prove || []).findIndex((x) => x.su === da.id);
+      if (i < 0) err("Non hai una Prova su " + da.nome + ".");
+      p.prove.splice(i, 1);
+      r.stato = "pari"; r.prova = null;
+      privato(s, da, p.nome + " ti mostra una Prova su di te. Pari e patta: tutte e due le Prove sono bruciate.");
+      privato(s, p, "Pari e patta con " + da.nome + ": tutte e due le Prove sono bruciate.");
+      return;
+    }
+    err("Scelta non valida.");
+  }
+  // il rischio del ricatto: una pista fissa finche' il ricatto e' in piedi
+  function pistaRicatto(s, p) {
+    return ricatti(s).some((r) => r.da === p.id && r.stato === "attesa") || favori(s).some((f) => f.a === p.id && f.origine === "ricatto" && vivo(f));
   }
 
   // ------------------------------------------------------------ pagamenti e debiti
@@ -3511,6 +3795,8 @@
     // ILL-19: una Prova pesa solo quando viene CONSEGNATA alla polizia (la denuncia). Finche' resta in tasca a un rivale non conta.
     const denunce = (p.denunce || []).filter((x) => x.ciclo >= s.ciclo - 2).length;
     if (denunce) out.push({ k: "rivali", peso: N.pistaRivale * denunce, testo: "Qualcuno ha consegnato alla polizia una prova contro di te. Non sai chi." });
+    // il ricatto in piedi: una pista fissa (non si somma), sparisce quando il Favore e' pagato, scaduto o rotto
+    if (pistaRicatto(s, p)) out.push({ k: "ricatto", peso: 10, testo: "Qualcuno ha parlato di un ricatto: la polizia vuole sapere chi tiene in pugno chi." });
     const nervosi = Object.keys(p.corrotti || {}).filter((k) => p.corrotti[k] && p.corrotti[k].sospetto != null);
     if (nervosi.length) out.push({ k: "complici", peso: N.pistaComplice * nervosi.length, testo: "Un tuo complice è sotto inchiesta e ha parlato troppo." });
     // chi e' molto famoso e' piu' guardato: prima era un +25% nascosto, ora e' una pista scritta come le altre
@@ -3635,6 +3921,7 @@
     }
     if (pena.faro > 0) mandaAlFaro(s, p, pena.faro, "condanna");
     p.blocco = pena.blocco; p.fama = Math.max(0, p.fama - pena.fama);
+    annullaRicatti(s, p);
     p.condanne += 1; p.stato = 0; p.tracce = 15; p.peggiorReato = null; p.riciclTot = 0;
     p.corrotti = {};
     if (gravita === "grave" || gravita === "gravissima") { p.cerchie = []; }
@@ -3729,7 +4016,7 @@
     }
     // processo per chi e' arrivato allo stato 4
     for (const p of s.players) if (p.stato >= 4) {
-      if (!p.peggiorReato) { p.stato = 1; p.tracce *= 0.5; privato(s, p, "Il Giudice archivia: non ci sono reati provati."); notizia(s, "Archiviata l'indagine su " + p.nome + ".", "voce"); }
+      if (!p.peggiorReato) { annullaRicatti(s, p); p.stato = 1; p.tracce *= 0.5; privato(s, p, "Il Giudice archivia: non ci sono reati provati."); notizia(s, "Archiviata l'indagine su " + p.nome + ".", "voce"); }
       else condanna(s, p, p.peggiorReato, "processo");
     }
     // borsa e cripto (la Gazzetta mostra di quanto sono salite o scese)
@@ -3749,6 +4036,7 @@
     // valore dei quartieri: piccolo rumore
     for (const i of ISOLE) s.valore[i] = clamp(Math.round((s.valore[i] + [-0.3, 0, 0, 0.3][Math.floor(rng(s) * 4)]) * 10) / 10, 1, 10);
     scadenzeContratti(s);
+    scadenzeFavori(s);
     regista(s);
     albaSituazioni(s);
     tradimentiAllAlba(s);
@@ -3792,10 +4080,12 @@
     if ((s.leggi || []).length) { notizia(s, "Giorno di elezioni: decadono le leggi in vigore (" + leggiInVigore(s).map((x) => x.nome).join(", ") + ").", "politica"); s.leggi = []; }
     const cand = Object.keys(s.candidati);
     if (cand.length === 0) { notizia(s, "Nessun giocatore si candida: resta in carica il Sindaco Albertini.", "politica"); return; }
-    let best = null, bestV = -1;
+    let best = null, bestV = -Infinity;
+    const voti = puntiVoti(s); // i Favori "Il Voto" usati: la fama di chi lo deve diventa punti
     // la fama conta, ma chi e' gia' Sindaco stanca gli elettori (−15 punti per ogni mandato gia' fatto):
     // cosi' nessuno resta Sindaco per sempre solo perche' e' partito famoso
-    for (const id of cand) { const p = giocatore(s, id); const v = p.fama * 2 + (s.candidati[id] || 0) / 100_000 + rng(s) * 10 - 15 * (p.mandati || 0); if (v > bestV) { bestV = v; best = p; } }
+    for (const id of cand) { const p = giocatore(s, id); const v = p.fama * 2 + (s.candidati[id] || 0) / 100_000 + rng(s) * 10 - 15 * (p.mandati || 0) + (voti[id] || 0); if (v > bestV) { bestV = v; best = p; } }
+    chiudiVotiElezioni(s);
     const rieletto = s.sindaco === best.id;
     s.sindaco = best.id; s.candidati = {};
     best.mandati = (best.mandati || 0) + 1;
@@ -3972,6 +4262,12 @@
     { id: "denuncia", gruppo: "potere", lv: 1, nome: "Denunciare un rivale", fatto: (a) => a.tipo === "denuncia",
       indizio: "Una Prova nel cassetto non serve a niente.", spiega: "Una Prova consegnata alla polizia fa salire il rivale verso il Processo.",
       quando: (s, p) => (p.prove || []).length > 0, consiglio: "Hai una Prova contro un rivale. Dall'app Prove la consegni alla polizia: per lui il Processo si avvicina." },
+    { id: "favore", gruppo: "potere", lv: 1, nome: "Chiedere un Favore", fatto: (a) => a.tipo === "contratto" && !!a.contratto && !!a.contratto.favore && a.contratto.favore !== "nessuno",
+      indizio: "Non tutto si paga in soldi.", spiega: "In un patto puoi chiedere un Favore: un voto, un passaggio gratis, un silenzio, un appuntamento. Il gioco lo fa rispettare.",
+      quando: (s, p) => !!p.haRegalato && !(s.favori || []).some((f) => f.a === p.id), consiglio: "Hai fatto un regalo e non hai chiesto niente. La prossima volta, nell'app Contratti, chiedi un Favore in cambio." },
+    { id: "ricatto", gruppo: "potere", lv: 1, nome: "Usare una Prova", fatto: (a) => a.tipo === "ricatto",
+      indizio: "Una Prova consegnata vale una volta sola.", spiega: "Con una Prova puoi denunciare un rivale, oppure mostrargliela e chiedergli un Favore. È un reato grave.",
+      quando: (s, p) => (p.prove || []).length > 0, consiglio: "Hai una Prova in tasca. Puoi mandarla alla polizia, oppure usarla: app Prove." },
     { id: "incontro", gruppo: "notte", lv: 0, nome: "Incontrare un rivale di notte", fatto: (a) => a.tipo === "incontro",
       indizio: "Di notte gli altri giocatori sono in giro come te.", spiega: "Se sei nello stesso posto di un altro puoi offrirgli un drink, sfidarlo o proporgli un affare.",
       quando: (s, p) => s.ciclo >= 1, consiglio: "Di notte, se finisci nello stesso posto di un altro giocatore, lo vedi. Puoi offrirgli un drink o sfidarlo." },
@@ -4034,6 +4330,7 @@
     campagna: "Campagna elettorale", candidati: "Candidatura",
     // tra giocatori
     articolo: "Gazzetta", regala: "Regali", contratto: "Contratti", rispondi_contratto: "Contratti", denuncia: "Denunce",
+    favore_usa: "Favori", favore_rompi: "Favori", ricatto: "Ricatti", rispondi_ricatto: "Ricatti",
     // notte: affari, soldi sporchi, contatti
     occasione: "Affari della notte", ricettatore: "Ricettatore (merce rubata)", ballo: "Ballo in Maschera", ricicla: "Soldi ripuliti", ricicla_banca: "Soldi ripuliti",
     corrompi: "Corruzione", scarica_contatto: "Corruzione", compra_oggetto: "Mercato Nero", chiamata: "Lavoretti al telefono", soffiata: "Soffiate", spa: "Notte",
@@ -4055,6 +4352,7 @@
   const AZIONI_TELEFONO_FARO = [
     "investi", "vendi", "restituisci", "ipoteca", "riscatta",                       // banca e Borsa
     "articolo", "contratto", "rispondi_contratto", "regala", "denuncia",            // tra giocatori
+    "favore_usa", "favore_rompi", "ricatto", "rispondi_ricatto",                    // Favori e ricatti
     "versa_setta", "lava_setta", "proponi_opera", "vota_opera", "rispondi_invito", "invita_setta", "espelli_setta", "lascia_setta", // setta
     "campagna", "legge", "tasse", "evasione",                                       // politica e tasse
   ];
@@ -4219,6 +4517,10 @@
       case "rispondi_contratto": return rispondiContratto(s, p, a.id, !!a.si);
       case "regala": return regala(s, p, a.a, a.importo, !!a.sporchi);
       case "denuncia": return denuncia(s, p, a.prova);
+      case "favore_usa": return usaFavore(s, p, a);
+      case "favore_rompi": return rompiFavore(s, p, a.id);
+      case "ricatto": return ricatto(s, p, a.prova, a.favore);
+      case "rispondi_ricatto": return rispondiRicatto(s, p, a.id, a.scelta);
       // ---- politica
       case "candidati": return candidati(s, p);
       case "campagna": return campagna(s, p, a.importo);
@@ -4288,6 +4590,7 @@
     "faro", "fallito", "arresti", "condanne",                             // fatti pubblici: prigione, fallimento, condanne
     "fama", "pacchetto", "veicoli",                                       // quello che tutti vedono
     "piani", "funzioniPiani", "stanze",                                   // il Palazzo (le stanze segrete vengono coperte)
+    "senzaParola", "fedina", "operaFatta",                                // Favori e Fedina: gia' usciti sulla Gazzetta
   ];
   const PIANI_SEGRETI = ["caveau", "piani_segreti", "sala_insonorizzata", "bunker", "osservatorio"];
   // dalla cronaca pubblica si tolgono le operazioni private degli altri (riconosciute dalle parole della frase)
@@ -4318,6 +4621,11 @@
     v.inviti = s.inviti.filter((x) => x.a === idGiocatore).map((x) => { const st = s.sette.find((y) => y.id === x.setta); return { setta: x.setta, offerta: x.offerta || 0, nome: st ? st.nome : "?", motto: st ? st.motto : "", livello: livelloSetta(s, st), membri: st ? st.membri.length : 0 }; });
     v.flussi = (s.flussi || []).filter((f) => f.pubblico || f.da === idGiocatore || f.a === idGiocatore);
     v.proposte = (s.proposte || []).filter((x) => x.da === idGiocatore || x.a === idGiocatore);
+    // Favori: i tuoi interi; degli altri solo Voto (elezioni) e Passo libero attivi, che sono pubblici. Silenzio e Mano mai.
+    v.favori = (s.favori || []).filter((f) => f.deve === idGiocatore || f.a === idGiocatore || (f.stato === "attivo" && (f.tipo === "passo" || (f.tipo === "voto" && f.uso && f.uso.elezione))))
+      .map((f) => f.deve === idGiocatore || f.a === idGiocatore ? f : { id: f.id, deve: f.deve, a: f.a, tipo: f.tipo, stato: f.stato, uso: f.uso });
+    // ricatti: solo quelli dove sei tu (chi ricatta o chi e' ricattato)
+    v.ricatti = (s.ricatti || []).filter((r) => r.da === idGiocatore || r.a === idGiocatore);
     v.contratti = s.contratti.filter((k) => k.da === idGiocatore || k.a === idGiocatore || (k.tipo === "notarile" && k.stato !== "proposto")).map((k) => (k.da === idGiocatore || k.a === idGiocatore) ? k : { id: k.id, da: k.da, a: k.a, tipo: k.tipo, stato: k.stato });
     if (v.pending && v.pending.tipo === "asta") v.pending.offerte = Object.fromEntries(Object.keys(s.pending.offerte).map((k) => [k, k === idGiocatore ? s.pending.offerte[k] : "segreta"]));
     if (v.ultimaAlba) v.ultimaAlba.riepilogo = { [idGiocatore]: s.ultimaAlba.riepilogo[idGiocatore] };
@@ -4395,7 +4703,9 @@
     // scoperte e consigli
     SCOPERTE: SCOPERTE.map(({ id, gruppo, lv, nome, indizio, spiega }) => ({ id, gruppo, lv, nome, indizio, spiega })),
     // mercato nero a rotazione e situazioni dell'Alba (v70)
-    STRUMENTI, BANCHI, SITUAZIONI, descriviSituazione, sitAttive, oggettoDef, postiUsati, prezzoOggetto, VERSIONE_REGOLE: 73,
+    STRUMENTI, BANCHI, SITUAZIONI, descriviSituazione, sitAttive, oggettoDef, postiUsati, prezzoOggetto, VERSIONE_REGOLE: 74,
+    // Favori e ricatti (v74)
+    FAVORI, motivoNoFavore: (s, idDeve, idA, tipo) => motivoNoFavore(s, giocatore(s, idDeve), giocatore(s, idA), tipo),
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;
