@@ -5,6 +5,7 @@
 //   { comando: "entra", codice, nome }
 //   { comando: "inizia", partita, principianti, durata:{modo, cicli, obiettivo} }
 //   { comando: "azione", partita, azione:{tipo,...} }
+//   { comando: "presente", partita } · { comando: "esci", partita } · { comando: "computer", partita, player }
 // Il motore delle regole e i giocatori-computer arrivano dal progetto GitHub,
 // fissati a una versione precisa (commit), cosi' non cambiano da soli.
 // Il saldo segreto resta qui: ai giocatori arriva solo la loro "vista" (Laguna.vistaSicura).
@@ -62,6 +63,46 @@ async function salvaViste(righe: any[]) {
 function giocaBot(stato: any) {
   const r = B.gioca(stato);
   for (const e of r.errori) console.error("Errore in una mossa dei computer:", JSON.stringify(e));
+}
+
+
+// ---- chi e' collegato (punto 33) ----
+// Ogni pagina aperta manda "presente" ogni 30 secondi (giocatori.visto_il).
+// Chi non si fa vivo da 3 minuti: al suo posto gioca il computer (prudente, "Legale") finche' non torna.
+// Chi preme "Esci dalla partita": il computer prende il suo posto per sempre.
+const ASSENZA_MS = 3 * 60 * 1000;
+// deno-lint-ignore no-explicit-any
+function mettiComputer(stato: any, pid: string, perSempre: boolean) {
+  // deno-lint-ignore no-explicit-any
+  const p = stato.players.find((x: any) => x.id === pid);
+  if (!p) return;
+  if (!p.bot) { p.stratPrima = p.strat ?? null; p.strat = p.strat || "Legale"; p.bot = true; }
+  if (perSempre) { p.uscito = true; delete p.assente; } else if (!p.uscito) p.assente = true;
+}
+// deno-lint-ignore no-explicit-any
+function rimettiPersona(stato: any, pid: string) {
+  // deno-lint-ignore no-explicit-any
+  const p = stato.players.find((x: any) => x.id === pid);
+  if (!p || !p.assente || p.uscito) return;
+  p.bot = false; p.strat = p.stratPrima ?? null; delete p.stratPrima; delete p.assente;
+}
+// fa giocare i computer, calcola le viste e salva solo se nessuno ha cambiato la partita nel frattempo
+// deno-lint-ignore no-explicit-any
+async function salvaStato(id: string, stato: any, versione: number) {
+  giocaBot(stato);
+  const nuova = versione + 1;
+  const viste = calcolaViste(id, stato, nuova);
+  const { data: agg } = await admin.from("partite")
+    .update({ stato, versione: nuova, aggiornata_il: new Date().toISOString(), finita: !!stato.fine })
+    .eq("id", id).eq("versione", versione).select("id");
+  if (!agg?.length) return false;
+  await salvaViste(viste);
+  return true;
+}
+// deno-lint-ignore no-explicit-any
+function presenze(gioc: any[], ora: number) {
+  // deno-lint-ignore no-explicit-any
+  return gioc.map((g: any) => ({ id: g.player_id, persona: !g.bot, collegato: !!g.user_id, secondi: g.visto_il ? Math.max(0, Math.round((ora - Date.parse(g.visto_il)) / 1000)) : null, assente: !!g.assente, uscito: !!g.uscito }));
 }
 
 // come finisce la partita: solo i valori ammessi dal motore
@@ -133,10 +174,86 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    if (body.comando === "presente") {
+      const ora = Date.now();
+      const { data: gioc } = await admin.from("giocatori").select("player_id,user_id,bot,visto_il,assente,uscito").eq("partita_id", body.partita).order("player_id");
+      // deno-lint-ignore no-explicit-any
+      const me = (gioc ?? []).find((g: any) => g.user_id === uid);
+      if (!me) return json({ errore: "Non giochi in questa partita." }, 403);
+      await admin.from("giocatori").update({ visto_il: new Date(ora).toISOString() }).eq("partita_id", body.partita).eq("player_id", me.player_id);
+      me.visto_il = new Date(ora).toISOString();
+      const { data: partita } = await admin.from("partite").select("in_corso,finita").eq("id", body.partita).single();
+      if (partita?.in_corso && !partita.finita && !me.uscito) {
+        // deno-lint-ignore no-explicit-any
+        const via = gioc!.filter((g: any) => !g.bot && g.user_id && !g.uscito && !g.assente && g.player_id !== me.player_id && g.visto_il && ora - Date.parse(g.visto_il) > ASSENZA_MS);
+        const torno = !!me.assente;
+        if (via.length || torno) {
+          const { data: pp } = await admin.from("partite").select("stato,versione").eq("id", body.partita).single();
+          if (pp?.stato && !pp.stato.fine) {
+            if (torno) rimettiPersona(pp.stato, me.player_id);
+            // deno-lint-ignore no-explicit-any
+            for (const g of via) mettiComputer(pp.stato, g.player_id, false);
+            if (await salvaStato(body.partita, pp.stato, pp.versione)) {
+              if (torno) { await admin.from("giocatori").update({ assente: false }).eq("partita_id", body.partita).eq("player_id", me.player_id); me.assente = false; }
+              for (const g of via) { await admin.from("giocatori").update({ assente: true }).eq("partita_id", body.partita).eq("player_id", g.player_id); g.assente = true; }
+            }
+          }
+        }
+      }
+      return json({ ok: true, presenze: presenze(gioc!, ora) });
+    }
+
+    if (body.comando === "esci") {
+      const { data: me } = await admin.from("giocatori").select("player_id,uscito").eq("partita_id", body.partita).eq("user_id", uid).maybeSingle();
+      if (!me) return json({ ok: true });
+      const { data: partita } = await admin.from("partite").select("in_corso,finita,stato,versione,creata_da").eq("id", body.partita).single();
+      if (!partita) return json({ ok: true });
+      if (!partita.in_corso) {
+        // sala d'attesa: il posto torna libero (chi ha creato la partita resta: e' lui la sala)
+        if (partita.creata_da !== uid) await admin.from("giocatori").update({ user_id: null, visto_il: null }).eq("partita_id", body.partita).eq("player_id", me.player_id);
+        return json({ ok: true });
+      }
+      if (partita.finita || me.uscito) return json({ ok: true });
+      for (let tent = 0; tent < 3; tent++) {
+        const { data: pp } = tent ? await admin.from("partite").select("stato,versione").eq("id", body.partita).single() : { data: partita };
+        const stato = pp!.stato;
+        mettiComputer(stato, me.player_id, true);
+        // deno-lint-ignore no-explicit-any
+        if (stato.players.every((p: any) => p.bot)) {
+          // non resta nessuna persona: la partita si chiude qui, senza far giocare i computer da soli
+          await admin.from("partite").update({ stato, finita: true, versione: pp!.versione + 1, aggiornata_il: new Date().toISOString() }).eq("id", body.partita);
+          break;
+        }
+        if (await salvaStato(body.partita, stato, pp!.versione)) break;
+      }
+      await admin.from("giocatori").update({ uscito: true, assente: false }).eq("partita_id", body.partita).eq("player_id", me.player_id);
+      return json({ ok: true });
+    }
+
+    if (body.comando === "computer") {
+      // chi ha creato la partita mette il computer al posto di un altro (sala d'attesa: per sempre; partita: finche' non torna)
+      const { data: partita } = await admin.from("partite").select("in_corso,finita,stato,versione,creata_da").eq("id", body.partita).single();
+      if (!partita || partita.creata_da !== uid) return json({ errore: "Solo chi ha creato la partita può farlo." }, 403);
+      const { data: g } = await admin.from("giocatori").select("*").eq("partita_id", body.partita).eq("player_id", body.player).maybeSingle();
+      if (!g || g.bot || g.user_id === uid) return json({ errore: "Questo posto non si può dare al computer." }, 400);
+      if (!partita.in_corso) {
+        const strat = B.STRATEGIE[Math.floor(Math.random() * B.STRATEGIE.length)];
+        await admin.from("giocatori").update({ bot: true, strategia: strat, nome: strat, user_id: null, visto_il: null }).eq("partita_id", body.partita).eq("player_id", body.player);
+        return json({ ok: true });
+      }
+      if (partita.finita || g.uscito || g.assente) return json({ ok: true });
+      if (g.visto_il && Date.now() - Date.parse(g.visto_il) < 60_000) return json({ errore: "È ancora collegato: aspetta almeno un minuto." }, 400);
+      mettiComputer(partita.stato, body.player, false);
+      if (!(await salvaStato(body.partita, partita.stato, partita.versione))) return json({ errore: "Un altro giocatore ha appena agito: riprova." }, 409);
+      await admin.from("giocatori").update({ assente: true }).eq("partita_id", body.partita).eq("player_id", body.player);
+      return json({ ok: true });
+    }
+
     if (body.comando === "azione") {
-      const { data: me } = await admin.from("giocatori").select("player_id")
+      const { data: me } = await admin.from("giocatori").select("player_id,assente,uscito")
         .eq("partita_id", body.partita).eq("user_id", uid).single();
       if (!me) return json({ errore: "Non giochi in questa partita." }, 403);
+      if (me.uscito) return json({ errore: "Sei uscito da questa partita: ora al tuo posto gioca il computer." }, 403);
       const { data: partita } = await admin.from("partite").select("stato,versione").eq("id", body.partita).single();
       if (!partita?.stato) return json({ errore: "La partita non è ancora iniziata." }, 400);
       const stato = partita.stato;
@@ -144,6 +261,7 @@ Deno.serve(async (req) => {
       // partite iniziate prima della notte nuova: aggiungo i campi che mancano
       if (stato.notte && !stato.notte.pronto) Object.assign(stato.notte, { pronto: {}, daScelta: {}, inizioRacc: {}, base: {}, inizio: Date.now() });
       const esito = "ok";
+      if (me.assente) rimettiPersona(stato, me.player_id); // era via e al suo posto giocava il computer: e' tornato
       try {
         L.applica(stato, me.player_id, body.azione);
       } catch (e) {
@@ -162,6 +280,7 @@ Deno.serve(async (req) => {
         .eq("id", body.partita).eq("versione", partita.versione).select("id");
       if (!agg?.length) return json({ errore: "Un altro giocatore ha appena agito: riprova." }, 409);
       await salvaViste(viste);
+      await admin.from("giocatori").update({ visto_il: new Date().toISOString(), ...(me.assente ? { assente: false } : {}) }).eq("partita_id", body.partita).eq("player_id", me.player_id);
       await admin.from("azioni").insert({ partita_id: body.partita, player_id: me.player_id, azione: body.azione, esito });
       return json({ ok: true, versione: nuova });
     }

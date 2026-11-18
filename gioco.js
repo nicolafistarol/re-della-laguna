@@ -15,7 +15,7 @@ const LOCALE = location.search.includes("locale");  // ?locale = partita contro 
 // Se non arriva o non parte, si gioca lo stesso sulla foto piatta e un avviso dice il perché. ?cubetti = il vecchio mondo a cubetti, solo per confronto.
 let Tre = null, motivo3D = "", provato3D = false;
 const CUBETTI = location.search.includes("cubetti");
-import(CUBETTI ? "./cubetti.js?v=76" : "./tre.js?v=76").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
+import(CUBETTI ? "./cubetti.js?v=77" : "./tre.js?v=77").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
@@ -32,7 +32,7 @@ function avviso3D() {
   d.querySelector("#av3dSi").onclick = () => location.reload();
   d.querySelector("#av3dNo").onclick = () => { motivo3D = ""; d.remove(); };
 }
-import * as Loc from "./locale.js?v=76";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=77";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -76,7 +76,7 @@ function toast(t) { let box = $("#toasts"); if (!box) { box = document.createEle
 function esciDallaPartita(msg) {
   try { localStorage.removeItem("laguna_online"); } catch (e) { }
   if (canale) { sb.removeChannel(canale); canale = null; }
-  clearInterval(timerVista); S = null; partita = null; mioId = null; telAperto = false; app = null;
+  clearInterval(timerVista); clearInterval(timerPresenza); presenze = {}; S = null; partita = null; mioId = null; telAperto = false; app = null;
   document.querySelectorAll(".velo").forEach((x) => x.remove());
   if (LOCALE) { location.href = location.pathname + "?locale&nuova"; return; } // nella prova da solo si torna alla schermata della prova
   schermataCasa(); if (msg) toast(msg);
@@ -292,6 +292,31 @@ function ascolta() {
     }).subscribe();
   clearInterval(timerVista);
   timerVista = setInterval(() => { if (!document.hidden) caricaVista(); }, 8000);
+  avviaPresenza();
+}
+
+// ------------------------------------------------------------ chi e' collegato (punto 33)
+// Ogni 30 secondi la pagina dice al server "ci sono". Chi non si fa vivo da 3 minuti: al suo posto gioca il computer finche' non torna.
+let presenze = {}, timerPresenza = null;
+async function segnaPresenza() {
+  if (LOCALE || !partita) return;
+  const r = await chiama({ comando: "presente", partita });
+  if (r && r.presenze) { presenze = {}; for (const x of r.presenze) presenze[x.id] = x; }
+}
+function avviaPresenza() {
+  if (LOCALE) return;
+  clearInterval(timerPresenza); segnaPresenza();
+  timerPresenza = setInterval(segnaPresenza, 30000);
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && partita && !LOCALE) segnaPresenza().then(() => { if (S) caricaVista(); }); });
+// la scritta accanto al nome: "non collegato", "gioca il computer", "uscito"
+function statoCollegamento(p) {
+  if (LOCALE || !p || p.id === mioId) return "";
+  if (p.uscito) return "uscito · gioca il computer";
+  if (p.assente) return "non collegato · gioca il computer";
+  const x = presenze[p.id];
+  if (p.bot || !x || x.secondi === null || x.secondi < 75) return "";
+  return "non collegato da " + Math.max(1, Math.round(x.secondi / 60)) + " min";
 }
 
 // ------------------------------------------------------------ ingresso
@@ -423,6 +448,8 @@ async function sala() {
     const { data: g } = await db.from("giocatori").select("*").eq("partita_id", partita).order("player_id");
     const manca = (g || []).filter((x) => !x.bot && !x.user_id).length;
     const creatore = mioId === "g1";
+    // chi ha chiuso la pagina della sala da piu' di un minuto risulta "non collegato" (vale per chi ha la versione nuova)
+    const via = (x) => x.user_id && !x.bot && x.player_id !== mioId && x.visto_il && Date.now() - Date.parse(x.visto_il) > 60000;
     schermoIngresso(`<div class="cartaI vetro" style="width:min(560px,94vw)">
       <span class="kick" style="color:var(--oro)">Sala d'attesa</span>
       <span class="kick" style="color:var(--muted)">Codice d'invito</span>
@@ -431,13 +458,14 @@ async function sala() {
       <button class="oro" id="copiaLink">📋 Copia il link d'invito</button>
       ${(g || []).map((x) => `<div class="posto"><div class="pall" style="background:${x.bot ? "#8a8a8a" : x.user_id ? "#4fc3f7" : "transparent;border:2px dashed rgba(255,255,255,.4)"}">${x.user_id || x.bot ? esc(x.nome[0]) : ""}</div>
         <span style="flex:1"><b>${x.user_id || x.bot ? esc(x.nome) : "Posto libero"}</b>${x.player_id === mioId ? " (tu)" : ""}</span>
-        <span style="font-size:12px;color:${x.user_id && !x.bot ? "var(--pulito)" : "var(--muted)"}">${x.bot ? "Computer" : x.user_id ? "Pronto" : "In attesa"}</span></div>`).join("")}
+        <span style="font-size:12px;color:${via(x) ? "#ffb3b3" : x.user_id && !x.bot ? "var(--pulito)" : "var(--muted)"}">${x.bot ? "Computer" : via(x) ? "Non collegato" : x.user_id ? "Pronto" : "In attesa"}</span>${creatore && !x.bot && x.player_id !== mioId ? `<button class="piccolo" data-computer="${x.player_id}" title="Al suo posto gioca il computer">🤖 Metti il computer</button>` : ""}</div>`).join("")}
       ${creatore ? `<button class="oro grande" id="inizia" ${manca ? "disabled" : ""}>${manca ? `Mancano ${manca} amici` : "Inizia la partita"}</button>` : `<span class="sub">Aspetta che chi ha creato la partita la faccia iniziare.</span>`}
       ${tastoGuida()}<button class="piccolo" id="esci" style="align-self:flex-start">Esci dalla sala</button></div>`);
     collegaTastoGuida();
     $("#copia").onclick = () => { navigator.clipboard?.writeText(p.codice).then(() => toast("Codice copiato."), () => { }); };
     $("#copiaLink").onclick = () => { const link = location.origin + location.pathname + "?codice=" + p.codice; navigator.clipboard?.writeText(link).then(() => toast("Link copiato: incollalo in WhatsApp."), () => prompt("Copia questo link:", link)); };
-    $("#esci").onclick = () => { clearInterval(timerSala); try { localStorage.removeItem("laguna_online"); } catch (e) { } partita = null; schermataCasa(); };
+    $("#esci").onclick = () => { clearInterval(timerSala); clearInterval(timerPresenza); chiama({ comando: "esci", partita }).catch(() => { }); try { localStorage.removeItem("laguna_online"); } catch (e) { } partita = null; schermataCasa(); };
+    document.querySelectorAll("[data-computer]").forEach((b) => b.onclick = async () => { b.disabled = true; const r = await chiama({ comando: "computer", partita, player: b.dataset.computer }); if (r && r.errore) toast(r.errore); disegnaSala(); });
     if ($("#inizia")) $("#inizia").onclick = async () => {
       clearInterval(timerSala);
       const d = leggiDurata();
@@ -446,6 +474,7 @@ async function sala() {
       await caricaVista(); ascolta();
     };
   };
+  avviaPresenza();
   await disegnaSala();
   timerSala = setInterval(disegnaSala, 3000);
 }
@@ -731,7 +760,7 @@ function disegna() {
   const cron = S.log.filter((r) => !/ tira \d( e \d)+\.$/.test(r.testo) && !(r.chi && r.chi !== mioId && PRIVATI.test(r.testo))).slice(-4);
   $("#radice").innerHTML = `
   <div class="hud-alto">
-    <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${notte && p.id === mioId ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · hai deciso" : " · decidi…") : ""}</div>${(p.fedina || 0) >= 2 ? `<div class="s fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">⚖️ Fedina ${p.fedina}</div>` : ""}</div></div>`).join("")}</div>
+    <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${statoCollegamento(p) ? `<span class="non-coll"> · ${statoCollegamento(p)}</span>` : ""}${notte && p.id === mioId ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · hai deciso" : " · decidi…") : ""}</div>${(p.fedina || 0) >= 2 ? `<div class="s fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">⚖️ Fedina ${p.fedina}</div>` : ""}</div></div>`).join("")}</div>
     <div class="fase vetro">${faseTesto}</div>
     <div class="saldo vetro">
       <div class="riga" style="justify-content:space-between"><span class="kick" style="color:var(--muted)">I tuoi soldi</span><button class="piccolo" id="occhio" style="padding:2px 8px">${saldoNascosto ? "Mostra" : "Nascondi"}</button></div>
@@ -1705,7 +1734,8 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 76: ["<b>Viaggio rapido.</b> Ora si fa una volta ogni 2 Cicli e costa il carburante: motoscafo 100.000 €, elicottero 300.000 €, jet 600.000 €. Ti costa anche la mossa del giorno. Il taxi per il Municipio non c'è più: ti candidi a Sindaco allo sportello, o dal telefono pagando il doppio.",
+const NOVITA = { 77: ["<b>Chi esce dalla partita.</b> Accanto al nome di chi ha chiuso il gioco compare \"non collegato\". Se resta via più di 3 minuti, al suo posto gioca il computer e la partita va avanti; quando torna riprende lui.", "<b>Esci dalla partita</b> (in fondo al telefono) ora è vero: il tuo posto passa al computer e gli altri continuano. Chi ha creato la partita può anche far giocare subito il computer al posto di chi non c'è.", "<b>Sala d'attesa.</b> Chi esce dalla sala libera il suo posto; chi ha creato la partita vede chi non è collegato e può mettere il computer al suo posto."],
+  76: ["<b>Viaggio rapido.</b> Ora si fa una volta ogni 2 Cicli e costa il carburante: motoscafo 100.000 €, elicottero 300.000 €, jet 600.000 €. Ti costa anche la mossa del giorno. Il taxi per il Municipio non c'è più: ti candidi a Sindaco allo sportello, o dal telefono pagando il doppio.",
   "<b>Il Timbro del Municipio</b> non si consuma più da solo: quando chiedi un permesso il gioco ti chiede se vuoi usarlo.",
   "<b>Prova di fedeltà.</b> Costa il 10% del Tesoro (almeno 2 milioni), e di più se la rifai nello stesso Ciclo. Il membro lo sa. Se era fedele, la setta perde 3 Influenza.",
   "<b>Chi vende la setta paga.</b> Il Gran Maestro tiene una Prova sul traditore, e per 4 Cicli nessuna setta lo prende. Al rito, sotto il cappuccio, solo il Gran Maestro sa chi c'è.",
@@ -1839,7 +1869,7 @@ function disegnaTelefono(me) {
   const ora = S.fase === "notte" && S.notte ? L.ORE[S.notte.ora] : ["9:00", "13:00", "18:00"][S.giorno] || "9:00";
   let dentro;
   if (!app) {
-    dentro = homeTelefono(me, nuovi) + `${S.modoFine === "libera" && mioId === S.players[0].id && !S.fine ? `<button class="piccolo esci-partita" id="chiudiPartita">${S.chiusura ? "Non chiudere più la partita" : "Chiudi la partita"}</button>` : ""}${LOCALE ? `<button class="piccolo esci-partita" id="cambiaNome">Cambia nome</button>` : ""}<button class="piccolo esci-partita" id="esciPartita">Esci dalla partita</button>`;
+    dentro = homeTelefono(me, nuovi) + `${S.modoFine === "libera" && mioId === S.players[0].id && !S.fine ? `<button class="piccolo esci-partita" id="chiudiPartita">${S.chiusura ? "Non chiudere più la partita" : "Chiudi la partita"}</button>` : ""}${LOCALE ? `<button class="piccolo esci-partita" id="cambiaNome">Cambia nome</button>` : ""}${!LOCALE && mioId === S.players[0].id && !S.fine ? S.players.filter((q) => q.id !== mioId && !q.bot && presenze[q.id] && presenze[q.id].persona && (presenze[q.id].secondi === null || presenze[q.id].secondi >= 60)).map((q) => `<button class="piccolo esci-partita" data-sostituisci="${q.id}">🤖 ${esc(q.nome)} non c'è: fai giocare il computer</button>`).join("") : ""}<button class="piccolo esci-partita" id="esciPartita">Esci dalla partita</button>`;
   } else {
     const A = APPS.find((a) => a.k === app);
     dentro = `<div class="app-testa"><button id="indietro">‹ Home</button><b>${A.ico} ${A.nome}</b></div><div class="app-corpo">${contenutoApp(me, app)}</div>`;
@@ -1855,7 +1885,8 @@ function disegnaTelefono(me) {
   if ($("#cambiaNome")) $("#cambiaNome").onclick = () => finestra(`<h2>Come ti chiami?</h2><input id="nuovoNome" maxlength="24" value="${esc(me.nome)}"><div class="pulsanti"><button id="no">Annulla</button><button class="oro" id="si">Salva</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { const n = d.querySelector("#nuovoNome").value.trim(); if (!n) return toast("Scrivi un nome."); try { localStorage.setItem("laguna_nome_locale", n); } catch (e) { } Loc.rinomina(n); c(); caricaVista(); }; });
   if ($("#chiudiPartita")) $("#chiudiPartita").onclick = () => S.chiusura ? agisci({ tipo: "chiudi_partita", si: false })
     : finestra(`<h2>Chiudi la partita?</h2><p>Questa diventa l'ultima notte. All'Alba arriva la classifica finale e si scopre chi è il Re della Laguna. Fino all'Alba puoi ancora cambiare idea.</p><div class="pulsanti"><button id="no">Continuiamo</button><button class="oro" id="si">Chiudo</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "chiudi_partita", si: true }); }; });
-  if ($("#esciPartita")) $("#esciPartita").onclick = () => finestra(`<h2>Esci dalla partita?</h2><p>Torni alla schermata iniziale, dove puoi crearne una nuova. ${LOCALE ? "La partita di prova si cancella." : "Potrai rientrare solo se qualcuno ti manda di nuovo il codice."}</p><div class="pulsanti"><button id="no">Resto</button><button class="oro" id="si">Esco</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); if (LOCALE) { try { localStorage.removeItem("laguna_locale"); } catch (e) { } } esciDallaPartita(); }; });
+  if ($("#esciPartita")) $("#esciPartita").onclick = () => finestra(`<h2>Esci dalla partita?</h2><p>${LOCALE ? "Torni alla schermata iniziale. La partita di prova si cancella." : "Esci per sempre: <b>al tuo posto gioca il computer</b>, così la partita va avanti per gli altri. Non potrai rientrare."}</p>${LOCALE ? "" : `<p class="sub">Devi solo chiudere un attimo? Non serve uscire: se resti via più di 3 minuti il computer gioca per te, e quando torni riprendi tu.</p>`}<div class="pulsanti"><button id="no">Resto</button><button class="oro" id="si">Esco</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = async () => { c(); if (LOCALE) { try { localStorage.removeItem("laguna_locale"); } catch (e) { } } else { const r = await chiama({ comando: "esci", partita }); if (r && r.errore) { toast(r.errore); return; } } esciDallaPartita(LOCALE ? "" : "Sei uscito: al tuo posto ora gioca il computer."); }; });
+  document.querySelectorAll("[data-sostituisci]").forEach((b) => b.onclick = async () => { b.disabled = true; const r = await chiama({ comando: "computer", partita, player: b.dataset.sostituisci }); if (r && r.errore) toast(r.errore); else toast("Al suo posto ora gioca il computer. Quando torna, riprende lui."); await caricaVista(); });
   if ($("#indietro")) $("#indietro").onclick = () => { app = null; chatAperta = null; disegnaTelefono(me); };
   collegaApp(me);
 }

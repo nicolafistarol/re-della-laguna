@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 76;
+  const VERSIONE_REGOLE = 77;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -5056,7 +5056,7 @@
   // per farlo vedere a tutti va aggiunto qui (una riga per tema). Il resto dello stato invece e' copiato intero:
   // una cosa nuova e segreta che NON sta dentro un giocatore va tolta a mano piu' sotto (come manoSM).
   const CAMPI_PUBBLICI = [
-    "id", "nome", "bot", "colore",                                        // chi e'
+    "id", "nome", "bot", "colore", "assente", "uscito",                   // chi e' (assente/uscito: al suo posto gioca il computer)
     "pos", "inner", "ipos", "dadi", "doppi", "haTirato", "azioneGiornoFatta", // tabellone e turno
     "faro", "fallito", "arresti", "condanne",                             // fatti pubblici: prigione, fallimento, condanne
     "fama", "pacchetto", "veicoli",                                       // quello che tutti vedono

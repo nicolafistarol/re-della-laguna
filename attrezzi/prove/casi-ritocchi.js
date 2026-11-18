@@ -198,7 +198,7 @@ console.log("6. Patto sulla parola non pagato");
 console.log("7. Versione nella vista");
 {
   const s = nuova(13); const prima = JSON.stringify(s); const v = L.vista(s, s.players[0].id);
-  prova("v.versioneRegole = VERSIONE_REGOLE = 76", v.versioneRegole === L.VERSIONE_REGOLE && L.VERSIONE_REGOLE === 76);
+  prova("v.versioneRegole = VERSIONE_REGOLE = 77", v.versioneRegole === L.VERSIONE_REGOLE && L.VERSIONE_REGOLE === 77);
   prova("vista() non tocca lo stato", JSON.stringify(s) === prima);
 }
 // ------------------------------------------------------------------ 8
