@@ -57,6 +57,7 @@
     corruz: { agente: [250_000, 125_000], commissario: [1_000_000, 500_000], banchiere: [750_000, 375_000], doganiere: [500_000, 250_000] },
     pentito: 0.04, oggettoFalla: 0.15,
     prestitoQuota: 0.30, prestitoInt: 0.10, emergenzaInt: 0.25, ipotecaQuota: 0.5,
+    ipotecaCicli: 4, ipotecaRiscatto: 1.1, debitoAlba: 0.5, // ipoteca: 4 Cicli per riscattarla pagando il 10% in piu'; debiti: a ogni Alba la Banca si prende meta' dei contanti
     candidatura: 750_000, stipendioSindaco: 750_000,
     settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], settaInfluenza: [0, 0, 12, 35, 70], taxiMunicipio: 250_000, costoBallo: 300_000, decima: 0.15, perqDa: 25, perqK: 160, perqMax: 0.35, perqSequestro: 0.3,
     fasce: [[6e6, "Benestante"], [12e6, "Ricco"], [20e6, "Milionario"], [30e6, "Magnate"], [Infinity, "Sovrano"]],
@@ -89,21 +90,21 @@
 
   // Tipi di attivita': rendita (x R), affitto (x), copertura (quota prezzo x livello), attenzione
   const ATTIVITA = {
-    residenze: { nome: "Residenze", perk: "Rende poco, ma chi ci finisce sopra paga il doppio d'affitto.", rischio: "Nessuno.", gruppo: "residenze", r: 0.45, a: 2.0, c: 0, att: 0, isole: null },
-    ristorante: { nome: "Ristorante", perk: "Rende bene, sempre. È l'attività normale.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Ambra", "Palma", "Corona"] },
-    hotel: { nome: "Hotel di lusso", perk: "Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma", "Flamingo", "Corona"], lusso: true },
-    boutique: { nome: "Boutique di lusso", perk: "Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Flamingo", "Corona"], lusso: true },
-    uffici: { nome: "Uffici e hub tech", perk: "Fa salire SoleTech in Borsa.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Sole", "Corona"] },
-    yachtclub: { nome: "Yacht club", perk: "I tuoi mezzi a noleggio rendono il 25% in più.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma"] },
-    agenzia: { nome: "Agenzia immobiliare", perk: "All'Agenzia compri i terreni senza il 20% in più.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: null },
-    legale: { nome: "Studio legale", perk: "Se ti condannano, la multa è più bassa del 30%.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: ["Corona", "Sole"] },
-    lavanderia: { nome: "Lavanderia", perk: "Ti fa ripulire i soldi sporchi al Casinò Reale.", rischio: "Se fai affari sporchi, attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Ambra", "Sole"] },
-    galleria: { nome: "Galleria d'arte", perk: "Ripulisce soldi sporchi e apre l'affare «Falsi d'autore».", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Flamingo", "Corona"] },
-    magazzino: { nome: "Magazzino portuale", perk: "Ripulisce soldi sporchi e al Porto carichi il 50% in più.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Sole", "Ambra"] },
-    discoteca: { nome: "Discoteca", perk: "Rende tanto e apre la bisca clandestina. È anche lusso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Flamingo", "Palma"], lusso: true },
-    beachclub: { nome: "Beach club", perk: "Rende tanto, apre la bisca clandestina e ti dà +2 fama a ogni Alba.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Palma"] },
-    casino: { nome: "Casinò", perk: "Rende più di tutte e ripulisce tanto. Serve la licenza.", rischio: "La polizia lo guarda moltissimo.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 4, isole: ["Flamingo", "Corona"], licenza: true, lusso: true },
-    bancaprivata: { nome: "Banca privata", perk: "Rende più di tutte e ripulisce tanto. Serve tutto il gruppo di vie.", rischio: "La polizia la guarda molto.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 3, isole: ["Corona"], serie: true },
+    residenze: { nome: "Residenze", perk: "Rende poco, ma chi ci finisce sopra paga il doppio d'affitto.", perche: "Sceglila sulle caselle dove gli altri cadono spesso: l'affitto è doppio.", rischio: "Nessuno.", gruppo: "residenze", r: 0.45, a: 2.0, c: 0, att: 0, isole: null },
+    ristorante: { nome: "Ristorante", perk: "Rende bene, sempre. È l'attività normale.", perche: "Sceglilo quando vuoi solo soldi sicuri a ogni Alba.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Ambra", "Palma", "Corona"] },
+    hotel: { nome: "Hotel di lusso", perk: "Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", perche: "Sceglilo se ti serve fama: elezioni, sale riservate di notte, livello Icona.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma", "Flamingo", "Corona"], lusso: true },
+    boutique: { nome: "Boutique di lusso", perk: "Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", perche: "Sceglila se ti serve fama: elezioni, sale riservate di notte, livello Icona.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Flamingo", "Corona"], lusso: true },
+    uffici: { nome: "Uffici e hub tech", perk: "Fa salire SoleTech in Borsa.", perche: "Sceglili se hai (o vuoi) azioni SoleTech: ogni ufficio le spinge su.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Sole", "Corona"] },
+    yachtclub: { nome: "Yacht club", perk: "I tuoi mezzi a noleggio rendono il 25% in più.", perche: "Sceglilo se hai mezzi a noleggio: yacht, elicottero, jet.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma"] },
+    agenzia: { nome: "Agenzia immobiliare", perk: "All'Agenzia compri i terreni senza il 20% in più.", perche: "Sceglila se vuoi comprare tanti terreni: all'Agenzia risparmi il 20% ogni volta.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: null },
+    legale: { nome: "Studio legale", perk: "Se ti condannano, la multa è più bassa del 30%.", perche: "Sceglilo se fai affari sporchi: se ti condannano paghi meno.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: ["Corona", "Sole"] },
+    lavanderia: { nome: "Lavanderia", perk: "Ti fa ripulire i soldi sporchi al Casinò Reale.", perche: "Sceglila se di notte fai soldi sporchi: senza una copertura non li ripulisci.", rischio: "Se fai affari sporchi, attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Ambra", "Sole"] },
+    galleria: { nome: "Galleria d'arte", perk: "Ripulisce soldi sporchi e apre l'affare «Falsi d'autore».", perche: "Sceglila se vuoi un affare tutto tuo di notte: i falsi d'autore.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Flamingo", "Corona"] },
+    magazzino: { nome: "Magazzino portuale", perk: "Ripulisce soldi sporchi e al Porto carichi il 50% in più.", perche: "Sceglilo se fai contrabbando al Porto: carichi il 50% in più.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Sole", "Ambra"] },
+    discoteca: { nome: "Discoteca", perk: "Rende tanto e apre la bisca clandestina. È anche lusso.", perche: "Sceglila se vuoi tanto incasso e la bisca, e accetti la polizia addosso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Flamingo", "Palma"], lusso: true },
+    beachclub: { nome: "Beach club", perk: "Rende tanto, apre la bisca clandestina e ti dà +2 fama a ogni Alba.", perche: "Sceglilo se vuoi incasso e fama insieme, e accetti la polizia addosso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Palma"] },
+    casino: { nome: "Casinò", perk: "Rende più di tutte e ripulisce tanto. Serve la licenza.", perche: "Sceglilo se hai la licenza e tanti soldi sporchi da ripulire.", rischio: "La polizia lo guarda moltissimo.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 4, isole: ["Flamingo", "Corona"], licenza: true, lusso: true },
+    bancaprivata: { nome: "Banca privata", perk: "Rende più di tutte e ripulisce tanto. Serve tutto il gruppo di vie.", perche: "Sceglila se hai tutto il gruppo di vie a Isola Corona: rende più di tutte.", rischio: "La polizia la guarda molto.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 3, isole: ["Corona"], serie: true },
   };
 
   const AFFARI = {
@@ -131,10 +132,10 @@
   const AZIENDE = ["Corona Bank", "Laguna Energy", "Flamingo Luxury", "SoleTech", "Palma Resorts", "Marina Shipping"];
   const MONETE = ["LagunaCoin", "FlamingoToken", "ShadowCoin"];
 
-  // Il tabellone: un unico giro da 80 caselle che entra in tutte e 5 le isole.
+  // Il tabellone: un unico giro da 100 caselle che entra in tutte e 5 le isole (20 caselle per isola).
   // Ogni isola ha 20 caselle: un ponte (o ingresso), 4 gruppi di vie da 3, l'Asta del Comune, un molo, un'Agenzia, Gazzette e luoghi speciali.
   const OUTER = [
-    // Borgo Ambra (0-15)
+    // Borgo Ambra (caselle 0-19)
     ["Ponte Sud — Partenza", "angolo"], ["Vicolo del Mercato", "Spezie", "Ambra", 60], ["Via delle Spezie", "Spezie", "Ambra", 70],
     ["Gazzetta", "gazzetta"], ["Piazzetta Ambra", "Spezie", "Ambra", 80], ["Molo Ambra", "Moli", "Ambra", 150],
     ["Vicolo dei Pescatori", "Lanterne", "Ambra", 100], ["Mercato Nero", "speciale"], ["Via delle Lanterne", "Lanterne", "Ambra", 110],
@@ -143,7 +144,7 @@
     ["Piazza del Campanile", "Terracotta", "Ambra", 170],
     ["Riva del Sale", "Salina", "Ambra", 180], ["Calle dei Salinari", "Salina", "Ambra", 190], ["Asta del Comune", "asta"], ["Piazza della Salina", "Salina", "Ambra", 200],
     ["Bisca del Vicolo", "speciale"],
-    // Costa Palma (16-31)
+    // Costa Palma (20-39)
     ["Ponte Ovest — Il Faro", "angolo"], ["Lungomare Cocco", "Sabbia", "Palma", 190], ["Via delle Onde", "Sabbia", "Palma", 200],
     ["Gazzetta", "gazzetta"], ["Spiaggia dei Gabbiani", "Sabbia", "Palma", 220], ["Molo Palma", "Moli", "Palma", 150],
     ["Baia Turchese", "Corallo", "Palma", 240], ["Spiaggia VIP", "speciale"], ["Viale dei Resort", "Corallo", "Palma", 260],
@@ -152,7 +153,7 @@
     ["Golf delle Palme", "Giungla", "Palma", 330],
     ["Sentiero delle Mangrovie", "Mangrovie", "Palma", 340], ["Asta del Comune", "asta"], ["Approdo delle Mangrovie", "Mangrovie", "Palma", 345], ["Laguna delle Mangrovie", "Mangrovie", "Palma", 350],
     ["Eliporto Nord", "eliporto"],
-    // Isola Corona (32-47)
+    // Isola Corona (40-59)
     ["Ingresso di Isola Corona", "angolo"], ["Viale dei Diamanti", "Oro", "Corona", 900], ["Galleria Imperiale", "Oro", "Corona", 950],
     ["La Borsa", "speciale"], ["Piazza Corona", "Oro", "Corona", 1000], ["Il Municipio", "speciale"],
     ["Via degli Smeraldi", "Smeraldo", "Corona", 1100], ["Piazza Smeraldo", "Smeraldo", "Corona", 1150], ["Asta del Comune", "asta"], ["Loggia degli Smeraldi", "Smeraldo", "Corona", 1180],
@@ -160,7 +161,7 @@
     ["Piazza dei Re", "Platino", "Corona", 1400], ["Gazzetta", "gazzetta"], ["Casinò Reale", "speciale"],
     ["Torre Sovrana", "Diamante", "Corona", 1600], ["Corona Tower", "Diamante", "Corona", 1800],
     ["Agenzia di Isola Corona", "agenzia"], ["Attico del Re", "Diamante", "Corona", 2000],
-    // Baia Flamingo (48-63)
+    // Baia Flamingo (60-79)
     ["Eliporto Flamingo", "eliporto"], ["Viale Neon", "Neon", "Flamingo", 360], ["Flamingo Drive", "Neon", "Flamingo", 380],
     ["Gazzetta", "gazzetta"], ["Via delle Orchidee", "Neon", "Flamingo", 400], ["Molo Flamingo", "Moli", "Flamingo", 150],
     ["Ocean Boulevard", "Velluto", "Flamingo", 440], ["Gala Flamingo", "speciale"], ["Villa Rosa", "Velluto", "Flamingo", 460],
@@ -169,7 +170,7 @@
     ["Lungolago delle Ninfee", "Perla", "Flamingo", 550],
     ["Viale del Tramonto", "Tramonto", "Flamingo", 560], ["Terrazza del Tramonto", "Tramonto", "Flamingo", 570], ["Asta del Comune", "asta"], ["Pontile del Tramonto", "Tramonto", "Flamingo", 575],
     ["Eliporto della Spiaggia", "eliporto"],
-    // Distretto Sole (64-79)
+    // Distretto Sole (80-99)
     ["Ponte Est — Posto di blocco", "angolo"], ["Via dei Cantieri", "Acciaio", "Sole", 580], ["Corso Industria", "Acciaio", "Sole", 600],
     ["Gazzetta", "gazzetta"], ["Viale Solare", "Acciaio", "Sole", 640], ["Molo Sole", "Moli", "Sole", 150],
     ["Darsena Container", "Vetro", "Sole", 680], ["Porto Container", "speciale"], ["Piazza dell'Innovazione", "Vetro", "Sole", 720],
@@ -194,13 +195,15 @@
     gravissima: { faro: 6, multa: 0.40, attivita: "confisca+", blocco: 3, fama: 50 },
   };
   const ORDINE_GRAVITA = [null, "lieve", "media", "grave", "gravissima"];
+  // Le leggi durano fino alle prossime elezioni (ogni 2 Cicli), poi decadono. La stessa legge non si firma due volte.
+  // L'Amnistia vale subito e una volta sola; il Giro di vite sulle cripto dura un Ciclo.
   const LEGGI = {
     tassa_lusso: { nome: "Tassa sul lusso", descr: "+10% sul prezzo di yacht, elicotteri e jet." },
     amnistia: { nome: "Amnistia", descr: "Tracce -30% a tutti." },
     giro_cripto: { nome: "Giro di vite sulle cripto", descr: "ShadowCoin bloccata per un Ciclo." },
     zona_franca: { nome: "Zona franca", descr: "Niente tasse a Distretto Sole." },
     polizia_doppia: { nome: "Polizia raddoppiata", descr: "Tracce che contano il doppio in un'isola." },
-    condono: { nome: "Condono edilizio", descr: "Il prossimo livello costa la metà per tutti." },
+    condono: { nome: "Condono edilizio", descr: "I cantieri costano la metà per tutti." },
   };
 
   // ------------------------------------------------------------ utilita'
@@ -286,6 +289,9 @@
     if (s.flussi.length > 160) s.flussi.shift();
   }
   function privato(s, p, testo) { p.messaggi.push({ ciclo: s.ciclo + 1, testo }); if (p.messaggi.length > 60) p.messaggi.shift(); }
+  // un messaggio "lieve": l'avviso di una casella dove non c'e' niente da decidere. L'interfaccia puo' mostrarlo come
+  // avviso che sparisce e non contarlo tra i messaggi nuovi (cosi' quelli importanti non si perdono).
+  function avvisoCasella(s, p, testo) { p.messaggi.push({ ciclo: s.ciclo + 1, testo, lieve: true }); if (p.messaggi.length > 60) p.messaggi.shift(); }
 
   // ------------------------------------------------------------ nuova partita
   function nuovaPartita(opz) {
@@ -479,67 +485,77 @@
       if (dovuto > 0) {
         paga(s, p, dovuto, owner);
         flusso(s, p, owner, dovuto, (c.tipoCasella === "molo" ? "Pedaggio del " : "Affitto di ") + c.nome, true);
-        log(s, p.nome + " paga " + euro(dovuto) + " di affitto a " + owner.nome + " (" + c.nome + ").", p.id);
+        log(s, p.nome + " paga " + euro(dovuto) + (c.tipoCasella === "molo" ? " di pedaggio (l'affitto dei Moli) a " : " di affitto a ") + owner.nome + " (" + c.nome + ").", p.id);
       }
       return;
     }
     if (c.tipoCasella === "agenzia") {
       p.agenziaSconto = true;
-      privato(s, p, "All'" + c.nome + " ti accolgono con un caffè: in questo turno puoi comprare un terreno libero di " + NOMI_ISOLE[c.isola || isolaDiPos(p.pos)] + " a prezzo pieno, senza il 20% in più. Apri l'app Agenzia.");
+      avvisoCasella(s, p, "All'" + c.nome + " ti accolgono con un caffè: in questo turno puoi comprare un terreno libero di " + NOMI_ISOLE[c.isola || isolaDiPos(p.pos)] + " a prezzo pieno, senza il 20% in più. Apri l'app Agenzia.");
       log(s, p.nome + " passa dall'" + c.nome + ".", p.id);
       return;
     }
-    if (c.tipoCasella === "eliporto") { log(s, p.nome + " passa dall'" + c.nome + ".", p.id); privato(s, p, c.nome + ": qui atterrano elicotteri e jet. Con un elicottero (o l'eliporto nel Palazzo) ci arrivi col Viaggio rapido."); return; }
-    if (c.tipoCasella === "aeroporto") { log(s, p.nome + " passa dall'Aeroporto.", p.id); privato(s, p, livelloSblocco(s, p) >= 2 ? "All'Aeroporto un facchino ti sussurra: \"Stanotte atterra un cargo che non risulta da nessuna parte.\"" : "L'Aeroporto della Laguna: di notte, dal Livello 2, qui arrivano e partono carichi che nessuno deve vedere."); return; }
+    if (c.tipoCasella === "eliporto") { log(s, p.nome + " passa dall'" + c.nome + ".", p.id); avvisoCasella(s, p, c.nome + ": qui atterrano elicotteri e jet. Con un elicottero (o l'eliporto nel Palazzo) ci arrivi col Viaggio rapido."); return; }
+    if (c.tipoCasella === "aeroporto") { log(s, p.nome + " passa dall'Aeroporto.", p.id); avvisoCasella(s, p, livelloSblocco(s, p) >= 2 ? "All'Aeroporto un facchino ti sussurra: \"Stanotte atterra un cargo che non risulta da nessuna parte.\"" : "L'Aeroporto della Laguna: di notte, dal Livello 2, qui arrivano e partono carichi che nessuno deve vedere."); return; }
     if (c.tipoCasella === "asta") {
       p.agenziaSconto = true;
-      if ((s.sequestrati || []).length) privato(s, p, "All'Asta del Comune c'è un terreno sequestrato in vendita: l'asta parte subito dopo questo turno.");
-      privato(s, p, "Asta del Comune: in questo turno puoi comprare un terreno libero di " + NOMI_ISOLE[isolaDiPos(p.pos)] + " a prezzo pieno, senza il 20% in più. Apri l'app Agenzia.");
+      if ((s.sequestrati || []).length) avvisoCasella(s, p, "All'Asta del Comune c'è un terreno sequestrato in vendita: l'asta parte all'inizio del prossimo turno. Base d'asta: il " + Math.round(N.astaBase * 100) + "% del prezzo.");
+      avvisoCasella(s, p, "Ufficio aste del Comune: in questo turno puoi comprare un terreno libero di " + NOMI_ISOLE[isolaDiPos(p.pos)] + " a prezzo pieno, senza il 20% in più. Apri l'app Agenzia. (Le aste vere sono per i terreni sequestrati: partono a inizio turno.)");
       log(s, p.nome + " passa dall'Asta del Comune.", p.id);
       return;
     }
     switch (c.nome) {
-      case "Gazzetta": cartaGazzetta(s, p); break;
+      case "Gazzetta": case "Voci di piazza": cartaGazzetta(s, p); break;
       case "Ponte Est — Posto di blocco": postoDiBlocco(s, p); break;
-      case "Bisca del Vicolo": if (livelloSblocco(s, p) >= 1) privato(s, p, "Dalla porta della Bisca qualcuno ti fa segno: \"Stanotte si gioca forte. Porta contanti.\""); else { const f = 1 + Math.floor(rng(s) * 2); p.fama += f; log(s, p.nome + " si fa vedere alla Bisca del Vicolo: +" + f + " fama.", p.id); } break;
-      case "Mercato Nero": if (livelloSblocco(s, p) >= 1) privato(s, p, "Passando dal Mercato Nero un venditore ti fa l'occhiolino: \"Stanotte passa a trovarmi, ho roba nuova.\""); break;
+      case "Bisca del Vicolo": if (livelloSblocco(s, p) >= 1) avvisoCasella(s, p, "Dalla porta della Bisca qualcuno ti fa segno: \"Stanotte si gioca forte. Porta contanti.\""); else { const f = 1 + Math.floor(rng(s) * 2); p.fama += f; log(s, p.nome + " si fa vedere alla Bisca del Vicolo: +" + f + " fama.", p.id); } break;
+      case "Mercato Nero": if (livelloSblocco(s, p) >= 1) avvisoCasella(s, p, "Passando dal Mercato Nero un venditore ti fa l'occhiolino: \"Stanotte passa a trovarmi, ho roba nuova.\""); break;
       case "Spiaggia VIP": { const f = 2 + Math.floor(rng(s) * 4); p.fama += f; log(s, p.nome + " incontra un ospite famoso alla Spiaggia VIP: +" + f + " fama.", p.id); break; }
       case "Gala Flamingo": s.pending = { tipo: "gala", giocatore: p.id }; break;
-      case "Porto Container": if (livelloSblocco(s, p) >= 1) privato(s, p, "Al Porto un gruista ti dice sottovoce che stanotte arrivano container senza bolla."); break;
-      case "La Borsa": privato(s, p, "Alla Borsa: le tue prossime operazioni oggi sono senza commissioni."); break;
+      case "Porto Container": if (livelloSblocco(s, p) >= 1) avvisoCasella(s, p, "Al Porto un gruista ti dice sottovoce che stanotte arrivano container senza bolla."); break;
+      case "La Borsa": avvisoCasella(s, p, "La Borsa della Laguna. Qui non si paga e non si incassa niente: azioni e cripto si comprano dal telefono, app Borsa (dal Livello 2), da qualsiasi casella."); break;
       case "Il Municipio": p.municipioOggi = true; s.pending = { tipo: "municipio", giocatore: p.id }; break;
-      case "Banca Centrale": privato(s, p, "Alla Banca Centrale: puoi chiedere un prestito con l'Azione del giorno."); break;
+      case "Banca Centrale": avvisoCasella(s, p, "La Banca Centrale. Qui non si paga niente: il prestito si chiede dal telefono (app Banca) da qualsiasi casella, e usa la mossa del giorno."); break;
       case "Casinò Reale": s.pending = { tipo: "casino_reale", giocatore: p.id }; break;
       default: break;
     }
   }
 
-  // Le carte Gazzetta (gli "imprevisti" della Laguna)
+  // VOCI DI PIAZZA: le carte delle caselle-imprevisto (la Gazzetta e' solo il giornale).
+  // Ogni carta: [testo, effetto]. L'effetto puo' ritornare l'ESITO in una frase ("La Finanza non trova niente."):
+  // l'esito e' privato (sta in p.esitoCarta e in un messaggio), il testo della carta lo vedono tutti.
   const CARTE = [
-    ["Un turista ti lascia una mancia enorme.", (s, p) => { p.cash += 150_000; }],
+    ["Un turista ti lascia una mancia enorme.", (s, p) => { p.cash += 150_000; return "+" + euro(150_000) + "."; }],
     ["Vinci un premio come imprenditore dell'anno: +5 fama.", (s, p) => { p.fama += 5; }],
-    ["Paghi la manutenzione delle tue proprietà: 30.000 € per ogni attività.", (s, p) => { paga(s, p, 30_000 * propri(s, p).filter((l) => l.lvl > 0).length, null); }],
+    ["Paghi la manutenzione delle tue proprietà: 30.000 € per ogni attività.", (s, p) => { const n = propri(s, p).filter((l) => l.lvl > 0).length; paga(s, p, 30_000 * n, null); return n ? "Hai " + n + " attività: paghi " + euro(30_000 * n) + "." : "Non hai attività aperte: non paghi niente."; }],
     ["Un'intervista in TV ti rende simpatico: +3 fama.", (s, p) => { p.fama += 3; }],
     ["Multa per divieto di sosta dello yacht: 50.000 €.", (s, p) => { paga(s, p, 50_000, null); }],
     ["Un vecchio debito ti viene restituito: +250.000 €.", (s, p) => { p.cash += 250_000; }],
-    ["Controllo fiscale a sorpresa: se hai evaso, le tue Tracce salgono.", (s, p) => { if (p.evasione > 0) p.tracce += 15; }],
+    ["Controllo fiscale a sorpresa: se hai evaso, le tue Tracce salgono.", (s, p) => { if (p.evasione > 0) { p.tracce += 15; return "Stai evadendo le tasse: la Finanza se ne accorge e le tue Tracce salgono."; } return "Non stai evadendo: la Finanza non trova niente."; }],
     ["Un informatore ti vende una soffiata: ottieni una Prova su un rivale a caso, se ha fatto affari illegali.", (s, p) => {
       const altri = s.players.filter((x) => x.id !== p.id && x.tracce > 20);
-      if (altri.length) { const b = altri[Math.floor(rng(s) * altri.length)]; p.prove.push({ su: b.id, ciclo: s.ciclo + 1, cosa: "soffiata" }); }
+      if (altri.length) { const b = altri[Math.floor(rng(s) * altri.length)]; p.prove.push({ su: b.id, ciclo: s.ciclo + 1, cosa: "soffiata" }); return "Ottieni una Prova su " + b.nome + ": la trovi nell'app Prove."; }
+      return "Nessun rivale ha lasciato abbastanza Tracce: niente Prova.";
     }],
-    ["Il tuo quartiere va di moda: +0,5 Valore all'isola dove sei.", (s, p) => { const c = casella(s, p); const i = c.isola || "Corona"; s.valore[i] = clamp(s.valore[i] + 0.5, 1, 10); }],
-    ["Avanzi fino al Ponte Sud e incassi lo Stipendio.", (s, p) => { p.pos = 0; if (!p.blocco) p.cash += N.stipendio; }],
+    ["Il tuo quartiere va di moda: +0,5 Valore all'isola dove sei.", (s, p) => { const i = casella(s, p).isola || isolaDiPos(p.pos); s.valore[i] = clamp(s.valore[i] + 0.5, 1, 10); return NOMI_ISOLE[i] + " vale di più: affitti e rendite lì salgono un po'."; }],
+    ["Avanzi fino al Ponte Sud e incassi lo Stipendio.", (s, p) => { p.pos = 0; if (!p.blocco) { p.cash += N.stipendio; return "+" + euro(N.stipendio) + "."; } return "Lo Stipendio però è bloccato dal Giudice: non incassi niente."; }],
     ["Uno scandalo minore ti tocca di striscio: -3 fama.", (s, p) => { p.fama = Math.max(0, p.fama - 3); }],
-    ["Dividendo straordinario: +10% sulle tue azioni.", (s, p) => { for (const a of AZIENDE) if (p.azioni[a]) p.azioni[a] *= 1.1; }],
+    ["Dividendo straordinario: +10% sulle tue azioni.", (s, p) => { let ha = false; for (const a of AZIENDE) if (p.azioni[a]) { p.azioni[a] *= 1.1; ha = true; } return ha ? "Le tue azioni valgono il 10% in più." : "Non hai azioni: stavolta niente."; }],
   ];
   function cartaGazzetta(s, p) {
     const i = Math.floor(rng(s) * CARTE.length);
     const [testo, f] = CARTE[i];
     const prima = p.cash;
-    f(s, p);
-    if (p.cash !== prima) flusso(s, p.cash < prima ? p : null, p.cash > prima ? p : null, Math.abs(p.cash - prima), "Gazzetta: " + testo, true);
-    log(s, p.nome + " pesca una Gazzetta: " + testo, p.id);
-    s.ultimaCarta = { giocatore: p.id, testo };
+    const esito = f(s, p) || "";
+    if (p.cash !== prima) flusso(s, p.cash < prima ? p : null, p.cash > prima ? p : null, Math.abs(p.cash - prima), "Voci di piazza: " + testo, true);
+    segnaCarta(s, p, testo, esito);
+  }
+  // la carta pescata: il testo e' pubblico (s.ultimaCarta), l'esito e' solo di chi l'ha pescata (p.esitoCarta)
+  function segnaCarta(s, p, testo, esito) {
+    const n = (s.nCarte = (s.nCarte || 0) + 1);
+    log(s, p.nome + " pesca una Voce di piazza: " + testo, p.id);
+    s.ultimaCarta = { giocatore: p.id, testo, n };
+    p.esitoCarta = { n, testo, esito: esito || "" };
+    if (esito) privato(s, p, "Voci di piazza: " + testo + " " + esito);
   }
 
   function postoDiBlocco(s, p) {
@@ -662,18 +678,33 @@
       if (t.licenza && !s.licenze.includes(p.id)) err("Per il casinò serve la licenza del Municipio.");
       if (t.serie && !haSerie(s, p, l.serie)) err("La banca privata richiede la serie completa.");
       nuovoTipo = tipo;
-    } else if (tipo && tipo !== l.tipo) err("Per cambiare attività bisogna prima venderla (non ancora disponibile nella prova).");
+    } else if (tipo && tipo !== l.tipo) err("Non si può cambiare tipo di attività: qui c'è già " + ATTIVITA[l.tipo].nome + ".");
     const next = l.lvl + 1;
     if (next >= 3 && !haSerie(s, p, l.serie)) err("Per il livello " + next + " serve la serie completa.");
     if (next === 5 && p.fama < 50) err("Il livello Icona richiede fama 50.");
-    let costo = N.costLvl[next] * l.prezzo;
-    if (s.leggi.includes("condono")) costo *= 0.5;
-    if (casella(s, p).id === l.id) costo *= 0.9;
-    if (p.pacchetto === "costruttore") costo *= 0.85;
-    costo = round(costo);
+    const costo = costoCantiere(s, p, l).costo;
     if (p.cash < costo) err("Ti servono " + euro(costo) + " puliti.");
     p.cash -= costo; l.cantiere = { tipo: nuovoTipo, lvl: next }; l.permesso = false; p.azioneGiornoFatta = true;
     log(s, p.nome + " apre il cantiere: " + ATTIVITA[nuovoTipo].nome + " in " + l.nome + " (" + euro(costo) + "). Sarà pronto all'Alba.", p.id);
+  }
+  // Quanto costa il prossimo livello di un terreno, con gli sconti e il loro motivo (lo stesso conto per il motore e per l'app).
+  //   { costo: quello che paghi davvero, pieno: senza sconti, livello, sconti: [{ k, perche, quota }] }
+  function costoCantiere(s, p, l) {
+    const next = l.lvl + 1, pieno = round(N.costLvl[Math.min(next, 5)] * l.prezzo), sconti = [];
+    let costo = N.costLvl[Math.min(next, 5)] * l.prezzo;
+    if (s.leggi.includes("condono")) { costo *= 0.5; sconti.push({ k: "condono", perche: "Condono edilizio del Sindaco", quota: 0.5 }); }
+    if (s.fase === "giorno" && casella(s, p).id === l.id) { costo *= 0.9; sconti.push({ k: "qui", perche: "sei fermo su questo terreno", quota: 0.1 }); }
+    if (p.pacchetto === "costruttore") { costo *= 0.85; sconti.push({ k: "costruttore", perche: "sei il Costruttore", quota: 0.15 }); }
+    return { costo: round(costo), pieno, livello: next, sconti };
+  }
+  // Quanto rende in piu', a ogni Alba, portare un terreno al livello dopo (per decidere quale alzare).
+  //   { piu: euro in piu' a ogni Alba, costo, cicli: in quanti Cicli si ripaga (null se non rende) }
+  function guadagnoLivello(s, p, l, tipo) {
+    const next = l.lvl + 1, t = ATTIVITA[l.tipo || tipo];
+    if (!t || next > 5) return { piu: 0, costo: 0, cicli: null };
+    const ora = rendita(s, l), poi = rendita(s, { ...l, tipo: l.tipo || tipo, lvl: next, cantiere: null, chiuso: 0 });
+    const costo = costoCantiere(s, p, l).costo, piu = poi - ora;
+    return { piu, costo, cicli: piu > 0 ? Math.ceil(costo / piu * 10) / 10 : null };
   }
   function controllaValoreLusso(s, l) {
     if (l.tipo && ATTIVITA[l.tipo].lusso && l.lvl >= 3) s.valore[l.isola] = clamp(s.valore[l.isola] + 0.3, 1, 10);
@@ -691,7 +722,7 @@
     spa: { nome: "Spa e piscina", costo: 1_500_000, quando: "notte", descr: "Di notte, a casa tua, organizzi una serata con un ospite famoso: +3 fama.", esempio: "Più fama = sale e luoghi più esclusivi di notte." },
     sala_insonorizzata: { nome: "Sala insonorizzata", costo: 2_000_000, quando: "notte", descr: "Di notte compri poliziotti e banchieri senza uscire di casa.", esempio: "Niente viaggio al Porto: nessuno ti vede, nessuna pista sul posto." },
     caveau: { nome: "Caveau", costo: 2_000_000, quando: "sempre", descr: "Se ti condannano, salva fino a 5 milioni di soldi sporchi (non per i reati gravissimi).", esempio: "Hai 7 M sporchi e ti beccano: ne perdi 2, non 7." },
-    casino_privato: { nome: "Casinò privato", costo: 3_000_000, rendita: 250_000, quando: "notte", licenza: true, descr: "Di notte apri serate di poker: gli ospiti pagano l'ingresso e il banco sei tu. Rende anche 250.000 € a ogni Alba. Serve la licenza.", esempio: "4 ospiti a 100.000 € = 400.000 € solo di ingressi." },
+    casino_privato: { nome: "Casinò privato", costo: 3_000_000, rendita: 250_000, quando: "notte", licenza: true, descr: "Di notte apri serate di Sette e mezzo: gli ospiti pagano l'ingresso e il banco sei tu. Rende anche 250.000 € a ogni Alba. Serve la licenza.", esempio: "4 ospiti a 100.000 € = 400.000 € solo di ingressi." },
     eliporto: { nome: "Eliporto", costo: 3_000_000, quando: "sempre", descr: "Di giorno Viaggio rapido verso gli Eliporti; di notte ogni spostamento dura 1 ora.", esempio: "Arrivi a Isola Corona senza tirare i dadi." },
     piani_segreti: { nome: "Piani segreti", costo: 3_500_000, quando: "notte", descr: "Nelle retate la polizia non trova la tua valigetta.", esempio: "Ti perquisiscono: gli oggetti illegali restano tuoi." },
     osservatorio: { nome: "Terrazza col cannocchiale", costo: 1_200_000, quando: "notte", descr: "Di notte vedi dove sono il banchiere Lenz, il Commissario Vargas, il doganiere e la giornalista, ora per ora.", esempio: "Sai che Vargas è al Porto: stanotte il tuo carico lo fai alla Bisca." },
@@ -973,13 +1004,21 @@
     if (l.ipoteca) err("È già ipotecato.");
     const q = round(N.ipotecaQuota * valoreLotto(l));
     l.ipoteca = q; l.ipotecaCiclo = s.ciclo; p.cash += q;
+    privato(s, p, "Hai ipotecato " + l.nome + ": ricevi " + euro(q) + ". Finché è ipotecato rende la metà e non ci puoi costruire. Per riscattarlo paghi " + euro(round(q * N.ipotecaRiscatto)) + " (il " + Math.round((N.ipotecaRiscatto - 1) * 100) + "% in più). RISCHIO: se non lo riscatti prima dell'Alba del Ciclo " + (s.ciclo + 1 + N.ipotecaCicli) + ", la Banca se lo prende e lo mette all'asta.");
     log(s, p.nome + " ipoteca " + l.nome + " e riceve " + euro(q) + ".", p.id);
     notizia(s, "Sul cartello di " + l.nome + " compare la scritta \"Ipotecato\".", "voce");
+  }
+  // l'ipoteca di un terreno in chiaro, per chi lo possiede e per chi lo sta comprando:
+  //   { ipoteca, riscatto: quanto costa toglierla, scadeCiclo: all'Alba di questo Ciclo la Banca se lo prende, restano: Albe che mancano }
+  function infoIpoteca(s, l) {
+    if (!l || !l.ipoteca) return null;
+    const scade = (l.ipotecaCiclo || 0) + N.ipotecaCicli; // l'Alba in cui scatta il sequestro e' quella del Ciclo (scade + 1) a schermo
+    return { ipoteca: l.ipoteca, riscatto: round(l.ipoteca * N.ipotecaRiscatto), scadeCiclo: scade + 1, restano: Math.max(0, scade - s.ciclo + 1) };
   }
   function riscatta(s, p, idLotto) {
     const l = lotto(s, idLotto);
     if (l.owner !== p.id || !l.ipoteca) err("Niente da riscattare.");
-    const c = round(l.ipoteca * 1.1);
+    const c = round(l.ipoteca * N.ipotecaRiscatto);
     if (p.cash < c) err("Ti servono " + euro(c) + ".");
     p.cash -= c; l.ipoteca = 0;
     log(s, p.nome + " riscatta " + l.nome + ".", p.id);
@@ -2795,8 +2834,10 @@
     else { if (l.owner !== p.id) err("Quel terreno non è tuo."); if (l.cantiere) err("C'è un cantiere aperto: aspetta l'Alba."); }
     s.proposte = (s.proposte || []).filter((x) => !(x.da === p.id && x.lotto === idLotto && x.stato === "proposta"));
     const pr = { id: "q" + s.prossimoId++, da: p.id, a: a.id, lotto: idLotto, prezzo, compro: !!compro, stato: "proposta", ciclo: s.ciclo };
+    if (l.ipoteca) pr.ipoteca = infoIpoteca(s, l); // chi compra un terreno ipotecato lo vede PRIMA di dire si'
     s.proposte.push(pr);
-    privato(s, a, p.nome + (compro ? " vuole comprare il tuo " + l.nome + " per " : " ti offre il suo " + l.nome + " per ") + euro(prezzo) + ". Rispondi dalla finestra o dall'app Contratti.");
+    privato(s, a, p.nome + (compro ? " vuole comprare il tuo " + l.nome + " per " : " ti offre il suo " + l.nome + " per ") + euro(prezzo) + "." + (l.ipoteca && !compro ? " ATTENZIONE: è IPOTECATO. Se lo compri l'ipoteca passa a te: rende la metà finché non paghi " + euro(pr.ipoteca.riscatto) + " alla Banca, e se non la paghi entro 4 Cicli dall'acquisto la Banca se lo prende." : "") + " Rispondi dalla finestra o dall'app Contratti.");
+    if (l.ipoteca && compro) privato(s, p, "Attento: " + l.nome + " è IPOTECATO. Se lo compri l'ipoteca passa a te: rende la metà finché non paghi " + euro(pr.ipoteca.riscatto) + " alla Banca, e se non la paghi entro 4 Cicli dall'acquisto la Banca se lo prende.");
     log(s, p.nome + " fa una proposta a " + a.nome + " per " + l.nome + ".", p.id);
     return pr.id;
   }
@@ -2812,6 +2853,7 @@
     if (l.cantiere) err("C'è un cantiere aperto su quel terreno: aspetta l'Alba.");
     if (compratore.cash < pr.prezzo) return scade(compratore.nome + " non ha più abbastanza soldi.");
     compratore.cash -= pr.prezzo; venditore.cash += pr.prezzo; l.owner = compratore.id; l.permesso = false; l.negato = false;
+    if (l.ipoteca) { l.ipotecaCiclo = s.ciclo; privato(s, compratore, l.nome + " è ipotecato: l'ipoteca ora è tua. Per toglierla paghi " + euro(round(l.ipoteca * N.ipotecaRiscatto)) + " (app Banca). Hai tempo fino all'Alba del Ciclo " + (s.ciclo + 1 + N.ipotecaCicli) + ", poi la Banca se lo prende."); } // il conto dei Cicli riparte da chi compra
     pr.stato = "accettata";
     flusso(s, compratore, venditore, pr.prezzo, "Compravendita: " + l.nome, true);
     log(s, venditore.nome + " vende " + l.nome + " a " + compratore.nome + " per " + euro(pr.prezzo) + ".", p.id);
@@ -2829,17 +2871,29 @@
   }
 
   // ------------------------------------------------------------ pagamenti e debiti
+  // Il tasso VERO che un giocatore paga sul suo debito a ogni Alba (lo stesso numero ovunque: app Banca, finestre, messaggi).
+  //   debito d'emergenza 25% · Ereditiera 0% · altrimenti il tasso dei prestiti (10%, o quello deciso da chi comanda la Banca della Laguna)
+  function tassoDebito(s, p) { return p.emergenza ? N.emergenzaInt : p.pacchetto === "ereditiera" ? 0 : tassoPrestiti(s, p); }
   function paga(s, p, importo, a) {
+    const investiti0 = p.cash < importo ? valoreTitoli(s, p) : 0, cash0 = p.cash;
     if (p.cash < importo) raccogli(s, p, importo - p.cash);
     const pagato = Math.min(importo, Math.max(0, p.cash));
     p.cash -= pagato; if (a) a.cash += pagato;
+    const venduto = cash0 < importo ? round(investiti0 - valoreTitoli(s, p)) : 0;
     if (pagato < importo) {
       const resto = importo - pagato;
       p.debito += resto; if (a) a.cash += resto;
       p.emergenza = true;
       notizia(s, "Voci di corridoio: " + p.nome + " ha chiesto un prestito d'emergenza alla Banca Centrale.", "voce");
     }
+    // chi non aveva abbastanza contanti lo deve sapere subito: cosa e' stato venduto, quanto debito, a che tasso
+    if (cash0 < importo && importo > 0) {
+      const resto = round(importo - pagato), tasso = Math.round(tassoDebito(s, p) * 100);
+      p.avvisoDebito = { n: (s.nAvvisi = (s.nAvvisi || 0) + 1), ciclo: s.ciclo + 1, giorno: s.giorno + 1, dovuto: round(importo), contanti: round(Math.max(0, cash0)), venduto, debito: resto, debitoTotale: round(p.debito), tasso, a: a ? a.id : null };
+      privato(s, p, "Non avevi abbastanza contanti per pagare " + euro(importo) + (a ? " a " + a.nome : "") + "." + (venduto > 0 ? " La Banca ha venduto " + euro(venduto) + " delle tue azioni e cripto." : "") + (resto > 0 ? " Il resto (" + euro(resto) + ") è diventato un DEBITO D'EMERGENZA: costa il " + tasso + "% a ogni Alba su tutto il tuo debito (ora " + euro(p.debito) + "), e a ogni Alba la Banca si prende metà dei tuoi contanti finché non è pagato. Restituiscilo dall'app Banca appena puoi." : ""));
+    }
   }
+  function valoreTitoli(s, p) { let v = 0; for (const a of AZIENDE) v += (p.azioni[a] || 0) * s.borsa[a]; for (const m of MONETE) v += (p.cripto[m] || 0) * s.cripto[m]; return v; }
   function raccogli(s, p, need) {
     for (const a of AZIENDE) { if (need <= 0) return; const v = (p.azioni[a] || 0) * s.borsa[a]; const q = Math.min(v, need); if (q > 0) { p.azioni[a] -= q / s.borsa[a]; p.cash += q; need -= q; } }
     for (const m of MONETE) { if (need <= 0) return; const v = (p.cripto[m] || 0) * s.cripto[m]; const q = Math.min(v, need); if (q > 0) { p.cripto[m] -= q / s.cripto[m]; p.cash += q; need -= q; } }
@@ -3036,7 +3090,7 @@
         rend += rl;
         r.dettaglio.push({ nome: l.nome, cosa: l.tipo ? ATTIVITA[l.tipo].nome + " · livello " + l.lvl : l.cantiere ? "cantiere in corso" : "terreno vuoto: non rende, costruisci!", importo: round(rl) });
         if (l.tipo) { const t = ATTIVITA[l.tipo]; if (t.att && (p.affariStanotte.length || p.riciclTot)) p.tracce += t.att * 0.5 * (l.lvl / 2); }
-        if (l.ipoteca && s.ciclo - l.ipotecaCiclo >= 4) { notizia(s, "La Banca si riprende " + l.nome + ": ipoteca non riscattata.", "affari"); sequestra(s, l, giocatore(s, l.owner)); }
+        if (l.ipoteca && s.ciclo - l.ipotecaCiclo >= N.ipotecaCicli) { notizia(s, "La Banca si riprende " + l.nome + ": ipoteca non riscattata.", "affari"); sequestra(s, l, giocatore(s, l.owner)); }
       }
       // palazzo
       const pal = renditaPalazzo(p);
@@ -3072,10 +3126,10 @@
       if (p.pacchetto === "speculatore") for (const m of Object.keys(p.cripto)) p.cripto[m] *= 1.05;
       // debiti
       if (p.debito > 0) {
-        const tasso = p.emergenza ? N.emergenzaInt : p.pacchetto === "ereditiera" ? 0 : tassoPrestiti(s, p);
-        const int = p.debito * tasso; p.debito += int; r.interessi = round(int);
+        const tasso = tassoDebito(s, p);
+        const int = p.debito * tasso; p.debito += int; r.interessi = round(int); r.tassoDebito = tasso;
         { const gb = s.grandi && s.grandi.banca; if (gb && gb.stato === "attiva" && gb.capo && gb.capo !== p.id) s.interessiBanca = (s.interessiBanca || 0) + int; }
-        const pagabile = Math.min(p.cash * 0.5, p.debito); p.cash -= pagabile; p.debito -= pagabile;
+        const pagabile = Math.min(p.cash * N.debitoAlba, p.debito); p.cash -= pagabile; p.debito -= pagabile; r.debitoPagato = round(pagabile); r.debitoResta = round(p.debito);
         if (p.debito < 1) { p.debito = 0; p.emergenza = false; }
       }
       // corruzione: rate e pentiti
@@ -3142,7 +3196,19 @@
     iniziaTurno(s);
   }
 
+  // quando si vota la prossima volta (numero del Ciclo, come si legge a schermo): si vota all'Alba dei Cicli pari
+  function prossimeElezioni(s) { return s.ciclo + 1 + ((s.ciclo + 1) % 2); }
+  // le leggi in vigore adesso, pronte da mostrare: [{ id, nome, descr, isola, finoA: Ciclo delle prossime elezioni }]
+  function leggiInVigore(s) {
+    return [...new Set(s.leggi || [])].map((x) => {
+      const isola = x.startsWith("polizia_doppia_") ? x.slice(15) : x.startsWith("stop_cantieri_") ? x.slice(14) : null;
+      const id = isola ? x.slice(0, x.length - isola.length - 1) : x, L0 = LEGGI[id] || { nome: id, descr: "" };
+      return { id, chiave: x, nome: L0.nome + (isola ? " a " + NOMI_ISOLE[isola] : ""), descr: L0.descr, isola, finoA: id === "giro_cripto" ? s.ciclo + 1 : prossimeElezioni(s) };
+    });
+  }
   function elezioni(s) {
+    // con le elezioni decadono le leggi del Sindaco di prima: chi vince ricomincia da capo
+    if ((s.leggi || []).length) { notizia(s, "Giorno di elezioni: decadono le leggi in vigore (" + leggiInVigore(s).map((x) => x.nome).join(", ") + ").", "politica"); s.leggi = []; }
     const cand = Object.keys(s.candidati);
     if (cand.length === 0) { notizia(s, "Nessun giocatore si candida: resta in carica il Sindaco Albertini.", "politica"); return; }
     let best = null, bestV = -1;
@@ -3154,7 +3220,7 @@
     best.mandati = (best.mandati || 0) + 1;
     if (!rieletto) best.fama += 10;
     notizia(s, best.nome + " è il nuovo Sindaco della Laguna!", "politica");
-    privato(s, best, "Sei il Sindaco. Puoi fare una legge per Ciclo e cambiare le tasse dall'app Municipio.");
+    privato(s, best, "Sei il Sindaco. Puoi fare una legge per Ciclo e cambiare le tasse dall'app Municipio. Le leggi durano fino alle prossime elezioni (Ciclo " + prossimeElezioni({ ciclo: s.ciclo + 1 }) + "), poi decadono.");
   }
   function campagna(s, p, importo) {
     if (s.candidati[p.id] === undefined) err("Prima candidati.");
@@ -3166,11 +3232,12 @@
     if (s.leggeCiclo === s.ciclo) err("Una sola legge per Ciclo.");
     if (!LEGGI[idLegge]) err("Legge sconosciuta.");
     if (idLegge === "polizia_doppia" && !ISOLE.includes(isola)) err("Scegli l'isola.");
+    const chiave = idLegge === "polizia_doppia" ? "polizia_doppia_" + isola : idLegge;
+    if (s.leggi.includes(chiave)) err("Questa legge è già in vigore" + (idLegge === "giro_cripto" ? " fino all'Alba." : ": dura fino alle elezioni del Ciclo " + prossimeElezioni(s) + "."));
     s.leggeCiclo = s.ciclo;
     if (idLegge === "amnistia") { for (const x of s.players) x.tracce *= 0.7; }
-    else if (idLegge === "polizia_doppia") s.leggi.push("polizia_doppia_" + isola);
-    else s.leggi.push(idLegge);
-    notizia(s, "Il Sindaco " + p.nome + " firma una nuova legge: " + LEGGI[idLegge].nome + ".", "politica");
+    else s.leggi.push(chiave);
+    notizia(s, "Il Sindaco " + p.nome + " firma una nuova legge: " + LEGGI[idLegge].nome + (idLegge === "polizia_doppia" ? " a " + NOMI_ISOLE[isola] : "") + "." + (idLegge === "amnistia" ? "" : idLegge === "giro_cripto" ? " Vale fino all'Alba." : " Vale fino alle elezioni del Ciclo " + prossimeElezioni(s) + "."), "politica");
   }
   function tasse(s, p, q) {
     if (s.sindaco !== p.id) err("Solo il Sindaco cambia le tasse.");
