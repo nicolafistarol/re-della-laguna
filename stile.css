@@ -635,3 +635,14 @@ table.conti{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}ta
 .velo.laterale .fin{pointer-events:auto;width:min(370px,92vw);max-height:62vh;padding:18px 20px;border-color:rgba(243,197,107,.55);box-shadow:0 20px 50px rgba(0,0,0,.55)}
 .velo.laterale .fin h2{font-size:25px}
 @media(max-width:900px){.velo.laterale{justify-content:center;padding:0 0 8px}.velo.laterale .fin{max-height:48vh}.dio-titolo{top:auto;bottom:calc(50% - 150px)}.dio-nome{font-size:15px;padding:3px 10px 4px}.comandi-vista #vArci,.comandi-vista #vSegui,.comandi-vista #z3d{width:50px;height:38px}}
+/* v74: I miei fili (Favori e ricatti) */
+.fili-testa{border-color:rgba(201,162,74,.5)}
+.filo-pers h4{display:flex;align-items:center;gap:8px}
+.filo-pers .pall{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:12px;color:#fff}
+.filo{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid rgba(255,255,255,.08);font-size:14px}
+.filo:first-of-type{border-top:0}
+.filo.ricatto{flex-direction:column;align-items:stretch;background:rgba(160,40,40,.16);border:1px solid rgba(255,120,120,.35);border-radius:10px;padding:8px 10px;margin:4px 0}
+.scelte-ricatto{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.scelte-ricatto button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;white-space:normal;height:auto;padding:8px 10px}
+.scelte-ricatto button span{font-size:12px;opacity:.85;font-weight:400}
+@media (max-width:520px){.scelte-ricatto{grid-template-columns:1fr}}

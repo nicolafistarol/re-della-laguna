@@ -1319,7 +1319,7 @@ function scenaNotte(me) {
   const resto = restoOra();
   const cvN = N2.convocazione, traCv = cvN ? cvN.ora - N2.ora : 0;
   const bannerCv = cvN && traCv >= -2 ? `<div class="conv-banner">🕯️ <span>Rito della setta: <b>${esc(L.LUOGHI[cvN.luogo].nome)}</b> alle <b>${L.ORE[cvN.ora]}</b> · ${traCv > 0 ? "tra " + traCv + (traCv === 1 ? " ora" : " ore") : traCv === 0 ? "<b>adesso</b>" : "è iniziato"}${N2.dove[mioId] === cvN.luogo ? " · sei qui" : ""}</span>${N2.dove[mioId] !== cvN.luogo && !N2.viaggio[mioId] && !N2.chiuso[mioId] ? `<button class="piccolo oro" data-cvvai="${cvN.luogo}">Vai</button>` : ""}</div>` : "";
-  const testa = bannerCv + `<div class="scena-testa">
+  const testa = bannerMano() + bannerCv + `<div class="scena-testa">
       <div class="kick" style="color:var(--cielo)">${ico("luna")} ore ${L.ORE[N2.ora]} · ${6 - N2.ora} ${6 - N2.ora === 1 ? "ora" : "ore"} all'alba${isola ? " · " + esc(isola) : ""}${N2.pericoloQui && !v && !aCasa ? ` · <span style="color:${COLORE_POLIZIA[N2.pericoloQui]}">polizia ${N2.pericoloQui}</span>` : ""}</div>
       <h1>${esc(nome)}</h1>${sala ? `<div class="sala">${ico("stella")} ${esc(sala)}</div>` : ""}
       ${quiAltri.length ? `<div class="qui-altri">${quiAltri.map((p) => `<button class="persona" data-persona="${p.id}"><span class="pall" style="background:${p.colore}">${esc(p.nome[0])}</span>${esc(p.nome)}</button>`).join(" ")} <span class="sub">${quiAltri.length === 1 ? "è qui con te: toccalo" : "sono qui con te: toccali"}</span></div>` : ""}
@@ -1664,7 +1664,10 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 73: ["<b>Aste giuste.</b> Chi rinuncia non può più offrire, la base d'asta è il 60% del prezzo e le offerte si scoprono solo alla fine.",
+const NOVITA = { 74: ["<b>I Favori.</b> In un patto (app Contratti) ora puoi chiedere un Favore: un voto alle elezioni, un passaggio gratis sui suoi terreni, un silenzio, un appuntamento di notte. Il gioco lo fa rispettare.",
+  "<b>I miei fili.</b> In Rubrica vedi chi ti deve un Favore e a chi lo devi tu. Chi rompe la parola perde fama, finisce sulla Gazzetta e per 2 Cicli nessuno si fida di lui.",
+  "<b>Il ricatto.</b> Una Prova non serve solo a denunciare: dall'app Prove puoi mostrarla al rivale e chiedergli un Favore. È un reato grave: +6 Tracce subito.",
+  "<b>Se ti ricattano</b> scegli: accetti, rifiuti, confessi (e fai il suo nome sulla Gazzetta) oppure, se hai una Prova su di lui, pari e patta."], 73: ["<b>Aste giuste.</b> Chi rinuncia non può più offrire, la base d'asta è il 60% del prezzo e le offerte si scoprono solo alla fine.",
   "<b>Trucchi chiusi.</b> La spinta in Borsa della setta non si ripete più a volontà, il Casinò privato non ripulisce gratis, le pene si calcolano in un modo solo e chiaro.",
   "<b>Notte.</b> Le proposte tra giocatori non spariscono più, e il Sette e mezzo tra giocatori si gioca davvero.",
   "<b>Musica e suoni rifatti:</b> funzionano anche su iPhone.",
@@ -1876,14 +1879,15 @@ function appBanca(me, miTurno) {
 }
 function appMessaggi(me, miTurno) {
     const cv = conversazioni(me);
-    if (!cv.length) return `<p class="sub">Nessun messaggio.</p>`;
+    const ric = (S.ricatti || []).filter((r) => r.a === mioId && r.stato === "attesa").map((r) => `<div class="scheda filo ricatto"><span><b>${esc(nomeDi(r.da))} ti ricatta</b>: vuole ${esc(NOME_FAV(r.tipo))}. <span class="sub">Rispondi prima dell'Alba: ${tempoAllAlba()}.</span></span><button class="piccolo oro" data-ricapri="${r.id}">Rispondi</button></div>`).join("");
+    if (!cv.length) return ric + `<p class="sub">Nessun messaggio.</p>`;
     const c = chatAperta && cv.find((x) => x.nome === chatAperta);
     if (c) {
       segnaChat(c.nome, c.msg.length);
       return `<div class="chat-testa"><button class="piccolo" id="tornaChat">‹</button><span class="avatar" style="background:${c.col}">${c.ico}</span><b>${esc(c.nome)}</b></div>
         <div class="chat">${c.msg.map((m) => `<div class="bolla">${esc(m.testo)}<span>Ciclo ${m.ciclo}</span></div>`).join("")}</div>`;
     }
-    return cv.map((c) => { const ult = c.msg[c.msg.length - 1]; const nuovi = c.msg.length - lettiChat(c.nome);
+    return ric + cv.map((c) => { const ult = c.msg[c.msg.length - 1]; const nuovi = c.msg.length - lettiChat(c.nome);
       return `<button class="conv" data-chat="${esc(c.nome)}"><span class="avatar" style="background:${c.col}">${c.ico}</span><span class="cv-t"><b>${esc(c.nome)}</b><span>${esc(ult.testo.slice(0, 70))}${ult.testo.length > 70 ? "…" : ""}</span></span>${nuovi > 0 ? `<span class="pallino">${nuovi}</span>` : ""}</button>`; }).join("");
 }
 function appValigetta(me, miTurno) {
@@ -1897,7 +1901,7 @@ function appLusso(me, miTurno) {
   return `<div class="scheda"><h4>I tuoi mezzi</h4><span class="sub">${me.veicoli.map((x) => L.N.veicoli[x].nome).join(", ") || "Nessuno, per ora."}</span></div>${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="veicolo">Vai in concessionaria</button>` : `<span class="sub">I mezzi si comprano con la mossa del giorno.</span>`}<span class="sub">Un motoscafo o un elicottero ti fanno muovere di notte in 1 ora ovunque.</span>`;
 }
 function appProve(me, miTurno) {
-  return (me.prove || []).map((pr, i) => `<div class="scheda"><h4>📷 ${esc(S.players.find((x) => x.id === pr.su).nome)}</h4><span class="sub">${esc(pr.cosa)} · Ciclo ${pr.ciclo}</span><button class="piccolo" data-denuncia="${i}">Manda alla polizia</button></div>`).join("") || `<p class="sub">Nessuna prova. Una macchina fotografica aiuta.</p>`;
+  return (me.prove || []).map((pr, i) => `<div class="scheda"><h4>📷 ${esc(S.players.find((x) => x.id === pr.su).nome)}</h4><span class="sub">${esc(pr.cosa)} · Ciclo ${pr.ciclo}</span><div class="riga"><button class="piccolo" data-denuncia="${i}">Manda alla polizia</button>${pr.rifiutata ? `<span class="sub">L'ha già vista: ora puoi solo denunciarlo.</span>` : `<button class="piccolo oro" data-ricatta="${i}">Usala: chiedi un Favore</button>`}</div></div>`).join("") || `<p class="sub">Nessuna prova. Una macchina fotografica aiuta.</p>`;
 }
 function appBorsa(me, miTurno) {
   return L.AZIENDE.map((a) => `<div class="scheda"><h4>${a} <span class="sub">${S.borsa[a].toFixed(1)}</span></h4><span class="sub">Ne hai per ${euro((me.azioni[a] || 0) * S.borsa[a])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="b_${a}" style="width:100px"><button class="piccolo" data-compra="borsa|${a}">Compra</button><button class="piccolo" data-vendi="borsa|${a}">Vendi</button></div></div>`).join("") +
@@ -1906,7 +1910,7 @@ function appBorsa(me, miTurno) {
 }
 function appContratti(me, miTurno) {
     const miei = S.contratti.filter((x) => x.da === mioId || x.a === mioId);
-    return miei.map((x) => `<div class="scheda"><span><span class="tag">${x.tipo === "notarile" ? "Dal notaio" : "Sulla parola"}</span><span class="tag">${esc(x.stato)}</span></span><span>${esc(S.players.find((y) => y.id === x.da).nome)} ↔ ${esc(S.players.find((y) => y.id === x.a).nome)}: subito ${euro(x.pagoOra)}, poi ${euro(x.pagoDopo)}</span>${x.testo ? `<i class="sub">"${esc(x.testo)}"</i>` : ""}${x.a === mioId && x.stato === "proposto" ? `<div class="riga"><button class="piccolo oro" data-contr="${x.id}|1">Accetta</button><button class="piccolo" data-contr="${x.id}|0">Rifiuta</button></div>` : ""}</div>`).join("") + `<button class="oro" data-a2="nuovoContratto">Proponi un patto</button>`;
+    return miei.map((x) => `<div class="scheda"><span><span class="tag">${x.tipo === "notarile" ? "Dal notaio" : "Sulla parola"}</span>${x.favore ? `<span class="tag" style="background:rgba(201,162,74,.25)">Favore: ${esc(NOME_FAV(x.favore.tipo))} · lo deve ${esc(nomeDi(x.favore.deve === "da" ? x.da : x.a))}</span>` : ""}<span class="tag">${esc(x.stato)}</span></span><span>${esc(S.players.find((y) => y.id === x.da).nome)} ↔ ${esc(S.players.find((y) => y.id === x.a).nome)}: subito ${euro(x.pagoOra)}, poi ${euro(x.pagoDopo)}</span>${x.testo ? `<i class="sub">"${esc(x.testo)}"</i>` : ""}${x.a === mioId && x.stato === "proposto" ? `<div class="riga"><button class="piccolo oro" data-contr="${x.id}|1">Accetta</button><button class="piccolo" data-contr="${x.id}|0">Rifiuta</button></div>` : ""}</div>`).join("") + `<button class="oro" data-a2="nuovoContratto">Proponi un patto</button>`;
 }
 function appAgenzia(me, miTurno) {
     const c = casellaDi(me), isola = (c && c.isola) || L.isolaDiPos(me.pos);
@@ -2059,11 +2063,104 @@ function laTuaRete(me) {
     return `<div style="margin-top:8px"><b>${esc(L.nomeContatto(k).replace(/^./, (x) => x.toUpperCase()))}</b><div class="sub">${DOVE(k)}.</div>${c.sospetto ? `<div class="sub" style="color:#ff8a8a;font-weight:700">Gli Affari Interni indagano su di lui: all'Alba può fare il tuo nome.</div>` : `<div class="sub">Rischio che gli Affari Interni lo scoprano: almeno ${r}% a Ciclo (sale più lo usi e più Tracce hai).</div>`}<button class="piccolo" data-scarica="${k}" style="margin-top:4px">Scaricalo</button></div>`; }).join("") : `<span class="sub">Nessun contatto comprato. Agenti e Vargas al Club Neon, Lenz al Casinò, il doganiere all'Aeroporto: guarda la Rubrica.</span>`}
     <div class="sub" style="margin-top:8px">Gli oggetti ti salvano quasi sempre, non sempre: circa 1 volta su 7 qualcosa va storto.</div></div>`;
 }
+// ------------------------------------------------------------ I miei fili: Favori e ricatti (v74)
+const NOME_FAV = (t) => ((L.FAVORI || {})[t] || { nome: t }).nome;
+const SPIEGA_FAV = (t) => ((L.FAVORI || {})[t] || { spiega: "" }).spiega;
+function tempoAllAlba() {
+  if (S.fase === "notte" && S.notte) { const h = 6 - S.notte.ora; return "mancano " + h + (h === 1 ? " ora" : " ore") + " all'Alba"; }
+  const g = 4 - (S.giorno || 0); return "mancano " + g + (g === 1 ? " giorno" : " giorni") + " e la notte, poi l'Alba";
+}
+function usoFavore(f) {
+  const u = f.uso || {};
+  if (f.tipo === "voto") return u.elezione ? "conta alle prossime elezioni" : "usato";
+  if (f.tipo === "passo") return "ancora " + (u.turni || 0) + (u.turni === 1 ? " turno" : " turni");
+  if (f.tipo === "silenzio") return "fino alla fine del Ciclo " + ((u.fino || 0) + 1);
+  if (f.tipo === "mano") return "stanotte alle " + L.ORE[u.ora] + " a " + nomeLuogo(u.luogo);
+  return "";
+}
+function ricattoVittimaHtml(r, me) {
+  const da = nomeDi(r.da), pari = (me.prove || []).some((x) => x.su === r.da);
+  return `<div class="filo ricatto"><b>${esc(da)} ti ricatta.</b> <span class="sub">Ha una Prova su di te (${esc((r.prova && r.prova.cosa) || "una foto")}, Ciclo ${r.prova ? r.prova.ciclo : "?"}). Vuole: <b>${esc(NOME_FAV(r.tipo))}</b>. Rispondi prima dell'Alba: ${tempoAllAlba()}.</span>
+    <div class="scelte-ricatto">
+      <button class="piccolo oro" data-ricresp="${r.id}|accetto"><b>Accetto</b><span>Gli devi il Favore. La Prova resta in pegno finché non lo paghi.</span></button>
+      <button class="piccolo" data-ricresp="${r.id}|rifiuto"><b>Rifiuto</b><span>Può denunciarti: +35 Tracce e la polizia sale di un gradino.</span></button>
+      <button class="piccolo" data-ricresp="${r.id}|confesso"><b>Confesso</b><span>+17 Tracce a te, la Prova sparisce. A lui +25 Tracce e il nome sulla Gazzetta.</span></button>
+      ${pari ? `<button class="piccolo" data-ricresp="${r.id}|pari"><b>Pari e patta</b><span>Bruci la tua Prova su di lui e lui la sua su di te.</span></button>` : ""}
+    </div></div>`;
+}
+function filiHtml(me) {
+  const fs = (S.favori || []).filter((f) => (f.deve === mioId || f.a === mioId) && (f.stato === "aperto" || f.stato === "attivo"));
+  const rs = (S.ricatti || []).filter((r) => r.stato === "attesa" && (r.a === mioId || r.da === mioId));
+  const altri = S.players.filter((x) => x.id !== mioId);
+  return `<div class="scheda fili-testa"><h4>🧵 I miei fili</h4><span class="sub">Le promesse tra te e gli altri. Il gioco le fa rispettare: chi rompe la parola finisce sulla Gazzetta.${me.senzaParola != null && S.ciclo <= me.senzaParola ? ` <b style="color:#ff9a9a">Hai rotto la parola: fino al Ciclo ${me.senzaParola + 1} nessuno accetta Favori da te.</b>` : ""}</span></div>` + altri.map((x) => {
+    const righe = [];
+    for (const r of rs.filter((r) => r.a === mioId && r.da === x.id)) righe.push(ricattoVittimaHtml(r, me));
+    for (const r of rs.filter((r) => r.da === mioId && r.a === x.id)) righe.push(`<div class="filo ricatto"><span>Lo stai ricattando: vuoi <b>${esc(NOME_FAV(r.tipo))}</b>. Aspetti la risposta (${tempoAllAlba()}).</span></div>`);
+    for (const f of fs.filter((f) => f.a === mioId && f.deve === x.id)) righe.push(`<div class="filo"><span>Ti deve: <b>${esc(NOME_FAV(f.tipo))}</b> <span class="sub">(${f.stato === "attivo" ? "in uso: " + esc(usoFavore(f)) : "scade al Ciclo " + (f.scade + 1)}${f.origine === "ricatto" ? " · hai una Prova in pegno" : ""})</span></span>${f.stato === "aperto" ? `<button class="piccolo oro" data-fusa="${f.id}">Usa</button>` : ""}</div>`);
+    for (const f of fs.filter((f) => f.deve === mioId && f.a === x.id)) righe.push(`<div class="filo"><span>Gli devi: <b>${esc(NOME_FAV(f.tipo))}</b> <span class="sub">(${f.stato === "attivo" ? "in uso: " + esc(usoFavore(f)) : "scade al Ciclo " + (f.scade + 1)}${f.origine === "ricatto" ? " · ha una Prova su di te in pegno" : ""})</span></span>${f.stato === "aperto" ? `<button class="piccolo" data-frompi="${f.id}">Rompi la parola</button>` : ""}</div>`);
+    const sp = x.senzaParola != null && S.ciclo <= x.senzaParola ? `<div class="sub" style="color:#ff9a9a">Ha rotto la parola: nessuno si fida di lui fino al Ciclo ${x.senzaParola + 1}.</div>` : "";
+    return `<div class="scheda filo-pers"><h4><span class="pall" style="background:${x.colore}">${esc(x.nome[0])}</span> ${esc(x.nome)}</h4>${sp}${righe.join("") || `<span class="sub">Nessun filo con ${esc(x.nome)}. Per ora.</span>`}</div>`;
+  }).join("") + `<p class="kick" style="color:var(--muted);margin:12px 0 6px">Chi conta nella Laguna</p>`;
+}
+function finestraRicattoVittima(r) {
+  const me = io();
+  finestra(`<span class="kick" style="color:var(--sporco)">${ico("maschera")} Un ricatto</span><h2>${esc(nomeDi(r.da))} ha una Prova su di te</h2>${ricattoVittimaHtml(r, me)}<div class="pulsanti"><button id="dopo">Ci penso</button></div>`, (d, c) => {
+    d.querySelector("#dopo").onclick = c;
+    d.querySelectorAll("[data-ricresp]").forEach((b) => b.onclick = () => { const [id, scelta] = b.dataset.ricresp.split("|"); c(); agisci({ tipo: "rispondi_ricatto", id, scelta }); });
+  });
+}
+function finestraUsaFavore(f) {
+  const deve = nomeDi(f.deve);
+  let corpo = "";
+  if (f.tipo === "voto") {
+    const cand = S.candidati && S.candidati[mioId] !== undefined;
+    const st = (S.sette || []).find((x) => x.opera && x.membri.includes(f.deve) && x.membri.includes(mioId) && x.gm !== f.deve);
+    corpo = `<p>${esc(SPIEGA_FAV("voto"))}</p>${cand ? `<button class="oro" data-u="elezione">Per le elezioni: la fama di ${esc(deve)} conta per me</button>` : `<p class="sub">Alle elezioni il Voto si usa quando sei candidato (app Municipio).</p>`}
+      ${st ? `<p class="sub">Grande Opera della setta ${esc(st.nome)}: decidi tu il voto di ${esc(deve)}.</p><div class="riga"><button class="piccolo" data-u="si">Fagli votare SÌ</button><button class="piccolo" data-u="no">Fagli votare NO</button></div>` : ""}`;
+  } else if (f.tipo === "mano") {
+    const luoghi = Object.keys(L.LUOGHI).filter((l) => l !== "palazzo");
+    const ore = [1, 2, 3, 4, 5].filter((o) => !(S.fase === "notte" && S.notte && o < S.notte.ora + 2));
+    corpo = `<p>${esc(SPIEGA_FAV("mano"))}</p>${ore.length ? `<div class="campo"><label for="mL">Dove</label><select id="mL">${luoghi.map((l) => `<option value="${l}">${esc(L.LUOGHI[l].nome)}</option>`).join("")}</select></div><div class="campo"><label for="mO">A che ora</label><select id="mO">${ore.map((o) => `<option value="${o}">${L.ORE[o]}</option>`).join("")}</select></div><p class="sub">Se ${esc(deve)} non c'è, rompe la parola.</p><button class="oro" data-u="mano">Fissa l'appuntamento</button>` : `<p class="sub">Stanotte è troppo tardi: servono almeno 2 ore per arrivare.</p>`}`;
+  } else corpo = `<p>${esc(SPIEGA_FAV(f.tipo))}</p>${f.tipo === "passo" && S.fase !== "giorno" ? `<p class="sub">Il Passo libero si usa di giorno.</p>` : `<button class="oro" data-u="usa">Usalo adesso</button>`}`;
+  finestra(`<span class="kick" style="color:var(--oro)">🧵 Un Favore</span><h2>${esc(deve)} ti deve ${esc(NOME_FAV(f.tipo))}</h2>${corpo}<div class="pulsanti"><button id="x">Non ora</button></div>`, (d, c) => {
+    d.querySelector("#x").onclick = c;
+    d.querySelectorAll("[data-u]").forEach((b) => b.onclick = () => {
+      const u = b.dataset.u, a = { tipo: "favore_usa", id: f.id };
+      if (u === "si" || u === "no") { a.opera = true; a.si = u === "si"; }
+      if (u === "mano") { a.luogo = d.querySelector("#mL").value; a.ora = +d.querySelector("#mO").value; }
+      c(); agisci(a);
+    });
+  });
+}
+function finestraRompiParola(f) {
+  finestra(`<span class="kick" style="color:var(--sporco)">🧵 Rompi la parola</span><h2>Non mantieni ${esc(NOME_FAV(f.tipo))}?</h2><p>Perdi 8 di fama, lo saprà tutta la Laguna, e per 2 Cicli nessuno accetterà Favori da te. Sicuro?</p>${f.origine === "ricatto" ? `<p class="sub" style="color:#ffb3b3">${esc(nomeDi(f.a))} si riprende la Prova su di te e potrà denunciarti.</p>` : ""}<div class="pulsanti"><button id="no">No, la mantengo</button><button class="oro" id="si">Sì, la rompo</button></div>`, (d, c) => {
+    d.querySelector("#no").onclick = c;
+    d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "favore_rompi", id: f.id }); };
+  });
+}
+function finestraRicatto(idx) {
+  const me = io(), pr = (me.prove || [])[idx]; if (!pr) return;
+  const chi = nomeDi(pr.su);
+  finestra(`<span class="kick" style="color:var(--sporco)">${ico("maschera")} Usare una Prova</span><h2>Ricatti ${esc(chi)}?</h2>
+    <p class="avviso-rischio" style="color:#ffb3b3">Ricattare è un reato GRAVE. Subito: +6 Tracce. Finché non è chiuso, la polizia ha una pista in più su di te. Se lui confessa: +25 Tracce a te e il tuo nome sulla Gazzetta. Una Prova vale un solo Favore.</p>
+    <p class="sub">Cosa vuoi da ${esc(chi)} in cambio del silenzio? Lui saprà che sei tu.</p>
+    <div class="scelte-ricatto">${Object.keys(L.FAVORI || {}).map((k) => `<button class="piccolo" data-rf="${k}"><b>${esc(NOME_FAV(k))}</b><span>${esc(SPIEGA_FAV(k))}</span></button>`).join("")}</div>
+    <div class="pulsanti"><button id="x">Ci ripenso</button></div>`, (d, c) => {
+    d.querySelector("#x").onclick = c;
+    d.querySelectorAll("[data-rf]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "ricatto", prova: idx, favore: b.dataset.rf }); });
+  });
+}
+function bannerMano() {
+  const f = (S.favori || []).find((x) => x.tipo === "mano" && x.stato === "attivo" && x.deve === mioId && x.uso && x.uso.ciclo === S.ciclo);
+  if (!f || !S.notte) return "";
+  const qui = S.notte.dove[mioId] === f.uso.luogo && !S.notte.viaggio[mioId];
+  return `<div class="conv-banner">🤝 <span>Appuntamento: <b>${esc(nomeLuogo(f.uso.luogo))}</b> alle <b>${L.ORE[f.uso.ora]}</b>. L'hai promesso a ${esc(nomeDi(f.a))}.${qui ? " · sei qui" : ""}</span>${!qui && !S.notte.viaggio[mioId] && !S.notte.chiuso[mioId] && S.notte.ora <= f.uso.ora ? `<button class="piccolo oro" data-cvvai="${f.uso.luogo}">Vai</button>` : ""}</div>`;
+}
 function rubrica(me) {
   const notte = S.fase === "notte", dove = notte ? S.notte.dove[mioId] : null;
   const QUANDO = { notte: "di notte", giorno: "di giorno", alba: "all'Alba", sempre: "sempre", raro: "ogni tanto, di notte" };
   const sindaco = S.sindaco ? (S.players.find((p) => p.id === S.sindaco) || {}).nome : "Albertini";
-  return `<p class="sub" style="margin-bottom:8px">Chi conta nella Laguna. Tocca \"Vai da lui\" per raggiungerlo di notte.</p>` + PERSONAGGI.map((pg) => {
+  return filiHtml(me) + `<p class="sub" style="margin-bottom:8px">Chi conta nella Laguna. Tocca \"Vai da lui\" per raggiungerlo di notte.</p>` + PERSONAGGI.map((pg) => {
     const luogo = pg.dove && L.LUOGHI[pg.dove] ? pg.dove : null;
     const nomeDove = pg.dove === "municipio" ? "Il Municipio, Isola Corona" : luogo ? L.LUOGHI[luogo].nome + " · " + L.NOMI_ISOLE[L.LUOGHI[luogo].isola] : pg.id === "giudice" ? "Tribunale" : "Ti scrive lei";
     const bloccato = pg.lv > S.sblocco && !(luogo && L.luogoAperto(S, luogo, me));
@@ -2156,6 +2253,11 @@ function collegaApp(me) {
   on('[data-a2="fonda"]', () => agisci({ tipo: "fonda_setta", nome: v("#sNome"), motto: v("#sMotto") }));
   if (box.querySelector("#evasione")) box.querySelector("#evasione").onchange = (e) => agisci({ tipo: "evasione", quota: Number(e.target.value) });
   on("[data-denuncia]", (b) => agisci({ tipo: "denuncia", prova: Number(b.dataset.denuncia) }));
+  on("[data-ricatta]", (b) => finestraRicatto(Number(b.dataset.ricatta)));
+  on("[data-fusa]", (b) => { const f = (S.favori || []).find((x) => x.id === b.dataset.fusa); if (f) finestraUsaFavore(f); });
+  on("[data-frompi]", (b) => { const f = (S.favori || []).find((x) => x.id === b.dataset.frompi); if (f) finestraRompiParola(f); });
+  on("[data-ricresp]", (b) => { const [id, scelta] = b.dataset.ricresp.split("|"); agisci({ tipo: "rispondi_ricatto", id, scelta }); });
+  on("[data-ricapri]", (b) => { const r = (S.ricatti || []).find((x) => x.id === b.dataset.ricapri); if (r) finestraRicattoVittima(r); });
   on("[data-compra]", (b) => { const [cosa, nome] = b.dataset.compra.split("|"); agisci({ tipo: "investi", cosa, nome, importo: Number(v(`[data-imp="${cosa === "borsa" ? "b" : "c"}_${nome}"]`)) }); });
   on("[data-vendi]", (b) => { const [cosa, nome] = b.dataset.vendi.split("|"); agisci({ tipo: "vendi", cosa, nome, quota: 1 }); });
   on("[data-gciclo]", (b) => { gazzettaCiclo = +b.dataset.gciclo; disegnaTelefono(io()); });
@@ -2249,6 +2351,7 @@ function finestreAutomatiche(me) {
   if (S.fase === "notte" && S.notte && esitoSM()) return;
   // 1. cose a cui rispondere subito
   if (S.fase === "notte" && S.notte && finestraProposteNotte(me)) return;
+  { const ric = (S.ricatti || []).find((r) => r.a === mioId && r.stato === "attesa" && !visti.has("ric" + r.id)); if (ric) { visti.add("ric" + ric.id); return finestraRicattoVittima(ric); } }
   // 2. livello nuovo: una finestra sola, con la voce di Vera e le app nuove
   const livVisto = (() => { try { return +(localStorage.getItem("laguna_liv_" + partita) || 0); } catch (e) { return 0; } })();
   if ((S.sblocco || 0) > livVisto) {
@@ -2685,11 +2788,15 @@ function finestraContratto() {
     <div class="campo"><label for="tipo">Come</label><select id="tipo"><option value="notarile">Dal notaio (lo fa rispettare il gioco, costa il 2%)</option><option value="parola">Sulla parola (nessuno lo fa rispettare)</option></select></div>
     <div class="campo"><label>Subito</label><div class="riga"><input id="ora" type="number" value="0" style="width:140px"> li paga <select id="chiOra"><option value="da">io</option><option value="a">lui/lei</option></select></div></div>
     <div class="campo"><label>Più avanti</label><div class="riga"><input id="dopo" type="number" value="0" style="width:140px"> li paga <select id="chiDopo"><option value="a">lui/lei</option><option value="da">io</option></select> fra <select id="cicli">${[1, 2, 3, 4].map((n) => `<option>${n}</option>`).join("")}</select> Cicli</div></div>
+    <div class="campo"><label for="fav">Favore</label><select id="fav"><option value="">nessuno</option>${Object.keys(L.FAVORI || {}).map((k) => `<option value="${k}">${esc(NOME_FAV(k))}</option>`).join("")}</select></div>
+    <div class="campo"><label for="favDeve">Chi lo deve</label><select id="favDeve"><option value="a">lui/lei</option><option value="da">io</option></select></div>
+    <p class="sub" id="favSpiega">Un Favore è una promessa che il gioco fa rispettare. Chi rompe la parola finisce sulla Gazzetta.</p>
     <div class="campo"><label for="lotto">Un lotto che passa di mano subito (facoltativo)</label><select id="lotto"><option value="">nessuno</option>${lotti.map((l) => `<option value="${l.id}">${esc(l.nome)} (${esc(S.players.find((x) => x.id === l.owner).nome)})</option>`).join("")}</select></div>
     <div class="campo"><label for="testo">Il resto, con parole tue</label><textarea id="testo" rows="3"></textarea></div>
     <div class="pulsanti"><button id="x">Annulla</button><button class="oro" id="ok">Proponi</button></div>`, (d, c) => {
     d.querySelector("#x").onclick = c;
-    d.querySelector("#ok").onclick = () => { const g = (q) => d.querySelector(q).value; c(); agisci({ tipo: "contratto", contratto: { a: g("#a"), tipo: g("#tipo"), pagoOra: Number(g("#ora")), chiPagaOra: g("#chiOra"), pagoDopo: Number(g("#dopo")), chiPagaDopo: g("#chiDopo"), cicli: Number(g("#cicli")), lottoCeduto: g("#lotto") || null, garanzia: null, testo: g("#testo") } }); };
+    d.querySelector("#fav").onchange = (e) => { d.querySelector("#favSpiega").textContent = e.target.value ? SPIEGA_FAV(e.target.value) : "Un Favore è una promessa che il gioco fa rispettare. Chi rompe la parola finisce sulla Gazzetta."; };
+    d.querySelector("#ok").onclick = () => { const g = (q) => d.querySelector(q).value; c(); agisci({ tipo: "contratto", contratto: { a: g("#a"), tipo: g("#tipo"), favore: g("#fav") || null, favoreDeve: g("#favDeve"), pagoOra: Number(g("#ora")), chiPagaOra: g("#chiOra"), pagoDopo: Number(g("#dopo")), chiPagaDopo: g("#chiDopo"), cicli: Number(g("#cicli")), lottoCeduto: g("#lotto") || null, garanzia: null, testo: g("#testo") } }); };
   });
 }
 function fine() {
