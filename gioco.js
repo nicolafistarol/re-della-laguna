@@ -1681,11 +1681,11 @@ function agenziaDisponibile(me) {
   return S.lotti.some((l) => l.owner == null && l.isola === isola && (l.tipoCasella === "lotto" || l.tipoCasella === "molo") && me.cash >= L.prezzoAgenzia(S, me, l));
 }
 function miTurnoApp() { const me = io(); return S.fase === "giorno" && mioTurno() && !S.pending && me.haTirato && !me.faro; }
-function contenutoApp(me, k) {
-  const miTurno = mioTurno() && !S.pending && me.haTirato && !me.faro;
-  if (k === "impero") return impero(me);
-  if (k === "conti") return appConti(me);
-  if (k === "imprese") {
+// ---- Il contenuto di ogni app del telefono: UNA FUNZIONE PER APP (prima era tutto dentro contenutoApp).
+// Chi lavora su un'app tocca solo la sua funzione; per un'app nuova: una funzione qui e una riga in CONTENUTO_APP.
+// Tutte ricevono (me, miTurno): me = il giocatore, miTurno = e' il mio turno, ho gia' tirato e non c'e' niente in sospeso.
+// (Il corpo delle funzioni e' stato spostato cosi' com'era, senza cambiare una virgola: per questo ha un rientro in piu'.)
+function appImprese(me, miTurno) {
     const miei = S.lotti.filter((l) => l.owner === mioId);
     if (!miei.length) return `<p class="sub">Non hai ancora terreni. Quando atterri su un lotto libero puoi comprarlo.</p>`;
     return `<p class="sub">Ogni impresa nasce in 4 passi: terreno, permesso del Municipio, cantiere (apre all'Alba), apertura.</p>` + miei.map((l) => {
@@ -1704,17 +1704,16 @@ function contenutoApp(me, k) {
         ${l.tipo && L.ATTIVITA[l.tipo].perk ? `<span class="sub">⭐ ${esc(L.ATTIVITA[l.tipo].perk)}${L.ATTIVITA[l.tipo].rischio !== "Nessuno." ? ` · <span style="color:#ff9a9a">⚠ ${esc(L.ATTIVITA[l.tipo].rischio)}</span>` : ""}</span>` : ""}
         ${l.tipoCasella === "lotto" ? tappe(l) : ""}${azioni ? `<div class="riga">${azioni}</div>` : ""}</div>`;
     }).join("");
-  }
-  if (k === "banca") {
+}
+function appBanca(me, miTurno) {
     const altri = S.players.filter((x) => x.id !== mioId);
     const mov = (S.flussi || []).filter((f) => f.da === mioId || f.a === mioId).slice(-8).reverse();
     return `${mov.length ? `<div class="scheda"><h4>Ultimi movimenti</h4>${mov.map((f) => `<div style="font-size:13px;display:flex;justify-content:space-between;gap:8px"><span>${esc(f.motivo)} <span class="sub">${f.a === mioId ? "da " + esc(nomeDi(f.da)) : "a " + esc(nomeDi(f.a))}</span></span><b style="color:${f.a === mioId ? "#7bd88f" : "#ff9a9a"}">${f.a === mioId ? "+" : "−"}${euro(f.importo)}</b></div>`).join("")}</div>` : ""}<div class="scheda"><span class="kick" style="color:var(--muted)">Conto</span><span class="serif" style="font-size:28px;color:var(--pulito)">${euro(me.cash)}</span>${me.sporchi ? `<span style="color:var(--sporco)">In contanti sporchi: ${euro(me.sporchi)}</span>` : ""}</div>
       <div class="scheda"><h4>Debito: ${euro(me.debito)}</h4><span class="sub">Interesse a ogni Alba: ${me.pacchetto === "ereditiera" ? "0%" : Math.round(L.tassoPrestiti(S, me) * 100) + "%"}${(() => { const gb = (S.grandi || {}).banca; const c = gb && gb.capo && S.players.find((p) => p.id === gb.capo); return c && c.id !== mioId ? " (lo decide " + esc(c.nome) + ", che comanda la Banca della Laguna)" : ""; })()}.${me.contoBloccato === S.ciclo ? ` <b style="color:#ff9a9a">Conto bloccato: niente prestiti fino all'Alba.</b>` : ""}</span>${me.debito ? `<button class="piccolo" data-a2="restituisci">Restituisci tutto</button>` : ""}${miTurno && !me.azioneGiornoFatta ? `<button class="piccolo" data-a2="prestito">Chiedi un prestito</button>` : `<span class="sub">I prestiti si chiedono durante il tuo turno.</span>`}</div>
       <div class="scheda"><h4>Fai un regalo</h4><div class="riga"><select id="regA">${altri.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><input id="regImp" type="number" placeholder="quanto" style="width:110px"></div>${S.sblocco >= 1 ? `<label class="check"><input type="checkbox" id="regSp"> in contanti sporchi</label>` : ""}<button class="piccolo" data-a2="regala">Dai</button></div>
       ${S.sblocco >= 2 ? `<div class="scheda"><h4>Tasse</h4><span class="sub">Puoi nascondere una parte delle rendite al fisco. Non paghi le tasse su quella parte: diventa contante in nero, che di notte spendi subito (Mercato Nero, occasioni, "regali") senza ripulirlo. Ma lascia Tracce, e la Finanza guarda i più ricchi.</span><select id="evasione">${[0, 0.1, 0.2, 0.3].map((q) => `<option value="${q}" ${Math.abs(q - (me.evasione || 0)) < 0.01 ? "selected" : ""}>${q ? "Nascondi il " + q * 100 + "%" : "Pago tutto"}</option>`).join("")}</select></div>` : ""}`;
-  }
-  if (k === "gazzetta") return appGazzetta();
-  if (k === "messaggi") {
+}
+function appMessaggi(me, miTurno) {
     const cv = conversazioni(me);
     if (!cv.length) return `<p class="sub">Nessun messaggio.</p>`;
     const c = chatAperta && cv.find((x) => x.nome === chatAperta);
@@ -1725,26 +1724,30 @@ function contenutoApp(me, k) {
     }
     return cv.map((c) => { const ult = c.msg[c.msg.length - 1]; const nuovi = c.msg.length - lettiChat(c.nome);
       return `<button class="conv" data-chat="${esc(c.nome)}"><span class="avatar" style="background:${c.col}">${c.ico}</span><span class="cv-t"><b>${esc(c.nome)}</b><span>${esc(ult.testo.slice(0, 70))}${ult.testo.length > 70 ? "…" : ""}</span></span>${nuovi > 0 ? `<span class="pallino">${nuovi}</span>` : ""}</button>`; }).join("");
-  }
-  if (k === "valigetta") {
+}
+function appValigetta(me, miTurno) {
     const v = me.valigetta || [], posti = S.postiValigetta;
     return `<p class="sub">${v.length} posti usati su ${posti}. Gli oggetti si comprano di notte, nei posti giusti.</p>` +
       v.map((o) => { const O = L.OGGETTI[o.id]; return `<div class="ogg"><span class="ic">${ICO_OGG[o.id]}</span><div><b>${esc(O.nome)}</b><div class="sub" style="font-size:12px">${esc(O.descr)}${o.notti ? " Ancora " + o.notti + (o.notti === 1 ? " notte." : " notti.") : ""}${(O.salva || []).length || ["motoscafo", "furgone"].includes(o.id) ? ` <b style="color:${(me.trucchi || {})[o.id] >= 2 ? "#ff9a9a" : "var(--pulito)"}">Funziona circa ${Math.round(100 - Math.min(55, 15 + 10 * ((me.trucchi || {})[o.id] || 0)))}% delle volte.</b>` : ""}</div></div></div>`; }).join("") +
       `<p class="sub" style="margin-top:8px">Ogni volta che un oggetto ti salva, la polizia impara il trucco: la volta dopo funziona di meno. Col passare dei Cicli se ne dimentica.</p>` +
       Array.from({ length: Math.max(0, posti - v.length) }, () => `<div class="ogg vuoto"><span class="ic">·</span><span class="sub">Posto libero</span></div>`).join("");
-  }
-  if (k === "palazzo") return appPalazzo(me, miTurno);
-  if (k === "grandi" || k === "tv") return appGrandi(me);
-  if (k === "lusso") return `<div class="scheda"><h4>I tuoi mezzi</h4><span class="sub">${me.veicoli.map((x) => L.N.veicoli[x].nome).join(", ") || "Nessuno, per ora."}</span></div>${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="veicolo">Vai in concessionaria</button>` : `<span class="sub">I mezzi si comprano con la mossa del giorno.</span>`}<span class="sub">Un motoscafo o un elicottero ti fanno muovere di notte in 1 ora ovunque.</span>`;
-  if (k === "prove") return (me.prove || []).map((pr, i) => `<div class="scheda"><h4>📷 ${esc(S.players.find((x) => x.id === pr.su).nome)}</h4><span class="sub">${esc(pr.cosa)} · Ciclo ${pr.ciclo}</span><button class="piccolo" data-denuncia="${i}">Manda alla polizia</button></div>`).join("") || `<p class="sub">Nessuna prova. Una macchina fotografica aiuta.</p>`;
-  if (k === "borsa") return L.AZIENDE.map((a) => `<div class="scheda"><h4>${a} <span class="sub">${S.borsa[a].toFixed(1)}</span></h4><span class="sub">Ne hai per ${euro((me.azioni[a] || 0) * S.borsa[a])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="b_${a}" style="width:100px"><button class="piccolo" data-compra="borsa|${a}">Compra</button><button class="piccolo" data-vendi="borsa|${a}">Vendi</button></div></div>`).join("") +
+}
+function appLusso(me, miTurno) {
+  return `<div class="scheda"><h4>I tuoi mezzi</h4><span class="sub">${me.veicoli.map((x) => L.N.veicoli[x].nome).join(", ") || "Nessuno, per ora."}</span></div>${miTurno && !me.azioneGiornoFatta ? `<button class="oro" data-a2="veicolo">Vai in concessionaria</button>` : `<span class="sub">I mezzi si comprano con la mossa del giorno.</span>`}<span class="sub">Un motoscafo o un elicottero ti fanno muovere di notte in 1 ora ovunque.</span>`;
+}
+function appProve(me, miTurno) {
+  return (me.prove || []).map((pr, i) => `<div class="scheda"><h4>📷 ${esc(S.players.find((x) => x.id === pr.su).nome)}</h4><span class="sub">${esc(pr.cosa)} · Ciclo ${pr.ciclo}</span><button class="piccolo" data-denuncia="${i}">Manda alla polizia</button></div>`).join("") || `<p class="sub">Nessuna prova. Una macchina fotografica aiuta.</p>`;
+}
+function appBorsa(me, miTurno) {
+  return L.AZIENDE.map((a) => `<div class="scheda"><h4>${a} <span class="sub">${S.borsa[a].toFixed(1)}</span></h4><span class="sub">Ne hai per ${euro((me.azioni[a] || 0) * S.borsa[a])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="b_${a}" style="width:100px"><button class="piccolo" data-compra="borsa|${a}">Compra</button><button class="piccolo" data-vendi="borsa|${a}">Vendi</button></div></div>`).join("") +
     `<p class="sub">Le cripto si comprano con soldi puliti e cambiano prezzo una volta per Ciclo, all'Alba. In media salgono, ma ogni tanto crollano del 70% in una notte.</p>` +
     L.MONETE.map((m) => `<div class="scheda"><h4>${m} <span class="sub">${S.cripto[m].toFixed(2)}</span></h4><span class="sub" style="display:block;margin-bottom:4px">${{ LagunaCoin: "La più tranquilla: si muove poco e crolla di rado.", FlamingoToken: "La più pazza: può raddoppiare o dimezzarsi in un Ciclo.", ShadowCoin: "Media. Serve anche per ripulire i soldi sporchi. Il Sindaco può bloccarla." }[m] || ""}</span><span class="sub">Ne hai per ${euro((me.cripto[m] || 0) * S.cripto[m])}</span><div class="riga"><input type="number" placeholder="quanto" data-imp="c_${m}" style="width:100px"><button class="piccolo" data-compra="cripto|${m}">Compra</button><button class="piccolo" data-vendi="cripto|${m}">Vendi</button></div></div>`).join("");
-  if (k === "contratti") {
+}
+function appContratti(me, miTurno) {
     const miei = S.contratti.filter((x) => x.da === mioId || x.a === mioId);
     return miei.map((x) => `<div class="scheda"><span><span class="tag">${x.tipo === "notarile" ? "Dal notaio" : "Sulla parola"}</span><span class="tag">${esc(x.stato)}</span></span><span>${esc(S.players.find((y) => y.id === x.da).nome)} ↔ ${esc(S.players.find((y) => y.id === x.a).nome)}: subito ${euro(x.pagoOra)}, poi ${euro(x.pagoDopo)}</span>${x.testo ? `<i class="sub">"${esc(x.testo)}"</i>` : ""}${x.a === mioId && x.stato === "proposto" ? `<div class="riga"><button class="piccolo oro" data-contr="${x.id}|1">Accetta</button><button class="piccolo" data-contr="${x.id}|0">Rifiuta</button></div>` : ""}</div>`).join("") + `<button class="oro" data-a2="nuovoContratto">Proponi un patto</button>`;
-  }
-  if (k === "agenzia") {
+}
+function appAgenzia(me, miTurno) {
     const c = casellaDi(me), isola = (c && c.isola) || L.isolaDiPos(me.pos);
     const liberi = S.lotti.filter((l) => l.owner == null && l.isola === isola && (l.tipoCasella === "lotto" || l.tipoCasella === "molo"));
     const testa = `<div class="scheda"><h4>Agenzia di ${esc(L.NOMI_ISOLE[isola])}</h4><span class="sub">Una volta per turno puoi comprare un terreno libero dell'isola dove sei, anche se non ti sei fermato sopra. ${me.agenziaSconto ? "<b style='color:var(--pulito)'>Sei passato da un'Agenzia: oggi paghi il prezzo pieno, senza sovrapprezzo.</b>" : "Costa il 20% in più del prezzo. Se ti fermi su una casella Agenzia, niente sovrapprezzo."}</span></div>`;
@@ -1753,8 +1756,8 @@ function contenutoApp(me, k) {
     if (me.agenziaUsata) return testa + `<p class="sub">In questo turno hai già comprato all'Agenzia.</p>`;
     if (!liberi.length) return testa + `<p class="sub">A ${esc(L.NOMI_ISOLE[isola])} non ci sono più terreni liberi.</p>`;
     return testa + liberi.map((l) => { const costo = L.prezzoAgenzia(S, me, l); return `<div class="scheda"><h4><span style="color:${COL_SERIE[l.serie] || "#aaa"}">■</span> ${esc(l.nome)}</h4><span class="sub">${l.tipoCasella === "molo" ? "Molo: chi ci passa ti paga il pedaggio." : "Gruppo " + esc(l.serie) + " · prezzo " + euro(l.prezzo)}</span><button class="piccolo oro" data-agenzia="${l.id}" ${me.cash < costo ? "disabled" : ""}>Compra a ${euro(costo)}</button></div>`; }).join("");
-  }
-  if (k === "municipio") {
+}
+function appMunicipio(me, miTurno) {
     return `<div class="scheda"><h4>Sindaco: ${S.sindaco ? esc(S.players.find((x) => x.id === S.sindaco).nome) : "nessuno"}</h4><span class="sub">Tasse al ${Math.round(S.tassa * 100)}%. Le elezioni sono ogni 2 Cicli: per candidarti serve fama 40, passando dal Municipio. Ci arrivi coi dadi o, a inizio turno, con il Viaggio rapido in taxi (${euro(L.N.taxiMunicipio)}).</span></div>
       ${S.candidati[mioId] !== undefined ? `<div class="scheda"><h4>Sei candidato</h4><div class="riga"><input id="campImp" type="number" placeholder="quanto" style="width:110px"><button class="piccolo" data-a2="campagna">Investi in campagna</button></div></div>` : ""}
       ${S.sindaco === mioId ? `<div class="scheda"><h4>Sei il Sindaco</h4><div class="riga"><select id="leggeSel">${Object.entries(L.LEGGI).map(([kk, x]) => `<option value="${kk}">${esc(x.nome)}</option>`).join("")}</select><select id="leggeIsola">${L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("")}</select><button class="piccolo" data-a2="legge">Firma</button></div><div class="riga">Tasse <select id="tasseSel">${[0.1, 0.15, 0.2, 0.25, 0.3].map((q) => `<option value="${q}" ${Math.abs(q - S.tassa) < 0.01 ? "selected" : ""}>${q * 100}%</option>`).join("")}</select><button class="piccolo" data-a2="tasse">Cambia</button></div></div>` : ""}
@@ -1762,9 +1765,8 @@ function contenutoApp(me, k) {
         : `<span class="sub">Serve per aprire un casinò. Costa 500.000 € se approvata. Il Municipio può approvare, rimandare o negare: più fama hai, più è facile. Se ti fermi sulla casella del Municipio, allo sportello la ottieni sicura a 400.000 €.</span>
         ${me.licenzaNegata && miTurnoApp() ? `<button class="piccolo" data-a2="bustaLicenza">Una busta all'assessore (650.000 €, lascia tracce)</button>` : ""}
         ${miTurnoApp() ? `<button class="piccolo oro" data-a2="licenza">Chiedi la licenza</button>` : `<span class="sub">Si chiede nel tuo turno, dopo aver tirato i dadi.</span>`}`}</div>`;
-  }
-  if (k === "rubrica") return rubrica(me);
-  if (k === "sporchi") {
+}
+function appSporchi(me, miTurno) {
     const cop = L.copertura(S, me), sp = me.sporchi || 0;
     return `<div class="scheda"><h4 style="color:var(--sporco)">Hai ${euro(sp)} sporchi</h4><span class="sub">Sono contanti che non puoi mostrare. Di giorno non comprano quasi niente: case, piani e azioni vogliono soldi puliti.</span></div>
       ${laTuaRete(me)}<div class="scheda"><h4 style="color:var(--oro)">Attento: a fine partita valgono poco</h4><span class="sub">Nella classifica finale ogni euro sporco conta solo ${Math.round(L.N.valoreSporchi * 100)} centesimi. Ripuliscili prima della fine.</span></div>
@@ -1781,8 +1783,8 @@ function contenutoApp(me, k) {
         <span class="sub" style="margin-top:6px">Le pene:</span>
         ${["lieve", "media", "grave", "gravissima"].map((g) => `<div class="sub" style="font-size:12px">· <b>${NOMI_GRAVITA[g]}</b>: ${esc(testoPena(g))}</div>`).join("")}</div>
       <div class="scheda"><h4 style="color:var(--setta)">La setta</h4><span class="sub">${sp >= L.N.settaSporchi ? "Hai abbastanza soldi sporchi: puoi fondare una setta, di notte, dall'app Setta." : "Si apre quando hai " + euro(L.N.settaSporchi) + " sporchi. Fondarla costa " + euro(L.N.settaCosto) + " (di cui " + euro(L.N.settaTesoroIniziale) + " diventano il tesoro)."}</span></div>`;
-  }
-  if (k === "scoperte") {
+}
+function appScoperte(me, miTurno) {
     const fatte = me.scoperte || {}, tutte = L.SCOPERTE, n = tutte.filter((x) => fatte[x.id] !== undefined).length;
     const GRUPPI = [["giorno", "Di giorno"], ["notte", "Di notte"], ["potere", "Potere e rivali"]];
     return `<div class="scheda"><h4>${ico("stella")} Hai scoperto ${n} cose su ${tutte.length}</h4>
@@ -1792,8 +1794,8 @@ function contenutoApp(me, k) {
         const ok = fatte[x.id] !== undefined, aperta = x.lv <= S.sblocco;
         return `<div class="liv"><span class="liv-n" style="${ok ? "background:#2e7d4f" : ""}">${ok ? "✓" : aperta ? "?" : x.lv}</span><div><b>${ok ? esc(x.nome) : aperta ? "Da scoprire" : "Livello " + x.lv}</b><div class="sub" style="font-size:12px">${ok ? esc(x.spiega) : aperta ? esc(x.indizio) : "Si apre quando sali al Livello " + x.lv + "."}</div></div></div>`;
       }).join("")}</div>`).join("");
-  }
-  if (k === "setta") {
+}
+function appSetta(me, miTurno) {
     const pct = Math.round(L.N.decima * 100);
     return (S.inviti || []).map((x) => `<div class="scheda"><h4>Un invito senza firma</h4>
         <span class="sub">La setta <b style="color:var(--setta)">${esc(x.nome || "")}</b>${x.motto ? ` · <i>${esc(x.motto)}</i>` : ""} · livello ${x.livello || 1} · ${x.membri || 1} ${x.membri === 1 ? "membro" : "membri"}</span>
@@ -1824,8 +1826,34 @@ function contenutoApp(me, k) {
           <div class="riga"><select id="invTipo_${st.id}"><option value="0">Nessun patto</option><option value="1">Gli regalo (dal Tesoro)</option><option value="-1">Gli chiedo una quota</option></select><input type="number" id="invSoldi_${st.id}" placeholder="quanto" min="0" step="100000" style="width:110px"></div>
           <button class="piccolo oro" data-invita="${st.id}">Manda l'invito</button></div>` : `<span class="sub">Tutti i giocatori sono già nella tua setta.</span>`; })() + `<span class="sub">Le operazioni si decidono di notte, al Faro.</span>` : ""}</div>`).join("")
         : S.fase === "notte" ? `<div class="scheda"><h4>Fonda una setta</h4><span class="sub">Il patto costa ${euro(L.N.settaCosto)} in soldi sporchi: ${euro(L.N.settaTesoroIniziale)} diventano il tesoro della setta, il resto se ne va nel rito.</span><span class="sub" style="display:block;margin-top:6px"><b>Cosa ti dà:</b><br>· i tuoi affari sporchi lasciano il 30% di Tracce in meno<br>· gli avvocati della setta: ogni condanna scende di un gradino<br>· il Faro sempre aperto, con occasioni enormi solo per i membri<br>· al Gran Maestro, ogni Ciclo, il 5% del tesoro in contanti sporchi</span><input id="sNome" placeholder="Nome"><input id="sMotto" placeholder="Motto"><button class="piccolo oro" data-a2="fonda">Fonda</button></div>` : `<p class="sub">Le sette si fondano di notte.</p>`);
-  }
-  return "";
+}
+const CONTENUTO_APP = {
+  impero: (me) => impero(me),
+  conti: (me) => appConti(me),
+  imprese: appImprese,
+  banca: appBanca,
+  gazzetta: () => appGazzetta(),
+  messaggi: appMessaggi,
+  valigetta: appValigetta,
+  palazzo: (me, miTurno) => appPalazzo(me, miTurno),
+  grandi: (me) => appGrandi(me),
+  tv: (me) => appGrandi(me),
+  lusso: appLusso,
+  prove: appProve,
+  borsa: appBorsa,
+  contratti: appContratti,
+  agenzia: appAgenzia,
+  municipio: appMunicipio,
+  rubrica: (me) => rubrica(me),
+  sporchi: appSporchi,
+  scoperte: appScoperte,
+  setta: appSetta,
+};
+function contenutoApp(me, k) {
+  const miTurno = mioTurno() && !S.pending && me.haTirato && !me.faro;
+  const f = Object.prototype.hasOwnProperty.call(CONTENUTO_APP, k) ? CONTENUTO_APP[k] : null;
+  const html = f ? f(me, miTurno) : "";
+  return html == null ? "" : html;
 }
 const LIVELLI = [
   ["Terreno", "Un lotto vuoto. Chi ci passa paga un piccolo pedaggio."],
