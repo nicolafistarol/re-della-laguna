@@ -95,7 +95,7 @@
     { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo del 4%.", extra: {} },
     { id: "playboy", nome: "Il Playboy", perk: "+2 fama ogni Alba. Parti con il motoscafo (Viaggio rapido tra i Moli) e gli amici dello yacht.", extra: { veicolo: "motoscafo" } },
     { id: "contrabbandiere", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta.", extra: {} },
-    { id: "politico", nome: "Il Politico", perk: "Parti con fama 30. Candidarti a Sindaco costa metà e la licenza del casinò te la danno sempre.", extra: { fama: 30 } },
+    { id: "politico", nome: "Il Politico", perk: "Parti con fama 20. Candidarti a Sindaco costa metà e la licenza del casinò è più facile (3 volte su 4 al primo colpo).", extra: { fama: 20 } },
     { id: "ereditiera", nome: "L'Ereditiera", perk: "La banca ti presta il doppio e senza interessi.", extra: {} },
     { id: "speculatore", nome: "Lo Speculatore", perk: "Ogni Alba le tue cripto crescono del 5% in più.", extra: {} },
   ];
@@ -2151,7 +2151,7 @@
     if (p.licenzaTurno === turno) err("La domanda di licenza si fa una volta per turno.");
     p.licenzaTurno = turno;
     const x = rng(s) - Math.min(0.2, p.fama / 400);
-    if (x < 0.45 || p.pacchetto === "politico") { p.cash -= 500_000; s.licenze.push(p.id); p.licenzaNegata = false; log(s, p.nome + " ottiene la licenza per aprire un casinò.", p.id); privato(s, p, "Municipio: licenza del casinò APPROVATA. Pagati 500.000 €. Ora puoi costruire un casinò a Baia Flamingo o a Isola Corona."); return "approvato"; }
+    if (x < (p.pacchetto === "politico" ? 0.75 : 0.45)) { p.cash -= 500_000; s.licenze.push(p.id); p.licenzaNegata = false; log(s, p.nome + " ottiene la licenza per aprire un casinò.", p.id); privato(s, p, "Municipio: licenza del casinò APPROVATA. Pagati 500.000 €. Ora puoi costruire un casinò a Baia Flamingo o a Isola Corona."); return "approvato"; }
     if (x < 0.8) { privato(s, p, "Municipio: la domanda di licenza è rimandata. Riprova al prossimo turno (più fama hai, più è facile)."); return "rimandato"; }
     p.licenzaNegata = true;
     privato(s, p, "Municipio: licenza NEGATA. L'assessore però ti guarda e dice: \"Con una busta, tutto si sistema.\"");
@@ -3065,9 +3065,13 @@
     const cand = Object.keys(s.candidati);
     if (cand.length === 0) { notizia(s, "Nessun giocatore si candida: resta in carica il Sindaco Albertini.", "politica"); return; }
     let best = null, bestV = -1;
-    for (const id of cand) { const p = giocatore(s, id); const v = p.fama * 2 + (s.candidati[id] || 0) / 100_000 + rng(s) * 10; if (v > bestV) { bestV = v; best = p; } }
+    // la fama conta, ma chi e' gia' Sindaco stanca gli elettori (−15 punti per ogni mandato gia' fatto):
+    // cosi' nessuno resta Sindaco per sempre solo perche' e' partito famoso
+    for (const id of cand) { const p = giocatore(s, id); const v = p.fama * 2 + (s.candidati[id] || 0) / 100_000 + rng(s) * 10 - 15 * (p.mandati || 0); if (v > bestV) { bestV = v; best = p; } }
+    const rieletto = s.sindaco === best.id;
     s.sindaco = best.id; s.candidati = {};
-    best.fama += 10;
+    best.mandati = (best.mandati || 0) + 1;
+    if (!rieletto) best.fama += 10;
     notizia(s, best.nome + " è il nuovo Sindaco della Laguna!", "politica");
     privato(s, best, "Sei il Sindaco. Puoi fare una legge per Ciclo e cambiare le tasse dall'app Municipio.");
   }
