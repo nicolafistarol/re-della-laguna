@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 81;
+  const VERSIONE_REGOLE = 82;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -56,7 +56,7 @@
     caricoBase: 350_000, caricoGrow: 150_000, caricoMax: 3_000_000, caricoMagazzino: 1.5,
     profittoBase: 0.65, tracceAffare: 10, coltoBase: 0.012, affariNotte: 2,
     intens: { prudente: [1.0, 0.5], normale: [1.4, 1.0], spavaldo: [2.0, 3.0] },
-    ricCopPerdita: 0.15, ricCopTracce: 0.4, ricRischioMax: 0.5, ricSequestro: 0.5, ricScopertoTracce: 12, shadowPerdita: 0.25, shadowTracce: 0.6,
+    ricCopPerdita: 0.15, ricCopTracce: 0.4, ricRischioMax: 0.5, salviMax: 0.6, multaMinima: 0.6, procuratoreDuro: 0.125, ricSequestro: 0.5, ricScopertoTracce: 12, shadowPerdita: 0.25, shadowTracce: 0.6,
     evasioneMax: 0.30,
     indagineK: 100, scendi: 0.35, decayPulito: 0.20, decaySporco: 0.05,
     prot: { agente: 0.30, commissario: 0.50, max: 0.70 },
@@ -94,7 +94,7 @@
     permessoBollo: 0.10,   // il permesso e' sicuro ma si paga: 10% del prezzo del terreno (gratis se sei fermo sul Municipio)
     terrenoInizialeMin: 350_000, // ECO-03: terreni iniziali di valore vicino
     // --- notte e affari illegali
-    illegaleLivello: [1, 1, 1.5, 2.5, 4], // ECO-02
+    illegaleLivello: [1, 1, 1.3, 1.8, 2.4], // ECO-02; v82: prima [1, 1, 1.5, 2.5, 4], si facevano troppi soldi sporchi
     dividendoInv: 0.025,
     // --- polizia e pene
     // --- setta
@@ -312,7 +312,13 @@
     return SOGLIE_BASE.map((x) => round(x * f));
   }
   // di quanto valgono di piu' gli affari della notte per il Livello del giocatore (1 nelle partite vecchie)
-  function moltIllegale(s, p) { return num(s, "illegaleLivello")[Math.min(4, (p && p.livello) || 0)] || 1; }
+  function moltIllegale(s, p) { return (num(s, "illegaleLivello")[Math.min(4, (p && p.livello) || 0)] || 1) * (1 + bonusSetta(s, p)); }
+  // v82: la setta lavora con te di notte: +10% sugli affari sporchi per ogni livello della tua setta migliore (liv. 4 = +40%)
+  function bonusSetta(s, p) {
+    if (!p || !(p.sette || []).length || !s.sette) return 0;
+    let lv = 0; for (const id of p.sette) { const st = s.sette.find((x) => x.id === id); if (st) lv = Math.max(lv, livelloSetta(s, st)); }
+    return 0.1 * lv;
+  }
   function copertura(s, p) {
     let c = 0;
     for (const l of propri(s, p)) if (l.tipo && !l.chiuso) c += ATTIVITA[l.tipo].c * l.prezzo * l.lvl;
@@ -1276,10 +1282,11 @@
     const q = Math.max(0, importo || 0), base = RIC_BASE[metodo] ?? 0.05;
     const volte = (p.storiaRicicla || []).filter((x) => x.ciclo >= s.ciclo - 2).length;
     const voci = [{ testo: metodo === "copertura" ? "base con le attività di copertura" : metodo === "shadow" ? "base con ShadowCoin" : metodo === "paradiso" ? "base del paradiso fiscale" : "base della tua banca", p: base }];
-    if (q > 1_000_000) voci.push({ testo: "somma grossa (+4% per ogni milione oltre il primo)", p: 0.04 * (q - 1_000_000) / 1_000_000 });
+    if (q > 1_000_000) voci.push({ testo: "somma grossa (+5% per ogni milione oltre il primo)", p: 0.05 * (q - 1_000_000) / 1_000_000 });
     if (volte) voci.push({ testo: "hai già ripulito " + volte + (volte === 1 ? " volta" : " volte") + " negli ultimi 3 Cicli (+5% a volta)", p: 0.05 * volte });
     if ((p.calSoldi || 0) >= 0.5) voci.push({ testo: "la Finanza guarda già i tuoi conti", p: 0.02 * p.calSoldi });
     let r = voci.reduce((a, v) => a + v.p, 0);
+    if ((p.sette || []).length && metodo !== "banca") { voci.push({ testo: "la tua setta ti copre (rischio × 0,8)", p: -r * 0.2 }); r *= 0.8; }
     if (p.corrotti && p.corrotti.banchiere) { voci.push({ testo: "il banchiere Lenz ti copre (rischio × 0,6)", p: -r * 0.4 }); r *= 0.6; }
     r = Math.min(N.ricRischioMax, Math.max(0, r));
     return { p: r, voci, volte, q };
@@ -4370,18 +4377,23 @@
     if (operaAttiva(s, p, "giudice")) sconti.push({ k: "supremo", testo: "Il Giudice supremo della setta firma la sentenza: un gradino in meno." });
     if (haOggetto(p, "avvocato")) sconti.push({ k: "avvocato", testo: "Il tuo avvocato fa il suo lavoro: la pena scende di un gradino." });
     let usati = 0, avvocato = false;
+    const partenza = g;
+    if (opz && opz.senzaSconti && sconti.length) { note.push({ k: "procuratore", testo: "Il Procuratore capo si è opposto a ogni sconto: setta, Giudici e avvocato stavolta non contano. (Succede 1 volta su 8.)" }); sconti.length = 0; }
     for (const x of sconti) {
       if (g === "lieve") break;
+      if (partenza === "gravissima" && g === "grave") { note.push({ k: "tetto", testo: "Per un reato gravissimo la pena non scende sotto Grave." }); break; }
       if (usati >= TETTO_SCONTI) { note.push({ k: "tetto", testo: "Più di " + TETTO_SCONTI + " gradini di sconto non si possono avere." }); break; }
       g = ORDINE_GRAVITA[ORDINE_GRAVITA.indexOf(g) - 1]; usati++; note.push(x); if (x.k === "avvocato") avvocato = true;
     }
-    return { gravita: g, note, avvocato };
+    return { gravita: g, note, avvocato, partenza };
   }
   // che cosa succede a p con una condanna di questa gravita' (gia' finale). Non scrive niente.
-  function effettiPena(s, p, gravita) {
+  function effettiPena(s, p, gravita, partenza) {
     const pena = PENE[gravita], supremo = operaAttiva(s, p, "giudice"), sporchi = p.sporchi || 0;
-    const salvi = Math.min(sporchi, (haPiano(p, "caveau") && gravita !== "gravissima" ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0) + (supremo ? round(sporchi * 0.5) : 0));
-    const multa = round(MULTA_CONDANNA[gravita] * Math.max(0, patrimonio(s, p, false)) * (haAttivita(s, p, "legale") ? 0.7 : 1));
+    const salvi = Math.min(round(sporchi * N.salviMax), (haPiano(p, "caveau") && gravita !== "gravissima" ? 5_000_000 : 0) + (haOggetto(p, "cassetta") ? 1_000_000 : 0) + (supremo ? round(sporchi * 0.5) : 0));
+    // v82: gli sconti abbassano la pena ma la multa resta almeno il 60% di quella del reato senza sconti (anche per chi è ricco)
+    const quota = Math.max(MULTA_CONDANNA[gravita], partenza ? N.multaMinima * MULTA_CONDANNA[partenza] : 0) * (haAttivita(s, p, "legale") ? 0.7 : 1);
+    const multa = round(quota * Math.max(0, patrimonio(s, p, false)));
     const aRischio = propri(s, p).filter((l) => l.tipo && ["copertura", "notte", "rischio"].includes(ATTIVITA[l.tipo].gruppo));
     const tocca = !!pena.attivita && (p.riciclTot > 0 || gravita !== "media");
     const chiusi = tocca && pena.attivita === "chiusa" ? aRischio : [], sequestrati = tocca && pena.attivita !== "chiusa" ? aRischio.slice() : [];
@@ -4392,14 +4404,14 @@
       if (p.piani > 4) { pianiPersi = 4; stanzePerse = stanzeDi(p).filter((f) => { const F = FASCE_PALAZZO.find((x) => x.fun.includes(f)); return F && F.da > p.piani - 4; }); }
     }
     const tesori = gen2(s) ? s.sette.filter((st) => st.gm === p.id && st.tesoro > 0).map((st) => ({ setta: st.id, nome: st.nome, importo: round(st.tesoro * QUOTA_TESORO_CONDANNA) })) : [];
-    return { gravita, faro: pena.faro, blocco: pena.blocco, fama: pena.fama, multa, multaQuota: MULTA_CONDANNA[gravita] * (haAttivita(s, p, "legale") ? 0.7 : 1),
+    return { gravita, faro: pena.faro, blocco: pena.blocco, fama: pena.fama, multa, multaQuota: quota,
       sporchiPersi: sporchi - salvi, sporchiSalvi: salvi, chiusi: chiusi.map((l) => l.id), sequestrati: sequestrati.map((l) => l.id), pianiPersi, stanzePerse,
       contatti: Object.keys(p.corrotti || {}).length, tesori };
   }
   // La pena raccontata al giocatore PRIMA: cosa succede oggi a p se lo condannano per un reato di questa gravita'.
   // reato = la gravita' del reato (se manca: il suo reato peggiore). Ritorna numeri e frasi pronte da mostrare.
   function descriviPena(s, p, reato) {
-    const gf = gravitaFinale(s, p, reato || p.peggiorReato || "lieve"), e = effettiPena(s, p, gf.gravita);
+    const gf = gravitaFinale(s, p, reato || p.peggiorReato || "lieve"), e = effettiPena(s, p, gf.gravita, gf.partenza);
     const nomi = (ids) => ids.map((id) => lotto(s, id).nome);
     const righe = [];
     righe.push("Confisca di TUTTI i soldi sporchi che hai in quel momento" + (e.sporchiPersi > 0 || e.sporchiSalvi > 0 ? " (oggi: " + euro(e.sporchiPersi) + (e.sporchiSalvi ? ", " + euro(e.sporchiSalvi) + " si salvano" : "") + ")" : "") + ".");
@@ -4412,11 +4424,13 @@
     if (e.contatti) righe.push("Perdi tutti i contatti che hai comprato (" + e.contatti + ").");
     for (const t of e.tesori) righe.push("Sei il Gran Maestro: la Procura sequestra " + euro(t.importo) + " del Tesoro di «" + t.nome + "». Il Tesoro sepolto è salvo.");
     righe.push("Perdi " + e.fama + " di fama. La prossima condanna sale di un gradino.");
+    { const duro = gravitaFinale(s, p, reato || p.peggiorReato || "lieve", { senzaSconti: true });
+      if (duro.gravita !== gf.gravita) { const e2 = effettiPena(s, p, duro.gravita, duro.partenza); righe.push("Attento: 1 volta su 8 il Procuratore capo non fa sconti. Allora la pena sarebbe " + duro.gravita.toUpperCase() + ": multa " + euro(e2.multa) + (e2.faro ? ", " + e2.faro + " turni al Faro" : "") + (e2.sequestrati.length ? ", " + e2.sequestrati.length + " locali sequestrati" : "") + "."); } }
     return { reato: reato || p.peggiorReato || "lieve", ...e, chiusiNomi: nomi(e.chiusi), sequestratiNomi: nomi(e.sequestrati), note: gf.note.map((x) => x.testo), righe };
   }
   function condanna(s, p, gravita, motivo) {
     const reato = gravita || "lieve";
-    const gf = gravitaFinale(s, p, gravita);
+    const gf = gravitaFinale(s, p, gravita, { senzaSconti: rng(s) < N.procuratoreDuro });
     gravita = gf.gravita;
     // per la finestra della sentenza (punto 29): perche' e cosa si salva, letti PRIMA di cambiare lo stato
     const salviDa = [];
@@ -4427,7 +4441,7 @@
     const cerchiePerse = (gravita === "grave" || gravita === "gravissima") && (p.cerchie || []).length > 0, legale = haAttivita(s, p, "legale");
     for (const x of gf.note) if (x.k !== "recidiva") privato(s, p, x.testo);
     if (gf.avvocato) togliOggetto(p, "avvocato");
-    const e = effettiPena(s, p, gravita), pena = PENE[gravita];
+    const e = effettiPena(s, p, gravita, gf.partenza), pena = PENE[gravita];
     const confiscati = e.sporchiPersi; p.sporchi = e.sporchiSalvi;
     const multa = e.multa;
     paga(s, p, multa, null);
@@ -5256,7 +5270,7 @@
     punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso),
     // polizia e pene
     descriviPena, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, tacche, TETTO_SCONTI, MULTA_CONDANNA,
-    rischioResa, rischioPerquisizione, rischioRicicla, quotaRicicla, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
+    rischioResa, rischioPerquisizione, rischioRicicla, bonusSetta, quotaRicicla, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     // setta
     livelloSetta, influenzaDi, OPERE, costoOpera,
     // scoperte e consigli
