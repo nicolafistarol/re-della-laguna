@@ -11,14 +11,14 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=66";
+import * as Tre from "./tre.js?v=67";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 // chiave nuova: la vecchia scelta "2D" (laguna_3d) non conta piu', il diorama parte da solo
 function vuole3D() { try { return localStorage.getItem("laguna_vista") !== "piatta"; } catch (e) { return true; } }
 let AVVISO3D = false;
-import * as Loc from "./locale.js?v=66";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=67";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -395,6 +395,11 @@ function riceviVista(v) {
 }
 async function eseguiCoda() {
   animando = true;
+  try { await eseguiCodaDentro(); } catch (e) { console.error("animazione", e); }
+  // qualunque cosa succeda, la partita non resta mai bloccata sui "…"
+  finally { if (coda.length) { const v = coda.pop(); coda.length = 0; S = v; S.players.forEach((p) => disp[p.id] = copiaPos(p)); } animando = false; disegna(); }
+}
+async function eseguiCodaDentro() {
   while (coda.length) {
     const v = coda.shift();
     const righe = nuoviLog(v.log);
@@ -424,8 +429,6 @@ async function eseguiCoda() {
     // il risultato di un'asta lo vedono tutti, grande, e resta finché non premi Ok
     for (const r of righe) if (/^Asta/.test(r.testo)) await annuncioAsta(r.testo);
   }
-  animando = false;
-  disegna();
 }
 function avvisoPerMe(r) {
   const me = io(); if (!me || / tira \d( e \d)+\.$/.test(r.testo)) return;
@@ -2111,6 +2114,8 @@ function extraTesto(e) {
   return t.join(" · ");
 }
 function finestraPacchetti() {
+  document.querySelectorAll(".velo [data-pk]").forEach((el) => el.closest(".velo") && el.closest(".velo").remove()); // mai due finestre uguali
+  if (S.fase !== "pacchetti") return;
   finestra(`<span class="kick" style="color:var(--oro)">La tua storia</span><h2>Chi sei, quando arrivi nella Laguna?</h2><p>Partite tutti uguali: <b>${euro(L.N.cashStart)}</b> e <b>un terreno a sorte</b> (se ti tocca uno più economico, la differenza ti arriva in contanti). Ogni storia ti dà un vantaggio diverso: scegli quello che va col tuo modo di giocare.</p>
     <div class="griglia">${S.pacchettiDisponibili.map((id) => { const k = L.PACCHETTI.find((x) => x.id === id); return `<button class="sch" data-pk="${id}"><h3 class="serif" style="font-weight:400;font-size:20px">${esc(k.nome)}</h3><p style="margin-top:6px;color:var(--oro);font-weight:700">${esc(k.perk)}</p></button>`; }).join("")}</div>`,
     (d, chiudi) => d.querySelectorAll("[data-pk]").forEach((el) => el.onclick = () => { chiudi(); agisci({ tipo: "pacchetto", id: el.dataset.pk }); }));
@@ -2126,6 +2131,7 @@ function finestraAsta(me) {
 }
 function finestraPending(me) {
   const pd = S.pending;
+  if (!pd) return disegna();
   if (pd.tipo === "compra") {
     const l = S.lotti.find((x) => x.id === pd.lotto);
     return finestra(`<span class="kick" style="color:${COL_SERIE[l.serie] || "var(--oro)"}">${l.isola ? esc(L.NOMI_ISOLE[l.isola]) : ""}</span><h2>${esc(l.nome)}</h2>
