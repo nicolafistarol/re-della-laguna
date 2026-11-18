@@ -378,7 +378,7 @@ function grandiBot(o, i, n) {
                 ? { tipo: "torna_a_casa" }
                 : ((l.uscito = !0), { tipo: "vai", luogo: Math.random() < 0.5 ? "club" : "marina" });
             const g = t.postiValigetta(o, i),
-              h = (i.valigetta || []).length,
+              h = t.postiUsati ? t.postiUsati(i) : (i.valigetta || []).length,
               v =
                 "mercato" === s
                   ? ["maschera", "Furbo" !== e && a >= 2 ? "disturbatore" : null, "telefono"].filter(Boolean)
@@ -390,13 +390,19 @@ function grandiBot(o, i, n) {
                         ? ["macchina"]
                         : [];
             for (const o of v) if (!r(i, o) && h < g && p > t.OGGETTI[o].prezzo + 4e5) return { tipo: "compra_oggetto", oggetto: o };
+            // strumenti del banco di stanotte: il bot ne compra uno se ha spazio e soldi (lo Spavaldo e il Furbo di piu')
+            if (n.banco && n.banco[s] && n.banco[s].length && !l["banco" + s] && Math.random() < ("Spavaldo" === e || "Furbo" === e ? 0.7 : 0.35)) {
+              l["banco" + s] = !0;
+              const b = n.banco[s].map((x) => [x, t.STRUMENTI[x]]).filter(([x, O]) => !O.legale && h + (O.posti || 1) <= g && p > t.prezzoOggetto(o, x) + 5e5)[0];
+              if (b) return { tipo: "compra_oggetto", oggetto: b[0] };
+            }
             const m = u
               .filter((o) => !o.O.legale && p > (o.O.costo || 0) + 2e5 && ((i.calore || {})[s] || 0) < ("Spavaldo" === e ? 2 : 1))
               .sort((o, t) => (t.O.guadagno ? t.O.guadagno[1] : 0) - (o.O.guadagno ? o.O.guadagno[1] : 0))[0];
             if (m && ("Furbo" !== e || !n.racconto[i.id].slice(-1)[0].includes("sbirri"))) {
               const o = (i.valigetta || [])
                 .map((o) => o.id)
-                .filter((o) => (t.OGGETTI[o].salva || []).some((o) => m.O.pericoli.includes(o)) || "telefono" === o);
+                .filter((o) => (t.oggettoDef(o).salva || []).some((o) => m.O.pericoli.includes(o)) || "telefono" === o || (t.oggettoDef(o).eff || []).some((e) => (!e.luoghi || e.luoghi.includes(m.luogo)) && (!e.occ || e.occ.includes(m.id))));
               return { tipo: "occasione", n: m.n, oggetti: o };
             }
             if ("casino" === s && !l.ric && i.sporchi > 3e5)

@@ -11,14 +11,14 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=69";
+import * as Tre from "./tre.js?v=70";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 // chiave nuova: la vecchia scelta "2D" (laguna_3d) non conta piu', il diorama parte da solo
 function vuole3D() { try { return localStorage.getItem("laguna_vista") !== "piatta"; } catch (e) { return true; } }
 let AVVISO3D = false;
-import * as Loc from "./locale.js?v=69";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=70";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -378,6 +378,11 @@ const POS_LUOGO = { club: [73, 29], marina: [48, 79], mercato: [25, 59], bisca: 
 const POS_CASA = { Ambra: [35, 70], Palma: [26, 30], Flamingo: [82.5, 26], Sole: [86, 52], Corona: [52, 41] };
 const ICO_LUOGO = { palazzo: ico("palazzo"), club: ico("club"), marina: ico("marina"), mercato: ico("mercato"), bisca: ico("bisca"), porto: ico("porto"), casino: ico("casino"), redazione: ico("redazione"), villa: ico("villa"), faro: ico("faro"), aeroporto: ico("aereo") };
 const ICO_OGG = Object.fromEntries(["maschera", "disturbatore", "telefono", "documenti", "furgone", "motoscafo", "avvocato", "macchina", "fiches", "cassetta"].map((k) => [k, ico(k)]));
+// gli strumenti del mercato nero a rotazione: icone prese da quelle che ci sono
+Object.assign(ICO_OGG, Object.fromEntries(Object.entries({ guanti: "maschera", piede_porco: "martello", radio_polizia: "disturbatore", cimice: "disturbatore", spray_cani: "siren", gommone: "motoscafo", tuta: "porto", sigilli: "documenti", bilancino: "soldi", mazzo_segnato: "fiches", infrarossi: "setta", passaporto: "documenti", doppiofondo: "valigetta", timbro: "municipio", registratore: "telefono", santino: "faro", drone: "aereo", smoking: "gala", kit_pulitore: "ricicla", mappa_fogne: "mappa", contanti_puliti: "soldi", binocolo: "setta", scanner: "disturbatore", fiaschetta: "gala" }).map(([k, i]) => [k, ico(i)])));
+const OGG = (id) => L.oggettoDef ? L.oggettoDef(id) : L.OGGETTI[id];
+const RARO = ["", " · raro", " · LEGGENDARIO"];
+const haBanco = (dove) => !!(S.notte && S.notte.banco && S.notte.banco.length) || Object.values(L.OGGETTI).some((O) => O.dove === dove);
 function isolaCasa(p) { const l = S.lotti.find((x) => x.owner === p.id && x.isola); return l ? l.isola : "Corona"; }
 function posLuogo(l, p) { return l === "palazzo" ? POS_CASA[isolaCasa(p)] : POS_LUOGO[l]; }
 function nomeLuogo(l, maiusc) { return l === "palazzo" ? (maiusc ? "Il tuo Palazzo" : "il tuo Palazzo") : L.LUOGHI[l].nome; }
@@ -396,7 +401,7 @@ function nuoviLog(log) {
 function riceviVista(v) {
   const j = JSON.stringify(v); if (j === ultimaVistaJson) return; ultimaVistaJson = j;
   if (!S) { (v.gazzetta || []).forEach((g) => gazzettaVista.add(g.ciclo + "|" + g.testo)); }
-  if (!S) { S = v; S.players.forEach((p) => disp[p.id] = copiaPos(p)); ultimoLog = S.log[S.log.length - 1] || null; ultimoFlusso = Math.max(0, ...(S.flussi || []).map((f) => f.n)); segnoTurno = ultimoFlusso; disegna(); return; }
+  if (!S) { S = v; S.players.forEach((p) => disp[p.id] = copiaPos(p)); ultimoLog = S.log[S.log.length - 1] || null; ultimoFlusso = Math.max(0, ...(S.flussi || []).map((f) => f.n)); segnoTurno = ultimoFlusso; disegna(); mostraNovita(); return; }
   coda.push(v);
   if (!animando) eseguiCoda();
 }
@@ -949,8 +954,7 @@ function cartaNotte(me) {
   const occ = (N2.occasioni || []).map((o) => `<div class="occ ${o.legale ? "legale" : ""}"><h3>${esc(o.nome)}</h3><div class="storia">${esc(o.testo)}</div>
       <div class="riga"><span class="sub">${o.costo ? "Ci metti " + euro(o.costo) : "Non costa niente"}</span><button class="${o.legale ? "oro" : "notte"}" data-occ="${o.n}" style="margin-left:auto">${o.legale ? "Ci sto" : "Accetto"}</button></div></div>`).join("");
   const extra = [];
-  const negozio = Object.entries(L.OGGETTI).filter(([k, O]) => O.dove === dove);
-  if (negozio.length) extra.push(`<button data-a="negozio">${ico("mercato")} ${dove === "mercato" ? "Il banco del Mercato Nero" : "Compra qui"}</button>`);
+  if (haBanco(dove)) extra.push(`<button data-a="negozio">${ico("mercato")} ${L.BANCHI && L.BANCHI[dove] ? L.BANCHI[dove].replace(/^il /, "Il ") + ((N2.banco || []).length ? " · " + N2.banco.length + " strumenti stanotte" : "") : "Compra qui"}</button>`);
   if (dove === "mercato") extra.push(`<button data-a="soffiata">${ico("soffiata")} Una soffiata (50.000 €)</button>`);
   if (dove === "casino" && me.sporchi > 0) extra.push(`<button data-a="ricicla">${ico("ricicla")} Ripulisci i soldi</button>`);
   if (dove === "palazzo" && me.sporchi > 0 && me.veicoli.includes("jet")) extra.push(`<button data-a="paradiso">${ico("ricicla")} Volo nel paradiso fiscale</button>`);
@@ -1153,7 +1157,7 @@ function aggiornaPanorama(me) {
       classe = bloccato ? "chiuso" : "porta";
       azione = bloccato ? () => toast("Il buttafuori ti ferma: qui entra solo chi ha più fama e più soldi.") : () => { puntoVista[panoOra] = chi; puntoVista[panoOra + "!"] = true; Pano.guarda(0); disegna(); };
     } else if (tipo === "altrove") { if (!libero) classe = "spento"; else azione = () => finestraAltrove(me); }
-    else if (tipo === "negozio") { if (!Object.values(L.OGGETTI).some((O) => O.dove === N2.dove[mioId])) classe = "spento"; else azione = () => finestraNegozio(me); }
+    else if (tipo === "negozio") { if (!haBanco(N2.dove[mioId])) classe = "spento"; else azione = () => finestraNegozio(me); }
     else if (tipo === "soffiata") azione = () => finestraSoffiata(me);
     else if (tipo === "aspetta") { if (!libero) classe = "spento"; else azione = () => agisci({ tipo: "aspetta" }); }
     else if (tipo === "chiuso") { classe = "chiuso"; azione = () => toast((S.lustro || 0) >= 2 ? chi + ": arriva presto." : "Dietro la porta d'oro c'è la " + chi + ". Si apre solo ai più potenti della Laguna."); }
@@ -1208,7 +1212,7 @@ function scenaNotte(me) {
   else if (!scelto && !v) {
     const intro = racc.slice(N2.inizioRacc || 0);
     const scelte = N2.scelte || [];
-    const negozio = Object.values(L.OGGETTI).some((O) => O.dove === dove);
+    const negozio = haBanco(dove);
     corpo = `${intro.length ? `<div class="righe">${righeNotte(intro.slice(-1))}</div>` : ""}
       ${appuntamenti(me, dove)}
       <div class="scelte">${scelte.map((c, i) => `<button class="scelta ${c.k === "occ" && !c.legale ? "losca" : c.k === "occ" ? "legale" : c.k === "aspetta" ? "calma" : ""}" data-scelta="${i}">
@@ -1531,12 +1535,32 @@ function potentiHtml() {
   const cl = [...S.players].map((p) => ({ p, f: p.id === mioId ? L.fascia(S, p) : p.fascia })).sort((a, b) => (ORD.indexOf(a.f) < 0 ? 9 : ORD.indexOf(a.f)) - (ORD.indexOf(b.f) < 0 ? 9 : ORD.indexOf(b.f)) || (b.p.fama || 0) - (a.p.fama || 0));
   return `<div class="g-sez"><span class="g-sez-t">I più potenti della Laguna</span>${cl.map((x, i) => `<p class="g-breve"><b>${i + 1}. ${esc(x.p.nome)}</b> · ${esc(x.f || "?")} · fama ${x.p.fama ?? "?"}${S.sindaco === x.p.id ? " · Sindaco" : ""}</p>`).join("")}<span class="sub" style="font-size:11px">La Gazzetta non conosce i conti di nessuno: solo come vivono.</span></div>`;
 }
+// le situazioni in corso nella Laguna (durano 1 o 2 Cicli)
+function situazioniHtml() {
+  const xs = S.situazioniAttive || [];
+  return `<div class="giornale" style="margin-bottom:10px"><div class="testata"><b>Adesso in Laguna</b><span>${xs.length ? xs.length + (xs.length === 1 ? " situazione" : " situazioni") : "tutto tranquillo"}</span></div>
+    ${xs.map((x) => `<div class="g-sez"><p class="g-breve"><b>${esc(x.t)}</b><br><span style="color:var(--oro)">${esc(x.spiega)}</span><br><span class="sub" style="font-size:11px">${x.fino - S.ciclo - 1 <= 0 ? "Finisce all'Alba" : "Dura ancora " + (x.fino - S.ciclo) + " Cicli"}</span></p></div>`).join("")}
+    ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
+}
+// ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
+const NOVITA = { 70: ["<b>Strumenti del mercato nero.</b> Al Mercato Nero, al Porto e al Casinò ogni notte ci sono 3 strumenti diversi, presi a caso tra 24. Ognuno è unico: chi arriva prima lo prende. Ci sono strumenti rari e leggendari. Quelli grossi occupano 2 posti nella valigetta, che resta della stessa misura: scegli bene cosa portarti.",
+  "<b>Come si usano.</b> Prima di un affare scegli cosa portare. Alcuni ti salvano da un pericolo, altri fanno rendere di più un colpo preciso, altri tolgono Tracce. Alcuni funzionano in coppia, per esempio Maschera + Guanti. Il Timbro del Municipio si usa di giorno: il permesso è sicuro, ma lascia Tracce.",
+  "<b>Situazioni della Laguna.</b> A ogni Alba succede qualcosa: uno sciopero chiude il Porto, l'alta marea abbassa gli affitti di Sole, un black-out spegne le telecamere di Corona, la Finanza cerca i contanti… Sono più di 100. Durano 1 o 2 Cicli e aiutano alcuni e colpiscono altri.",
+  "<b>Prepararsi.</b> Metà delle situazioni la Gazzetta le annuncia un Ciclo prima, in \"Si dice che…\". Le altre arrivano a sorpresa. Cosa succede adesso lo vedi in Gazzetta, nel riquadro \"Adesso in Laguna\".",
+  "<b>Il rischio della notte è quello vero.</b> Ora conta anche il Commissario Vargas e le situazioni in corso."] };
+function mostraNovita() {
+  const ver = L.VERSIONE_REGOLE || 0; let vista = 0;
+  try { vista = +(localStorage.getItem("laguna_regole") || 0); localStorage.setItem("laguna_regole", String(ver)); } catch (e) { return; }
+  const nuove = Object.keys(NOVITA).map(Number).filter((v) => v > vista && v <= ver).sort();
+  if (!nuove.length || !vista && !S) return;
+  finestra(`<span class="kick" style="color:var(--oro)">${ico("stella")} Novità nel gioco</span><h2>Cosa è cambiato</h2>${nuove.map((v) => `<ul style="text-align:left;padding-left:18px;margin:8px 0">${NOVITA[v].map((x) => `<li style="margin:6px 0">${x}</li>`).join("")}</ul>`).join("")}<div class="pulsanti"><button class="oro" id="ok">Ho capito</button></div>`, (d, c) => d.querySelector("#ok").onclick = c);
+}
 let gazzettaCiclo = null;
 function appGazzetta() {
   const cicli = [...new Set(S.gazzetta.map((g) => g.ciclo))].sort((a, b) => b - a);
   const c = gazzettaCiclo && cicli.includes(gazzettaCiclo) ? gazzettaCiclo : cicli[0] || S.ciclo + 1;
   return `<div class="riga" style="justify-content:space-between;margin-bottom:8px"><button class="piccolo" data-gciclo="${c - 1}" ${cicli.includes(c - 1) ? "" : "disabled"}>‹ Ciclo prima</button><button class="piccolo" data-gciclo="${c + 1}" ${cicli.includes(c + 1) ? "" : "disabled"}>Ciclo dopo ›</button></div>`
-    + primaPagina(c) + (c === (cicli[0] || 0) ? `<div class="giornale" style="margin-top:10px">${potentiHtml()}</div>` : "");
+    + situazioniHtml() + primaPagina(c) + (c === (cicli[0] || 0) ? `<div class="giornale" style="margin-top:10px">${potentiHtml()}</div>` : "");
 }
 // Ultim'ora: le notizie grosse scorrono in alto mentre giochi
 const codaUltimOra = []; let ultimOraAttiva = false;
@@ -1739,11 +1763,11 @@ function contenutoApp(me, k) {
       return `<button class="conv" data-chat="${esc(c.nome)}"><span class="avatar" style="background:${c.col}">${c.ico}</span><span class="cv-t"><b>${esc(c.nome)}</b><span>${esc(ult.testo.slice(0, 70))}${ult.testo.length > 70 ? "…" : ""}</span></span>${nuovi > 0 ? `<span class="pallino">${nuovi}</span>` : ""}</button>`; }).join("");
   }
   if (k === "valigetta") {
-    const v = me.valigetta || [], posti = S.postiValigetta;
-    return `<p class="sub">${v.length} posti usati su ${posti}. Gli oggetti si comprano di notte, nei posti giusti.</p>` +
-      v.map((o) => { const O = L.OGGETTI[o.id]; return `<div class="ogg"><span class="ic">${ICO_OGG[o.id]}</span><div><b>${esc(O.nome)}</b><div class="sub" style="font-size:12px">${esc(O.descr)}${o.notti ? " Ancora " + o.notti + (o.notti === 1 ? " notte." : " notti.") : ""}${(O.salva || []).length || ["motoscafo", "furgone"].includes(o.id) ? ` <b style="color:${(me.trucchi || {})[o.id] >= 2 ? "#ff9a9a" : "var(--pulito)"}">Funziona circa ${Math.round(100 - Math.min(55, 15 + 10 * ((me.trucchi || {})[o.id] || 0)))}% delle volte.</b>` : ""}</div></div></div>`; }).join("") +
+    const v = me.valigetta || [], posti = S.postiValigetta, usati = S.postiUsati ?? v.length;
+    return `<p class="sub">${usati} posti usati su ${posti}. Gli oggetti si comprano di notte, nei posti giusti. Al Mercato Nero, al Porto e al Casinò ogni notte ci sono 3 strumenti diversi: chi arriva prima li prende. Quelli grossi occupano 2 posti.</p>` +
+      v.map((o) => { const O = OGG(o.id); return `<div class="ogg"><span class="ic">${ICO_OGG[o.id] || ""}</span><div><b>${esc(O.nome)}${O.posti > 1 ? ` <span class="tag">${O.posti} posti</span>` : ""}</b><div class="sub" style="font-size:12px">${esc(O.descr)}${o.notti ? " Ancora " + o.notti + (o.notti === 1 ? " notte." : " notti.") : ""}${(O.salva || []).length || ["motoscafo", "furgone"].includes(o.id) ? ` <b style="color:${(me.trucchi || {})[o.id] >= 2 ? "#ff9a9a" : "var(--pulito)"}">Funziona circa ${Math.round(100 - Math.min(55, 15 + 10 * ((me.trucchi || {})[o.id] || 0)))}% delle volte.</b>` : ""}</div></div></div>`; }).join("") +
       `<p class="sub" style="margin-top:8px">Ogni volta che un oggetto ti salva, la polizia impara il trucco: la volta dopo funziona di meno. Col passare dei Cicli se ne dimentica.</p>` +
-      Array.from({ length: Math.max(0, posti - v.length) }, () => `<div class="ogg vuoto"><span class="ic">·</span><span class="sub">Posto libero</span></div>`).join("");
+      Array.from({ length: Math.max(0, posti - usati) }, () => `<div class="ogg vuoto"><span class="ic">·</span><span class="sub">Posto libero</span></div>`).join("");
   }
   if (k === "palazzo") return appPalazzo(me, miTurno);
   if (k === "grandi" || k === "tv") return appGrandi(me);
@@ -2231,7 +2255,7 @@ function boxRischio(me, o) {
   const prob = i >= 0 ? Math.round(Math.min(0.95, L.P_GUAI[i] * (N2.protezione || 1) * (1 + L.N.pistaLuogoNotte * (N2.caloreQui || 0))) * 100) : null;
   const v = (me.valigetta || []).map((x) => x.id);
   const righe = (o.pericoli || []).map((k) => {
-    const G = L.PERICOLI[k]; const salva = Object.entries(L.OGGETTI).filter(([id, O]) => (O.salva || []).includes(k));
+    const G = L.PERICOLI[k]; const salva = Object.entries({ ...L.OGGETTI, ...(L.STRUMENTI || {}) }).filter(([id, O]) => (O.salva || []).includes(k) && (L.OGGETTI[id] || v.includes(id)));
     const ho = salva.some(([id]) => v.includes(id));
     const danno = { perso: "perdi il carico e i soldi messi", riconosciuto: "ti riconoscono: più tracce, la polizia ti tiene d'occhio", allarme: "scappi a mani vuote e la polizia ha il tuo nome", foto: "un altro giocatore ottiene una Prova contro di te", retata: "sequestrano il carico e gli oggetti illegali", meta: "ti porti via solo metà" }[G.danno] || "";
     return `<div class="liv"><span class="liv-n" style="background:${ho ? "#2e7d4f" : "rgba(255,255,255,.1)"}">${ho ? "✓" : "!"}</span><div><b>Se ${esc(G.arriva)}</b><div class="sub" style="font-size:12px">${esc(danno)}.${salva.length ? " Ti salva quasi sempre: " + salva.map(([id, O]) => O.nome.toLowerCase() + (v.includes(id) ? " (ce l'hai)" : "")).join(" o ") + "." : " Niente ti salva."}</div></div></div>`;
@@ -2255,7 +2279,7 @@ function finestraOccasione(me, n) {
   finestra(`<span class="kick" style="color:var(--cielo)">${esc(nomeLuogo(o.luogo))} · ore ${L.ORE[S.notte.ora]}</span><h2>${esc(o.nome)}</h2><p class="storia">${esc(o.testo)}</p>
     <p>${o.costo ? "Ci metti <b>" + euro(o.costo) + "</b> (prima i soldi sporchi)." : "Non ci metti niente."} ${o.legale ? "" : o.guadagno ? "Se va bene, torni con <b>" + euro(o.guadagno[0] * L.N.bonusIllegale) + " – " + euro(o.guadagno[1] * L.N.bonusIllegale) + "</b> sporchi." : ""}</p>
     ${o.legale ? "" : boxRischio(me, o)}
-    ${o.legale ? "" : v.length ? `<p class="kick" style="color:var(--muted);margin-top:12px">Cosa porti con te?</p><p class="sub">Scegli gli oggetti della valigetta. Se qualcosa va storto, quello giusto può salvarti. Quelli che si consumano li perdi.</p><div style="display:flex;flex-direction:column;gap:6px">${[...new Set(v.map((x) => x.id))].map((id) => { const quanti = v.filter((x) => x.id === id).length; return `<button class="ogg" data-id="${id}" style="text-align:left;color:#fff"><span class="ic">${ICO_OGG[id]}</span><div><b>${esc(L.OGGETTI[id].nome)}${quanti > 1 ? ` <span class="tag">ne hai ${quanti}: ne usi 1</span>` : ""}</b><div class="sub" style="font-size:12px">${esc(L.OGGETTI[id].descr)}</div></div></button>`; }).join("")}</div>` : `<p class="sub">La valigetta è vuota: vai a mani nude.</p>`}
+    ${o.legale ? "" : v.length ? `<p class="kick" style="color:var(--muted);margin-top:12px">Cosa porti con te?</p><p class="sub">Scegli gli oggetti della valigetta. Se qualcosa va storto, quello giusto può salvarti. Quelli che si consumano li perdi.</p><div style="display:flex;flex-direction:column;gap:6px">${[...new Set(v.map((x) => x.id))].map((id) => { const quanti = v.filter((x) => x.id === id).length; return `<button class="ogg" data-id="${id}" style="text-align:left;color:#fff"><span class="ic">${ICO_OGG[id] || ""}</span><div><b>${esc(OGG(id).nome)}${quanti > 1 ? ` <span class="tag">ne hai ${quanti}: ne usi 1</span>` : ""}</b><div class="sub" style="font-size:12px">${esc(OGG(id).descr)}</div></div></button>`; }).join("")}</div>` : `<p class="sub">La valigetta è vuota: vai a mani nude.</p>`}
     <div class="pulsanti"><button id="no">Lascio stare</button><button class="${o.legale ? "oro" : "notte"}" id="si">${o.legale ? "Ci sto" : "Accetto"}</button></div>`, (d, c) => {
     d.querySelectorAll(".ogg[data-id]").forEach((b) => b.onclick = () => { const id = b.dataset.id; if (scelti.has(id)) scelti.delete(id); else scelti.add(id); d.querySelectorAll(`.ogg[data-id="${id}"]`).forEach((x) => x.classList.toggle("sel", scelti.has(id))); });
     d.querySelector("#no").onclick = c;
@@ -2264,11 +2288,14 @@ function finestraOccasione(me, n) {
 }
 function finestraNegozio(me) {
   const dove = S.notte.dove[mioId];
-  const merce = Object.entries(L.OGGETTI).filter(([k, O]) => O.dove === dove);
-  const v = me.valigetta || [];
-  finestra(`<span class="kick" style="color:var(--cielo)">${ICO_LUOGO[dove]} ${esc(nomeLuogo(dove))}</span><h2>${dove === "mercato" ? "Il banco del Mercato Nero" : "Si può comprare"}</h2>
-    <p class="sub">Valigetta: ${v.length} posti usati su ${S.postiValigetta}. Si paga prima con i soldi sporchi.</p>
-    <div style="display:flex;flex-direction:column;gap:8px">${merce.map(([k, O]) => `<div class="ogg"><span class="ic">${ICO_OGG[k]}</span><div style="flex:1"><b>${esc(O.nome)}</b><div class="sub" style="font-size:12px">${esc(O.descr)}</div></div><button class="piccolo oro" data-ogg="${k}" ${v.length >= S.postiValigetta || me.cash + me.sporchi < O.prezzo ? "disabled" : ""}>${euro(O.prezzo)}</button></div>`).join("")}</div>
+  const merce = Object.entries(L.OGGETTI).filter(([k, O]) => O.dove === dove).map(([k, O]) => [k, O, O.prezzo]);
+  const banco = ((S.notte && S.notte.banco) || []).map((b) => [b.id, OGG(b.id), b.prezzo]);
+  const v = me.valigetta || [], usati = S.postiUsati ?? v.length, liberi = S.postiValigetta - usati;
+  const riga = ([k, O, prezzo]) => { const posti = O.subito ? 0 : O.posti || 1; return `<div class="ogg"><span class="ic">${ICO_OGG[k] || ""}</span><div style="flex:1"><b>${esc(O.nome)}</b>${posti > 1 ? ` <span class="tag">${posti} posti</span>` : ""}${O.raro ? `<span class="tag" style="color:var(--oro)">${RARO[O.raro].slice(3)}</span>` : ""}<div class="sub" style="font-size:12px">${esc(O.descr)}</div></div><button class="piccolo oro" data-ogg="${k}" ${posti > liberi || me.cash + me.sporchi < prezzo ? "disabled" : ""}>${euro(prezzo)}</button></div>`; };
+  finestra(`<span class="kick" style="color:var(--cielo)">${ICO_LUOGO[dove]} ${esc(nomeLuogo(dove))}</span><h2>${L.BANCHI && L.BANCHI[dove] ? esc(L.BANCHI[dove].replace(/^il /, "Il ")) : "Si può comprare"}</h2>
+    <p class="sub">Valigetta: ${usati} posti usati su ${S.postiValigetta}. Si paga prima con i soldi sporchi.</p>
+    ${banco.length ? `<p class="kick" style="color:var(--oro);margin-top:10px">Solo stanotte</p><p class="sub" style="font-size:12px">Ogni pezzo è unico: se lo compri tu, gli altri non lo trovano più. Domani notte ci sarà altra roba.</p><div style="display:flex;flex-direction:column;gap:8px">${banco.map(riga).join("")}</div>` : ""}
+    ${merce.length ? `<p class="kick" style="color:var(--muted);margin-top:10px">Sempre in vendita</p><div style="display:flex;flex-direction:column;gap:8px">${merce.map(riga).join("")}</div>` : ""}
     <div class="pulsanti"><button id="x">Chiudi</button></div>`, (d, c) => {
     d.querySelector("#x").onclick = c;
     d.querySelectorAll("[data-ogg]").forEach((b) => b.onclick = async () => { c(); await agisci({ tipo: "compra_oggetto", oggetto: b.dataset.ogg }); finestraNegozio(io()); });
