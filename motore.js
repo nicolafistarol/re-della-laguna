@@ -3574,18 +3574,37 @@
     }
   }
 
-  // Vista per un giocatore: nasconde i dati segreti degli altri (saldo, sporchi, tracce, sette, prove)
+  // ------------------------------------------------------------ cosa vede ognuno
+  // vista(s, id) e' quello che un giocatore puo' sapere: e' l'UNICA cosa che esce dal server e dalla partita locale.
+  // Regola: degli ALTRI giocatori passa SOLO quello che sta in CAMPI_PUBBLICI. Un campo nuovo e' segreto da solo:
+  // per farlo vedere a tutti va aggiunto qui (una riga per tema). Il resto dello stato invece e' copiato intero:
+  // una cosa nuova e segreta che NON sta dentro un giocatore va tolta a mano piu' sotto (come manoSM).
+  const CAMPI_PUBBLICI = [
+    "id", "nome", "bot", "colore",                                        // chi e'
+    "pos", "inner", "ipos", "dadi", "doppi", "haTirato", "azioneGiornoFatta", // tabellone e turno
+    "faro", "fallito", "arresti", "condanne",                             // fatti pubblici: prigione, fallimento, condanne
+    "fama", "pacchetto", "veicoli",                                       // quello che tutti vedono
+    "piani", "funzioniPiani", "stanze",                                   // il Palazzo (le stanze segrete vengono coperte)
+  ];
+  const PIANI_SEGRETI = ["caveau", "piani_segreti", "sala_insonorizzata", "bunker", "osservatorio"];
+  // dalla cronaca pubblica si tolgono le operazioni private degli altri (riconosciute dalle parole della frase)
+  const CRONACA_PRIVATA = /prestito|restituisce|investe|vende|ipoteca|riscatta/;
+  // ATTENZIONE: la vista puo' avere pezzi in comune con lo stato vero. Chi la riceve non la deve modificare
+  // (il server la manda in JSON, gioco.js ne fa una copia). vista() stessa non scrive MAI nello stato.
   function vista(s, idGiocatore) {
     const v = JSON.parse(JSON.stringify(s));
     delete v.rngState; delete v.seed;
-    for (const p of v.players) {
-      if (p.id === idGiocatore) continue;
-      const vero = s.players.find((x) => x.id === p.id);
-      const fasciaPubblica = fascia(s, vero);
-      delete p.conti; delete p.ultimoEsito;
-      for (const k of ["cash", "sporchi", "tracce", "stato", "corrotti", "prove", "messaggi", "debito", "azioni", "cripto", "evasione", "affariStanotte", "spiaSu", "sette", "settaFondata", "reputazione", "peggiorReato", "riciclTot", "ultimaSentenza", "offertaBoss", "valigetta", "raccontoNotte", "permessoTurno", "primoPermesso", "scoperte", "consigliati", "visteFare", "calore", "calSoldi", "luoghiNotte", "storiaTracce", "ripulitiCiclo", "lussoCiclo", "ultimaPista"]) delete p[k];
-      p.fascia = fasciaPubblica;
-    }
+    delete v.manoSM; // le mani di Sette e mezzo (con il mazzo!): la tua, senza mazzo, sta in v.notte.manoSM
+    v.players = v.players.map((p) => {
+      if (p.id === idGiocatore) { delete p.tracce; return p; } // le proprie Tracce non si vedono come numero
+      const q = {};
+      for (const k of CAMPI_PUBBLICI) if (p[k] !== undefined) q[k] = p[k];
+      if (Array.isArray(q.funzioniPiani)) q.funzioniPiani = q.funzioniPiani.map((f) => PIANI_SEGRETI.includes(f) ? "riservato" : f);
+      if (Array.isArray(q.stanze)) q.stanze = q.stanze.filter((f) => !PIANI_SEGRETI.includes(f));
+      q.fascia = fascia(s, s.players.find((x) => x.id === p.id)); // l'unica cosa pubblica sulla ricchezza: Benestante, Ricco...
+      return q;
+    });
+    v.log = v.log.filter((r) => !r.chi || r.chi === idGiocatore || !CRONACA_PRIVATA.test(r.testo));
     { const mio = v.players.find((x) => x.id === idGiocatore), vero = s.players.find((x) => x.id === idGiocatore); if (mio && vero) { mio.rischioPerq = Math.round(rischioPerquisizione(s, vero) * 100); if (s.notte && haPiano(vero, "osservatorio")) mio.giroPg = Object.fromEntries(Object.keys(GIRO).map((k) => [k, dovePersonaggio(s, k)])); } }
     // le offerte all'asta sono segrete: vedi solo la tua
     if (v.grandi) for (const g of Object.values(v.grandi)) if (g.offerte) g.offerte = g.offerte[idGiocatore] ? { [idGiocatore]: g.offerte[idGiocatore] } : {};
@@ -3644,7 +3663,7 @@
   // Una riga per tema: chi aggiunge una funzione la mette nella riga del suo tema.
   const API = {
     // l'ingresso
-    nuovaPartita, applica, applicaSicura, vista,
+    nuovaPartita, applica, applicaSicura, vista, vistaSicura: vista, CAMPI_PUBBLICI,
     // numeri e tabelle del gioco
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE, ORDINE_GRAVITA,
     // tabellone e giorno

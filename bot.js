@@ -420,6 +420,35 @@ function grandiBot(o, i, n) {
           })(o, i, n)
         : null;
     },
+    // I giocatori-computer giocano finche' non tocca a una persona. L'UNICA copia di questo giro:
+    // la usano il server (server/index.ts) e la partita locale (locale.js).
+    //   opz.finche(stato): ci si ferma quando torna vero (es. "appena cala la notte") · opz.max: numero massimo di mosse
+    // Ritorna { mosse, errori }: errori = errori veri del codice (NON le mosse rifiutate), da scrivere nei log.
+    // Regole: al bot si chiede la mossa UNA volta sola (prossima() ricorda cosa ha gia' deciso, chiederla due volte la cambia);
+    // la mossa si applica con applicaSicura (se e' rifiutata lo stato torna com'era), poi si prova la via d'uscita piu' semplice.
+    gioca: function (stato, opz) {
+      const applica = t.applicaSicura || t.applica, max = (opz && opz.max) || 3000, finche = opz && opz.finche;
+      const esito = { mosse: 0, errori: [] };
+      const segna = (e, bot, azione) => { if (!e || !e.gioco) esito.errori.push({ bot: bot.nome, azione: azione, messaggio: String((e && e.message) || e), ciclo: stato.ciclo + 1, fase: stato.fase }); };
+      for (let k = 0; k < max && !stato.fine && !(finche && finche(stato)); k++) {
+        let bot = null, azione = null;
+        for (const p of stato.players) if (p.bot) { const x = n.prossima(stato, p); if (x) { bot = p; azione = x; break; } }
+        if (!bot) break;
+        try { applica(stato, bot.id, azione); esito.mosse++; }
+        catch (e) {
+          segna(e, bot, azione);
+          try {
+            const io = stato.players.find((x) => x.id === bot.id), pd = stato.pending; // dopo un rifiuto lo stato e' stato rimesso com'era: si rilegge
+            if (stato.fase === "notte") applica(stato, io.id, { tipo: "pronto" });
+            else if (pd && pd.tipo === "asta") applica(stato, io.id, { tipo: "offerta", importo: 0 });
+            else if (pd && pd.giocatore === io.id) applica(stato, io.id, { tipo: pd.tipo, si: false, importo: 0 });
+            else applica(stato, io.id, io.haTirato ? { tipo: "fine_turno" } : { tipo: "tira" });
+            esito.mosse++;
+          } catch (e2) { segna(e2, bot, { tipo: "via d'uscita" }); break; }
+        }
+      }
+      return esito;
+    },
     STRATEGIE: ["Legale", "Costruttore", "Investitore", "Furbo", "Spavaldo", "Esperto"],
   };
   "undefined" != typeof module && module.exports ? (module.exports = n) : (o.LagunaBot = n);

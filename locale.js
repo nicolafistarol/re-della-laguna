@@ -8,33 +8,11 @@ const B = window.LagunaBot;
 const CHIAVE = "laguna_locale";
 let stato = null;
 
-const ALTRI_SEGRETI = ["affariOk", "pulitoCiclo", "mosseNotte", "mossePagate", "disturbatore", "copUsata",
-  "paradisoCiclo", "ombraCicli", "prestiti", "telefonataUsata", "scontoCarico", "mercatoNero", "emergenza", "lavato", "lavatoCiclo"];
-function vistaSicura(s, id) {
-  const v = L.vista(s, id);
-  for (const p of v.players) {
-    if (p.id === id) { delete p.tracce; continue; }
-    for (const k of ALTRI_SEGRETI) delete p[k];
-  }
-  v.log = v.log.filter((r) => !r.chi || r.chi === id || !/prestito|restituisce|investe|vende|ipoteca|riscatta/.test(r.testo));
-  return v;
-}
-function giocaBot(s) {
-  for (let i = 0; i < 3000 && !s.fine; i++) {
-    // una sola domanda al bot: le sue scelte ricordano cosa ha gia' deciso (chiederla due volte la cambia)
-    let bot = null, a = null;
-    for (const p of s.players) if (p.bot) { const x = B.prossima(s, p); if (x) { bot = p; a = x; break; } }
-    if (!bot) return;
-    try { L.applica(s, bot.id, a); }
-    catch (_e) {
-      try {
-        if (s.fase === "notte") L.applica(s, bot.id, { tipo: "pronto" });
-        else if (s.pending?.tipo === "asta") L.applica(s, bot.id, { tipo: "offerta", importo: 0 });
-        else if (s.pending && s.pending.giocatore === bot.id) L.applica(s, bot.id, { tipo: s.pending.tipo, si: false, importo: 0 });
-        else L.applica(s, bot.id, bot.haTirato ? { tipo: "fine_turno" } : { tipo: "tira" });
-      } catch (_e2) { return; }
-    }
-  }
+// Cosa vede il giocatore (L.vistaSicura) e come giocano i computer (B.gioca) stanno nel motore e in bot.js:
+// sono le STESSE funzioni che usa il server, cosi' la prova da soli si comporta come la partita online.
+function giocaBot(s, opz) {
+  const r = B.gioca(s, opz);
+  for (const e of r.errori) console.error("Errore in una mossa dei computer:", e.bot, JSON.stringify(e.azione), e.messaggio);
 }
 function salva() { try { localStorage.setItem(CHIAVE, JSON.stringify(stato)); } catch (e) { } }
 
@@ -51,19 +29,7 @@ export function nuovaProva(nome) {
   const s = stato, me = s.players[0];
   // fino alla prima notte giochi "in automatico" come un giocatore esperto: compri terreni come gli altri
   me.bot = true; me.strat = "Esperto";
-  for (let i = 0; i < 6000 && s.fase !== "notte" && !s.fine; i++) {
-    let bot = null, mossa = null;
-    for (const p of s.players) if (p.bot) { const x = B.prossima(s, p); if (x) { bot = p; mossa = x; break; } }
-    if (!bot) break;
-    try { L.applica(s, bot.id, mossa); }
-    catch (e) {
-      try {
-        if (s.pending?.tipo === "asta") L.applica(s, bot.id, { tipo: "offerta", importo: 0 });
-        else if (s.pending && s.pending.giocatore === bot.id) L.applica(s, bot.id, { tipo: s.pending.tipo, si: false, importo: 0 });
-        else L.applica(s, bot.id, bot.haTirato ? { tipo: "fine_turno" } : { tipo: "tira" });
-      } catch (e2) { break; }
-    }
-  }
+  giocaBot(s, { finche: (x) => x.fase === "notte", max: 6000 });
   me.bot = false; delete me.strat;
   const rocco = s.players[1];
   // Rocco ha un palazzo con il casinò privato (per la serata a poker), ma niente soldi regalati
@@ -82,12 +48,13 @@ export function carica() {
   return false;
 }
 export function azione(a) {
-  try { L.applica(stato, "g1", a); }
-  catch (e) { if (e.gioco) return { errore: e.message }; throw e; }
+  // applicaSicura: se la mossa e' rifiutata (o va in errore) la partita resta esattamente com'era
+  try { L.applicaSicura(stato, "g1", a); }
+  catch (e) { if (e.gioco) return { errore: e.message }; console.error(e); return { errore: "Errore del gioco: " + e.message }; }
   giocaBot(stato); salva();
   return { ok: true };
 }
 // nella prova da soli il nome si puo' cambiare quando vuoi
 export function rinomina(nome) { nome = String(nome || "").trim().slice(0, 24); if (!stato || !nome) return; stato.players[0].nome = nome; salva(); }
-export function vista() { return stato ? vistaSicura(stato, "g1") : null; }
+export function vista() { return stato ? L.vistaSicura(stato, "g1") : null; }
 export function grezzo() { return stato; }
