@@ -3277,13 +3277,45 @@
 
   // ------------------------------------------------------------ ingresso unico
   // ---- I miei conti: ogni movimento di soldi viene annotato con il suo motivo (per il Ciclo in corso e quello prima)
-  const MOTIVO = { tira: "Dadi: caselle, affitti, stipendio", viaggio_rapido: "Viaggio rapido", compra: "Terreni comprati", agenzia: "Agenzia immobiliare", offerta: "Aste", proponi_lotto: "Scambi di terreni", rispondi_proposta: "Scambi di terreni",
-    costruisci: "Cantieri e attività", attivita: "Cantieri e attività", permesso: "Permessi", piano: "Palazzo", stanza: "Palazzo", investi: "Borsa e cripto", vendi: "Borsa e cripto", prestito: "Prestiti", restituisci: "Prestiti", ipoteca: "Ipoteche", riscatta: "Ipoteche",
-    veicolo: "Veicoli e lusso", gala: "Gala", casino_reale: "Casinò Reale", roulette: "Roulette", municipio: "Municipio", licenza: "Licenze", busta_licenza: "Bustarelle", regalo_assessore: "Bustarelle", campagna: "Campagna elettorale", candidati: "Candidatura",
-    articolo: "Gazzetta", regala: "Regali", contratto: "Contratti", rispondi_contratto: "Contratti", occasione: "Affari della notte", ricettatore: "Ricettatore (merce rubata)", ballo: "Ballo in Maschera", ricicla: "Soldi ripuliti", ricicla_banca: "Soldi ripuliti", corrompi: "Corruzione", scarica_contatto: "Corruzione",
-    compra_oggetto: "Mercato Nero", sm: "Sette e mezzo", carte: "Sette e mezzo", serata: "Serate", gioca_serata: "Serate", vai_serata: "Serate", spa: "Notte", chiamata: "Lavoretti al telefono", soffiata: "Soffiate", denuncia: "Denunce",
-    fonda_setta: "Setta", versa_setta: "Setta", lava_setta: "Setta: Lavanderia", rispondi_invito: "Setta", scava: "Setta", seppellisci: "Setta", tradisci: "Setta", offerta_grande: "Grandi Affari", quote_grande: "Grandi Affari", titolone: "Grandi Affari", tasso_banca: "Grandi Affari", blocca_conto: "Grandi Affari" };
-  const MOTIVO_ALTRI = { tira: "Affitti e pedaggi incassati", regala: "Regali ricevuti", sm: "Sette e mezzo", carte: "Sette e mezzo", rispondi_contratto: "Contratti", contratto: "Contratti", proponi_lotto: "Scambi di terreni", rispondi_proposta: "Scambi di terreni", offerta: "Aste", rispondi_invito: "Setta" };
+  // Una riga per tema: chi aggiunge un'azione che muove soldi mette il suo motivo nella riga del suo tema.
+  const MOTIVO = {
+    // giorno: dadi, terreni, aste, scambi
+    tira: "Dadi: caselle, affitti, stipendio", viaggio_rapido: "Viaggio rapido", compra: "Terreni comprati", agenzia: "Agenzia immobiliare", offerta: "Aste",
+    proponi_lotto: "Scambi di terreni", rispondi_proposta: "Scambi di terreni",
+    // costruire, Palazzo, lusso
+    costruisci: "Cantieri e attività", attivita: "Cantieri e attività", permesso: "Permessi", piano: "Palazzo", stanza: "Palazzo", veicolo: "Veicoli e lusso",
+    // banca e Borsa
+    investi: "Borsa e cripto", vendi: "Borsa e cripto", prestito: "Prestiti", restituisci: "Prestiti", ipoteca: "Ipoteche", riscatta: "Ipoteche",
+    // caselle speciali e Municipio
+    gala: "Gala", casino_reale: "Casinò Reale", roulette: "Roulette", municipio: "Municipio", licenza: "Licenze", busta_licenza: "Bustarelle", regalo_assessore: "Bustarelle",
+    // politica
+    campagna: "Campagna elettorale", candidati: "Candidatura",
+    // tra giocatori
+    articolo: "Gazzetta", regala: "Regali", contratto: "Contratti", rispondi_contratto: "Contratti", denuncia: "Denunce",
+    // notte: affari, soldi sporchi, contatti
+    occasione: "Affari della notte", ricettatore: "Ricettatore (merce rubata)", ballo: "Ballo in Maschera", ricicla: "Soldi ripuliti", ricicla_banca: "Soldi ripuliti",
+    corrompi: "Corruzione", scarica_contatto: "Corruzione", compra_oggetto: "Mercato Nero", chiamata: "Lavoretti al telefono", soffiata: "Soffiate", spa: "Notte",
+    // serate e carte
+    sm: "Sette e mezzo", carte: "Sette e mezzo", serata: "Serate", gioca_serata: "Serate", vai_serata: "Serate",
+    // setta
+    fonda_setta: "Setta", versa_setta: "Setta", lava_setta: "Setta: Lavanderia", rispondi_invito: "Setta", scava: "Setta", seppellisci: "Setta", tradisci: "Setta",
+    // Grandi Affari
+    offerta_grande: "Grandi Affari", quote_grande: "Grandi Affari", titolone: "Grandi Affari", tasso_banca: "Grandi Affari", blocca_conto: "Grandi Affari",
+  };
+  // lo stesso movimento, visto da chi lo riceve senza averlo fatto
+  const MOTIVO_ALTRI = {
+    tira: "Affitti e pedaggi incassati", offerta: "Aste", proponi_lotto: "Scambi di terreni", rispondi_proposta: "Scambi di terreni",
+    regala: "Regali ricevuti", rispondi_contratto: "Contratti", contratto: "Contratti",
+    sm: "Sette e mezzo", carte: "Sette e mezzo",
+    rispondi_invito: "Setta",
+  };
+  // Al Faro, di giorno, queste azioni contano come "la telefonata del turno" (una sola). Una riga per tema.
+  const AZIONI_TELEFONO_FARO = [
+    "investi", "vendi", "restituisci", "ipoteca", "riscatta",                       // banca e Borsa
+    "articolo", "contratto", "rispondi_contratto", "regala", "denuncia",            // tra giocatori
+    "versa_setta", "lava_setta", "proponi_opera", "vota_opera", "rispondi_invito", "invita_setta", "espelli_setta", "lascia_setta", // setta
+    "campagna", "legge", "tasse", "evasione",                                       // politica e tasse
+  ];
   function registraConti(s, idG, a, prima, ciclo0) {
     const alba = s.ciclo !== ciclo0;
     s.players.forEach((p, i) => {
@@ -3315,48 +3347,79 @@
   function applica0(s, idGiocatore, a) {
     if (s.fine && a.tipo !== "nulla") err("La partita è finita.");
     const p = giocatore(s, idGiocatore);
-    const giorniAzioniTelefono = ["investi", "vendi", "restituisci", "ipoteca", "riscatta", "articolo", "contratto", "rispondi_contratto", "regala", "versa_setta", "lava_setta", "proponi_opera", "vota_opera", "rispondi_invito", "invita_setta", "espelli_setta", "lascia_setta", "campagna", "legge", "tasse", "evasione", "denuncia"];
-    if (p.faro > 0 && s.fase === "giorno" && corrente(s).id === p.id && giorniAzioniTelefono.includes(a.tipo)) {
+    if (p.faro > 0 && s.fase === "giorno" && corrente(s).id === p.id && AZIONI_TELEFONO_FARO.includes(a.tipo)) {
       if (p.telefonataUsata === s.ciclo * 10 + s.giorno) err("Al Faro hai una sola telefonata per turno.");
       p.telefonataUsata = s.ciclo * 10 + s.giorno;
     }
+    // Un'azione per riga, raggruppate per tema: chi aggiunge un'azione la mette in fondo al gruppo del suo tema.
     switch (a.tipo) {
+      // ---- inizio e giorno: dadi, caselle, aste
       case "pacchetto": return scegliPacchetto(s, p, a.id);
       case "tira": return tira(s, p);
       case "viaggio_rapido": return viaggioRapido(s, p, a.idx);
       case "compra": return compra(s, p, !!a.si);
       case "agenzia": return agenzia(s, p, a.lotto);
-      case "proponi_lotto": return proponiLotto(s, p, a.a, a.lotto, a.prezzo, a.compro);
-      case "rispondi_proposta": return rispondiProposta(s, p, a.id, !!a.si, a.motivo);
-      case "licenza": return chiediLicenza(s, p);
-      case "busta_licenza": return bustaLicenza(s, p);
       case "offerta": return offerta(s, p, a.importo);
+      case "fine_turno": return fineTurno(s, p);
       case "gala": return gala(s, p, a.importo);
       case "casino_reale": return casinoReale(s, p, a.importo);
       case "municipio": return municipio(s, p, a.scelta);
+      case "chiamata": return rispondiChiamata(s, p, !!a.si, !!a.telefono);
+      // ---- scambi di terreni
+      case "proponi_lotto": return proponiLotto(s, p, a.a, a.lotto, a.prezzo, a.compro);
+      case "rispondi_proposta": return rispondiProposta(s, p, a.id, !!a.si, a.motivo);
+      // ---- costruire, Palazzo, lusso
+      case "permesso": return chiediPermesso(s, p, a.lotto);
+      case "regalo_assessore": return regaloAssessore(s, p, a.lotto);
       case "costruisci": return costruisci(s, p, a.lotto, a.attivita);
+      case "licenza": return chiediLicenza(s, p);
+      case "busta_licenza": return bustaLicenza(s, p);
       case "piano": return STANZE[a.funzione] ? compraStanza(s, p, a.funzione) : piano(s, p, a.quanti);
       case "stanza": return compraStanza(s, p, a.stanza);
-      case "offerta_grande": return offertaGrande(s, p, a.affare, a.importo);
-      case "quote_grande": return comprareQuote(s, p, a.affare, a.n);
-      case "titolone": return titolone(s, p, a);
-      case "tasso_banca": return tassoBanca(s, p, a.tasso);
-      case "blocca_conto": return bloccaConto(s, p, a.bersaglio);
-      case "ricicla_banca": return riciclaBanca(s, p, a.importo);
       case "veicolo": return compraVeicolo(s, p, a.veicolo);
+      // ---- banca, Borsa, tasse
       case "prestito": return prestito(s, p, a.importo);
       case "restituisci": return restituisci(s, p, a.importo);
       case "ipoteca": return ipoteca(s, p, a.lotto);
       case "riscatta": return riscatta(s, p, a.lotto);
       case "investi": return investi(s, p, a.cosa, a.nome, a.importo);
       case "vendi": return vendi(s, p, a.cosa, a.nome, a.quota);
-      case "fine_turno": return fineTurno(s, p);
-      case "permesso": return chiediPermesso(s, p, a.lotto);
-      case "regalo_assessore": return regaloAssessore(s, p, a.lotto);
-      case "chiamata": return rispondiChiamata(s, p, !!a.si, !!a.telefono);
+      case "evasione": p.evasione = clamp(a.quota || 0, 0, N.evasioneMax); return;
+      // ---- Grandi Affari
+      case "offerta_grande": return offertaGrande(s, p, a.affare, a.importo);
+      case "quote_grande": return comprareQuote(s, p, a.affare, a.n);
+      case "titolone": return titolone(s, p, a);
+      case "tasso_banca": return tassoBanca(s, p, a.tasso);
+      case "blocca_conto": return bloccaConto(s, p, a.bersaglio);
+      case "ricicla_banca": return riciclaBanca(s, p, a.importo);
+      // ---- tra giocatori: Gazzetta, contratti, regali, denunce
+      case "articolo": return s.fase === "notte" ? articolo2(s, p, a) : articolo(s, p, a.bersaglio, a.tono, a.importo, a.testo, !!a.sporchi);
+      case "contratto": return proponiContratto(s, p, a.contratto);
+      case "rispondi_contratto": return rispondiContratto(s, p, a.id, !!a.si);
+      case "regala": return regala(s, p, a.a, a.importo, !!a.sporchi);
+      case "denuncia": return denuncia(s, p, a.prova);
+      // ---- politica
+      case "candidati": return candidati(s, p);
+      case "campagna": return campagna(s, p, a.importo);
+      case "legge": return legge(s, p, a.legge, a.isola);
+      case "tasse": return tasse(s, p, a.quota);
+      // ---- notte: muoversi e orologio
       case "vai": return vai(s, p, a.luogo);
       case "aspetta": return aspetta(s, p);
       case "avanti": return avanti(s, p);
+      case "tempo_scaduto": return tempoScaduto(s);
+      case "pronto": case "torna_a_casa": return tornaACasa(s, p);
+      // ---- notte: affari, oggetti, contatti, soldi sporchi
+      case "occasione": return prendiOccasione(s, p, a.n, a.oggetti);
+      case "compra_oggetto": return compraOggetto(s, p, a.oggetto);
+      case "soffiata": return soffiata(s, p, a.luogo);
+      case "foto": return fotografa(s, p, a.bersaglio);
+      case "corrompi": return corrompi2(s, p, a.chi, a.isola, !!a.sporchi);
+      case "scarica_contatto": return scaricaContatto(s, p, a.chiave);
+      case "ricicla": return ricicla2(s, p, a.metodo, a.importo);
+      case "ricettatore": return ricettatore(s, p, a.importo);
+      case "ballo": return ballo(s, p);
+      // ---- notte: Palazzo, serate, carte, incontri
       case "attivita": return attivitaNotte(s, p, a.importo);
       case "spa": return spa(s, p);
       case "serata": return apriSerata(s, p, a.ingresso);
@@ -3365,48 +3428,29 @@
       case "sm": return mossaSM(s, p, a.mossa);
       case "incontro": return incontro(s, p, a.a, a.cosa, a.importo);
       case "rispondi_incontro": return rispondiIncontro(s, p, a.id, !!a.si);
-      case "tempo_scaduto": return tempoScaduto(s);
-      case "pronto": case "torna_a_casa": return tornaACasa(s, p);
-      case "compra_oggetto": return compraOggetto(s, p, a.oggetto);
-      case "soffiata": return soffiata(s, p, a.luogo);
-      case "occasione": return prendiOccasione(s, p, a.n, a.oggetti);
-      case "foto": return fotografa(s, p, a.bersaglio);
-      case "corrompi": return corrompi2(s, p, a.chi, a.isola, !!a.sporchi);
-      case "scarica_contatto": return scaricaContatto(s, p, a.chiave);
-      case "ricicla": return ricicla2(s, p, a.metodo, a.importo);
-      case "denuncia": return denuncia(s, p, a.prova);
+      // ---- setta
       case "fonda_setta": return fondaSetta(s, p, a.nome, a.motto);
       case "invita_setta": return invitaSetta(s, p, a.setta, a.invitato, a.offerta);
+      case "rispondi_invito": return rispondiInvito(s, p, a.setta, !!a.si, a.motivo);
       case "espelli_setta": return espelliSetta(s, p, a.setta, a.membro);
       case "lascia_setta": return lasciaSetta(s, p, a.setta);
-      case "chiudi_partita": return chiudiPartita(s, p, a.si !== false);
-      case "rispondi_invito": return rispondiInvito(s, p, a.setta, !!a.si, a.motivo);
       case "versa_setta": return versaSetta(s, p, a.setta, a.importo, !!a.sporchi);
-      case "recluta": return settaAlFaro(s, p, () => recluta(s, p, a.setta, a.chi));
-      case "msg_setta": return msgSetta(s, p, a.setta, a.testo);
-      case "seppellisci": return seppellisci(s, p, a.setta, a.importo, !!a.indietro);
-      case "scava": return scava(s, p, a.setta);
-      case "tradisci": return tradisci(s, p, a.setta);
-      case "proponi_opera": return proponiOpera(s, p, a.setta, a.opera);
-      case "ritira_opera": return ritiraOpera(s, p, a.setta);
-      case "vota_opera": return votaOpera(s, p, a.setta, !!a.si, a.motivo);
       case "lava_setta": return lavaSetta(s, p, a.setta, a.importo);
-      case "ricettatore": return ricettatore(s, p, a.importo);
-      case "ballo": return ballo(s, p);
-      case "prova_fedelta": return provaFedelta(s, p, a.setta, a.membro);
+      case "msg_setta": return msgSetta(s, p, a.setta, a.testo);
+      case "recluta": return settaAlFaro(s, p, () => recluta(s, p, a.setta, a.chi));
+      case "operazione": return settaAlFaro(s, p, () => operazione(s, p, a.setta, a.op, a.bersaglio, a.direzione));
       case "convoca": return convoca(s, p, a.setta, a.luogo, a.ora);
       case "rito": return rito(s, p, a.setta);
       case "jet_setta": return jetSetta(s, p, a.setta);
-      case "operazione": return settaAlFaro(s, p, () => operazione(s, p, a.setta, a.op, a.bersaglio, a.direzione));
-      case "articolo": return s.fase === "notte" ? articolo2(s, p, a) : articolo(s, p, a.bersaglio, a.tono, a.importo, a.testo, !!a.sporchi);
-      case "contratto": return proponiContratto(s, p, a.contratto);
-      case "rispondi_contratto": return rispondiContratto(s, p, a.id, !!a.si);
-      case "regala": return regala(s, p, a.a, a.importo, !!a.sporchi);
-      case "candidati": return candidati(s, p);
-      case "campagna": return campagna(s, p, a.importo);
-      case "legge": return legge(s, p, a.legge, a.isola);
-      case "tasse": return tasse(s, p, a.quota);
-      case "evasione": p.evasione = clamp(a.quota || 0, 0, N.evasioneMax); return;
+      case "seppellisci": return seppellisci(s, p, a.setta, a.importo, !!a.indietro);
+      case "scava": return scava(s, p, a.setta);
+      case "tradisci": return tradisci(s, p, a.setta);
+      case "prova_fedelta": return provaFedelta(s, p, a.setta, a.membro);
+      case "proponi_opera": return proponiOpera(s, p, a.setta, a.opera);
+      case "ritira_opera": return ritiraOpera(s, p, a.setta);
+      case "vota_opera": return votaOpera(s, p, a.setta, !!a.si, a.motivo);
+      // ---- partita
+      case "chiudi_partita": return chiudiPartita(s, p, a.si !== false);
       case "preferenze": if (a.corona !== undefined) p.vuoleCorona = !!a.corona; if (a.uscire !== undefined) p.vuoleUscire = !!a.uscire; return;
       default: err("Azione sconosciuta: " + a.tipo);
     }
@@ -3478,13 +3522,32 @@
     return v;
   }
 
+  // Cosa esce dal motore (window.Laguna nel browser, require() in Node, globalThis.Laguna sul server).
+  // Una riga per tema: chi aggiunge una funzione la mette nella riga del suo tema.
   const API = {
-    N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE,
+    // l'ingresso
+    nuovaPartita, applica, vista,
+    // numeri e tabelle del gioco
+    N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE, ORDINE_GRAVITA,
+    // tabellone e giorno
+    CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, casella, corrente, haSerie, propri, haAttivita, prezzoAgenzia, destinazioniRapide,
+    // soldi e valori
+    euro, giocatore, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
+    // Palazzo
+    costoPiano, costoPiani, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, livelloPalazzo, lustro,
+    // Grandi Affari e durata della partita
+    GRANDI, ORDINE_GRANDI, partitaLunga,
+    // notte: luoghi, oggetti, occasioni, scelte
+    ORE, LUOGHI, OGGETTI, OCCASIONI, PERICOLI, P_GUAI, TEMPO_ORA, occasioniVisibili, scelteNotte, oreViaggio, luogoAperto, livelloSblocco, postiValigetta,
+    personaggiQui, GIRO, rischioContatto, nomeContatto,
+    // carte e serate
+    punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso),
+    // polizia e pene
+    rischioResa, rischioPerquisizione, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
+    // setta
+    livelloSetta, influenzaDi, OPERE, costoOpera,
+    // scoperte e consigli
     SCOPERTE: SCOPERTE.map(({ id, gruppo, lv, nome, indizio, spiega }) => ({ id, gruppo, lv, nome, indizio, spiega })),
-    rischioResa, rischioPerquisizione, personaggiQui, GIRO, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
-    nuovaPartita, applica, vista, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti,
-    haSerie, propri, corrente, casella, livelloSetta, influenzaDi, OPERE, costoOpera, euro, giocatore,
-    ORE, LUOGHI, CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, prezzoAgenzia, destinazioniRapide, rischioContatto, nomeContatto, OGGETTI, OCCASIONI, PERICOLI, occasioniVisibili, scelteNotte, TEMPO_ORA, P_GUAI, ORDINE_GRAVITA, punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso), lustro, livelloPalazzo, livelloSblocco, postiValigetta, costoPiano, costoPiani, haAttivita, GRANDI, ORDINE_GRANDI, tassoPrestiti, partitaLunga, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, oreViaggio, luogoAperto,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Laguna = API;
