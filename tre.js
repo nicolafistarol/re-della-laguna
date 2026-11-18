@@ -7,7 +7,7 @@
 // =====================================================================
 import * as THREE from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
-import * as M3 from "./mondo3d.js?v=71";
+import * as M3 from "./mondo3d.js?v=72";
 
 // Il mondo modellato (isole, strada, ponti, mare) al posto della foto. ?foto = torna alla foto.
 // Normale: il DIORAMA = la foto stessa in rilievo. Il vecchio mondo a cubetti solo con ?mondo=3d.
@@ -73,7 +73,7 @@ export function avvia(mondo, mappaDom, urlMappa) {
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const geo = new THREE.PlaneGeometry(W, H, 320, 180);
   const matFoto = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.78 });
-  const texRil = new THREE.TextureLoader().load("img/rilievo.png?v=71b", (t) => {
+  const texRil = new THREE.TextureLoader().load("img/rilievo.png?v=72b", (t) => {
     // le altezze vanno nella geometria (cosi' le ombre e la luce sono vere) e servono ai pezzi
     const c = document.createElement("canvas"); c.width = t.image.width; c.height = t.image.height;
     const g = c.getContext("2d"); g.drawImage(t.image, 0, 0);
