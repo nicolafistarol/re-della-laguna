@@ -256,7 +256,12 @@ async function chiama(corpo) {
 let filaAzioni = Promise.resolve();
 // doppio clic: la stessa mossa ripetuta entro 1,2 secondi non parte due volte
 let ultimaAz = "", ultimaAzT = 0;
+// v75: prima di una mossa sporca, chi ha la Fedina pulita (2 o piu') riceve un avviso
+let saltaAvviso = false;
+function agisciSubito(azione) { saltaAvviso = true; return agisci(azione); }
 function agisci(azione) {
+  const salta = saltaAvviso; saltaAvviso = false;
+  if (!salta && S && azione && typeof conFedina === "function" && rischiaFedina(io()) && L.macchiaAzione && L.macchiaAzione(S, mioId, azione)) return conFedina(azione);
   const k = JSON.stringify(azione), ora = Date.now();
   if (k === ultimaAz && ora - ultimaAzT < 1200) return filaAzioni;
   ultimaAz = k; ultimaAzT = ora;
@@ -698,7 +703,7 @@ function disegna() {
   const cron = S.log.filter((r) => !/ tira \d( e \d)+\.$/.test(r.testo) && !(r.chi && r.chi !== mioId && PRIVATI.test(r.testo))).slice(-4);
   $("#radice").innerHTML = `
   <div class="hud-alto">
-    <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${notte ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · ha deciso" : " · decide…") : ""}</div></div></div>`).join("")}</div>
+    <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${(p.fedina || 0) >= 2 ? ` · <span class="fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">Fedina ${p.fedina}</span>` : ""}${notte ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · ha deciso" : " · decide…") : ""}</div></div></div>`).join("")}</div>
     <div class="fase vetro">${faseTesto}</div>
     <div class="saldo vetro">
       <div class="riga" style="justify-content:space-between"><span class="kick" style="color:var(--muted)">I tuoi soldi</span><button class="piccolo" id="occhio" style="padding:2px 8px">${saldoNascosto ? "Mostra" : "Nascondi"}</button></div>
@@ -738,7 +743,7 @@ function disegnaMappa(me, notte) {
     const c = casellaDi(me);
     const [mx, my] = puntoMappa(disp[mioId] || me);
     if (TRE3D) aggiorna3D(gruppi);
-    m.innerHTML = nomiIsole() + caselle + edifici() + torri() + `<svg class="scia" viewBox="0 0 100 56.25" preserveAspectRatio="none"></svg>` + pedine +
+    m.innerHTML = nomiIsole() + caselle + edifici() + torri() + segniMappa() + `<svg class="scia" viewBox="0 0 100 56.25" preserveAspectRatio="none"></svg>` + pedine +
       (c && !animando && S.fase === "giorno" ? `<div class="etichetta" style="left:${mx}%;top:${my}%"><b>${esc(c.nome)}</b>${c.isola ? `<span>${esc(L.NOMI_ISOLE[c.isola])}</span>` : ""}</div>` : "");
     return;
   }
@@ -1583,6 +1588,11 @@ const APPS = [
 // ogni messaggio arriva da una persona: stessa persona = stessa conversazione
 const MITTENTI = [
   [/^Vera:/, "Vera", ico("vera"), "#ff5fa2"],
+  [/^Lenz:/, "Il banchiere Lenz", ico("banca"), "#0f766e"],
+  [/^Vargas:/, "Il Commissario Vargas", ico("siren"), "#1e3a8a"],
+  [/^Il doganiere:|^Il doganiere/, "Il doganiere", ico("aereo"), "#0e7490"],
+  [/^L'agente/, "L'agente di quartiere", ico("siren"), "#2f6fe0"],
+  [/^Fascicolo su|esposto|Esposto|Inchiesta pubblicata|fascicolo|inchiesta su di te/, "Procura della Laguna", ico("tribunale"), "#8d1f2c"],
   [/numero sconosciuto|Squilla il telefono|Lavoretto fatto|Riattacchi/i, "Numero sconosciuto", ico("sconosciuto"), "#555"],
   [/^Municipio:|ottieni il permesso/i, "Municipio", ico("municipio"), "#5c7f99"],
   [/busta passa di mano/i, "L'assessore", ico("handshake"), "#7a5c2c"],
@@ -1664,7 +1674,10 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 74: ["<b>I Favori.</b> In un patto (app Contratti) ora puoi chiedere un Favore: un voto alle elezioni, un passaggio gratis sui suoi terreni, un silenzio, un appuntamento di notte. Il gioco lo fa rispettare.",
+const NOVITA = { 75: ["<b>I Servizi dei contatti.</b> Un poliziotto o un banchiere comprato ora ti fa un Servizio per Ciclo: una transenna sul tabellone, una retata dove vuoi tu, il conto di un rivale, un carico tenuto da parte. App Soldi sporchi, La tua rete.",
+  "<b>Attento all'umore.</b> Ogni Servizio rende il contatto più nervoso: più lo usi, prima gli Affari Interni arrivano a lui. E poi a te.",
+  "<b>La Fedina pulita.</b> Ogni Ciclo senza atti sporchi la fa crescere. A 2 puoi firmare un esposto, a 4 aprire un'inchiesta su un rivale, a 6 donare un'opera alla città. App Municipio, «Cittadino onesto».",
+  "<b>Basta un atto sporco</b> e la Fedina torna a zero. Prima di una mossa sporca il gioco te lo dice. La Fedina degli altri la vedi accanto al loro nome."], 74: ["<b>I Favori.</b> In un patto (app Contratti) ora puoi chiedere un Favore: un voto alle elezioni, un passaggio gratis sui suoi terreni, un silenzio, un appuntamento di notte. Il gioco lo fa rispettare.",
   "<b>I miei fili.</b> In Rubrica vedi chi ti deve un Favore e a chi lo devi tu. Chi rompe la parola perde fama, finisce sulla Gazzetta e per 2 Cicli nessuno si fida di lui.",
   "<b>Il ricatto.</b> Una Prova non serve solo a denunciare: dall'app Prove puoi mostrarla al rivale e chiedergli un Favore. È un reato grave: +6 Tracce subito.",
   "<b>Se ti ricattano</b> scegli: accetti, rifiuti, confessi (e fai il suo nome sulla Gazzetta) oppure, se hai una Prova su di lui, pari e patta."], 73: ["<b>Aste giuste.</b> Chi rinuncia non può più offrire, la base d'asta è il 60% del prezzo e le offerte si scoprono solo alla fine.",
@@ -1925,6 +1938,8 @@ function appAgenzia(me, miTurno) {
 function appMunicipio(me, miTurno) {
     return `<div class="scheda"><h4>Sindaco: ${S.sindaco ? esc(S.players.find((x) => x.id === S.sindaco).nome) : "nessuno"}</h4><span class="sub">Tasse al ${Math.round(S.tassa * 100)}%. Le elezioni sono ogni 2 Cicli: per candidarti serve fama 40, passando dal Municipio. Ci arrivi coi dadi o, a inizio turno, con il Viaggio rapido in taxi (${euro(L.N.taxiMunicipio)}).</span></div>
       ${S.candidati[mioId] !== undefined ? `<div class="scheda"><h4>Sei candidato</h4><div class="riga"><input id="campImp" type="number" placeholder="quanto" style="width:110px"><button class="piccolo" data-a2="campagna">Investi in campagna</button></div></div>` : ""}
+      ${S.sindaco === mioId && S.transenna ? `<div class="scheda"><h4>🚧 Una transenna in città</h4><span class="sub">Un agente ha messo un posto di blocco in ${esc((S.lotti.find((l) => l.giro === "o" && l.idx === S.transenna.pos) || {}).nome || "una via")}. Da Sindaco la fai togliere gratis, una volta per Ciclo, nel tuo turno.</span>${me.togliCiclo === S.ciclo ? `<span class="sub">In questo Ciclo l'hai già fatto.</span>` : `<button class="piccolo oro" data-a2="togliTransenna" ${mioTurnoGiorno() ? "" : "disabled"}>Fai togliere la transenna</button>`}</div>` : ""}
+      ${cittadinoOnesto(me)}
       ${S.sindaco === mioId ? `<div class="scheda"><h4>Sei il Sindaco</h4><div class="riga"><select id="leggeSel">${Object.entries(L.LEGGI).map(([kk, x]) => `<option value="${kk}">${esc(x.nome)}</option>`).join("")}</select><select id="leggeIsola">${L.ISOLE.map((i) => `<option value="${i}">${L.NOMI_ISOLE[i]}</option>`).join("")}</select><button class="piccolo" data-a2="legge">Firma</button></div><div class="riga">Tasse <select id="tasseSel">${[0.1, 0.15, 0.2, 0.25, 0.3].map((q) => `<option value="${q}" ${Math.abs(q - S.tassa) < 0.01 ? "selected" : ""}>${q * 100}%</option>`).join("")}</select><button class="piccolo" data-a2="tasse">Cambia</button></div></div>` : ""}
       <div class="scheda"><h4>La licenza del casinò</h4>${S.licenze.includes(mioId) ? `<span class="sub">Ce l'hai. Ora puoi aprire un casinò su un tuo terreno di Baia Flamingo o Isola Corona, e il Casinò privato nel tuo Palazzo.</span>`
         : `<span class="sub">Serve per aprire un casinò. Costa 500.000 € se approvata. Il Municipio può approvare, rimandare o negare: più fama hai, più è facile. Se ti fermi sulla casella del Municipio, allo sportello la ottieni sicura a 400.000 €.</span>
@@ -2056,12 +2071,172 @@ const PERSONAGGI = [
     fa: "Una notte il tuo carico al Porto vale il doppio. Ma lascia il doppio delle Tracce.", costo: "Niente: è lui a cercare te", come: "Appare ogni tanto: ti scrive un messaggio. Quella notte vai al Porto." },
 ];
 function volto(pg, grande) { return `<span class="volto ${grande ? "grande" : ""}" style="background:${pg.col}" title="${esc(pg.nome)}">${ico(pg.ico)}</span>`; }
+// v75: l'umore del contatto e il suo Servizio
+const UMORE = { tranquillo: ["tranquillo", "#7ee2a8"], teso: ["teso", "#f3c56b"], nervoso: ["nervoso: se continui, parlerà", "#ff9a6b"], inchiesta: ["sotto inchiesta: scaricalo o rischia", "#ff8a8a"] };
+function nomeBreveContatto(k) { return k.startsWith("agente_") ? "L'agente di " + L.NOMI_ISOLE[k.slice(7)] : k === "commissario" ? "Vargas" : k === "banchiere" ? "Lenz" : k === "doganiere" ? "Il doganiere" : k; }
+function mioTurnoGiorno() { const me = io(); return S.fase === "giorno" && mioTurno() && !S.pending && !me.faro; }
+function servizioHtml(me, k, c) {
+  const chi = k.startsWith("agente_") ? "agente" : k;
+  if (!L.SERVIZI || !L.SERVIZI[chi]) return "";
+  const nota = `<div class="sub" style="font-size:12px">Un Servizio per Ciclo. Ogni Servizio lo rende più nervoso.</div>`;
+  if (c.sospetto != null) return `<div class="sub">È sotto inchiesta: non risponde al telefono.</div>`;
+  const fatto = c.servizioCiclo === S.ciclo;
+  const ar = me.arrivi && me.arrivi.ciclo === S.ciclo ? me.arrivi : null;
+  if (chi === "doganiere" && fatto && ar) {
+    if (ar.riservato != null) { const x = ar.lista.find((y) => y.n === ar.riservato); return `<div class="sub">Il doganiere ti tiene da parte: <b>${esc(x ? x.nome : "un carico")}</b>${x ? ` (${esc(nomeLuogo(x.luogo))}, prima delle ${L.ORE[x.alle]})` : ""}.</div>`; }
+    if (!ar.lista.length) return `<div class="sub">Stanotte non arriva niente per te.</div>`;
+    return `<div class="sub">Stanotte arrivano:</div>${ar.lista.map((x) => `<div class="riga" style="justify-content:space-between;margin-top:3px"><span class="sub">${esc(x.nome)} · ${esc(nomeLuogo(x.luogo))}, ${L.ORE[x.dalle]}–${L.ORE[x.alle]}</span><button class="piccolo oro" data-dogn="${x.n}">Tienilo per me</button></div>`).join("")}`;
+  }
+  if (fatto) {
+    const cv = chi === "banchiere" ? Object.entries(me.contiVisti || {}).filter(([, v]) => v.ciclo === S.ciclo) : [];
+    return `<div class="sub">Questo Ciclo ti ha già fatto un Servizio.</div>${cv.map(([id, v]) => `<div class="sub">Lenz: ${esc(nomeDi(id))} ha circa ${v.puliti} M puliti e ${v.sporchi} M sporchi.</div>`).join("")}`;
+  }
+  if (chi === "agente") {
+    const pronto = S.ciclo - (c.dal || 0) >= 2;
+    return `<button class="piccolo oro" data-serv="agente|${k.slice(7)}" ${!pronto || !mioTurnoGiorno() || S.transennaCiclo === S.ciclo ? "disabled" : ""}>🚧 Metti una transenna</button>
+      <div class="sub" style="font-size:12px">${!pronto ? "L'agente non si fida ancora: deve passare un altro Ciclo." : S.transennaCiclo === S.ciclo ? "In questo Ciclo c'è già stata una transenna." : !mioTurnoGiorno() ? "Si mette nel tuo turno, di giorno." : "Tutti la vedono. Vale anche per te. Resta fino al tuo prossimo turno."}</div>${nota}`;
+  }
+  if (chi === "commissario") return `<button class="piccolo oro" data-serv="commissario" ${!mioTurnoGiorno() ? "disabled" : ""}>🚨 Sposta la retata</button><div class="sub" style="font-size:12px">${mioTurnoGiorno() ? "Stanotte quel posto è pieno di sbirri, per tutti." : "Si chiede nel tuo turno, di giorno."}</div>${nota}`;
+  if (chi === "banchiere") { const ok = S.fase === "giorno" || (S.fase === "notte" && !S.notteFatti[mioId]); return `<button class="piccolo oro" data-serv="banchiere" ${!ok ? "disabled" : ""}>🔎 Fammi vedere il conto</button>${nota}`; }
+  if (chi === "doganiere") { const ok = S.fase === "notte" && !S.notteFatti[mioId]; return `<button class="piccolo oro" data-serv="doganiere" ${!ok ? "disabled" : ""}>📦 Cosa arriva stanotte?</button><div class="sub" style="font-size:12px">${ok ? "È una telefonata: la fai da dove sei." : "Si chiama di notte."}</div>${nota}`; }
+  return "";
+}
+function finestraServizio(me, tipo, isola) {
+  const me2 = io();
+  if (tipo === "agente") {
+    const lotti = S.lotti.filter((l) => l.giro === "o" && l.tipoCasella === "lotto" && l.isola === isola && !S.players.some((q) => !q.fallito && !q.inner && q.pos === l.idx));
+    const ultimo = (S.giorno || 0) >= 3 && S.players.every((q, i) => i <= S.turno || q.fallito);
+    return finestra(`<span class="kick" style="color:var(--sporco)">🚧 L'agente di ${esc(L.NOMI_ISOLE[isola])}</span><h2>Dove metto la transenna?</h2>
+      <p>Chi si ferma lì viene controllato, come al Posto di blocco del Ponte Est. Chi la polizia tiene d'occhio viene fermato sempre.</p>
+      <div class="campo"><label for="trC">Casella</label><select id="trC">${lotti.map((l) => `<option value="${l.idx}">${esc(l.nome)}${l.owner ? " · di " + esc(nomeDi(l.owner)) : " · libera"}</option>`).join("")}</select></div>
+      <p class="sub">Tutti la vedono. Vale anche per te. Resta fino al tuo prossimo turno, o fino alla Notte.${ultimo ? " <b>È l'ultimo giro del giorno 4: con la Notte sparisce quasi subito.</b>" : ""}</p>
+      ${avvisoFedina(me2)}<p class="sub">+3 Tracce. L'agente diventa più nervoso.</p>
+      <div class="pulsanti"><button id="x">Lascia stare</button><button class="oro" id="ok" ${lotti.length ? "" : "disabled"}>Mettila</button></div>`, (d, c) => {
+      d.querySelector("#x").onclick = c;
+      d.querySelector("#ok").onclick = () => { c(); agisciSubito({ tipo: "servizio", chi: "agente", isola, pos: +d.querySelector("#trC").value }); };
+    });
+  }
+  if (tipo === "commissario") {
+    const luoghi = Object.keys(L.LUOGHI).filter((l) => l !== "palazzo");
+    return finestra(`<span class="kick" style="color:var(--sporco)">🚨 Il Commissario Vargas</span><h2>Dove la faccio, la retata?</h2>
+      <div class="campo"><label for="vL">Posto</label><select id="vL">${luoghi.map((l) => `<option value="${l}">${esc(L.LUOGHI[l].nome)}</option>`).join("")}</select></div>
+      <p class="sub">Stanotte quel posto è pieno di sbirri, per tutti. Anche per te. Nessuno lo legge sulla Gazzetta: chi arriva se ne accorge dagli indizi.</p>
+      ${avvisoFedina(me2)}<p class="sub">+4 Tracce. Vargas diventa più nervoso.</p>
+      <div class="pulsanti"><button id="x">Lascia stare</button><button class="oro" id="ok">Ordina</button></div>`, (d, c) => {
+      d.querySelector("#x").onclick = c;
+      d.querySelector("#ok").onclick = () => { c(); agisciSubito({ tipo: "servizio", chi: "commissario", luogo: d.querySelector("#vL").value }); };
+    });
+  }
+  if (tipo === "banchiere") {
+    const altri = S.players.filter((x) => x.id !== mioId && !x.fallito);
+    return finestra(`<span class="kick" style="color:var(--sporco)">🔎 Il banchiere Lenz</span><h2>Di chi vuoi vedere il conto?</h2>
+      <div class="campo"><label for="lB">Rivale</label><select id="lB">${altri.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select></div>
+      <p class="sub">Lui non lo saprà. Lenz ti dice quanti milioni ha, puliti e sporchi.</p>
+      ${avvisoFedina(me2)}<p class="sub">+2 Tracce. Lenz diventa più nervoso.</p>
+      <div class="pulsanti"><button id="x">Lascia stare</button><button class="oro" id="ok">Chiedi</button></div>`, (d, c) => {
+      d.querySelector("#x").onclick = c;
+      d.querySelector("#ok").onclick = () => { c(); agisciSubito({ tipo: "servizio", chi: "banchiere", bersaglio: d.querySelector("#lB").value }); };
+    });
+  }
+  if (tipo === "doganiere") return conFedina({ tipo: "servizio", chi: "doganiere" });
+}
 function laTuaRete(me) {
   const ks = Object.keys(me.corrotti || {});
   const DOVE = (k) => k.startsWith("agente_") ? "ti copre solo a " + L.NOMI_ISOLE[k.slice(7)] + " (rischio −40%)" : k === "commissario" ? "ti copre un po' ovunque (rischio −20%)" : k === "doganiere" ? "ti copre solo all'Aeroporto (rischio −50%)" : k === "banchiere" ? "i controlli sui tuoi conti trovano meno" : "";
-  return `<div class="scheda"><h4>La tua rete</h4>${ks.length ? ks.map((k) => { const c = me.corrotti[k], r = Math.round(L.rischioContatto(S, { ...me, tracce: 0 }, k) * 100);
-    return `<div style="margin-top:8px"><b>${esc(L.nomeContatto(k).replace(/^./, (x) => x.toUpperCase()))}</b><div class="sub">${DOVE(k)}.</div>${c.sospetto ? `<div class="sub" style="color:#ff8a8a;font-weight:700">Gli Affari Interni indagano su di lui: all'Alba può fare il tuo nome.</div>` : `<div class="sub">Rischio che gli Affari Interni lo scoprano: almeno ${r}% a Ciclo (sale più lo usi e più Tracce hai).</div>`}<button class="piccolo" data-scarica="${k}" style="margin-top:4px">Scaricalo</button></div>`; }).join("") : `<span class="sub">Nessun contatto comprato. Agenti e Vargas al Club Neon, Lenz al Casinò, il doganiere all'Aeroporto: guarda la Rubrica.</span>`}
+  return `<div class="scheda"><h4>La tua rete</h4>${ks.length ? ks.map((k) => { const c = me.corrotti[k], r = Math.round(L.rischioContatto(S, { ...me, tracce: 0 }, k) * 100), um = UMORE[(me.umoreContatti || {})[k] || (c.sospetto ? "inchiesta" : "tranquillo")] || UMORE.tranquillo;
+    return `<div class="contatto-rete" style="margin-top:8px"><b>${esc(L.nomeContatto(k).replace(/^./, (x) => x.toUpperCase()))}</b><div class="sub">${DOVE(k)}.</div><div class="sub" style="color:${um[1]};font-weight:700">${esc(nomeBreveContatto(k))}: ${esc(um[0])}</div>${c.sospetto ? `<div class="sub" style="color:#ff8a8a;font-weight:700">Gli Affari Interni indagano su di lui: all'Alba può fare il tuo nome.</div>` : `<div class="sub">Rischio che gli Affari Interni lo scoprano: almeno ${r}% a Ciclo (sale più lo usi, più Servizi gli chiedi e più Tracce hai).</div>`}<div style="margin-top:4px">${servizioHtml(me, k, c)}</div><button class="piccolo" data-scarica="${k}" style="margin-top:4px">Scaricalo</button></div>`; }).join("") : `<span class="sub">Nessun contatto comprato. Agenti e Vargas al Club Neon, Lenz al Casinò, il doganiere all'Aeroporto: guarda la Rubrica.</span>`}
     <div class="sub" style="margin-top:8px">Gli oggetti ti salvano quasi sempre, non sempre: circa 1 volta su 7 qualcosa va storto.</div></div>`;
+}
+// ------------------------------------------------------------ La Fedina pulita (v75)
+function rischiaFedina(me) { return !!me && (me.fedina || 0) >= 2 && !me.macchia; }
+function avvisoFedina(me) { return rischiaFedina(me) ? `<p class="avviso-rischio" style="color:#ffb3b3"><b>Attenzione: perdi la Fedina pulita (${me.fedina} Cicli).</b></p>` : ""; }
+function conFedina(a) {
+  const me = io();
+  if (!rischiaFedina(me) || !L.macchiaAzione || !L.macchiaAzione(S, mioId, a)) return agisciSubito(a);
+  finestra(`<span class="kick" style="color:var(--oro)">⚖️ Fedina pulita</span><h2>Sei sicuro?</h2>${avvisoFedina(me)}<p class="sub">Questa mossa è sporca. All'Alba la tua Fedina torna a zero e perdi i suoi poteri (esposto, inchiesta, opera pubblica).</p><div class="pulsanti"><button id="no">Ci ripenso</button><button class="oro" id="si">Lo faccio</button></div>`, (d, c) => {
+    d.querySelector("#no").onclick = () => { c(); disegnaTelefono(io()); };
+    d.querySelector("#si").onclick = () => { c(); agisciSubito(a); };
+  });
+  return filaAzioni;
+}
+const POTERI_F = [[2, "L'Esposto"], [4, "L'Inchiesta"], [6, "L'Opera pubblica"]];
+function rigaFedina(me) {
+  const f = me.fedina || 0, pros = POTERI_F.find(([n]) => f < n), manca = pros ? pros[0] - f : 0;
+  const perche = me.macchia ? "In questo Ciclo hai fatto una cosa sporca: all'Alba la Fedina torna a zero." : (me.sette || []).length ? "Sei in una setta: la Fedina resta a zero." : Object.keys(me.corrotti || {}).length ? "Hai contatti a libro paga: la Fedina resta a zero." : (me.evasione || 0) > 0 ? "Stai evadendo le tasse: la Fedina resta a zero." : "";
+  return `<div class="scheda fedina"><h4>⚖️ Fedina pulita: ${f} ${f === 1 ? "Ciclo" : "Cicli"}</h4>
+    <div class="tacche-fed">${POTERI_F.map(([n, nome]) => `<span class="${f >= n ? "piena" : ""}" title="${esc(nome)}"><b>${n}</b>${esc(nome.replace(/^L'/, ""))}</span>`).join("")}</div>
+    <span class="sub">${pros ? `Ancora ${manca} ${manca === 1 ? "Ciclo pulito" : "Cicli puliti"}: ${esc(pros[1])}.` : "Hai tutti i poteri della Fedina pulita (Municipio, «Cittadino onesto»)."}${perche ? ` <b style="color:#ffb3b3">${perche}</b>` : ""}</span></div>`;
+}
+const OPERA_ICO = { teatro: "🎭", parco: "🌳", scuola: "🏫" };
+function nomeOperaP(o) { const O = (L.OPERE_PUBBLICHE || {})[o.opera] || { nome: "Opera" }; return O.nome + (o.nome ? " " + o.nome : ""); }
+function cittadinoOnesto(me) {
+  const f = me.fedina || 0, turno = mioTurnoGiorno(), altri = S.players.filter((x) => x.id !== mioId && !x.fallito);
+  const grigio = (n, titolo) => `<div class="liv chiuso"><span class="liv-n">${n}</span><div><b>${titolo}</b><div class="sub" style="font-size:12px">Ti serve Fedina pulita ${n}.</div></div></div>`;
+  const nonTurno = turno ? "" : `<div class="sub" style="font-size:12px">Si fa nel tuo turno, di giorno.</div>`;
+  let esp, inc, op;
+  // l'esposto
+  if (f < 2) esp = grigio(2, "Firma un esposto");
+  else {
+    const luoghi = Object.keys(L.LUOGHI).filter((l) => l !== "palazzo" && l !== "faro");
+    let corpo;
+    if (S.esposto && S.esposto.da === mioId) corpo = `<span class="sub">Hai firmato: stanotte la polizia sarà a <b>${esc(nomeLuogo(S.esposto.luogo))}</b>.</span>`;
+    else if (me.espostoStop != null && me.espostoStop >= S.ciclo) corpo = `<span class="sub">Dopo l'allarme inutile, la polizia per ora non ti ascolta.</span>`;
+    else if (S.esposto && S.esposto.ciclo === S.ciclo) corpo = `<span class="sub">La polizia ha già una segnalazione per stanotte.</span>`;
+    else if (me.espostoCiclo === S.ciclo) corpo = `<span class="sub">In questo Ciclo hai già firmato un esposto.</span>`;
+    else corpo = `<div class="riga"><select id="espL">${luoghi.map((l) => `<option value="${l}">${esc(L.LUOGHI[l].nome)}</option>`).join("")}</select><button class="piccolo oro" data-a2="esposto" ${turno ? "" : "disabled"}>Firma un esposto</button></div>${nonTurno}`;
+    esp = `<div class="liv"><span class="liv-n" style="background:var(--oro);color:#111">2</span><div style="flex:1"><b>Firma un esposto</b><div class="sub" style="font-size:12px">Stanotte la polizia sarà lì. Se nessuno fa affari in quel posto, perdi 4 di fama e salti un Ciclo.</div>${corpo}</div></div>`;
+  }
+  // l'inchiesta
+  if (f < 4 && !me.fascicolo) inc = grigio(4, "Apri un'inchiesta");
+  else {
+    let corpo;
+    const fc = me.fascicolo;
+    if (fc) corpo = `<span class="sub">Fascicolo su <b>${esc(nomeDi(fc.su))}</b> · Albe passate: ${fc.albe} su 4.</span>${fc.indizi.length ? fc.indizi.map((x, i) => `<div class="sub" style="font-size:12px">Indizio ${i + 1}: ${esc(x.testo)}</div>`).join("") : `<div class="sub" style="font-size:12px">Ancora nessun indizio. Arrivano all'Alba.</div>`}${fc.indizi.length ? `<button class="piccolo oro" data-a2="pubblica" ${turno ? "" : "disabled"}>Pubblica</button>` : ""}${nonTurno}`;
+    else {
+      const ok = altri.filter((x) => !((me.inchiestaBlocco || {})[x.id] > S.ciclo));
+      corpo = ok.length ? `<div class="riga"><select id="incB">${ok.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><button class="piccolo oro" data-a2="inchiesta" ${turno ? "" : "disabled"}>Apri un'inchiesta</button></div>${nonTurno}` : `<span class="sub">Su tutti hai già indagato da poco.</span>`;
+    }
+    inc = `<div class="liv"><span class="liv-n" style="background:var(--oro);color:#111">4</span><div style="flex:1"><b>Apri un'inchiesta</b><div class="sub" style="font-size:12px">Ogni Alba un indizio vero, se c'è. Con due indizi pubblichi. Lui saprà che qualcuno indaga.</div>${corpo}</div></div>`;
+  }
+  // l'opera pubblica
+  if (f < 6 && !me.operaFatta) op = grigio(6, "Dona un'opera alla città");
+  else if (me.operaFatta) op = `<div class="liv"><span class="liv-n" style="background:#2e7d4f">✓</span><div><b>Dona un'opera alla città</b><div class="sub" style="font-size:12px">L'hai già fatto: una sola volta a partita.</div></div></div>`;
+  else {
+    const libere = L.ISOLE.filter((i) => !(S.opere || []).some((o) => o.isola === i));
+    op = `<div class="liv"><span class="liv-n" style="background:var(--oro);color:#111">6</span><div style="flex:1"><b>Dona un'opera alla città</b><div class="sub" style="font-size:12px">${euro(L.COSTO_OPERA_PUBBLICA || 3e6)}. L'isola vale di più per tutti. Sull'edificio c'è il tuo nome.</div>
+      ${libere.length ? `<div class="riga" style="flex-wrap:wrap"><select id="opI">${libere.map((i) => `<option value="${i}">${esc(L.NOMI_ISOLE[i])}</option>`).join("")}</select><select id="opT"><option value="teatro">Teatro</option><option value="parco">Parco</option><option value="scuola">Scuola</option></select><button class="piccolo oro" data-a2="opera" ${turno && me.cash >= (L.COSTO_OPERA_PUBBLICA || 3e6) ? "" : "disabled"}>Dona</button></div>${me.cash < (L.COSTO_OPERA_PUBBLICA || 3e6) ? `<div class="sub" style="font-size:12px;color:#ff9a9a">Non hai abbastanza soldi puliti.</div>` : ""}${nonTurno}` : `<span class="sub">Ogni isola ha già la sua opera.</span>`}</div></div>`;
+  }
+  const opere = (S.opere || []).map((o) => `<div class="sub" style="font-size:12px">${OPERA_ICO[o.opera] || "🏛️"} ${esc(nomeOperaP(o))} · ${esc(L.NOMI_ISOLE[o.isola])}${o.nome ? "" : " (targa tolta)"}</div>`).join("");
+  return `<div class="scheda ${f < 2 && !me.fascicolo ? "grigia" : ""}"><h4>⚖️ Cittadino onesto</h4><span class="sub">Fedina pulita: ${f} ${f === 1 ? "Ciclo" : "Cicli"}. ${f < 2 ? "Ti serve Fedina pulita 2." : "Poteri solo per chi è pulito."}</span>${esp}${inc}${op}${opere ? `<div style="margin-top:6px"><b class="sub">Le opere della città</b>${opere}</div>` : ""}</div>`;
+}
+function finestraPubblica(me) {
+  const fc = me.fascicolo; if (!fc || !fc.indizi.length) return;
+  const n = fc.indizi.length, e = L.effettoInchiesta(n), chi = nomeDi(fc.su);
+  finestra(`<span class="kick" style="color:var(--oro)">⚖️ Inchiesta</span><h2>Pubblichi l'inchiesta su ${esc(chi)}?</h2>
+    ${fc.indizi.map((x, i) => `<p class="sub">Indizio ${i + 1}: ${esc(x.testo)}</p>`).join("")}
+    <p>A ${esc(chi)}: <b>−${e.fama} fama</b>, +${e.tracce} Tracce${e.stato ? ", e la polizia sale di un gradino (mai fino al Processo)" : ""}.<br>A te: <b>+${e.mia} fama</b>.</p>
+    <p class="sub">${n < 2 ? "Con un indizio solo è un'accusa debole. Con due fa molto più male." : "Due indizi: è un'inchiesta vera."} È firmata: tutti sapranno che sei tu. Il suo Ufficio stampa non la ferma.</p>
+    <div class="pulsanti"><button id="x">Aspetto</button><button class="oro" id="ok">Pubblica</button></div>`, (d, c) => {
+    d.querySelector("#x").onclick = c;
+    d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "inchiesta_pubblica" }); };
+  });
+}
+function finestraOpera(me, isola, tipo) {
+  const O = (L.OPERE_PUBBLICHE || {})[tipo] || { nome: "Opera" };
+  finestra(`<span class="kick" style="color:var(--oro)">${OPERA_ICO[tipo] || "🏛️"} Un dono alla città</span><h2>${esc(O.nome)} ${esc(me.nome)} a ${esc(L.NOMI_ISOLE[isola])}?</h2>
+    <p>${euro(L.COSTO_OPERA_PUBBLICA || 3e6)} puliti. ${esc(L.NOMI_ISOLE[isola])} vale di più per tutti (affitti e rendite), tu prendi +8 fama. Sull'edificio c'è il tuo nome.</p>
+    <p class="sub">Si fa una volta sola a partita. Se un giorno ti condannano, l'opera resta ma la targa no.</p>
+    <div class="pulsanti"><button id="x">Ci penso</button><button class="oro" id="ok">Dona</button></div>`, (d, c) => {
+    d.querySelector("#x").onclick = c;
+    d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "opera_pubblica", isola, opera: tipo }); };
+  });
+}
+// sul tabellone: la transenna e le opere pubbliche (segni HTML: il 3D li mette al loro posto sulla foto)
+function segniMappa() {
+  let h = "";
+  if (S.transenna) { const [x, y] = puntoMappa({ pos: S.transenna.pos }); h += `<div class="segno-transenna" style="left:${x}%;top:${y}%" title="Transenna: chi si ferma qui viene controllato"><span>🚧</span><small>Transenna</small></div>`; }
+  for (const o of S.opere || []) { const p = NOMI_POS[o.isola]; if (!p) continue; h += `<div class="segno-opera" style="left:${p[0]}%;top:${p[1] + 4.5}%" title="${esc(nomeOperaP(o))}"><span>${OPERA_ICO[o.opera] || "🏛️"}</span><small>${esc(nomeOperaP(o))}</small></div>`; }
+  return h;
 }
 // ------------------------------------------------------------ I miei fili: Favori e ricatti (v74)
 const NOME_FAV = (t) => ((L.FAVORI || {})[t] || { nome: t }).nome;
@@ -2143,11 +2318,11 @@ function finestraRicatto(idx) {
   const chi = nomeDi(pr.su);
   finestra(`<span class="kick" style="color:var(--sporco)">${ico("maschera")} Usare una Prova</span><h2>Ricatti ${esc(chi)}?</h2>
     <p class="avviso-rischio" style="color:#ffb3b3">Ricattare è un reato GRAVE. Subito: +6 Tracce. Finché non è chiuso, la polizia ha una pista in più su di te. Se lui confessa: +25 Tracce a te e il tuo nome sulla Gazzetta. Una Prova vale un solo Favore.</p>
-    <p class="sub">Cosa vuoi da ${esc(chi)} in cambio del silenzio? Lui saprà che sei tu.</p>
+    <p class="sub">Cosa vuoi da ${esc(chi)} in cambio del silenzio? Lui saprà che sei tu.</p>${avvisoFedina(me)}
     <div class="scelte-ricatto">${Object.keys(L.FAVORI || {}).map((k) => `<button class="piccolo" data-rf="${k}"><b>${esc(NOME_FAV(k))}</b><span>${esc(SPIEGA_FAV(k))}</span></button>`).join("")}</div>
     <div class="pulsanti"><button id="x">Ci ripenso</button></div>`, (d, c) => {
     d.querySelector("#x").onclick = c;
-    d.querySelectorAll("[data-rf]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "ricatto", prova: idx, favore: b.dataset.rf }); });
+    d.querySelectorAll("[data-rf]").forEach((b) => b.onclick = () => { c(); agisciSubito({ tipo: "ricatto", prova: idx, favore: b.dataset.rf }); });
   });
 }
 function bannerMano() {
@@ -2207,7 +2382,7 @@ function appConti(me) {
   };
   const r = S.ultimaAlba && S.ultimaAlba.riepilogo && S.ultimaAlba.riepilogo[mioId];
   const voci = r ? [["Rendite (attività, Palazzo, mezzi)", r.rendite], ["Tasse", -r.tasse], ["Tasse evase (diventano sporchi)", -r.evasa], ["Decima alla setta", -r.decima], ["Interessi alla Banca", -r.interessi], ["Mance ai corrotti", -r.corruzione], ["Stipendio da Sindaco", r.stipendioSindaco], ["Dividendi", r.dividendo], ["Il Banchiere della setta ripulisce", r.banchiereSetta], ["Quota del Tesoro (Gran Maestro)", r.tesoroSetta], ["Isola della setta (sporchi)", r.isolaSetta], ["Merce del Ricettatore rivenduta (sporchi)", r.refurtiva]].filter(([, x]) => x) : [];
-  return `<div class="scheda"><span class="sub">Qui vedi <b>perché</b> i tuoi soldi salgono o scendono. Verde: entrate pulite. Rosso chiaro: soldi sporchi ("sp."). Rosso: uscite.</span></div>
+  return rigaFedina(me) + `<div class="scheda"><span class="sub">Qui vedi <b>perché</b> i tuoi soldi salgono o scendono. Verde: entrate pulite. Rosso chiaro: soldi sporchi ("sp."). Rosso: uscite.</span></div>
     ${blocco(S.ciclo, "Questo Ciclo (" + (S.ciclo + 1) + ")")}${S.ciclo > 0 ? blocco(S.ciclo - 1, "Il Ciclo prima (" + S.ciclo + ")") : ""}
     ${voci.length ? `<div class="scheda"><h4>L'ultima Alba, voce per voce</h4><table class="conti">${voci.map(([k, x]) => `<tr><td>${k}</td><td style="white-space:nowrap;color:${x > 0 ? "var(--pulito)" : "#ffb3b3"}">${x > 0 ? "+" : "−"} ${euro(Math.abs(x))}</td></tr>`).join("")}</table></div>` : ""}`;
 }
@@ -2233,6 +2408,13 @@ function collegaApp(me) {
   on("[data-permesso]", (b) => agisci({ tipo: "permesso", lotto: b.dataset.permesso }));
   on("[data-agenzia]", (b) => agisci({ tipo: "agenzia", lotto: b.dataset.agenzia }));
   on("[data-scarica]", (b) => agisci({ tipo: "scarica_contatto", chiave: b.dataset.scarica }));
+  on("[data-serv]", (b) => { const [chi, isola] = b.dataset.serv.split("|"); finestraServizio(me, chi, isola); });
+  on("[data-dogn]", (b) => agisci({ tipo: "servizio", chi: "doganiere", n: +b.dataset.dogn }));
+  on('[data-a2="togliTransenna"]', () => agisci({ tipo: "togli_transenna" }));
+  on('[data-a2="esposto"]', () => agisci({ tipo: "esposto", luogo: v("#espL") }));
+  on('[data-a2="inchiesta"]', () => agisci({ tipo: "inchiesta_apri", bersaglio: v("#incB") }));
+  on('[data-a2="pubblica"]', () => finestraPubblica(io()));
+  on('[data-a2="opera"]', () => finestraOpera(io(), v("#opI"), v("#opT")));
   on("[data-vai]", (b) => { telAperto = false; disegnaTelefono(me); chiediViaggio(me, b.dataset.vai); });
   on('[data-a2="licenza"]', () => agisci({ tipo: "licenza" }));
   on('[data-a2="bustaLicenza"]', () => agisci({ tipo: "busta_licenza" }));

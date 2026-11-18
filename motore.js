@@ -3982,7 +3982,9 @@
       case "evasione": return (Number(a.quota) || 0) > 0;
       case "articolo": case "regala": case "versa_setta": return !!a.sporchi;
       case "compra_oggetto": { const O = oggettoDef(a.oggetto); return !!(O && O.illegale) || (p.sporchi || 0) > 0; }
-      case "occasione": { const o = s.notte && s.notte.occasioni.find((x) => x.n === a.n); const O = o && OCCASIONI.find((x) => x.id === o.id); return !!(O && !O.legale); }
+      case "occasione": { const o = s.notte && s.notte.occasioni.find((x) => x.n === a.n); const O = o && OCCASIONI.find((x) => x.id === o.id); return !!(O && (!O.legale || (O.costo > 0 && (p.sporchi || 0) > 0))); }
+      // di notte si paga prima con gli sporchi (pagaMisto): anche 1 euro sporco macchia
+      case "attivita": case "spa": case "vai_serata": case "gioca_serata": case "incontro": case "rispondi_incontro": return (p.sporchi || 0) > 0 && (a.tipo !== "rispondi_incontro" || !!a.si);
       default: return false;
     }
   }
