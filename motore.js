@@ -49,7 +49,7 @@
     illegaleLivello: [1, 1, 1, 1, 1], // gli affari della notte valgono di piu' salendo di Livello (solo gen 2)
     astaBase: 0.6, // base d'asta: il 60% del prezzo del terreno. Sotto non si vende (vale per tutte le aste dei terreni)
     bonusIllegale: 1.4, // gli affari della notte rendono il 40% in piu': tanto premio, tanto rischio
-    borsaMu: 0.21, borsaSd: 0.16, criptoMu: 0.40, criptoSd: 0.50, criptoCrash: 0.12,
+    borsaMu: 0.21, dividendoInv: 0.04, borsaSd: 0.16, criptoMu: 0.40, criptoSd: 0.50, criptoCrash: 0.12,
     caricoBase: 350_000, caricoGrow: 150_000, caricoMax: 3_000_000, caricoMagazzino: 1.5,
     profittoBase: 0.65, tracceAffare: 10, coltoBase: 0.012, affariNotte: 2,
     intens: { prudente: [1.0, 0.5], normale: [1.4, 1.0], spavaldo: [2.0, 3.0] },
@@ -92,6 +92,7 @@
     terrenoInizialeMin: 350_000, // ECO-03: terreni iniziali di valore vicino
     // --- notte e affari illegali
     illegaleLivello: [1, 1, 1.5, 2.5, 4], // ECO-02
+    dividendoInv: 0.025,
     // --- polizia e pene
     // --- setta
     decimaMax: 1_000_000,  // ECO-06: la decima si paga solo sulle attivita', al massimo 1 M x livello della setta a ogni Alba
@@ -131,7 +132,7 @@
   const PACCHETTI = [
     { id: "commerciante", nome: "Il Commerciante", perk: "Tutti i tuoi affitti rendono il 25% in più.", extra: {} },
     { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 15% in meno. Il permesso del Palazzo è gratis.", extra: {} },
-    { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo del 4%.", extra: {} },
+    { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo (4%; nelle partite nuove 2,5%).", extra: {} },
     { id: "playboy", nome: "Il Playboy", perk: "+2 fama ogni Alba. Parti con il motoscafo (Viaggio rapido tra i Moli) e gli amici dello yacht.", extra: { veicolo: "motoscafo" } },
     { id: "contrabbandiere", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta.", extra: {} },
     { id: "politico", nome: "Il Politico", perk: "Parti con fama 20. Candidarti a Sindaco costa metà e la licenza del casinò è più facile (3 volte su 4 al primo colpo).", extra: { fama: 20 } },
@@ -3697,7 +3698,7 @@
       // sindaco
       if (s.sindaco === p.id) { p.cash += N.stipendioSindaco; r.stipendioSindaco = N.stipendioSindaco; }
       // vantaggi delle classi
-      if (p.pacchetto === "investitore") { const div = round(0.04 * Object.entries(p.azioni).reduce((t, [k, q]) => t + q * s.borsa[k], 0)); if (div > 0) { p.cash += div; r.dividendo = div; } }
+      if (p.pacchetto === "investitore") { const div = round(num(s, "dividendoInv") * Object.entries(p.azioni).reduce((t, [k, q]) => t + q * s.borsa[k], 0)); if (div > 0) { p.cash += div; r.dividendo = div; } }
       if (p.pacchetto === "playboy") p.fama += 2;
       if (p.pacchetto === "speculatore") for (const m of Object.keys(p.cripto)) p.cripto[m] *= 1.05;
       // debiti
