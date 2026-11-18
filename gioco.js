@@ -15,7 +15,7 @@ const LOCALE = location.search.includes("locale");  // ?locale = partita contro 
 // Se non arriva o non parte, si gioca lo stesso sulla foto piatta e un avviso dice il perché. ?cubetti = il vecchio mondo a cubetti, solo per confronto.
 let Tre = null, motivo3D = "", provato3D = false;
 const CUBETTI = location.search.includes("cubetti");
-import(CUBETTI ? "./cubetti.js?v=78" : "./tre.js?v=78").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
+import(CUBETTI ? "./cubetti.js?v=79" : "./tre.js?v=79").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
@@ -32,7 +32,7 @@ function avviso3D() {
   d.querySelector("#av3dSi").onclick = () => location.reload();
   d.querySelector("#av3dNo").onclick = () => { motivo3D = ""; d.remove(); };
 }
-import * as Loc from "./locale.js?v=78";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=79";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -1734,7 +1734,7 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 78: ["<b>Sentenza spiegata.</b> Quando ti condannano si apre una finestra grande: perché sei finito a Processo, quanto è grave la pena (e cosa l'ha alzata o abbassata), e ogni effetto uno per uno: cosa perdi, quanto e per quanto tempo. In fondo, in breve, come funzionano soldi sporchi e condanne.", "Puoi rileggere l'ultima sentenza dall'app Soldi sporchi, nella scheda «Le tue piste»."],
+const NOVITA = { 79: ["<b>Ripulire è un rischio.</b> Ogni volta che ripulisci soldi sporchi (Casinò, ShadowCoin, paradiso fiscale, la tua banca) la Finanza può scoprirti. Il rischio parte dal 3-6% e sale con la somma (+4% per ogni milione oltre il primo) e con quante volte hai ripulito negli ultimi 3 Cicli (+5% a volta), fino a un massimo del 50%. Lo vedi scritto prima di decidere.", "Se ti scopre: ti sequestra metà della somma, il resto resta sporco, +12 Tracce e l'indagine sale di un gradino. Il banchiere Lenz dalla tua parte abbassa il rischio. Somme piccole e pause tengono basso il pericolo."], 78: ["<b>Sentenza spiegata.</b> Quando ti condannano si apre una finestra grande: perché sei finito a Processo, quanto è grave la pena (e cosa l'ha alzata o abbassata), e ogni effetto uno per uno: cosa perdi, quanto e per quanto tempo. In fondo, in breve, come funzionano soldi sporchi e condanne.", "Puoi rileggere l'ultima sentenza dall'app Soldi sporchi, nella scheda «Le tue piste»."],
   77: ["<b>Chi esce dalla partita.</b> Accanto al nome di chi ha chiuso il gioco compare \"non collegato\". Se resta via più di 3 minuti, al suo posto gioca il computer e la partita va avanti; quando torna riprende lui.", "<b>Esci dalla partita</b> (in fondo al telefono) ora è vero: il tuo posto passa al computer e gli altri continuano. Chi ha creato la partita può anche far giocare subito il computer al posto di chi non c'è.", "<b>Sala d'attesa.</b> Chi esce dalla sala libera il suo posto; chi ha creato la partita vede chi non è collegato e può mettere il computer al suo posto."],
   76: ["<b>Viaggio rapido.</b> Ora si fa una volta ogni 2 Cicli e costa il carburante: motoscafo 100.000 €, elicottero 300.000 €, jet 600.000 €. Ti costa anche la mossa del giorno. Il taxi per il Municipio non c'è più: ti candidi a Sindaco allo sportello, o dal telefono pagando il doppio.",
   "<b>Il Timbro del Municipio</b> non si consuma più da solo: quando chiedi un permesso il gioco ti chiede se vuoi usarlo.",
@@ -2716,6 +2716,7 @@ function finestraSentenza(me, s) {
     <li><b>Gli affari sporchi</b> (di notte, al Mercato Nero, i ricatti…) pagano in <b>soldi sporchi</b> e lasciano <b>Tracce</b>.</li>
     <li><b>Le Tracce</b> fanno salire l'indagine di un gradino alla volta. All'Alba, chi è a <b>Processo</b> con un reato provato viene condannato; se non c'è un reato provato, il Giudice archivia.</li>
     <li><b>I soldi sporchi</b> non servono per le cose legali e a fine partita valgono solo un quarto. Si ripuliscono (Casinò Reale, Lavanderia della setta), ma anche ripulire lascia Tracce.</li>
+    <li><b>Ripulire è un rischio.</b> Ogni volta la Finanza può scoprirti: più grossa è la somma e più spesso ripulisci, più è facile (da 3% fino a 50%, lo vedi prima di decidere). Se ti scopre: metà sequestrata, +12 Tracce e un gradino in più verso il Processo.</li>
     <li><b>Per difenderti</b>: tieni basse le Tracce (cambia posto, fai Cicli puliti), compra l'Avvocato (−1 gradino), entra in una setta (−1 gradino), il Caveau salva fino a 5 M sporchi, lo Studio legale abbassa la multa.</li>
   </ol></details>`;
   return finestra(`<span class="kick" style="color:var(--sporco)">Sentenza · ${esc(s.gravita)}</span><h2>Il Giudice ti ha condannato</h2>
@@ -2902,11 +2903,28 @@ function finestraRicicla(me, paradiso) {
     <p>Hai ${euro(me.sporchi)} sporchi. ${paradiso ? "Un volo veloce in un paradiso fiscale: ne perdi il 30%." : "Al cambio fiches li fai passare per vincite. Con le tue attività di copertura ne perdi poco; senza, li cambi in ShadowCoin e ne perdi di più."}</p>
     ${paradiso ? "" : `<div class="campo"><label for="met">Come</label><select id="met"><option value="copertura">Con le mie attività di copertura (ancora ${euro(Math.max(0, L.copertura(S, me) - (me.copUsata || 0)))})</option><option value="shadow">Con ShadowCoin</option></select></div>`}
     <div class="campo"><label for="imp">Quanto</label><input id="imp" type="number" value="${Math.round(me.sporchi)}"></div>
+    <div class="ric-rischio" id="ricR"></div>
     ${boxReato((me.riciclTot || 0) > 8_000_000 ? "grave" : "lieve", [
       `Lascia Tracce: circa ${paradiso ? "0,2" : "0,4 (copertura) o 0,6 (ShadowCoin)"} ogni 100.000 € ripuliti.`,
       "Le tue attività di copertura attirano controlli: all'Alba aggiungono Tracce se stanotte hai ripulito.",
       `Oltre 8 milioni ripuliti in tutto il reato diventa Grave. Finora: ${euro(me.riciclTot || 0)}.`])}
-    <div class="pulsanti"><button id="x">Lascio stare</button><button class="notte" id="ok">Ripulisco</button></div>`, (d, c) => { d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "ricicla", metodo: paradiso ? "paradiso" : d.querySelector("#met").value, importo: Number(d.querySelector("#imp").value) }); }; });
+    <div class="pulsanti"><button id="x">Lascio stare</button><button class="notte" id="ok">Ripulisco</button></div>`, (d, c) => {
+    const met = () => paradiso ? "paradiso" : d.querySelector("#met").value;
+    const agg = () => { const box = d.querySelector("#ricR"); if (box) box.innerHTML = boxRischioRicicla(me, met(), Number(d.querySelector("#imp").value)); };
+    d.querySelector("#imp").oninput = agg; if (!paradiso) d.querySelector("#met").onchange = agg; agg();
+    d.querySelector("#x").onclick = c; d.querySelector("#ok").onclick = () => { c(); agisci({ tipo: "ricicla", metodo: met(), importo: Number(d.querySelector("#imp").value) }); }; });
+}
+// il rischio che la Finanza ti scopra mentre ripulisci, spiegato voce per voce (motore: rischioRicicla)
+function boxRischioRicicla(me, metodo, importo) {
+  if (!L.rischioRicicla) return "";
+  const q = L.quotaRicicla(S, me, metodo, importo);
+  if (q <= 0 && importo > 0 && metodo === "copertura") return `<div class="sent-box"><b>Le tue attività di copertura non possono ripulire altro stanotte.</b> <span class="sub">Scegli ShadowCoin, o apri locali di copertura (Lavanderia, Galleria, Magazzino, Casinò, Banca privata).</span></div>`;
+  const r = L.rischioRicicla(S, me, metodo, q), pc = Math.round(r.p * 100);
+  const col = pc >= 25 ? "var(--sporco)" : pc >= 12 ? "var(--oro)" : "var(--verde, #4a8)";
+  const voci = r.voci.map((v) => `<li>${esc(v.testo)}: ${v.p >= 0 ? "+" : "−"}${Math.round(Math.abs(v.p) * 100)}%</li>`).join("");
+  return `<div class="sent-box" style="border-color:${col}"><b style="color:${col}">Rischio che la Finanza ti scopra: ${pc}%</b>${q < importo ? ` <span class="sub">(stanotte ne passano ${euro(q)})</span>` : ""}
+    <ul style="margin:6px 0 4px;padding-left:18px;text-align:left;font-size:13px">${voci}</ul>
+    <div class="sub" style="font-size:12px">Se ti scoprono: ti sequestrano metà della somma (${euro(Math.round(q * L.N.ricSequestro))}), il resto resta sporco, +${L.N.ricScopertoTracce} Tracce e l'indagine sale di un gradino (a Processo arriva la condanna). Somme piccole e pause di qualche Ciclo tengono basso il rischio; massimo ${Math.round(L.N.ricRischioMax * 100)}%.</div></div>`;
 }
 function finestraCorrompi(me, chiGiro) {
   const club = chiGiro ? chiGiro !== "banchiere" : S.notte.dove[mioId] === "club" || S.notte.dove[mioId] === "palazzo";
@@ -3313,7 +3331,7 @@ function appAffare(me, k, t) {
     poteri = comm ? `<div class="scheda"><span class="sub" style="color:#ff9a9a">Sei indagato: la Finanza ha commissariato la tua banca. Niente poteri finché l'indagine non si calma.</span></div>` : `<h4 style="margin:12px 0 4px">I poteri della Banca</h4>
       <div class="tv-scelta"><b>${ico("soldi")} Il tasso dei prestiti degli altri: ${tasso}%</b><span class="sub">Più alto = più interessi per te e per chi ha quote; chi ha debiti paga di più (e magari restituisce prima). Si cambia una volta per Ciclo.</span><div class="riga">${[5, 10, 20].map((x) => `<button class="piccolo ${x === tasso ? "oro" : ""}" data-b-tasso="${x}" ${t.tassoCiclo === S.ciclo || x === tasso ? "disabled" : ""}>${x}%</button>`).join("")}</div></div>
       <div class="tv-scelta"><b>${ico("chiave")} Blocca un conto</b><span class="sub">Un rivale non può chiedere prestiti fino all'Alba. Una volta per Ciclo.</span><div class="riga"><select id="bBers" style="flex:1">${altri.map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join("")}</select><button class="oro" data-b-blocca="1" ${t.bloccoCiclo === S.ciclo ? "disabled" : ""}>Blocca</button></div></div>
-      ${(me.sporchi || 0) > 0 || S.sblocco >= 1 ? `<div class="tv-scelta"><b>${ico("ricicla")} Ripulisci nella tua banca</b><span class="sub">Perdi solo il 10%, fino a ${euro(G.riciclaMax)} per Ciclo (ti restano ${euro(restaRic)}). Ma la Finanza guarda i conti delle banche: lascia una pista sui soldi e tracce.</span><div class="riga"><input id="bRic" type="number" placeholder="quanto" style="flex:1"><button class="oro" data-b-ricicla="1" ${restaRic > 0 && me.sporchi > 0 ? "" : "disabled"}>Ripulisci</button></div></div>` : ""}`;
+      ${(me.sporchi || 0) > 0 || S.sblocco >= 1 ? `<div class="tv-scelta"><b>${ico("ricicla")} Ripulisci nella tua banca</b><span class="sub">Perdi solo il 10%, fino a ${euro(G.riciclaMax)} per Ciclo (ti restano ${euro(restaRic)}). Ma la Finanza guarda i conti delle banche: lascia una pista sui soldi e tracce.${L.rischioRicicla ? ` Rischio che ti scopra: ${Math.round(L.rischioRicicla(S, me, "banca", 1e6).p * 100)}% con 1 M, ${Math.round(L.rischioRicicla(S, me, "banca", 3e6).p * 100)}% con 3 M (metà sequestrata, +12 Tracce, un gradino d'indagine).` : ""}</span><div class="riga"><input id="bRic" type="number" placeholder="quanto" style="flex:1"><button class="oro" data-b-ricicla="1" ${restaRic > 0 && me.sporchi > 0 ? "" : "disabled"}>Ripulisci</button></div></div>` : ""}`;
   }
   const breve = k === "tv" ? `<div class="scheda in-breve"><h4>📺 In breve, cosa fa la TV</h4>
     <div class="ib"><b>1</b><span><b>Ti paga.</b> A ogni Alba la TV incassa ${euro(G.pubblicita)} di pubblicità più il 10% di tutto il lusso che comprano gli altri. Si divide per quote: con ${mie} ${mie === 1 ? "quota" : "quote"} su 10 ti arriva circa <b>${euro(Math.round(G.pubblicita * mie / 10))}</b> a ogni Alba, più la parte del lusso.</span></div>

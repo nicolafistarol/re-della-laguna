@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 78;
+  const VERSIONE_REGOLE = 79;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -56,7 +56,7 @@
     caricoBase: 350_000, caricoGrow: 150_000, caricoMax: 3_000_000, caricoMagazzino: 1.5,
     profittoBase: 0.65, tracceAffare: 10, coltoBase: 0.012, affariNotte: 2,
     intens: { prudente: [1.0, 0.5], normale: [1.4, 1.0], spavaldo: [2.0, 3.0] },
-    ricCopPerdita: 0.15, ricCopTracce: 0.4, shadowPerdita: 0.25, shadowTracce: 0.6,
+    ricCopPerdita: 0.15, ricCopTracce: 0.4, ricRischioMax: 0.5, ricSequestro: 0.5, ricScopertoTracce: 12, shadowPerdita: 0.25, shadowTracce: 0.6,
     evasioneMax: 0.30,
     indagineK: 100, scendi: 0.35, decayPulito: 0.20, decaySporco: 0.05,
     prot: { agente: 0.30, commissario: 0.50, max: 0.70 },
@@ -1001,6 +1001,7 @@
     if (importo <= 0) err("Quanto vuoi ripulire?");
     if (gia + importo > G.riciclaMax) err("Nella tua banca ripulisci al massimo " + euro(G.riciclaMax) + " per Ciclo (ti restano " + euro(G.riciclaMax - gia) + ").");
     if (p.sporchi < importo) err("Non hai " + euro(importo) + " sporchi.");
+    if (finanzaScopre(s, p, "banca", importo)) { g.riciclato = gia + importo; g.riciclatoCiclo = s.ciclo; p.ripulitiCiclo = (p.ripulitiCiclo || 0) + importo; return; }
     p.sporchi -= importo; p.cash += round(importo * 0.9); p.riciclTot = (p.riciclTot || 0) + importo; p.ripulitiCiclo = (p.ripulitiCiclo || 0) + importo;
     p.tracce += 4 * importo / 1_000_000; p.calSoldi = Math.min(10, (p.calSoldi || 0) + 0.8 * importo / 1_000_000); p.pulitoCiclo = false; p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "media");
     g.riciclato = gia + importo; g.riciclatoCiclo = s.ciclo;
@@ -1262,10 +1263,61 @@
     presentaContatto(s, p, chi);
     return true;
   }
+  // RISCHIO DEL RIPULIRE (v79): ogni volta che ripulisci la Finanza può scoprirti.
+  // Il rischio cresce con la somma (oltre 1 M) e con quante volte hai ripulito negli ultimi 3 Cicli.
+  const RIC_BASE = { copertura: 0.03, shadow: 0.06, paradiso: 0.04, banca: 0.05 };
+  function quotaRicicla(s, p, metodo, importo) {
+    const i = Math.max(0, Math.min(Math.floor(importo || 0), p.sporchi || 0));
+    if (metodo === "copertura") return Math.min(i, Math.max(0, copertura(s, p) - (p.copUsata || 0)));
+    if (metodo === "paradiso") return Math.min(i, 5_000_000);
+    return i;
+  }
+  function rischioRicicla(s, p, metodo, importo) {
+    const q = Math.max(0, importo || 0), base = RIC_BASE[metodo] ?? 0.05;
+    const volte = (p.storiaRicicla || []).filter((x) => x.ciclo >= s.ciclo - 2).length;
+    const voci = [{ testo: metodo === "copertura" ? "base con le attività di copertura" : metodo === "shadow" ? "base con ShadowCoin" : metodo === "paradiso" ? "base del paradiso fiscale" : "base della tua banca", p: base }];
+    if (q > 1_000_000) voci.push({ testo: "somma grossa (+4% per ogni milione oltre il primo)", p: 0.04 * (q - 1_000_000) / 1_000_000 });
+    if (volte) voci.push({ testo: "hai già ripulito " + volte + (volte === 1 ? " volta" : " volte") + " negli ultimi 3 Cicli (+5% a volta)", p: 0.05 * volte });
+    if ((p.calSoldi || 0) >= 0.5) voci.push({ testo: "la Finanza guarda già i tuoi conti", p: 0.02 * p.calSoldi });
+    let r = voci.reduce((a, v) => a + v.p, 0);
+    if (p.corrotti && p.corrotti.banchiere) { voci.push({ testo: "il banchiere Lenz ti copre (rischio × 0,6)", p: -r * 0.4 }); r *= 0.6; }
+    r = Math.min(N.ricRischioMax, Math.max(0, r));
+    return { p: r, voci, volte, q };
+  }
+  // tira il dado della Finanza; se va male: sequestro di metà, Tracce, un gradino in più d'indagine
+  function finanzaScopre(s, p, metodo, q) {
+    const r = rischioRicicla(s, p, metodo, q).p;
+    p.storiaRicicla = (p.storiaRicicla || []).filter((x) => x.ciclo >= s.ciclo - 2);
+    p.storiaRicicla.push({ ciclo: s.ciclo, q });
+    if (rng(s) >= r) return false;
+    const seq = round(q * N.ricSequestro);
+    p.sporchi -= seq; p.riciclTot = (p.riciclTot || 0) + q;
+    p.tracce += N.ricScopertoTracce; segnaTraccia(s, p, N.ricScopertoTracce, "il riciclaggio scoperto dalla Finanza");
+    p.calSoldi = Math.min(10, (p.calSoldi || 0) + 2);
+    p.stato = Math.min(4, (p.stato || 0) + 1);
+    p.ultimaPista = { k: "riciclaggio", testo: "La Finanza ti ha scoperto mentre ripulivi " + euro(q) + ".", ciclo: s.ciclo + 1 };
+    p.peggiorReato = peggio(p.peggiorReato, p.riciclTot > 8_000_000 ? "grave" : "media");
+    p.pulitoCiclo = false; p.macchia = true;
+    p.ricScoperto = { ciclo: s.ciclo, q, seq, rischio: r };
+    privato(s, p, "La Finanza ti ha scoperto (il rischio era " + Math.round(r * 100) + "%). Ti sequestrano " + euro(seq) + " sporchi, il resto lo riprendi ancora sporco. +" + N.ricScopertoTracce + " Tracce e l'indagine sale di un gradino: ora sei \"" + STATI[p.stato] + "\"." + (p.stato >= 4 ? " All'Alba c'è il Processo." : ""));
+    return true;
+  }
   function ricicla(s, p, metodo, importo) {
     inNotte(s, p);
     importo = Math.min(Math.floor(importo || 0), p.sporchi);
     if (importo <= 0) err("Non hai soldi sporchi da ripulire.");
+    if (metodo === "copertura" && copertura(s, p) - (p.copUsata || 0) <= 0) err("Le tue attività di copertura sono già piene per questo Ciclo.");
+    if (metodo === "shadow" && s.leggi.includes("giro_cripto")) err("ShadowCoin è bloccata dalla legge del Sindaco.");
+    if (metodo === "paradiso" && !p.veicoli.includes("jet")) err("Per il paradiso fiscale serve il jet.");
+    if (metodo === "paradiso" && p.paradisoCiclo === s.ciclo) err("Un solo viaggio per Ciclo.");
+    if (!["copertura", "shadow", "paradiso"].includes(metodo)) err("Metodo sconosciuto.");
+    { const q0 = quotaRicicla(s, p, metodo, importo);
+      if (finanzaScopre(s, p, metodo, q0)) {
+        if (metodo === "copertura") p.copUsata = (p.copUsata || 0) + q0;
+        if (metodo === "paradiso") p.paradisoCiclo = s.ciclo;
+        p.ripulitiCiclo = (p.ripulitiCiclo || 0) + q0;
+        return false;
+      } }
     if (metodo === "copertura") {
       const cap = copertura(s, p) - (p.copUsata || 0);
       if (cap <= 0) err("Le tue attività di copertura sono già piene per questo Ciclo.");
@@ -1290,6 +1342,7 @@
     segnaTraccia(s, p, metodo === "copertura" ? N.ricCopTracce * Math.min(importo, 5e6) / 100_000 : metodo === "shadow" ? N.shadowTracce * importo / 100_000 : 0.2 * Math.min(importo, 5e6) / 100_000, metodo === "paradiso" ? "il viaggio nel paradiso fiscale" : "i soldi ripuliti al Casinò Reale");
     p.pulitoCiclo = false; p.macchia = true;
     if (p.riciclTot > 8_000_000) p.peggiorReato = peggio(p.peggiorReato, "grave");
+    return true;
   }
   function spia(s, p, idBersaglio) {
     inNotte(s, p);
@@ -2358,10 +2411,11 @@
     if (metodo === "paradiso") qui(s, p, "palazzo", "Il viaggio nel paradiso fiscale (col jet)");
     else qui(s, p, "casino", "Ripulire i soldi");
     const prima = p.cash;
-    ricicla(s, p, metodo, importo);
-    if (metodo !== "paradiso" && haOggetto(p, "fiches")) { const bonus = round((p.cash - prima) * 0.1); p.cash += bonus; togliOggetto(p, "fiches"); }
+    const ok = ricicla(s, p, metodo, importo);
+    if (ok && metodo !== "paradiso" && haOggetto(p, "fiches")) { const bonus = round((p.cash - prima) * 0.1); p.cash += bonus; togliOggetto(p, "fiches"); }
     s.notte.chiuso[p.id] = true;
-    racconta(s, p, "Ripulisci " + euro(p.cash - prima) + ": ora sono soldi puliti.");
+    if (ok) racconta(s, p, "Ripulisci " + euro(p.cash - prima) + ": ora sono soldi puliti.");
+    else racconta(s, p, "Un uomo della Finanza ti mette una mano sulla spalla. Sequestrano " + euro(p.ricScoperto.seq) + " e ti segnano il nome: l'indagine sale di un gradino.");
     controllaOra(s);
   }
   function corrompi2(s, p, chi, isola, sporchi) {
@@ -2972,6 +3026,7 @@
     if (p.sporchi < importo) err("Non hai " + euro(importo) + " sporchi.");
     const resa = round(importo * 0.7); if (st.tesoro < resa) err("Il Tesoro non ha " + euro(resa) + " puliti da darti in cambio.");
     p.sporchi -= importo; st.tesoro += importo - resa; p.cash += resa; p.lavato = gia + importo; p.lavatoCiclo = s.ciclo;
+    p.storiaRicicla = (p.storiaRicicla || []).filter((x) => x.ciclo >= s.ciclo - 2); p.storiaRicicla.push({ ciclo: s.ciclo, q: importo, setta: true });
     p.tracce += 2 * importo / 1_000_000; p.riciclTot = (p.riciclTot || 0) + importo; p.pulitoCiclo = false; p.macchia = true;
     guadagnaInfluenza(s, st, importo / 1_000_000, "Lavanderia (" + p.nome + ")");
     privato(s, p, "La setta ha ripulito " + euro(importo) + ": a te " + euro(resa) + " puliti, " + euro(importo - resa) + " restano nel Tesoro.");
@@ -5192,7 +5247,7 @@
     punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso),
     // polizia e pene
     descriviPena, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, tacche, TETTO_SCONTI, MULTA_CONDANNA,
-    rischioResa, rischioPerquisizione, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
+    rischioResa, rischioPerquisizione, rischioRicicla, quotaRicicla, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     // setta
     livelloSetta, influenzaDi, OPERE, costoOpera,
     // scoperte e consigli

@@ -610,7 +610,7 @@ function grandiBot(o, i, n) {
               return { tipo: "occasione", n: m.n, oggetti: o };
             }
             if ("casino" === s && !l.ric && i.sporchi > 3e5)
-              return ((l.ric = !0), { tipo: "ricicla", metodo: t.copertura(o, i) > 0 ? "copertura" : "shadow", importo: i.sporchi });
+              return ((l.ric = !0), { tipo: "ricicla", metodo: t.copertura(o, i) > 0 ? "copertura" : "shadow", importo: Math.min(i.sporchi, 3e6) });
             if ("aeroporto" === s && ["Furbo", "Esperto"].includes(e) && !l.dog && !i.corrotti.doganiere && i.cash > 1.2e6)
               return ((l.dog = !0), { tipo: "corrompi", chi: "doganiere", isola: null });
             if ("club" === s && "Esperto" === e && !l.corr && !i.corrotti.agente_Sole && i.cash > 15e5)
