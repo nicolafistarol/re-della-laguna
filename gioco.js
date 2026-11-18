@@ -11,14 +11,14 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=67";
+import * as Tre from "./tre.js?v=68";
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
 let TRE3D = false;
 // chiave nuova: la vecchia scelta "2D" (laguna_3d) non conta piu', il diorama parte da solo
 function vuole3D() { try { return localStorage.getItem("laguna_vista") !== "piatta"; } catch (e) { return true; } }
 let AVVISO3D = false;
-import * as Loc from "./locale.js?v=67";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=68";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -148,7 +148,14 @@ async function chiama(corpo) {
 }
 // le mosse si mettono in fila: nessuna si perde se clicchi mentre la precedente sta ancora andando al server
 let filaAzioni = Promise.resolve();
-function agisci(azione) { filaAzioni = filaAzioni.then(() => inviaAzione(azione)).catch(() => { }); return filaAzioni; }
+// doppio clic: la stessa mossa ripetuta entro 1,2 secondi non parte due volte
+let ultimaAz = "", ultimaAzT = 0;
+function agisci(azione) {
+  const k = JSON.stringify(azione), ora = Date.now();
+  if (k === ultimaAz && ora - ultimaAzT < 1200) return filaAzioni;
+  ultimaAz = k; ultimaAzT = ora;
+  filaAzioni = filaAzioni.then(() => inviaAzione(azione)).catch(() => { }); return filaAzioni;
+}
 async function inviaAzione(azione) {
   if (LOCALE) { const r = Loc.azione(azione); if (r.errore) toast(r.errore); return caricaVista(); }
   attesa = true;
@@ -214,7 +221,7 @@ function schermataProvaLocale(seed) {
     schermoIngresso(`<div class="cartaI vetro" style="width:min(560px,94vw)">
       <span class="kick" style="color:var(--oro)">Prova da solo</span>
       <span class="serif" style="font-size:44px;line-height:1">Re della Laguna</span>
-      <span class="sub">Tu contro Rocco, Vera e Dario (giocatori-computer).</span>
+      <span class="sub">Tu contro Rocco, Greta e Dario (giocatori-computer).</span>
       <div class="campo"><label for="nomeLoc">Come ti chiami?</label><input id="nomeLoc" maxlength="24" placeholder="Scrivi il tuo nome" value="${esc(nomeLocale() === "Tu" ? "" : nomeLocale())}"></div>
       <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">${sceltaDurataHtml()}
         <label class="check"><input type="checkbox" id="princL" ${principianti ? "checked" : ""}> Partita guidata: Vera ti dà consigli e le cose si scoprono piano piano (consigliata la prima volta)</label></div>
@@ -2663,7 +2670,7 @@ function appAffare(me, k, t) {
     <div class="ib"><b>1</b><span><b>Ti paga.</b> A ogni Alba la Banca incassa ${euro(G.pubblicita)} più tutti gli interessi dei prestiti degli altri. Si divide per quote: con ${mie} ${mie === 1 ? "quota" : "quote"} su 10 ti arriva circa <b>${euro(Math.round(G.pubblicita * mie / 10))}</b> più la parte degli interessi.</span></div>
     <div class="ib"><b>2</b><span><b>Chi comanda decide:</b> il tasso dei prestiti degli altri (5%, 10% o 20%), può bloccare il conto di un rivale per un Ciclo e può ripulire soldi sporchi nella sua banca.</span></div>
     <div class="ib"><b>3</b><span><b>Il rischio:</b> se chi comanda finisce Indagato, la Finanza commissaria la banca: niente utili e niente poteri. E chi ha più quote ti ruba il comando.</span></div>
-    <span class="sub">Esempio: Vera ha un grosso debito → alzi il tasso al 20%: ogni Alba lei paga di più e quei soldi arrivano a chi ha le quote.</span></div>`;
+    <span class="sub">Esempio: Rocco ha un grosso debito → alzi il tasso al 20%: ogni Alba lui paga di più e quei soldi arrivano a chi ha le quote.</span></div>`;
   return testa + breve + quote + poteri;
 }
 function collegaTV(box, me) {

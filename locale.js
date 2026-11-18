@@ -40,7 +40,7 @@ function salva() { try { localStorage.setItem(CHIAVE, JSON.stringify(stato)); } 
 
 export function nuova(nome, seed, durata, guidata) {
   stato = L.nuovaPartita({
-    giocatori: [{ nome: nome || "Tu" }, { nome: "Rocco", bot: true, strat: "Furbo" }, { nome: "Vera", bot: true, strat: "Legale" }, { nome: "Dario", bot: true, strat: "Costruttore" }],
+    giocatori: [{ nome: nome || "Tu" }, { nome: "Rocco", bot: true, strat: "Furbo" }, { nome: "Greta", bot: true, strat: "Legale" }, { nome: "Dario", bot: true, strat: "Costruttore" }],
     seed, durata, principianti: guidata !== false, consigli: guidata !== false,
   });
   giocaBot(stato); salva();
