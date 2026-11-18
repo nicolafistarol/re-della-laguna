@@ -7,7 +7,7 @@
 // =====================================================================
 import * as THREE from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
-import * as M3 from "./mondo3d.js?v=70";
+import * as M3 from "./mondo3d.js?v=71";
 
 // Il mondo modellato (isole, strada, ponti, mare) al posto della foto. ?foto = torna alla foto.
 // Normale: il DIORAMA = la foto stessa in rilievo. Il vecchio mondo a cubetti solo con ?mondo=3d.
@@ -61,7 +61,7 @@ export function avvia(mondo, mappaDom, urlMappa) {
   scena.fog = new THREE.Fog("#0b2a3a", 170, 330);
 
   camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.5, 900);
-  camera.position.set(0, MONDO ? 112 : 128, MONDO ? 92 : 72);
+  camera.position.set(0, MONDO ? 112 : 160, MONDO ? 92 : 62);
 
   if (MONDO) {
     scena.background = new THREE.Color("#9fd3ea"); scena.fog = new THREE.Fog("#9fd3ea", 160, 360);
@@ -72,8 +72,8 @@ export function avvia(mondo, mappaDom, urlMappa) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const geo = new THREE.PlaneGeometry(W, H, 320, 180);
-  const matFoto = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, metalness: 0 });
-  const texRil = new THREE.TextureLoader().load("img/rilievo.png?v=70", (t) => {
+  const matFoto = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.78 });
+  const texRil = new THREE.TextureLoader().load("img/rilievo.png?v=71b", (t) => {
     // le altezze vanno nella geometria (cosi' le ombre e la luce sono vere) e servono ai pezzi
     const c = document.createElement("canvas"); c.width = t.image.width; c.height = t.image.height;
     const g = c.getContext("2d"); g.drawImage(t.image, 0, 0);
@@ -91,7 +91,19 @@ export function avvia(mondo, mappaDom, urlMappa) {
       vec4 sampledDiffuseColor = texture2D(map, uvM);
       diffuseColor *= sampledDiffuseColor;
       float onda = sin(vMapUv.x * 90.0 + vMapUv.y * 60.0 + tempo * 0.9) * sin(vMapUv.y * 110.0 - vMapUv.x * 40.0 - tempo * 0.7);
-      diffuseColor.rgb *= 1.0 + mm * onda * 0.035;`);
+      diffuseColor.rgb *= 1.0 + mm * onda * 0.035;
+      // ombre di nuvole che passano piano
+      vec2 q = vMapUv * vec2(3.0, 1.7) + vec2(tempo * 0.006, tempo * 0.0025);
+      float nuvola = sin(q.x * 6.3 + sin(q.y * 4.1)) * sin(q.y * 5.7 + sin(q.x * 3.3 + 1.7)) + 0.5 * sin(q.x * 13.1 - q.y * 9.3);
+      diffuseColor.rgb *= 1.0 - 0.1 * smoothstep(0.35, 1.1, nuvola);
+      // riflessi del sole sull'acqua, verso il sole in alto a sinistra
+      float verso = smoothstep(0.9, 0.0, distance(vMapUv, vec2(0.08, 0.92)));
+      float scintilla = 0.5 + 0.5 * sin(vMapUv.x * 140.0 + vMapUv.y * 90.0 + tempo * 0.8 + 3.0 * sin(vMapUv.y * 37.0 + tempo * 0.3));
+      diffuseColor.rgb *= 1.0 + mm * verso * pow(scintilla, 6.0) * 0.12;`);
+    sh.fragmentShader = sh.fragmentShader.replace("#include <emissivemap_fragment>", `
+      #ifdef USE_EMISSIVEMAP
+        totalEmissiveRadiance *= diffuseColor.rgb;
+      #endif`);
   };
   piano = new THREE.Mesh(geo, matFoto);
   piano.rotation.x = -Math.PI / 2; piano.receiveShadow = true; piano.castShadow = true;
@@ -100,9 +112,9 @@ export function avvia(mondo, mappaDom, urlMappa) {
   mare.rotation.x = -Math.PI / 2; mare.position.y = -0.05; scena.add(mare);
   }
 
-  luceAmb = new THREE.HemisphereLight("#fff6e5", "#0d3b4f", 1.25);
+  luceAmb = new THREE.HemisphereLight("#fff6e5", "#0d3b4f", MONDO ? 1.25 : 0.35);
   scena.add(luceAmb);
-  luceSole = new THREE.DirectionalLight("#ffe2b0", 1.6);
+  luceSole = new THREE.DirectionalLight("#ffe2b0", MONDO ? 1.6 : 0.55);
   luceSole.position.set(-60, 90, 40);
   luceSole.castShadow = true;
   luceSole.shadow.mapSize.set(2048, 2048);
@@ -171,7 +183,8 @@ export function apriVicino(x, y) {
     const ped = pedine.get(mioIdTre), u = ped.cur / nCas, p = M.curva.getPoint(u), tg = M.curva.getTangent(u).setY(0).normalize();
     camera.position.copy(p).sub(tg.clone().multiplyScalar(22)).setY(Q + 14); controlli.target.copy(p).add(tg.multiplyScalar(5)).setY(Q + 1); controlli.update(); return;
   }
-  const t = daMappa(x, y), dir = camera.position.clone().sub(controlli.target).multiplyScalar(0.62);
+  if (!MONDO) return; // sulla foto si parte dalla Laguna intera, come nell'immagine
+  const t = daMappa(x, y), dir = camera.position.clone().sub(controlli.target).multiplyScalar(0.9);
   camera.position.copy(t).add(dir); controlli.target.copy(t); controlli.update();
 }
 export function centraSu(x, y) {
@@ -184,9 +197,9 @@ export function centraSu(x, y) {
 export function impostaNotte(n) {
   if (!attivo || n === notte) return;
   notte = n;
-  luceAmb.intensity = n ? 0.32 : 1.25;
+  luceAmb.intensity = n ? 0.32 : MONDO ? 1.25 : 0.35;
   luceAmb.color.set(n ? "#8aa2ff" : "#fff6e5");
-  luceSole.intensity = n ? 0.25 : 1.6;
+  luceSole.intensity = n ? 0.25 : MONDO ? 1.6 : 0.55;
   luceSole.color.set(n ? "#7d8cff" : "#ffe2b0");
   const cielo = MONDO ? "#9fd3ea" : "#0b2a3a";
   scena.background.set(n ? "#050816" : cielo); scena.fog.color.set(n ? "#050816" : cielo);
@@ -269,6 +282,32 @@ function torre(colore, piani) {
   accendiFinestre(g, notte);
   return g;
 }
+function anelloPedina(colore) {
+  const g = new THREE.Group();
+  const a = new THREE.Mesh(new THREE.RingGeometry(0.6, 1.0, 40), new THREE.MeshBasicMaterial({ color: colore, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+  a.rotation.x = -Math.PI / 2; a.position.y = 0.1; g.add(a);
+  const b = new THREE.Mesh(new THREE.CircleGeometry(0.6, 32), new THREE.MeshBasicMaterial({ color: colore, transparent: true, opacity: 0.35, depthWrite: false }));
+  b.rotation.x = -Math.PI / 2; b.position.y = 0.09; g.add(b);
+  return g;
+}
+// sulla foto i Palazzi dei giocatori sono colonne di luce del loro colore: piu' piani = piu' alta
+const geoAlone = (() => { const g = new THREE.RingGeometry(0.55, 1.35, 40); return g; })();
+function texRaggio() {
+  const c = document.createElement("canvas"); c.width = 4; c.height = 128; const g = c.getContext("2d");
+  const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, "rgba(255,255,255,0)"); gr.addColorStop(0.7, "rgba(255,255,255,.55)"); gr.addColorStop(1, "rgba(255,255,255,1)");
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 128); const t = new THREE.CanvasTexture(c); return t;
+}
+let TEX_RAGGIO = null;
+function colonnaLuce(colore, piani) {
+  TEX_RAGGIO = TEX_RAGGIO || texRaggio();
+  const g = new THREE.Group(), h = Math.min(30, 4 + piani * 0.7);
+  const mat = new THREE.MeshBasicMaterial({ color: colore, map: TEX_RAGGIO, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  for (const r of [0.35, 0.8]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 20, 1, true), mat.clone()); m.material.opacity = r < 0.5 ? 0.9 : 0.35; m.position.y = h / 2; g.add(m); }
+  const base = new THREE.Mesh(geoAlone, new THREE.MeshBasicMaterial({ color: colore, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+  base.rotation.x = -Math.PI / 2; base.position.y = 0.08; base.scale.setScalar(1.3); g.add(base);
+  g.userData.raggio = true;
+  return g;
+}
 function pedina(colore) {
   const g = new THREE.Group();
   // colore pieno che si accende un po' da solo, cosi' la pedina si vede anche sopra gli edifici
@@ -298,22 +337,16 @@ export function aggiorna({ caselle, torri: tt, giocatori }) {
     svuota(gruppoBasi); svuota(gruppoEdifici); svuota(gruppoTorri);
     if (MONDO) disegnaLotti(caselle);
     else for (const c of caselle) {
-      const p = daMappa(c.x, c.y);
-      const base = new THREE.Mesh(geoBox, new THREE.MeshStandardMaterial({ color: c.spento ? "#2a2f3a" : c.colore, roughness: 0.6, transparent: !!c.spento, opacity: c.spento ? 0.35 : 1 }));
-      const grande = c.tipo === "angolo";
-      const hb = altezzaFoto(c.x, c.y);
-      base.scale.set(grande ? 3 : 2.2, 0.35, grande ? 3 : 2.2); base.position.set(p.x, hb + 0.17, p.z); base.receiveShadow = true; base.castShadow = true;
-      gruppoBasi.add(base);
-      if (c.proprietario && (c.livello > 0 || c.cantiere) && !c.spento) {
-        const e = edificio(c.proprietario, c.livello, c.cantiere);
-        // l'edificio sta un po' dietro la casella, cosi' non copre il prezzo
-        e.position.set(p.x, altSu({ x: p.x, z: p.z - 2.4 }) + 0.35, p.z - 2.4); gruppoEdifici.add(e);
-      }
+      if (!c.proprietario || c.spento) continue;
+      const p = daMappa(c.x, c.y), hb = altezzaFoto(c.x, c.y);
+      const alone = new THREE.Mesh(geoAlone, new THREE.MeshBasicMaterial({ color: c.proprietario, transparent: true, opacity: 0.55 + 0.08 * (c.livello || 0), blending: THREE.AdditiveBlending, depthWrite: false }));
+      alone.rotation.x = -Math.PI / 2; alone.position.set(p.x, hb + 0.06, p.z); alone.scale.setScalar(1 + 0.18 * (c.livello || 0)); alone.userData.pulsa = Math.random() * 6;
+      gruppoBasi.add(alone);
     }
     const perIsola = {};
     for (const t of tt) {
       if (t.spento) continue;
-      const m = torre(t.colore, t.piani);
+      const m = MONDO ? torre(t.colore, t.piani) : colonnaLuce(t.colore, t.piani);
       if (MONDO && M.centri[t.isola]) { const k = (perIsola[t.isola] = (perIsola[t.isola] || 0) + 1) - 1, c = M.centri[t.isola]; m.position.set(c.x + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 4.2, 0.9, c.z); }
       else { const p = daMappa(t.x, t.y); m.position.set(p.x, altezzaFoto(t.x, t.y), p.z); }
       gruppoTorri.add(m);
@@ -322,7 +355,7 @@ export function aggiorna({ caselle, torri: tt, giocatori }) {
   // pedine: create una volta, poi seguono la loro posizione
   for (const g of giocatori) {
     if (!pedine.has(g.id)) {
-      const m = MONDO ? auto(g.colore) : pedina(g.colore); scena.add(m);
+      const m = MONDO ? auto(g.colore) : anelloPedina(g.colore); scena.add(m);
       const p = daMappa(g.x, g.y); m.position.copy(p);
       pedine.set(g.id, { mesh: m, target: p.clone(), salto: 0, cur: g.pos || 0, goal: g.pos || 0 });
     }
@@ -490,6 +523,7 @@ function frame() {
   controlli.update();
   if (MONDO) return frameMondo();
   tempoMare.value = performance.now() / 1000;
+  for (const a of gruppoBasi.children) if (a.userData.pulsa != null) a.material.opacity = 0.45 + 0.2 * Math.sin(tempoMare.value * 2 + a.userData.pulsa);
   adattaVista();
   // le pedine seguono la pedina HTML (che il gioco sposta casella per casella) e saltano a ogni passo
   for (const [id, ped] of pedine) {
@@ -501,7 +535,7 @@ function frame() {
     ped.mesh.position.x += (ped.target.x - ped.mesh.position.x) * 0.25;
     ped.mesh.position.z += (ped.target.z - ped.mesh.position.z) * 0.25;
     ped.salto = Math.max(0, ped.salto - 0.07);
-    ped.mesh.position.y = altSu(ped.mesh.position) + Math.sin(ped.salto * Math.PI) * 1.4;
+    ped.mesh.position.y = altSu(ped.mesh.position) + Math.sin(ped.salto * Math.PI) * (MONDO ? 1.4 : 0.3);
   }
   renderer.render(scena, camera);
   proiettaHtml();
@@ -573,4 +607,5 @@ function proiettaHtml() {
   }
   contenitore.style.setProperty("--dist", dist.toFixed(1));
   contenitore.classList.toggle("vicino", dist < 55);
+  contenitore.classList.toggle("medio", dist < 95);
 }

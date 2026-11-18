@@ -590,3 +590,29 @@ details.opera{border-top:1px solid rgba(255,255,255,.1);padding:6px 0}details.op
 table.conti{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}table.conti td{padding:4px 2px;border-top:1px solid rgba(255,255,255,.08);vertical-align:top}table.conti td:last-child{text-align:right}table.conti tr.tot td{border-top:1px solid rgba(255,255,255,.3)}
 
 .esito-notte{margin:10px 0;padding:10px 12px;border-radius:14px;background:rgba(10,16,26,.72);border:1px solid rgba(255,255,255,.18);font-size:14px;display:flex;flex-direction:column;gap:4px}.esito-notte .esito-cifre{font-size:17px;font-weight:800}.esito-notte .pallino{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+
+/* ===== v71: il diorama pulito. Da lontano la foto si vede intera, con segnalini piccoli ===== */
+#mondo.tre:not(.medio) #mappa .cas .cn,#mondo.tre:not(.medio) #mappa .cas .livc{display:none}
+#mondo.tre:not(.medio) #mappa .cas.terreno i{min-width:0;width:11px;height:11px;padding:0;border-radius:50%;border:2px solid var(--serie,#fff);background:rgba(255,255,255,.85);box-shadow:0 0 0 1px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.5)}
+#mondo.tre:not(.medio) #mappa .cas.terreno i>*{display:none}
+#mondo.tre:not(.medio) #mappa .cas.terreno.pres i{width:14px;height:14px;background:var(--own);border:2px solid #fff;box-shadow:0 0 10px var(--own),0 0 0 1px rgba(0,0,0,.4)}
+#mondo.tre:not(.medio) #mappa .cas.spec i,#mondo.tre:not(.medio) #mappa .cas.lib i{width:20px;height:20px;border-width:1.5px;background:rgba(10,16,28,.78)}
+#mondo.tre:not(.medio) #mappa .cas.spec i .lic{width:11px;height:11px}
+#mondo.tre:not(.medio) #mappa .cas.lib i{width:9px;height:9px;opacity:.7}
+#mondo.tre:not(.medio) #mappa .cas.ang i{width:28px;height:28px}
+#mondo.tre:not(.medio) #mappa .cas.ang i .lic{width:15px;height:15px}
+#mondo.tre:not(.medio) #mappa .cas.ang .cn{display:block;font-size:10px;background:rgba(5,10,20,.6)}
+/* distanza media: i prezzi, ma piu' piccoli e senza nomi */
+#mondo.tre.medio:not(.vicino) #mappa .cas.terreno i{min-width:30px;height:20px;padding:0 4px 0 6px;border-left-width:4px;border-radius:5px}
+#mondo.tre.medio:not(.vicino) #mappa .cas.terreno em{font-size:10.5px}
+#mondo.tre.medio:not(.vicino) #mappa .cas .cn{display:none}
+#mondo.tre.medio:not(.vicino) #mappa .cas.spec i{width:26px;height:26px}
+#mondo.tre.medio:not(.vicino) #mappa .cas.spec i .lic{width:14px;height:14px}
+/* i segnalini sono di vetro: la foto resta protagonista */
+#mondo.tre #mappa .cas{opacity:.96;transition:opacity .2s}
+#mondo.tre #mappa .cas:hover{opacity:1;z-index:5000!important}
+#mondo.tre #mappa .cas:hover .cn{display:block!important}
+/* nomi delle isole: piu' eleganti, con un'ombra morbida invece del riquadro */
+#mondo.tre #mappa .isola-nome{text-shadow:0 2px 12px rgba(0,0,0,.85),0 0 2px rgba(0,0,0,.9);letter-spacing:.04em}
+/* cornice: un leggero vignettato caldo, come la foto */
+#mondo.tre::after{background:radial-gradient(ellipse at 30% 20%,rgba(255,190,120,.10),rgba(0,0,0,0) 45%),radial-gradient(ellipse at center,rgba(5,10,20,0) 62%,rgba(5,10,20,.5) 100%)!important}
