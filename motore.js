@@ -44,6 +44,9 @@
     costLvl: [0, 0.5, 0.5, 0.75, 1.0, 1.5], R: 0.95,
     moloFee: [0, 25_000, 50_000, 100_000, 200_000],
     pianoCost: 400_000, pianoGrow: 1.08, pianoRend: 0.62, pianiMax: 60, cantiereGrande: 6,
+    pianoRendGrow: 1.08, // di quanto cresce la RENDITA di ogni piano in piu' (gen 1: come il costo)
+    lussoRend: 1, permessoBollo: 0, decimaMax: 0, terrenoInizialeMin: 150_000,
+    illegaleLivello: [1, 1, 1, 1, 1], // gli affari della notte valgono di piu' salendo di Livello (solo gen 2)
     astaBase: 0.6, // base d'asta: il 60% del prezzo del terreno. Sotto non si vende (vale per tutte le aste dei terreni)
     bonusIllegale: 1.4, // gli affari della notte rendono il 40% in piu': tanto premio, tanto rischio
     borsaMu: 0.21, borsaSd: 0.16, criptoMu: 0.40, criptoSd: 0.50, criptoCrash: 0.12,
@@ -80,10 +83,18 @@
   // Vuoto finche' nessuno ne aggiunge: num(s, k) allora da' sempre N[k].
   const N_GEN2 = {
     // --- economia e Palazzo
+    pianoRendGrow: 1.05,   // ECO-01: la rendita dei piani cresce meno del loro costo (partite lunghe: centinaia di milioni, non miliardi)
+    borsaMu: 0.36,         // ECO-05: la Borsa rende circa il 12% a Ciclo: il posto sicuro per i soldi fermi
     // --- giorno: terreni, affitti, permessi
+    affLvl: [1, 3, 8, 16, 30, 50], // GIO-02: l'affitto cresce con l'attivita' (prima [1, 1, 4, 12, 26, 45])
+    lussoRend: 0.85,       // PT-13: Hotel e Boutique di lusso rendono il 15% in meno del Ristorante, ma danno fama a ogni Alba
+    permessoBollo: 0.05,   // il permesso e' sicuro ma si paga: 5% del prezzo del terreno (gratis se sei fermo sul Municipio)
+    terrenoInizialeMin: 350_000, // ECO-03: terreni iniziali di valore vicino
     // --- notte e affari illegali
+    illegaleLivello: [1, 1, 1.5, 2.5, 4], // ECO-02
     // --- polizia e pene
     // --- setta
+    decimaMax: 1_000_000,  // ECO-06: la decima si paga solo sulle attivita', al massimo 1 M x livello della setta a ogni Alba
   };
   // num(s, "chiave"): partita nuova -> il numero di N_GEN2 se c'e', altrimenti quello di N; partita vecchia -> sempre N.
   function num(s, k) { return gen2(s) && Object.prototype.hasOwnProperty.call(N_GEN2, k) ? N_GEN2[k] : N[k]; }
@@ -262,15 +273,40 @@
     const base = N.affVuoto * l.prezzo;
     if (l.lvl === 0) return round(base * (haSerie(s, owner, l.serie) ? 2 : 1) * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1));
     const t = ATTIVITA[l.tipo];
+    // partite nuove: l'affitto cresce di piu' con il livello, e il gruppo completo da' +50% anche alle attivita'
+    if (gen2(s)) return round(base * t.a * num(s, "affLvl")[l.lvl] * (haSerie(s, owner, l.serie) ? 1.5 : 1) * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1));
     return round(base * t.a * N.affLvl[l.lvl] * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1));
   }
   function rendita(s, l) {
     if (!l.tipo || l.lvl === 0 || l.chiuso > 0 || l.cantiere) return 0;
     const t = ATTIVITA[l.tipo];
     let r = N.R * t.r * N.rendLvl[l.lvl] * l.prezzo * vmult(s, l.isola);
+    if (gen2(s) && lussoFama(t)) r *= num(s, "lussoRend");
     if (l.ipoteca) r *= 0.5;
     return round(r);
   }
+  // Hotel e Boutique di lusso: nelle partite nuove rendono un po' meno ma danno fama a ogni Alba
+  function lussoFama(t) { return !!(t && t.lusso && t.gruppo === "reddito"); }
+  // quante vie di un gruppo ha un giocatore, e quante sono in tutto
+  function vieGruppo(s, p, serie) { const v = serieLotti(s, serie); return { mie: v.filter((l) => l.owner === p.id).length, tutte: v.length }; }
+  // Si puo' portare questo terreno al livello dopo? { ok, perche }
+  //   partite nuove: livello 3 con 2 vie su 3 del gruppo, livelli 4 e 5 con il gruppo intero. Partite vecchie: gruppo intero dal livello 3.
+  function puoSalire(s, p, l) {
+    const next = l.lvl + 1, g = vieGruppo(s, p, l.serie);
+    if (next > 5) return { ok: false, perche: "È già al livello massimo." };
+    if (next >= 3 && g.mie < g.tutte && !(gen2(s) && next === 3 && g.mie >= Math.min(2, g.tutte))) return { ok: false, perche: gen2(s) && next === 3 ? "Per il livello 3 servono almeno 2 vie del gruppo " + l.serie + " (ne hai " + g.mie + " su " + g.tutte + ")." : "Per il livello " + next + " serve tutto il gruppo " + l.serie + " (hai " + g.mie + " vie su " + g.tutte + ")." };
+    if (next === 5 && p.fama < 50) return { ok: false, perche: "Il livello Icona richiede fama 50 (ne hai " + p.fama + ")." };
+    return { ok: true, perche: "" };
+  }
+  // Le soglie dei Livelli del giocatore. Partite nuove: piu' basse nelle partite corte, piu' alte in quelle lunghe (ECO-04).
+  const SOGLIE_BASE = [0, 3_500_000, 7_000_000, 15_000_000, 40_000_000];
+  function soglieLivello(s) {
+    if (!gen2(s) || (s.modoFine || "cicli") !== "cicli") return SOGLIE_BASE;
+    const f = { 6: 0.6, 8: 0.75, 10: 0.9, 12: 1, 16: 1.5, 20: 2.5 }[s.cicli || N.cicli] || 1;
+    return SOGLIE_BASE.map((x) => round(x * f));
+  }
+  // di quanto valgono di piu' gli affari della notte per il Livello del giocatore (1 nelle partite vecchie)
+  function moltIllegale(s, p) { return num(s, "illegaleLivello")[Math.min(4, (p && p.livello) || 0)] || 1; }
   function copertura(s, p) {
     let c = 0;
     for (const l of propri(s, p)) if (l.tipo && !l.chiuso) c += ATTIVITA[l.tipo].c * l.prezzo * l.lvl;
@@ -297,7 +333,7 @@
   function nuovaPartita(opz) {
     const seed = (opz.seed ?? Math.floor(Math.random() * 1e9)) >>> 0;
     const s = {
-      versione: 1, gen: GEN, motoreNascita: VERSIONE, seed, rngState: seed, ciclo: 0, giorno: 0, fase: "pacchetti", turno: 0,
+      versione: 1, gen: opz.gen === 1 ? 1 : GEN, motoreNascita: VERSIONE, seed, rngState: seed, ciclo: 0, giorno: 0, fase: "pacchetti", turno: 0,
       ordine: [], players: [], lotti: [], valore: {}, borsa: {}, cripto: {}, sette: [], contratti: [], inviti: [],
       gazzetta: [], log: [], sindaco: null, candidati: {}, leggi: [], tassa: N.tassa, licenze: [],
       pending: null, notteFatti: {}, prossimoId: 1, principianti: !!opz.principianti, fine: false,
@@ -331,7 +367,7 @@
     s.ordine = s.players.map((_, i) => i).sort(() => rng(s) - 0.5);
     // scelta dei pacchetti: al contrario dell'ordine di gioco
     s.sceltaPacchetti = [...s.ordine].reverse();
-    s.pacchettiDisponibili = PACCHETTI.slice(0, Math.max(6, s.players.length)).map((p) => p.id);
+    s.pacchettiDisponibili = PACCHETTI.slice(0, gen2(s) ? PACCHETTI.length : Math.max(6, s.players.length)).map((p) => p.id); // partite nuove: sempre tutte e 8 le storie
     log(s, "Partita creata. Ordine dei turni: " + s.ordine.map((i) => s.players[i].nome).join(", ") + ".");
     return s;
   }
@@ -368,7 +404,7 @@
   // ogni giocatore riceve un terreno a sorte; chi ne riceve uno più economico ha la differenza in contanti
   function terreniIniziali(s) {
     const TETTO = 600_000;
-    const pool = s.lotti.filter((l) => l.tipoCasella === "lotto" && !l.owner && l.prezzo >= 150_000 && l.prezzo <= TETTO);
+    const pool = s.lotti.filter((l) => l.tipoCasella === "lotto" && !l.owner && l.prezzo >= num(s, "terrenoInizialeMin") && l.prezzo <= TETTO);
     for (const p of s.players) {
       const i = Math.floor(rng(s) * pool.length); const l = pool.splice(i, 1)[0]; if (!l) continue;
       const tipo = ["ristorante", "hotel", "uffici", "boutique"].find((k) => ATTIVITA[k].isole.includes(l.isola));
@@ -680,8 +716,7 @@
       nuovoTipo = tipo;
     } else if (tipo && tipo !== l.tipo) err("Non si può cambiare tipo di attività: qui c'è già " + ATTIVITA[l.tipo].nome + ".");
     const next = l.lvl + 1;
-    if (next >= 3 && !haSerie(s, p, l.serie)) err("Per il livello " + next + " serve la serie completa.");
-    if (next === 5 && p.fama < 50) err("Il livello Icona richiede fama 50.");
+    { const ps = puoSalire(s, p, l); if (!ps.ok) err(ps.perche); }
     const costo = costoCantiere(s, p, l).costo;
     if (p.cash < costo) err("Ti servono " + euro(costo) + " puliti.");
     p.cash -= costo; l.cantiere = { tipo: nuovoTipo, lvl: next }; l.permesso = false; p.azioneGiornoFatta = true;
@@ -733,9 +768,10 @@
   const SOVRAPPREZZO_PIANI = [1, 1.5, 2]; // piu' piani nella stessa mossa: il 2° e il 3° costano di piu'
   function stanzeDi(p) { if (!p.stanze) p.stanze = (p.funzioniPiani || []).filter((f) => STANZE[f]); return p.stanze; }
   function fasciaPalazzo(n) { return FASCE_PALAZZO.reduce((r, f, i) => (n >= f.da ? i : r), 0); }
-  function baseRendPiano(i) { return N.pianoCost * Math.pow(N.pianoGrow, i) * N.pianoRend * FASCE_PALAZZO[fasciaPalazzo(i + 1)].rend; }
-  function renditaPiani(n) { let r = 0; for (let i = 0; i < n; i++) r += baseRendPiano(i); return round(r); }
-  function renditaPalazzo(p) { let r = renditaPiani(p.piani); for (const f of stanzeDi(p)) r += STANZE[f].rendita || 0; return round(r); }
+  // ATTENZIONE: passare sempre la partita (s). Senza s si ottengono i numeri delle partite vecchie.
+  function baseRendPiano(i, s) { return N.pianoCost * Math.pow(num(s, "pianoRendGrow"), i) * N.pianoRend * FASCE_PALAZZO[fasciaPalazzo(i + 1)].rend; }
+  function renditaPiani(n, s) { let r = 0; for (let i = 0; i < n; i++) r += baseRendPiano(i, s); return round(r); }
+  function renditaPalazzo(p, s) { let r = renditaPiani(p.piani, s); for (const f of (p.stanze || (p.funzioniPiani || []).filter((x) => STANZE[x]))) r += STANZE[f].rendita || 0; return round(r); }
   function costoPiano(p) { return costoPiani(p, 1); }
   function costoPiani(p, quanti) {
     let c = 0;
@@ -1307,10 +1343,10 @@
   const P_GUAI = [0.10, 0.30, 0.55];
 
   // Il livello di ogni giocatore sale con i soldi: piu' sei ricco, piu' cose si aprono (non si torna indietro)
-  const SOGLIE_LIVELLO = [0, 3_500_000, 7_000_000, 15_000_000, 40_000_000];
+  const SOGLIE_LIVELLO = SOGLIE_BASE;
   function livelloPersonale(s, p) {
-    const pat = patrimonio(s, p, true);
-    let lv = 0; for (let i = 0; i < SOGLIE_LIVELLO.length; i++) if (pat >= SOGLIE_LIVELLO[i]) lv = i;
+    const pat = patrimonio(s, p, true), SG = soglieLivello(s);
+    let lv = 0; for (let i = 0; i < SG.length; i++) if (pat >= SG[i]) lv = i;
     if (lv > 3 && !partitaLunga(s)) lv = 3; // il Livello 4 esiste solo nelle partite lunghe
     if (lv > (p.livello || 0)) p.livello = lv;
     return p.livello || 0;
@@ -2050,7 +2086,7 @@
     if (dovePersonaggio(s, "commissario") === o.luogo && !p.corrotti.commissario) pg *= 1.35; // il Commissario e' qui stanotte
     if (o.luogo === "porto" && operaAttiva(s, p, "porto")) pg = 0; // Grande Opera: il Porto e' della setta
     const guaio = O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
-    let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale : 0;
+    let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p) : 0;
     if (guaio) {
       const G = PERICOLI[guaio];
       const salvatore = usati.find((id) => (OGGETTI[id].salva || []).includes(guaio)) || (guaio === "guardia" && haOggetto(p, "motoscafo") ? "motoscafo" : null) || (guaio === "pattuglia" && haOggetto(p, "furgone") ? "furgone" : null);
@@ -2191,15 +2227,49 @@
     if (l.lvl >= 5) err("Il lotto è già al massimo.");
     const turno = s.ciclo * 100 + s.giorno * 10 + s.turno;
     if (p.permessoTurno === turno) err("Al Municipio si va una volta per turno.");
-    p.permessoTurno = turno;
     const primo = s.principianti && !p.primoPermesso;
+    if (gen2(s)) return permessoSicuro(s, p, l, primo, turno);
+    p.permessoTurno = turno;
     p.primoPermesso = true;
     const x = primo ? 0 : rng(s);
+    p.esitoPermesso = { n: (s.nPermessi = (s.nPermessi || 0) + 1), lotto: l.id, esito: x < 0.55 ? "approvato" : x < 0.85 ? "rimandato" : "negato", motivo: "", bollo: 0 };
     if (x < 0.55) { l.permesso = true; l.negato = false; log(s, p.nome + " ottiene il permesso per costruire in " + l.nome + ".", p.id); return "approvato"; }
     if (x < 0.85) { privato(s, p, "Municipio: la tua pratica per " + l.nome + " è rimandata. Riprova al prossimo turno."); return "rimandato"; }
     l.negato = true;
     privato(s, p, "Municipio: permesso negato per " + l.nome + ". L'assessore però ha fatto capire che \"si può sempre parlare\".");
     return "negato";
+  }
+  // PERMESSI NELLE PARTITE NUOVE: niente esito a caso. Paghi il bollo e il permesso e' approvato.
+  // Viene rimandato solo per un motivo scritto PRIMA (motivoRinvio): sei Indagato (o al Processo). Allora resta la busta all'assessore.
+  // Gratis: il primo permesso della partita guidata, e tutti i permessi chiesti nel turno in cui sei fermo sul Municipio.
+  function bolloPermesso(s, p, l) {
+    if (!gen2(s) || p.municipioOggi || (s.principianti && !p.primoPermesso)) return 0;
+    return Math.max(10_000, round(l.prezzo * num(s, "permessoBollo")));
+  }
+  function motivoRinvio(s, p) {
+    if (!gen2(s)) return null;
+    if ((p.stato || 0) >= 3) return { k: "indagine", testo: "Sei " + STATI[Math.min(4, p.stato)] + ": finché c'è l'indagine il Municipio tiene ferme le tue pratiche." };
+    return null;
+  }
+  // cosa succede se chiedi il permesso adesso: { bollo, sicuro, rinvio: null | { k, testo }, gratisPerche }
+  function infoPermesso(s, p, l) {
+    const rinvio = motivoRinvio(s, p), bollo = bolloPermesso(s, p, l);
+    return { bollo, sicuro: gen2(s) && !rinvio, rinvio, gratisPerche: !gen2(s) ? "" : p.municipioOggi ? "sei al Municipio di persona" : bollo === 0 ? "è il tuo primo permesso" : "" };
+  }
+  function permessoSicuro(s, p, l, primo, turno) {
+    const rinvio = primo ? null : motivoRinvio(s, p), bollo = bolloPermesso(s, p, l);
+    const n = (s.nPermessi = (s.nPermessi || 0) + 1);
+    if (rinvio) {
+      p.permessoTurno = turno; l.negato = true; p.esitoPermesso = { n, lotto: l.id, esito: "rimandato", motivo: rinvio.testo, bollo: 0 };
+      privato(s, p, "Municipio: la pratica per " + l.nome + " è RIMANDATA. " + rinvio.testo + " Non hai pagato niente. L'assessore però fa capire che con una busta si può parlare (lascia Tracce).");
+      return "rimandato";
+    }
+    if (p.cash < bollo) err("Il permesso costa " + euro(bollo) + " di bollo (il " + Math.round(num(s, "permessoBollo") * 100) + "% del prezzo del terreno).");
+    p.permessoTurno = turno; p.primoPermesso = true;
+    p.cash -= bollo; if (bollo) flusso(s, p, null, bollo, "Permesso per " + l.nome, false);
+    l.permesso = true; l.negato = false; p.esitoPermesso = { n, lotto: l.id, esito: "approvato", motivo: "", bollo };
+    log(s, p.nome + " ottiene il permesso per costruire in " + l.nome + (bollo ? " (bollo " + euro(bollo) + ")" : "") + ".", p.id);
+    return "approvato";
   }
   // Agenzia immobiliare (app del telefono): una volta per turno compri un terreno libero
   // dell'isola dove sei, anche senza fermarti sopra. Costa il 20% in più (prezzo pieno se sei passato da un'Agenzia).
@@ -2232,6 +2302,13 @@
     const turno = s.ciclo * 100 + s.giorno * 10 + s.turno;
     if (p.licenzaTurno === turno) err("La domanda di licenza si fa una volta per turno.");
     p.licenzaTurno = turno;
+    if (gen2(s)) { // partite nuove: licenza sicura se paghi; rimandata solo se sei Indagato (allora resta la busta)
+      const rinvio = motivoRinvio(s, p);
+      if (rinvio) { p.licenzaNegata = true; privato(s, p, "Municipio: la domanda di licenza è RIMANDATA. " + rinvio.testo + " Non hai pagato niente. Con una busta (650.000 €, lascia Tracce) si sistema."); return "rimandato"; }
+      p.cash -= 500_000; s.licenze.push(p.id); p.licenzaNegata = false; log(s, p.nome + " ottiene la licenza per aprire un casinò.", p.id);
+      privato(s, p, "Municipio: licenza del casinò APPROVATA. Pagati 500.000 € (allo sportello del Municipio, di persona, costa 400.000 €). Ora puoi costruire un casinò a Baia Flamingo o a Isola Corona.");
+      return "approvato";
+    }
     const x = rng(s) - Math.min(0.2, p.fama / 400);
     if (x < (p.pacchetto === "politico" ? 0.75 : 0.45)) { p.cash -= 500_000; s.licenze.push(p.id); p.licenzaNegata = false; log(s, p.nome + " ottiene la licenza per aprire un casinò.", p.id); privato(s, p, "Municipio: licenza del casinò APPROVATA. Pagati 500.000 €. Ora puoi costruire un casinò a Baia Flamingo o a Isola Corona."); return "approvato"; }
     if (x < 0.8) { privato(s, p, "Municipio: la domanda di licenza è rimandata. Riprova al prossimo turno (più fama hai, più è facile)."); return "rimandato"; }
@@ -3093,7 +3170,8 @@
         if (l.ipoteca && s.ciclo - l.ipotecaCiclo >= N.ipotecaCicli) { notizia(s, "La Banca si riprende " + l.nome + ": ipoteca non riscattata.", "affari"); sequestra(s, l, giocatore(s, l.owner)); }
       }
       // palazzo
-      const pal = renditaPalazzo(p);
+      stanzeDi(p);
+      const pal = renditaPalazzo(p, s);
       r.palazzo = round(pal);
       // veicoli a noleggio
       const yc = haAttivita(s, p, "yachtclub") ? 1.25 : 1;
@@ -3101,6 +3179,8 @@
       if (haAttivita(s, p, "beachclub")) p.fama += 2;
       if (haPiano(p, "ristorante_panoramico")) p.fama += 1;
       if (haPiano(p, "suite")) p.fama += 3;
+      if (gen2(s)) { const f = Math.min(3, propri(s, p).filter((l) => l.lvl >= 1 && !l.chiuso && !l.cantiere && lussoFama(ATTIVITA[l.tipo])).length); if (f) { p.fama += f; r.famaLusso = f; } } // Hotel e Boutique: +1 fama l'uno a ogni Alba (al massimo 3)
+      const rendAtt = rend, bloccato = p.blocco > 0;
       rend += pal + r.veicoli;
       if (p.faro > 0) rend *= 0.7;
       if (p.blocco > 0) { rend *= 0.5; p.blocco -= 1; }
@@ -3110,7 +3190,9 @@
       const tassa = Math.max(0, (rend - evasa - zona) * s.tassa);
       // decima della setta
       let decima = 0;
-      for (const id of p.sette) { const st = s.sette.find((x) => x.id === id); if (st) { const d = (rend - evasa - tassa) * N.decima / p.sette.length; st.tesoro += d; decima += d; } }
+      // partite nuove: la decima si paga solo sulle rendite delle attivita' (non su Palazzo e mezzi), con un tetto per Alba
+      const quotaAtt = gen2(s) && rend > 0 ? clamp(rendAtt * (p.faro > 0 ? 0.7 : 1) * (bloccato ? 0.5 : 1) / rend, 0, 1) : 1;
+      for (const id of p.sette) { const st = s.sette.find((x) => x.id === id); if (st) { let d = (rend - evasa - tassa) * quotaAtt * N.decima / p.sette.length; if (gen2(s)) d = Math.min(d, num(s, "decimaMax") * Math.max(1, livelloSetta(s, st)) / p.sette.length); st.tesoro += d; decima += d; } }
       p.cash += rend - evasa - tassa - decima;
       if ((p.sette || []).some((id) => { const st = s.sette.find((x) => x.id === id); return st && st.banchiere; }) && p.sporchi > 0) {
         const q = Math.min(500_000, round(p.sporchi * 0.1)); p.sporchi -= q; p.cash += q; r.banchiereSetta = q; // il Banchiere della setta ripulisce un po' ogni Alba
@@ -3155,7 +3237,7 @@
     // borsa e cripto (la Gazzetta mostra di quanto sono salite o scese)
     s.borsaIeri = { ...s.borsa }; s.criptoIeri = { ...s.cripto };
     for (const a of AZIENDE) {
-      let mu = N.borsaMu / 3; // la crescita media si divide anche sui giorni
+      let mu = num(s, "borsaMu") / 3; // la crescita media si divide anche sui giorni
       if (a === "Flamingo Luxury") mu += (s.valore.Flamingo - 5) * 0.01;
       if (a === "Palma Resorts") mu += (s.valore.Palma - 5) * 0.01;
       if (a === "SoleTech") mu += Math.min(4, s.lotti.filter((l) => l.tipo === "uffici").length) * 0.01;
@@ -3308,6 +3390,17 @@
     s.fase = "fine"; s.fine = true;
     const arrivato = s.modoFine === "obiettivo" ? s.players.filter((p) => !p.fallito).sort((a, b) => patrimonio(s, b, true) - patrimonio(s, a, true))[0] : null;
     resaDeiConti(s);
+    // partite nuove: il Tesoro della setta alla fine e' di qualcuno: meta' al Gran Maestro, meta' divisa tra gli altri membri
+    // (soldi sporchi: nel patrimonio contano il 25%). Se il Gran Maestro e' solo, lo prende tutto lui.
+    const spartito = {};
+    if (gen2(s)) for (const st of s.sette) {
+      const t0 = round((st.tesoro || 0) + (st.sepolto || 0)); if (!(t0 > 0)) continue;
+      const altri = st.membri.filter((id) => id !== st.gm), qGm = altri.length ? round(t0 / 2) : t0, qM = altri.length ? Math.floor((t0 - qGm) / altri.length) : 0;
+      spartito[st.id] = { gm: qGm, membro: qM };
+      const gm = s.players.find((x) => x.id === st.gm); if (gm) gm.sporchi += qGm;
+      for (const id of altri) { const m = s.players.find((x) => x.id === id); if (m) m.sporchi += qM; }
+      st.tesoroFinale = t0; st.tesoro = 0; if (st.sepolto) st.sepolto = 0;
+    }
     const cl = s.players.map((p) => ({ id: p.id, nome: p.nome, patrimonio: round(patrimonio(s, p, true)), fama: p.fama, arresti: p.arresti, tracce: round(p.tracce), piani: p.piani, riciclTot: p.riciclTot }))
       .sort((a, b) => b.patrimonio - a.patrimonio);
     s.motivoFine = s.modoFine === "obiettivo" ? (arrivato ? arrivato.nome : cl[0].nome) + " ha superato i " + euro(s.obiettivo) + "." + (arrivato && arrivato.id !== cl[0].id ? " Ma dopo la Resa dei conti il più ricco è " + cl[0].nome + "." : "") : s.modoFine === "libera" ? "La partita è stata chiusa dopo " + s.ciclo + " Cicli." : "Sono finiti i " + (s.cicli || N.cicli) + " Cicli.";
@@ -3315,10 +3408,10 @@
     titoli.push({ titolo: "Re della Laguna", a: cl[0].nome });
     const stella = [...cl].sort((a, b) => b.fama - a.fama)[0]; titoli.push({ titolo: "La Stella", a: stella.nome });
     const pulito = cl.filter((x) => x.arresti === 0).sort((a, b) => a.tracce - b.tracce)[0]; if (pulito) titoli.push({ titolo: "Mani Pulite", a: pulito.nome });
-    const best = s.sette.map((st) => ({ st, v: st.tesoro + 1e6 * st.operazioni })).sort((a, b) => b.v - a.v)[0];
+    const best = s.sette.map((st) => ({ st, v: (st.tesoroFinale || st.tesoro) + 1e6 * st.operazioni })).sort((a, b) => b.v - a.v)[0];
     if (best) titoli.push({ titolo: "Gran Burattinaio", a: giocatore(s, best.st.gm).nome + " (setta \"" + best.st.nome + "\")" });
     s.classifica = cl; s.titoli = titoli;
-    s.rivelazione = s.sette.map((st) => ({ setta: st.nome, gm: giocatore(s, st.gm).nome, membri: st.membri.map((id) => giocatore(s, id).nome), tesoro: round(st.tesoro) }));
+    s.rivelazione = s.sette.map((st) => ({ setta: st.nome, gm: giocatore(s, st.gm).nome, membri: st.membri.map((id) => giocatore(s, id).nome), tesoro: round(st.tesoroFinale || st.tesoro), spartito: spartito[st.id] || null }));
     notizia(s, "Fine della partita. " + cl[0].nome + " è il Re della Laguna.", "evento");
   }
 
@@ -3757,7 +3850,7 @@
     }
     if (s.riepOra) v.riepOra = { n: s.riepOra.n, ciclo: s.riepOra.ciclo, da: s.riepOra.da, a: s.riepOra.a, mio: s.riepOra.per[idGiocatore] || null };
     { const me = s.players.find((x) => x.id === idGiocatore); if (me) { v.lustro = lustro(s, me); v.livelloPalazzo = livelloPalazzo(me); const su = poliziaOccupata(s, me); v.poliziaSu = su ? su.nome : null; } }
-    { const me = s.players.find((x) => x.id === idGiocatore); v.sblocco = me ? livelloSblocco(s, me) : 3; v.postiValigetta = me ? postiValigetta(s, me) : 6; v.soglieLivello = SOGLIE_LIVELLO; }
+    { const me = s.players.find((x) => x.id === idGiocatore); v.sblocco = me ? livelloSblocco(s, me) : 3; v.postiValigetta = me ? postiValigetta(s, me) : 6; v.soglieLivello = soglieLivello(s); }
     // di notte non sai dove sono gli altri: vedi solo chi e' nel tuo stesso posto
     if (v.notte && v.notte.dove && s.notte) {
       const mio = s.notte.dove[idGiocatore], mioViaggio = s.notte.viaggio && s.notte.viaggio[idGiocatore];
@@ -3785,6 +3878,7 @@
     // soldi e valori
     euro, giocatore, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
     // Palazzo
+    costoCantiere, guadagnoLivello, puoSalire, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale,
     costoPiano, costoPiani, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, livelloPalazzo, lustro,
     // Grandi Affari e durata della partita
     GRANDI, ORDINE_GRANDI, partitaLunga,
