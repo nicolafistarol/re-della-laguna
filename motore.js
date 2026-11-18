@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 83;
+  const VERSIONE_REGOLE = 84;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -2548,9 +2548,160 @@
         { l: "Anche il doppiofondo", d: "Molto di più, ma la barca resta in mare più a lungo.", gu: 1.4, ga: 1.5, tr: 1.3 },
       ] },
     ],
+    container: [
+      { t: "Il lucchetto è rotto, ma il container è sotto un lampione. Come entri?", o: [
+        { l: "Aspetti che il lampione sfarfalli", d: "Ci vuole tempo, ma resti al buio.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Entri subito", d: "Fai in fretta, ma chiunque passi ti vede.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Allunghi qualcosa al gruista", d: "Sposta il container nell'ombra con la gru.", gu: 0.65, ga: 1, tr: 1, costo: 30000 },
+      ] },
+      { t: "Dentro ci sono scatoloni e casse sigillate. Cosa prendi?", o: [
+        { l: "Solo gli scatoloni leggeri", d: "Pochi soldi, mani libere per scappare.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "Quello che riesci a portare", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Anche le casse sigillate", d: "Valgono tanto, ma pesano e fanno rumore.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+    orologi: [
+      { t: "Il marinaio vuole contare i soldi su una panchina, in vista. Dove fate lo scambio?", o: [
+        { l: "Lo porti in un vicolo", d: "Ci vuole più tempo e lui si innervosisce: abbassa la merce.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Lì, subito", d: "Veloce. Ma la panchina è sotto una telecamera.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Paghi un palo che faccia da guardia", d: "Ti avvisa se arriva qualcuno.", gu: 0.65, ga: 1, tr: 1, costo: 40000 },
+      ] },
+      { t: "Nella cassa ci sono orologi veri e alcuni falsi. Quanti ne prendi?", o: [
+        { l: "Solo quelli che sai riconoscere", d: "Meno, ma tutti buoni.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "La cassa intera, come pattuito", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Anche la seconda cassa nascosta", d: "Il doppio dei pezzi, il doppio degli occhi addosso.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+    tavolo: [
+      { t: "Il croupier ti fa l'occhiolino. Come giochi?", o: [
+        { l: "Vinci poco alla volta", d: "Nessuno si accorge di niente.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Punti forte da subito", d: "Più soldi, ma il direttore di sala comincia a guardare.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Offri da bere al direttore di sala", d: "Lo tieni distratto al bar.", gu: 0.65, ga: 1, tr: 1, costo: 25000 },
+      ] },
+      { t: "Sei in vincita. Il tavolo si riempie di curiosi. Quanto resti?", o: [
+        { l: "Ti alzi e incassi", d: "Esci da vincitore senza dare nell'occhio.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "Un altro giro", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Sbanchi il tavolo", d: "Una vincita enorme. Nessuno la dimenticherà.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+    refurtiva: [
+      { t: "Il venditore mostra i gioielli sotto la giacca. Come li controlli?", o: [
+        { l: "Te li fai portare in un retrobottega", d: "Più lento, ma al riparo.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Li guardi lì, in mezzo ai banchi", d: "Si fa in fretta, ma tutti vedono.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Paghi il capo del mercato", d: "Nessuno si avvicinerà mentre trattate.", gu: 0.65, ga: 1, tr: 1, costo: 30000 },
+      ] },
+      { t: "C'è anche una collana con lo stemma della famiglia derubata. La prendi?", o: [
+        { l: "No, solo i pezzi anonimi", d: "Meno valore, nessuno li riconosce.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "Prendi il lotto concordato", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Sì, anche la collana", d: "Vale una fortuna. E la polizia la sta cercando.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+    quadri: [
+      { t: "Il turista vuole vedere le tele alla luce. Dove lo porti?", o: [
+        { l: "In una galleria chiusa, alla penombra", d: "I falsi si notano meno. Lui paga un po' meno.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Sulla terrazza del club", d: "Fa colpo, ma c'è gente e luce.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Paghi un finto esperto che le certifichi", d: "Con un timbro, il turista non dubita.", gu: 0.65, ga: 1, tr: 1, costo: 50000 },
+      ] },
+      { t: "Il turista è entusiasta. Quanto chiedi?", o: [
+        { l: "Un prezzo onesto", d: "Non fa domande, firma subito.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "Il prezzo pattuito", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Il doppio, e gli vendi anche un terzo quadro", d: "Una cifra folle. Se chiama un esperto vero, sei finito.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+    pesce: [
+      { t: "Il peschereccio attracca. Come scarichi?", o: [
+        { l: "A mano, cassa per cassa", d: "Lento, ma silenzioso.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Con il muletto del porto", d: "Veloce, ma rumoroso e con i fari.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Paghi il capoturno", d: "Il turno di notte guarda altrove.", gu: 0.65, ga: 1, tr: 1, costo: 60000 },
+      ] },
+      { t: "L'alba si avvicina. Sotto il ghiaccio c'è ancora mezzo carico.", o: [
+        { l: "Lasci il resto e chiudi", d: "Meno merce, fuori prima che faccia giorno.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "Finisci il carico", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Scarichi tutto, anche col primo sole", d: "Molto di più. Ma all'alba arrivano i pescatori veri.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+    colpo: [
+      { t: "La villa è buia. Da dove entri?", o: [
+        { l: "Dalla finestra della cantina", d: "Stretta e lenta, ma nessuno la sorveglia.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Dalla porta principale, forzandola", d: "Fai prima, ma la serratura è collegata all'allarme.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Paghi la domestica per lasciare aperto", d: "Ti aspetta la porta di servizio.", gu: 0.65, ga: 1, tr: 1, costo: 80000 },
+      ] },
+      { t: "La cassaforte è aperta. Dentro: gioielli, contanti, e una scatola chiusa.", o: [
+        { l: "Solo i contanti", d: "Non si possono rintracciare.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "Gioielli e contanti", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Tutto, anche la scatola", d: "Chissà cosa c'è. Ma ci metti il doppio del tempo.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+    lingotti: [
+      { t: "Il custode ti apre la cantina. Come porti fuori i lingotti?", o: [
+        { l: "Uno alla volta nello zaino", d: "Lento, ma sembri un passante.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Col furgone in cortile", d: "Veloce, ma un furgone di notte si nota.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Paghi il custode per l'auto della villa", d: "Nessuno ferma l'auto del padrone.", gu: 0.65, ga: 1, tr: 1, costo: 60000 },
+      ] },
+      { t: "I lingotti sono più del previsto. Quanti ne prendi?", o: [
+        { l: "Pochi: non deve accorgersene nessuno", d: "Il custode copre il buco.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "La quota pattuita", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Svuoti la cantina", d: "Una fortuna. Domani il padrone se ne accorge.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+    cargo: [
+      { t: "Il cargo atterra a luci spente. Come ti avvicini alla stiva?", o: [
+        { l: "A piedi, lungo la recinzione", d: "Lento, ma i riflettori non ti prendono.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Col carrello bagagli, dritto in pista", d: "Veloce, ma sei sulla pista illuminata.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Paghi l'addetto alla torre", d: "Spegne un riflettore per dieci minuti.", gu: 0.65, ga: 1, tr: 1, costo: 70000 },
+      ] },
+      { t: "Nella stiva ci sono più pacchi del previsto.", o: [
+        { l: "Solo i pacchi segnati per te", d: "Meno roba, nessuno ti cerca.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "La tua parte", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Anche i pacchi di un altro", d: "Molto di più. E qualcuno verrà a cercarli.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+    spedizione: [
+      { t: "Il pilota vuole la merce entro un'ora. Come la porti all'aereo?", o: [
+        { l: "Nascosta tra le valigie dei passeggeri", d: "Lenta, ma invisibile.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Col furgone del catering", d: "Veloce, ma i controlli sul catering sono a sorpresa.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Paghi un doganiere di turno", d: "Il tuo carico passa senza scanner.", gu: 0.65, ga: 1, tr: 1, costo: 80000 },
+      ] },
+      { t: "Il pilota propone di caricare di più.", o: [
+        { l: "No, solo quello che hai messo", d: "Meno guadagno, meno peso sotto i radar.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "Va bene così", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Sì, carica il doppio", d: "Torna molto di più, se nessuno pesa l'aereo.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+    confraternita: [
+      { t: "La nave aspetta il segnale della lanterna. Come lo dai?", o: [
+        { l: "Tre colpi di luce brevi", d: "Il segnale vecchio: lento ma sicuro.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "La lanterna accesa fissa", d: "Arrivano subito, ma la luce si vede dalla costa.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Paghi il guardiano del faro vicino", d: "Spegne il suo faro mentre accendi il tuo.", gu: 0.65, ga: 1, tr: 1, costo: 80000 },
+      ] },
+      { t: "Il carico è della setta. Quanto ti prendi per te?", o: [
+        { l: "Solo la tua parte, onesto", d: "I confratelli si fidano. Meno soldi.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "La parte giusta", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Un po' di più di nascosto", d: "Più soldi. Ma resti in mare più a lungo.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+    senatore: [
+      { t: "Il senatore accetta di vederti. Dove?", o: [
+        { l: "In chiesa, durante la messa della sera", d: "Nessuno ascolta. Lui è più cauto.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Nel suo ufficio", d: "Più diretto, ma i telefoni potrebbero essere sotto controllo.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Paghi il suo autista", d: "Parlate in macchina, senza testimoni.", gu: 0.65, ga: 1, tr: 1, costo: 50000 },
+      ] },
+      { t: "Il senatore suda. Quanto gli chiedi?", o: [
+        { l: "Una cifra che può pagare in silenzio", d: "Paga subito, meno soldi.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "Il prezzo deciso dalla setta", d: "Il giusto.", gu: 1, ga: 1, tr: 1 },
+        { l: "Il doppio, e minacci la stampa", d: "Tanti soldi. Ma un uomo disperato chiama la polizia.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
   };
   const SEGNALI = {
     marina: { brutto: ["Una luce blu si accende in fondo al canale.", "Il guardiano parla al telefono e guarda verso di te.", "Un motore si avvicina senza fanali."], buono: ["Solo gabbiani e onde contro gli scogli.", "Il molo è buio e vuoto.", "Le motovedette sono tutte ormeggiate."] },
+    porto: { brutto: ["Una volante si ferma al cancello del porto.", "Un cane abbaia tra i container, sempre più vicino.", "Un gruista ti indica a qualcuno con la radio."], buono: ["Le gru sono ferme, i guardiani giocano a carte.", "Solo il rumore delle onde contro le banchine.", "Il cancello è chiuso, la strada è vuota."] },
+    bisca: { brutto: ["Il direttore di sala fa una telefonata guardando te.", "Due uomini in giacca entrano e non giocano.", "Il croupier suda e non ti guarda più."], buono: ["Al tavolo vicino ridono e bevono.", "Il direttore di sala dorme sulla sedia.", "La porta è chiusa a chiave, come sempre."] },
+    mercato: { brutto: ["Un banco chiude in fretta senza motivo.", "Un ragazzo corre fischiando: è il segnale degli sbirri.", "Una macchina gira l'angolo per la seconda volta."], buono: ["Al mercato si urla e si tratta come ogni notte.", "I venditori ti salutano senza pensieri.", "Nessuna divisa in giro."] },
+    club: { brutto: ["Un flash parte da dietro una colonna.", "Il buttafuori parla con due uomini che non ballano.", "La musica si abbassa all'improvviso."], buono: ["La musica è alta, nessuno guarda nessuno.", "Il buttafuori ti fa un cenno: tutto a posto.", "La sala è piena di gente che balla."] },
+    villa: { brutto: ["Una luce si accende al piano di sopra.", "Un cane da guardia si sveglia in giardino.", "Una macchina si ferma davanti al cancello."], buono: ["La villa è buia e silenziosa.", "Il giardino è vuoto, gli irrigatori fanno il loro giro.", "Nessuna auto in vista sulla strada."] },
+    aeroporto: { brutto: ["Una squadra cinofila esce dall'hangar.", "Il riflettore della torre si gira verso di te.", "Un furgone della dogana si avvicina sulla pista."], buono: ["La pista è vuota, gli addetti fumano lontano.", "La torre è al buio, solo le luci di pista.", "Il radar gira tranquillo, nessuno lo guarda."] },
+    faro: { brutto: ["Una motovedetta compare all'orizzonte.", "Qualcuno sulla scogliera guarda col binocolo.", "Un elicottero passa basso sul mare."], buono: ["Il mare è nero e calmo.", "Solo il vento tra gli scogli.", "Nessuna luce sull'acqua, a parte la tua."] },
     _: { brutto: ["Senti passi che non dovrebbero esserci.", "Una macchina si ferma qui vicino, a fari spenti.", "Qualcuno fa una telefonata di troppo."], buono: ["Silenzio. Nessuno in giro.", "Tutto tranquillo, come previsto.", "Nessuna luce accesa nei dintorni."] },
   };
   const ULTIMA = [
