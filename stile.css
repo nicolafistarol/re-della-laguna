@@ -646,3 +646,4 @@ table.conti{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}ta
 .scelte-ricatto button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;white-space:normal;height:auto;padding:8px 10px}
 .scelte-ricatto button span{font-size:12px;opacity:.85;font-weight:400}
 @media (max-width:520px){.scelte-ricatto{grid-template-columns:1fr}}
+#telefonoBox .scelte-ricatto{grid-template-columns:1fr}

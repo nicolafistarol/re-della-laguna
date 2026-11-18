@@ -2100,7 +2100,7 @@ function filiHtml(me) {
     for (const f of fs.filter((f) => f.deve === mioId && f.a === x.id)) righe.push(`<div class="filo"><span>Gli devi: <b>${esc(NOME_FAV(f.tipo))}</b> <span class="sub">(${f.stato === "attivo" ? "in uso: " + esc(usoFavore(f)) : "scade al Ciclo " + (f.scade + 1)}${f.origine === "ricatto" ? " · ha una Prova su di te in pegno" : ""})</span></span>${f.stato === "aperto" ? `<button class="piccolo" data-frompi="${f.id}">Rompi la parola</button>` : ""}</div>`);
     const sp = x.senzaParola != null && S.ciclo <= x.senzaParola ? `<div class="sub" style="color:#ff9a9a">Ha rotto la parola: nessuno si fida di lui fino al Ciclo ${x.senzaParola + 1}.</div>` : "";
     return `<div class="scheda filo-pers"><h4><span class="pall" style="background:${x.colore}">${esc(x.nome[0])}</span> ${esc(x.nome)}</h4>${sp}${righe.join("") || `<span class="sub">Nessun filo con ${esc(x.nome)}. Per ora.</span>`}</div>`;
-  }).join("") + `<p class="kick" style="color:var(--muted);margin:12px 0 6px">Chi conta nella Laguna</p>`;
+  }).join("") + `<hr style="border:0;border-top:1px solid rgba(255,255,255,.12);margin:12px 0">`;
 }
 function finestraRicattoVittima(r) {
   const me = io();
