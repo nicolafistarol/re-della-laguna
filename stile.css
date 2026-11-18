@@ -591,28 +591,47 @@ table.conti{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}ta
 
 .esito-notte{margin:10px 0;padding:10px 12px;border-radius:14px;background:rgba(10,16,26,.72);border:1px solid rgba(255,255,255,.18);font-size:14px;display:flex;flex-direction:column;gap:4px}.esito-notte .esito-cifre{font-size:17px;font-weight:800}.esito-notte .pallino{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
 
-/* ===== v71: il diorama pulito. Da lontano la foto si vede intera, con segnalini piccoli ===== */
-#mondo.tre:not(.medio) #mappa .cas .cn,#mondo.tre:not(.medio) #mappa .cas .livc{display:none}
-#mondo.tre:not(.medio) #mappa .cas.terreno i{min-width:0;width:11px;height:11px;padding:0;border-radius:50%;border:2px solid var(--serie,#fff);background:rgba(255,255,255,.85);box-shadow:0 0 0 1px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.5)}
-#mondo.tre:not(.medio) #mappa .cas.terreno i>*{display:none}
-#mondo.tre:not(.medio) #mappa .cas.terreno.pres i{width:14px;height:14px;background:var(--own);border:2px solid #fff;box-shadow:0 0 10px var(--own),0 0 0 1px rgba(0,0,0,.4)}
-#mondo.tre:not(.medio) #mappa .cas.spec i,#mondo.tre:not(.medio) #mappa .cas.lib i{width:20px;height:20px;border-width:1.5px;background:rgba(10,16,28,.78)}
-#mondo.tre:not(.medio) #mappa .cas.spec i .lic{width:11px;height:11px}
-#mondo.tre:not(.medio) #mappa .cas.lib i{width:9px;height:9px;opacity:.7}
-#mondo.tre:not(.medio) #mappa .cas.ang i{width:28px;height:28px}
-#mondo.tre:not(.medio) #mappa .cas.ang i .lic{width:15px;height:15px}
-#mondo.tre:not(.medio) #mappa .cas.ang .cn{display:block;font-size:10px;background:rgba(5,10,20,.6)}
-/* distanza media: i prezzi, ma piu' piccoli e senza nomi */
-#mondo.tre.medio:not(.vicino) #mappa .cas.terreno i{min-width:30px;height:20px;padding:0 4px 0 6px;border-left-width:4px;border-radius:5px}
-#mondo.tre.medio:not(.vicino) #mappa .cas.terreno em{font-size:10.5px}
-#mondo.tre.medio:not(.vicino) #mappa .cas .cn{display:none}
-#mondo.tre.medio:not(.vicino) #mappa .cas.spec i{width:26px;height:26px}
-#mondo.tre.medio:not(.vicino) #mappa .cas.spec i .lic{width:14px;height:14px}
-/* i segnalini sono di vetro: la foto resta protagonista */
-#mondo.tre #mappa .cas{opacity:.96;transition:opacity .2s}
-#mondo.tre #mappa .cas:hover{opacity:1;z-index:5000!important}
-#mondo.tre #mappa .cas:hover .cn{display:block!important}
-/* nomi delle isole: piu' eleganti, con un'ombra morbida invece del riquadro */
-#mondo.tre #mappa .isola-nome{text-shadow:0 2px 12px rgba(0,0,0,.85),0 0 2px rgba(0,0,0,.9);letter-spacing:.04em}
-/* cornice: un leggero vignettato caldo, come la foto */
-#mondo.tre::after{background:radial-gradient(ellipse at 30% 20%,rgba(255,190,120,.10),rgba(0,0,0,0) 45%),radial-gradient(ellipse at center,rgba(5,10,20,0) 62%,rgba(5,10,20,.5) 100%)!important}
+/* =====================================================================
+   DIORAMA — il tabellone 3D (la foto in rilievo): tre.js e mondo3d.js
+   ===================================================================== */
+/* finche' il diorama si prepara si vede la foto piatta, poi la tela sfuma sopra */
+#mondo.dio .tre-canvas{opacity:0;transition:opacity .7s;cursor:grab}
+#mondo.dio.dio-pronto .tre-canvas{opacity:1}
+#mondo.dio:not(.dio-pronto) #mappa{background:url('img/mappa-hd.jpg') center/cover}
+#mondo.dio::after{background:radial-gradient(ellipse at center,rgba(5,10,20,0) 64%,rgba(5,10,20,.3) 100%);z-index:1}
+/* le etichette di gioco.js: nascoste di base, il diorama accende solo quelle che servono (poche, mai sovrapposte) */
+#mondo.dio #mappa{z-index:2}
+#mondo.dio #mappa .cas,#mondo.dio #mappa .etichetta{visibility:hidden;transition:none;opacity:1}
+#mondo.dio #mappa .cas .cn{display:none}
+#mondo.dio #mappa .cas.dio-nome .cn{display:block}
+#mondo.dio #mappa .etichetta{transform:translate(-50%,-50%);padding:4px 11px;font-size:12.5px}
+#mondo.dio #mappa .ped,#mondo.dio #mappa .isola-nome,#mondo.dio #mappa .edificio,#mondo.dio #mappa .torre,#mondo.dio #mappa .scia{display:none!important}
+#mondo.dio.dio-veduta #mappa{display:none}
+/* nomi delle isole (si toccano per volarci dentro), targhe delle auto, titolo dell'isola */
+.dio-strato{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}
+.dio-nome{position:absolute;left:0;top:0;transform:translate(-50%,-50%);pointer-events:auto;font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:19px;letter-spacing:.03em;color:#fff;background:rgba(8,16,30,.4);border:1px solid rgba(255,255,255,.42);border-radius:999px;padding:4px 14px 5px;white-space:nowrap;text-shadow:0 2px 8px rgba(0,20,40,.9);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.dio-nome:hover{background:rgba(243,197,107,.32);border-color:var(--oro);filter:none}
+.dio-targa{position:absolute;left:0;top:0;transform:translate(-50%,-50%);display:flex;align-items:center;gap:5px;padding:2px 8px 2px 4px;border-radius:999px;background:rgba(8,14,24,.84);border:1px solid rgba(255,255,255,.35);font-size:11.5px;font-weight:800;line-height:1.3;color:#fff;white-space:nowrap}
+.dio-targa i{width:11px;height:11px;border-radius:50%;border:1.5px solid #fff;flex:none}
+.dio-targa.io{border-color:var(--oro);box-shadow:0 0 10px rgba(243,197,107,.55)}
+.dio-targa::after{content:"";position:absolute;left:50%;top:100%;margin-left:-4px;border:4px solid transparent;border-top-color:rgba(8,14,24,.84)}
+.dio-titolo{display:none;position:absolute;left:50%;top:66px;transform:translateX(-50%);flex-direction:column;align-items:center;gap:6px}
+#mondo.dio-isola .dio-titolo{display:flex}
+.dio-titolo b{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:32px;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.85),0 0 30px rgba(0,0,0,.5);white-space:nowrap}
+.dio-titolo span{display:flex;gap:8px;pointer-events:auto}
+.dio-titolo button{padding:6px 12px;font-size:13px;border-radius:999px;background:rgba(8,14,24,.78);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.dio-titolo .dio-risali,#mondo.dio-veduta .dio-su,#mondo.dio-veduta .dio-strada{display:none}
+#mondo.dio-veduta .dio-risali{display:inline-block}
+#mondo.dio-veduta .dio-nomi,#mondo.dio-veduta .dio-targhe{display:none}
+/* il selettore "Vista" */
+.comandi-vista .cv-titolo{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;text-align:center;color:var(--oro);padding:2px 0 0}
+.comandi-vista .cv-riga{height:1px;margin:2px 3px;background:rgba(255,255,255,.18)}
+.comandi-vista button small{white-space:nowrap}
+.comandi-vista #vArci,.comandi-vista #vSegui,.comandi-vista #z3d{width:58px;height:42px;font-size:17px}
+/* avviso: il 3D non e' partito */
+#avviso3d{position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;border:1px solid var(--oro);max-width:min(620px,94vw);font-size:13.5px;line-height:1.4}
+/* le scelte sul tabellone (compro o lascio, asta...): di lato, senza velo; il tabellone e i comandi della vista restano liberi */
+.velo.laterale{background:none;pointer-events:none;align-items:flex-end;justify-content:flex-start;padding:0 0 16px 16px}
+.velo.laterale .fin{pointer-events:auto;width:min(370px,92vw);max-height:62vh;padding:18px 20px;border-color:rgba(243,197,107,.55);box-shadow:0 20px 50px rgba(0,0,0,.55)}
+.velo.laterale .fin h2{font-size:25px}
+@media(max-width:900px){.velo.laterale{justify-content:center;padding:0 0 8px}.velo.laterale .fin{max-height:48vh}.dio-titolo{top:auto;bottom:calc(50% - 150px)}.dio-nome{font-size:15px;padding:3px 10px 4px}.comandi-vista #vArci,.comandi-vista #vSegui,.comandi-vista #z3d{width:50px;height:38px}}

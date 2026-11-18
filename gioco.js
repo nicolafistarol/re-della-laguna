@@ -11,14 +11,28 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const VELOCE = location.search.includes("veloce");
 const VELOCE_2D = location.search.includes("2d");
 const LOCALE = location.search.includes("locale");  // ?locale = partita contro il computer, senza server
-import * as Tre from "./tre.js?v=73";
+// Il tabellone 3D (il diorama: la foto in rilievo) si carica a parte, con un tempo massimo.
+// Se non arriva o non parte, si gioca lo stesso sulla foto piatta e un avviso dice il perché. ?cubetti = il vecchio mondo a cubetti, solo per confronto.
+let Tre = null, motivo3D = "", provato3D = false;
+const CUBETTI = location.search.includes("cubetti");
+import(CUBETTI ? "./cubetti.js?v=74" : "./tre.js?v=74").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
+setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=51";
-// il tabellone 3D: acceso di base se il computer lo supporta; si puo' tornare al 2D
+// il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
 let TRE3D = false;
-// chiave nuova: la vecchia scelta "2D" (laguna_3d) non conta piu', il diorama parte da solo
 function vuole3D() { try { return localStorage.getItem("laguna_vista") !== "piatta"; } catch (e) { return true; } }
-let AVVISO3D = false;
-import * as Loc from "./locale.js?v=73";   // ?veloce = senza animazioni (per le prove)
+// avviso fisso quando il 3D doveva partire e non e' partito: dice il motivo e come riprovare
+function avviso3D() {
+  const c = document.querySelector("#avviso3d"), serve = !TRE3D && !VELOCE_2D && motivo3D && vuole3D() && S && !(S.fase === "notte" && S.notte);
+  if (!serve) { if (c) c.remove(); return; }
+  if (c) { if (c.dataset.m === motivo3D) return; c.remove(); }
+  const d = document.createElement("div"); d.id = "avviso3d"; d.className = "vetro"; d.dataset.m = motivo3D;
+  d.innerHTML = `<span><b>Il tabellone 3D non è partito.</b> ${esc(motivo3D)} Intanto giochi sulla foto piatta: il gioco è lo stesso.</span><button class="piccolo oro" id="av3dSi">Riprova</button><button class="piccolo" id="av3dNo" aria-label="Chiudi l'avviso">✕</button>`;
+  document.body.appendChild(d);
+  d.querySelector("#av3dSi").onclick = () => location.reload();
+  d.querySelector("#av3dNo").onclick = () => { motivo3D = ""; d.remove(); };
+}
+import * as Loc from "./locale.js?v=74";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -659,8 +673,19 @@ function disegna() {
   $("#mondo").style.display = notte && !S.fine ? "none" : "block";
   $("#mondo").classList.toggle("notte", !!notte);
   document.body.classList.toggle("di-notte", !!notte);
-  if (!TRE3D && vuole3D() && !VELOCE_2D) { try { TRE3D = Tre.avvia($("#mondo"), $("#mappa"), "img/mappa-hd.jpg"); if (TRE3D) { Tre.sonoIo(mioId); Tre.suCasella((id, x, y) => schedaCasella(id, x, y)); } } catch (e) { console.error(e); TRE3D = false; } if (!TRE3D && !AVVISO3D) { AVVISO3D = true; toast("Il tabellone 3D non parte su questo browser (WebGL spento o non supportato). Vedi il tabellone piatto. In Chrome: Impostazioni → Sistema → attiva \"Usa accelerazione grafica\".", "warn"); } }
+  // un solo tentativo di avvio: se va male resta la foto piatta, con l'avviso
+  if (!TRE3D && !provato3D && Tre && vuole3D() && !VELOCE_2D) {
+    provato3D = true;
+    try {
+      if (!Tre.supportato()) motivo3D = "Il browser ha la grafica 3D spenta. In Chrome: Impostazioni › Sistema › «Usa l'accelerazione grafica quando disponibile», poi riavvia Chrome.";
+      else if ((TRE3D = Tre.avvia($("#mondo"), $("#mappa"), "img/mappa-hd.jpg"))) {
+        Tre.sonoIo(mioId); Tre.suCasella((id, x, y) => schedaCasella(id, x, y));
+        if (Tre.suErrore) Tre.suErrore((m) => { TRE3D = false; motivo3D = m === "immagini" ? "Le immagini del tabellone 3D non si sono scaricate." : "La scheda grafica si è fermata."; disegna(); });
+      } else motivo3D = "Il browser non riesce ad accendere la grafica 3D.";
+    } catch (e) { console.warn("Tabellone 3D:", e); TRE3D = false; motivo3D = "La grafica 3D si è bloccata (" + (e.message || e) + ")."; }
+  }
   $("#mondo").classList.toggle("tre", TRE3D);
+  avviso3D();
   if (TRE3D) Tre.impostaNotte(!!notte);
   Suono.ambiente(notte ? "notte" : "giorno");
   $("#sfondo").style.filter = "";
@@ -984,8 +1009,10 @@ function collegaEsplora() {
   addEventListener("resize", applicaVista);
 }
 function comandiVista() {
-  const mondo = TRE3D && Tre.mondoNuovo(), m = mondo ? Tre.modoVista() : "";
-  return `<div class="comandi-vista vetro">${mondo ? `<button id="vSegui" class="${m === "segui" ? "attivo" : ""}" title="Segui la tua auto da dietro">🚗<small>Segui</small></button><button id="vLibera" class="${m === "libera" ? "attivo" : ""}" title="Gira la visuale come vuoi: trascina per spostarti, con due dita (o tasto destro) ruoti e inclini">🧭<small>Libera</small></button><button id="vAlto" class="${m === "alto" ? "attivo" : ""}" title="Tutta la Laguna vista dall'alto">🗺️<small>Alto</small></button>` : ""}<button id="zPiu" aria-label="Avvicina">＋</button><button id="zMeno" aria-label="Allontana">−</button>${TRE3D ? `<button id="zSx" aria-label="Ruota a sinistra" title="Ruota">⟲</button><button id="zDx" aria-label="Ruota a destra" title="Ruota">⟳</button>` : ""}${mondo ? "" : `<button id="zTutto" aria-label="Vista intera" title="Vista intera">⤢</button>`}<button id="zMio" aria-label="Vai alla tua pedina" title="La tua pedina">◎</button><button id="z3d" title="${TRE3D ? "Passa al tabellone piatto" : "Passa al tabellone 3D"}" style="font-size:12px;font-weight:800">${TRE3D ? "2D" : "3D"}</button></div>`;
+  const dio = TRE3D && !!Tre.DIORAMA, cubi = TRE3D && !dio, m = TRE3D ? Tre.modoVista() : "";
+  const visuali = dio ? `<button id="vArci" class="${m === "arcipelago" ? "attivo" : ""}" title="Tutta la Laguna: la visuale resta ferma">🏝️<small>Arcipelago</small></button><button id="vSegui" class="${m === "segui" ? "attivo" : ""}" title="Quando tiri i dadi la visuale si avvicina alla tua auto e la accompagna">🚗<small>Segui</small></button>`
+    : cubi ? `<button id="vSegui" class="${m === "segui" ? "attivo" : ""}" title="Segui la tua auto da dietro">🚗<small>Segui</small></button><button id="vLibera" class="${m === "libera" ? "attivo" : ""}" title="Gira la visuale come vuoi">🧭<small>Libera</small></button><button id="vAlto" class="${m === "alto" ? "attivo" : ""}" title="Tutta la Laguna vista dall'alto">🗺️<small>Alto</small></button>` : "";
+  return `<div class="comandi-vista vetro"><span class="cv-titolo">Vista</span>${visuali}<button id="z3d" class="${TRE3D ? "" : "attivo"}" title="${TRE3D ? "Passa alla foto piatta, senza 3D" : "Torna al tabellone 3D"}">${TRE3D ? "🖼️<small>Piatta</small>" : "🧊<small>Torna al 3D</small>"}</button><i class="cv-riga"></i><button id="zPiu" aria-label="Avvicina" title="Avvicina">＋</button><button id="zMeno" aria-label="Allontana" title="Allontana">−</button>${cubi ? `<button id="zSx" aria-label="Ruota a sinistra" title="Ruota">⟲</button><button id="zDx" aria-label="Ruota a destra" title="Ruota">⟳</button>` : ""}${TRE3D ? "" : `<button id="zTutto" aria-label="Vista intera" title="Vista intera">⤢</button>`}<button id="zMio" aria-label="Vai alla tua pedina" title="La tua pedina">◎</button></div>`;
 }
 function notteOra() { return S && S.fase === "notte" && S.notte; }
 let legendaAperta = false;
@@ -1004,10 +1031,12 @@ function collegaComandiVista(me) {
   $("#zMeno").onclick = () => TRE3D ? Tre.avvicina(1.4) : zoomA(vista.z / 1.35);
   if ($("#zSx")) { $("#zSx").onclick = () => Tre.ruota(-35); $("#zDx").onclick = () => Tre.ruota(35); }
   if ($("#zTutto")) $("#zTutto").onclick = () => { if (TRE3D) return Tre.tutto(); vista = { z: 1, x: 0, y: 0 }; applicaVista(); };
-  const modoV = (m) => { Tre.impostaModo(m, mioId); document.querySelectorAll("#vSegui,#vLibera,#vAlto").forEach((b) => b.classList.toggle("attivo", b.id === { segui: "vSegui", libera: "vLibera", alto: "vAlto" }[m])); };
-  if ($("#vSegui")) { $("#vSegui").onclick = () => modoV("segui"); $("#vLibera").onclick = () => modoV("libera"); $("#vAlto").onclick = () => modoV("alto"); }
-  $("#zMio").onclick = () => { const notte = S.fase === "notte" && S.notte; const [x, y] = notte ? posLuogo(S.notte.dove[mioId], me) : puntoMappa(disp[mioId] || me); if (TRE3D && Tre.mondoNuovo() && Tre.seguiPedina(mioId)) return; TRE3D ? Tre.centraSu(x, y) : centraSu(x, y); };
-  $("#z3d").onclick = () => { try { localStorage.setItem("laguna_vista", TRE3D ? "piatta" : "3d"); } catch (e) { } location.reload(); };
+  const modoV = (m) => { Tre.impostaModo(m, mioId); document.querySelectorAll("#vArci,#vSegui,#vLibera,#vAlto").forEach((b) => b.classList.toggle("attivo", b.id === { arcipelago: "vArci", segui: "vSegui", libera: "vLibera", alto: "vAlto" }[m])); };
+  for (const [id, m] of [["#vArci", "arcipelago"], ["#vSegui", "segui"], ["#vLibera", "libera"], ["#vAlto", "alto"]]) if ($(id)) $(id).onclick = () => modoV(m);
+  $("#zMio").onclick = () => { const notte = S.fase === "notte" && S.notte; const [x, y] = notte ? posLuogo(S.notte.dove[mioId], me) : puntoMappa(disp[mioId] || me); if (TRE3D && (Tre.DIORAMA || Tre.mondoNuovo()) && Tre.seguiPedina(mioId)) return; TRE3D ? Tre.centraSu(x, y) : centraSu(x, y); };
+  // la vista si sceglie qui e solo qui: tabellone 3D (di base) oppure foto piatta
+  $("#z3d").onclick = () => { try { if (TRE3D) localStorage.setItem("laguna_vista", "piatta"); else localStorage.removeItem("laguna_vista"); } catch (e) { } location.reload(); };
+  if (TRE3D && Tre.DIORAMA && $(".leg-dentro") && !$(".leg-dio")) $(".leg-dentro").insertAdjacentHTML("beforeend", `<div class="sub leg-dio"><b>Sul tabellone 3D:</b> la piazzola sulla strada è la casella, del colore del gruppo di vie. Bandiera e alone colorato = di chi è il terreno (cerchio d'oro = tuo). L'edificio cresce col livello. Il cartellino col prezzo = terreno libero vicino a te. Tocca una casella per la sua scheda; tocca il nome di un'isola per volarci dentro.</div>`);
 }
 
 // ------------------------------------------------------------ la carta principale (in basso)
@@ -1639,7 +1668,7 @@ const NOVITA = { 73: ["<b>Aste giuste.</b> Chi rinuncia non può più offrire, l
   "<b>Trucchi chiusi.</b> La spinta in Borsa della setta non si ripete più a volontà, il Casinò privato non ripulisce gratis, le pene si calcolano in un modo solo e chiaro.",
   "<b>Notte.</b> Le proposte tra giocatori non spariscono più, e il Sette e mezzo tra giocatori si gioca davvero.",
   "<b>Musica e suoni rifatti:</b> funzionano anche su iPhone.",
-  "<b>Solo nelle partite nuove:</b> permessi sicuri ma con un bollo, affitti che crescono di più con il livello, Palazzo che non fa più esplodere i soldi nelle partite lunghe."], 72: ["<b>Tabellone nuovo.</b> È la foto della Laguna in rilievo, con il mare che si muove. Da lontano vedi segnalini piccoli; avvicinati con + per vedere i prezzi, ancora di più per i nomi. I Palazzi dei giocatori sono colonne di luce del loro colore.", "<b>Partita più sicura.</b> Un valore sbagliato non blocca più la partita, e nessuno può spiare le carte degli altri a Sette e mezzo."], 70: ["<b>Strumenti del mercato nero.</b> Al Mercato Nero, al Porto e al Casinò ogni notte ci sono 3 strumenti diversi, presi a caso tra 24. Ognuno è unico: chi arriva prima lo prende. Ci sono strumenti rari e leggendari. Quelli grossi occupano 2 posti nella valigetta, che resta della stessa misura: scegli bene cosa portarti.",
+  "<b>Solo nelle partite nuove:</b> permessi sicuri ma con un bollo, affitti che crescono di più con il livello, Palazzo che non fa più esplodere i soldi nelle partite lunghe."], 72: ["<b>Tabellone nuovo.</b> È la foto della Laguna in rilievo. Le caselle sono piazzole dipinte sulla strada: il colore è il quartiere, il bordo colorato dice di chi è. A destra, in Vista: Arcipelago (tutta la Laguna), Segui (la tua auto) e Piatta. Tocca un'isola per volarci dentro.", "<b>Partita più sicura.</b> Un valore sbagliato non blocca più la partita, e nessuno può spiare le carte degli altri a Sette e mezzo."], 70: ["<b>Strumenti del mercato nero.</b> Al Mercato Nero, al Porto e al Casinò ogni notte ci sono 3 strumenti diversi, presi a caso tra 24. Ognuno è unico: chi arriva prima lo prende. Ci sono strumenti rari e leggendari. Quelli grossi occupano 2 posti nella valigetta, che resta della stessa misura: scegli bene cosa portarti.",
   "<b>Come si usano.</b> Prima di un affare scegli cosa portare. Alcuni ti salvano da un pericolo, altri fanno rendere di più un colpo preciso, altri tolgono Tracce. Alcuni funzionano in coppia, per esempio Maschera + Guanti. Il Timbro del Municipio si usa di giorno: il permesso è sicuro, ma lascia Tracce.",
   "<b>Situazioni della Laguna.</b> A ogni Alba succede qualcosa: uno sciopero chiude il Porto, l'alta marea abbassa gli affitti di Sole, un black-out spegne le telecamere di Corona, la Finanza cerca i contanti… Sono più di 100. Durano 1 o 2 Cicli e aiutano alcuni e colpiscono altri.",
   "<b>Prepararsi.</b> Metà delle situazioni la Gazzetta le annuncia un Ciclo prima, in \"Si dice che…\". Le altre arrivano a sorpresa. Cosa succede adesso lo vedi in Gazzetta, nel riquadro \"Adesso in Laguna\".",
@@ -2147,8 +2176,12 @@ function collegaApp(me) {
 }
 
 // ------------------------------------------------------------ finestre
+// Le scelte sul tabellone (compro o lascio, asta, gala, municipio...) si aprono di lato e senza velo:
+// il tabellone resta in vista e i comandi della vista restano usabili. Chi le apre chiama prima diLato().
+let finLato = false;
+function diLato() { finLato = true; queueMicrotask(() => { finLato = false; }); }
 function finestra(html, collega) {
-  const d = document.createElement("div"); d.className = "velo"; d.innerHTML = `<div class="fin vetro">${html}</div>`;
+  const d = document.createElement("div"); d.className = "velo" + (finLato ? " laterale" : ""); finLato = false; d.innerHTML = `<div class="fin vetro">${html}</div>`;
   document.body.appendChild(d);
   const chiudi = () => d.remove();
   collega && collega(d, chiudi);
@@ -2276,6 +2309,7 @@ function finestraPacchetti() {
     (d, chiudi) => d.querySelectorAll("[data-pk]").forEach((el) => el.onclick = () => { chiudi(); agisci({ tipo: "pacchetto", id: el.dataset.pk }); }));
 }
 function finestraAsta(me) {
+  diLato();
   const l = S.lotti.find((x) => x.id === S.pending.lotto);
   finestra(`<span class="kick" style="color:var(--rosa)">Asta${l.isola ? " · " + esc(L.NOMI_ISOLE[l.isola]) : ""}</span><h2>${esc(l.nome)}</h2><p>Vale ${euro(l.prezzo)}. Ognuno offre in segreto: vince chi offre di più. Hai ${euro(me.cash)}.</p>${S.pending.sequestro ? `<p class="sub">Terreno sequestrato dal Comune. Offerta minima ${euro(S.pending.minimo)}. I soldi vanno alla banca; l'ex padrone non può partecipare.</p>` : ""}
     <div class="campo"><label for="off">La tua offerta</label><input id="off" type="number" value="0" style="font-size:22px;font-weight:800"></div>
@@ -2285,6 +2319,7 @@ function finestraAsta(me) {
   });
 }
 function finestraPending(me) {
+  diLato();
   const pd = S.pending;
   if (!pd) return disegna();
   if (pd.tipo === "compra") {
