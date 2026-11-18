@@ -11,6 +11,20 @@
 (function (root) {
   "use strict";
 
+  // ------------------------------------------------------------ versione del motore e generazione delle partite
+  // VERSIONE: il numero di questa versione del gioco, lo stesso di ?v= in index.html (li alza insieme pubblica.sh).
+  // Sta anche nella vista (versioneMotore): il browser lo confronta con il suo e, se il server e' diverso,
+  // puo' dire "e' uscita una versione nuova: ricarica la pagina".
+  const VERSIONE = 65;
+  // GENERAZIONE (regola G1 di DECISIONI.md). Correzioni, sicurezza, chiarezza e funzioni nuove valgono per TUTTE le partite.
+  // I numeri di bilanciamento che cambiano i conti (rendite, soglie, prezzi, percentuali) valgono solo per le partite NUOVE:
+  // una partita creata da qui in poi nasce con s.gen = 2; quelle gia' iniziate non hanno il campo e valgono 1.
+  //   - un numero nuovo:   si scrive in N_GEN2 (stessa chiave di N) e si legge con num(s, "chiave") invece di N.chiave
+  //   - una regola nuova:  if (gen2(s)) { ...regola nuova... } else { ...regola di prima... }
+  // Ogni campo nuovo dello stato deve avere un ripiego (x.campo || valore): le partite vecchie non lo hanno.
+  const GEN = 2;
+  function gen2(s) { return ((s && s.gen) || 1) >= 2; }
+
   // ------------------------------------------------------------ numeri del gioco
   const N = {
     cicli: 8, giorni: 4,
@@ -60,6 +74,17 @@
       jet: { nome: "Jet privato", prezzo: 9_000_000, rend: 0.18, fama: 15 },
     },
   };
+  // I numeri che cambiano SOLO per le partite nuove (gen 2). Stessa chiave di N, una riga per tema.
+  // Vuoto finche' nessuno ne aggiunge: num(s, k) allora da' sempre N[k].
+  const N_GEN2 = {
+    // --- economia e Palazzo
+    // --- giorno: terreni, affitti, permessi
+    // --- notte e affari illegali
+    // --- polizia e pene
+    // --- setta
+  };
+  // num(s, "chiave"): partita nuova -> il numero di N_GEN2 se c'e', altrimenti quello di N; partita vecchia -> sempre N.
+  function num(s, k) { return gen2(s) && Object.prototype.hasOwnProperty.call(N_GEN2, k) ? N_GEN2[k] : N[k]; }
 
   // Tipi di attivita': rendita (x R), affitto (x), copertura (quota prezzo x livello), attenzione
   const ATTIVITA = {
@@ -265,7 +290,7 @@
   function nuovaPartita(opz) {
     const seed = (opz.seed ?? Math.floor(Math.random() * 1e9)) >>> 0;
     const s = {
-      versione: 1, seed, rngState: seed, ciclo: 0, giorno: 0, fase: "pacchetti", turno: 0,
+      versione: 1, gen: GEN, motoreNascita: VERSIONE, seed, rngState: seed, ciclo: 0, giorno: 0, fase: "pacchetti", turno: 0,
       ordine: [], players: [], lotti: [], valore: {}, borsa: {}, cripto: {}, sette: [], contratti: [], inviti: [],
       gazzetta: [], log: [], sindaco: null, candidati: {}, leggi: [], tassa: N.tassa, licenze: [],
       pending: null, notteFatti: {}, prossimoId: 1, principianti: !!opz.principianti, fine: false,
@@ -3595,6 +3620,7 @@
     const v = JSON.parse(JSON.stringify(s));
     delete v.rngState; delete v.seed;
     delete v.manoSM; // le mani di Sette e mezzo (con il mazzo!): la tua, senza mazzo, sta in v.notte.manoSM
+    v.versioneMotore = VERSIONE; v.gen = s.gen || 1; // con che motore e' stata calcolata questa vista, e di che generazione e' la partita
     v.players = v.players.map((p) => {
       if (p.id === idGiocatore) { delete p.tracce; return p; } // le proprie Tracce non si vedono come numero
       const q = {};
@@ -3664,6 +3690,8 @@
   const API = {
     // l'ingresso
     nuovaPartita, applica, applicaSicura, vista, vistaSicura: vista, CAMPI_PUBBLICI,
+    // versione del motore e generazione delle partite (regole G1 e G2)
+    VERSIONE, GEN, gen2, num, N_GEN2,
     // numeri e tabelle del gioco
     N, ATTIVITA, AFFARI, PACCHETTI, AZIENDE, MONETE, ISOLE, NOMI_ISOLE, STATI, LEGGI, PENE, ORDINE_GRAVITA,
     // tabellone e giorno
