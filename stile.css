@@ -600,7 +600,7 @@ table.conti{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}ta
 #mondo.dio:not(.dio-pronto) #mappa{background:url('img/mappa-hd.jpg') center/cover}
 #mondo.dio::after{background:radial-gradient(ellipse at center,rgba(5,10,20,0) 64%,rgba(5,10,20,.3) 100%);z-index:1}
 /* le etichette di gioco.js: nascoste di base, il diorama accende solo quelle che servono (poche, mai sovrapposte) */
-#mondo.dio #mappa{z-index:2}
+#mondo.dio #mappa{z-index:4}
 #mondo.dio #mappa .cas,#mondo.dio #mappa .etichetta{visibility:hidden;transition:none;opacity:1}
 #mondo.dio #mappa .cas .cn{display:none}
 #mondo.dio #mappa .cas.dio-nome .cn{display:block}
@@ -709,3 +709,5 @@ button.spento{opacity:.55}
 .sent-riga span:first-child{font-size:20px;width:26px;flex:none;text-align:center}
 .fin.sentenza .sent-box,.fin.sentenza .sent-azzera{font-size:14.5px;margin-top:10px}
 .sent-come ul{margin:6px 0;padding-left:20px}.sent-come li{margin:4px 0}
+.chip .sost-chip{margin-left:4px;padding:4px 9px;font-size:11px;white-space:nowrap;border-radius:999px;animation:sostPulse 1.6s ease-in-out infinite}
+@keyframes sostPulse{50%{box-shadow:0 0 0 4px rgba(243,197,107,.35)}}

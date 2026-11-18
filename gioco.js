@@ -15,7 +15,7 @@ const LOCALE = location.search.includes("locale");  // ?locale = partita contro 
 // Se non arriva o non parte, si gioca lo stesso sulla foto piatta e un avviso dice il perché. ?cubetti = il vecchio mondo a cubetti, solo per confronto.
 let Tre = null, motivo3D = "", provato3D = false;
 const CUBETTI = location.search.includes("cubetti");
-import(CUBETTI ? "./cubetti.js?v=80" : "./tre.js?v=80").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
+import(CUBETTI ? "./cubetti.js?v=81" : "./tre.js?v=81").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
@@ -32,7 +32,7 @@ function avviso3D() {
   d.querySelector("#av3dSi").onclick = () => location.reload();
   d.querySelector("#av3dNo").onclick = () => { motivo3D = ""; d.remove(); };
 }
-import * as Loc from "./locale.js?v=80";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=81";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -301,7 +301,12 @@ let presenze = {}, timerPresenza = null;
 async function segnaPresenza() {
   if (LOCALE || !partita) return;
   const r = await chiama({ comando: "presente", partita });
-  if (r && r.presenze) { presenze = {}; for (const x of r.presenze) presenze[x.id] = x; }
+  if (r && r.presenze) {
+    const prima = S ? S.players.filter(puoSostituire).map((q) => q.id).join() : "";
+    presenze = {}; for (const x of r.presenze) presenze[x.id] = x;
+    // v81: se qualcuno ha smesso (o ripreso) a rispondere, i nomi in alto si aggiornano subito
+    if (S && !animando && S.players.filter(puoSostituire).map((q) => q.id).join() !== prima) disegna();
+  }
 }
 function avviaPresenza() {
   if (LOCALE) return;
@@ -309,6 +314,8 @@ function avviaPresenza() {
   timerPresenza = setInterval(segnaPresenza, 30000);
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && partita && !LOCALE) segnaPresenza().then(() => { if (S) caricaVista(); }); });
+// chi ha creato la partita puo' far giocare il computer al posto di chi non si fa vivo da 3 minuti (v81: prima 1 minuto, e il pulsante era solo nel telefono)
+function puoSostituire(q) { return !LOCALE && S && mioId === S.players[0].id && !S.fine && q.id !== mioId && !q.bot && presenze[q.id] && presenze[q.id].persona && (presenze[q.id].secondi === null || presenze[q.id].secondi >= 180); }
 // la scritta accanto al nome: "non collegato", "gioca il computer", "uscito"
 function statoCollegamento(p) {
   if (LOCALE || !p || p.id === mioId) return "";
@@ -529,7 +536,7 @@ function nomeLuogo(l, maiusc) { return l === "palazzo" ? (maiusc ? "Il tuo Palaz
 
 // ------------------------------------------------------------ animazioni (dadi, pedine)
 let ultimoFlusso = Infinity, segnoTurno = 0;
-let disp = {}, ultimoLog = null, coda = [], animando = false, ultimaVistaJson = "";
+let disp = {}, ultimoLog = null, coda = [], animando = false, ultimaVistaJson = "", attesaAvanti = null;
 const PRIVATI = /prestito|restituisce|investe|vende|ipoteca|riscatta/;
 function copiaPos(p) { return { inner: !!p.inner, pos: p.pos, ipos: p.ipos }; }
 function nuoviLog(log) {
@@ -587,6 +594,8 @@ async function eseguiCodaDentro() {
     const cashPrima = io() ? io().cash : 0;
     const tiri = [];
     for (const r of righe) { const m = / tira (\d(?: e \d)+)\.$/.exec(r.testo); if (m && r.chi) tiri.push({ chi: r.chi, d: m[1].split(" e ").map(Number) }); }
+    // la notte e' finita sul server, ma tu stai ancora leggendo "Com'e' andata": il giorno (e i dadi degli altri) aspetta il tuo Avanti (v81)
+    if (S.fase === "notte" && v.fase !== "notte" && document.querySelector('[data-a="avanti"]')) { await new Promise((ok) => { attesaAvanti = ok; setTimeout(() => { if (attesaAvanti === ok) { attesaAvanti = null; ok(); } }, 120000); }); }
     if (tiri.length && S.fase === "giorno") disegna();
     for (let i = 0; i < tiri.length; i++) {
       const t = tiri[i], mio = t.chi === mioId;
@@ -760,7 +769,7 @@ function disegna() {
   const cron = S.log.filter((r) => !/ tira \d( e \d)+\.$/.test(r.testo) && !(r.chi && r.chi !== mioId && PRIVATI.test(r.testo))).slice(-4);
   $("#radice").innerHTML = `
   <div class="hud-alto">
-    <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${statoCollegamento(p) ? `<span class="non-coll"> · ${statoCollegamento(p)}</span>` : ""}${notte && p.id === mioId ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · hai deciso" : " · decidi…") : ""}</div><div class="s liv-chip">Liv. ${p.livello ?? "?"} · fama ${p.fama ?? "?"}</div>${(p.fedina || 0) >= 2 ? `<div class="s fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">⚖️ Fedina ${p.fedina}</div>` : ""}</div></div>`).join("")}</div>
+    <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${statoCollegamento(p) ? `<span class="non-coll"> · ${statoCollegamento(p)}</span>` : puoSostituire(p) ? `<span class="non-coll"> · non risponde</span>` : ""}${notte && p.id === mioId ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · hai deciso" : " · decidi…") : ""}</div><div class="s liv-chip">Liv. ${p.livello ?? "?"} · fama ${p.fama ?? "?"}</div>${p.id === mioId && (p.fedina || 0) >= 2 ? `<div class="s fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">⚖️ Fedina ${p.fedina}</div>` : ""}</div></div>`).join("")}</div>
     <div class="fase vetro">${faseTesto}</div>
     <div class="saldo vetro">
       <div class="riga" style="justify-content:space-between"><span class="kick" style="color:var(--muted)">I tuoi soldi</span><button class="piccolo" id="occhio" style="padding:2px 8px">${saldoNascosto ? "Mostra" : "Nascondi"}</button></div>
@@ -776,6 +785,8 @@ function disegna() {
   ${notte ? "" : `<div class="carta vetro">${animando ? `<div class="sub">…</div>` : cartaGiorno(me)}</div>`}`;
   $("#occhio").onclick = () => { saldoNascosto = !saldoNascosto; disegna(); };
   document.querySelectorAll(".chip.tratta").forEach((c) => c.onclick = () => finestraTratta(me, c.dataset.gioc));
+  // v81: accanto al nome di chi non c'e', subito visibile in alto, il pulsante per far giocare il computer
+  document.querySelectorAll(".chip.tratta").forEach((c) => { const q = S.players.find((x) => x.id === c.dataset.gioc); if (!q || !puoSostituire(q)) return; const b = document.createElement("button"); b.className = "piccolo oro sost-chip"; b.textContent = "🤖 Fai giocare il computer"; b.onclick = async (e) => { e.stopPropagation(); b.disabled = true; const r = await chiama({ comando: "computer", partita, player: q.id }); if (r && r.errore) { toast(r.errore); b.disabled = false; } else { toast("Al posto di " + q.nome + " ora gioca il computer. Quando torna, riprende a giocare."); caricaVista(); } }; c.appendChild(b); });
   if (!notte) collegaComandiVista(me); applicaVista(); if (!notte) apriMappaVicino(me);
   $("#audio").onclick = () => { Suono.cambia(); const b = $("#audio"), si = Suono.acceso(); b.innerHTML = icoE(si ? "suono-si" : "suono-no"); b.classList.toggle("spento", !si); b.title = si ? "Spegni musica e suoni" : "Accendi musica e suoni"; b.setAttribute("aria-label", b.title); };
   const rc = document.querySelector(".scena .righe"); if (rc) rc.scrollTop = rc.scrollHeight;
@@ -1436,7 +1447,7 @@ let orologioNotte = null, scadutoInviato = "", ultimoScaduto = 0;
 function collegaScena(me) {
   const on = (a, f) => document.querySelectorAll(`.scena [data-a="${a}"]`).forEach((b) => b.onclick = f);
   document.querySelectorAll(".scena [data-vai]").forEach((b) => b.onclick = () => chiediViaggio(me, b.dataset.vai));
-  on("avanti", () => agisci({ tipo: "avanti" }));
+  on("avanti", () => { if (attesaAvanti) { const f = attesaAvanti; attesaAvanti = null; f(); return; } agisci({ tipo: "avanti" }); });
   on("negozio", () => finestraNegozio(me));
   on("soffiata", () => finestraSoffiata(me));
   on("altrove", () => finestraAltrove(me));
@@ -1586,7 +1597,7 @@ function appuntamenti(me, dove) {
   const ora = S.notte.ora;
   return (S.notte.chiamate || []).map((c) => {
     const scaduto = ora >= c.alle, qui = c.luogo === dove;
-    if (scaduto) return `<div class="appunt scad">${ico("sconosciuto")} <span>L'appuntamento a <b>${esc(L.LUOGHI[c.luogo].nome)}</b> era entro le ${L.ORE[c.alle]}: il contatto se n'è andato.</span></div>`;
+    if (scaduto) return `<div class="appunt scad">${ico("sconosciuto")} <span>L'appuntamento con «${esc(c.nome)}» a <b>${esc(L.LUOGHI[c.luogo].nome)}</b> era entro le ${L.ORE[c.alle]}: quel contatto se n'è andato. Chi trovi qui adesso è un'altra persona.</span></div>`;
     if (qui) return `<div class="appunt ok">${ico("sconosciuto")} <span>Sei all'appuntamento della telefonata. <b>È qui sotto:</b> «${esc(c.nome)}».</span></div>`;
     return `<div class="appunt">${ico("sconosciuto")} <span>Appuntamento: <b>${esc(L.LUOGHI[c.luogo].nome)}</b>, entro le <b>${L.ORE[c.alle]}</b>. Ci vogliono ${L.oreViaggio(S, me, dove, c.luogo) === 1 ? "1 ora" : "2 ore"}.</span><button class="piccolo notte" data-vai="${c.luogo}">Vai</button></div>`;
   }).join("");
@@ -1738,7 +1749,7 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 80: ["<b>Gazzetta: i giocatori.</b> In cima alla Gazzetta, anche dal telefono, c'è la tabella di tutti i giocatori: Livello, fama e come vivono (Benestante, Ricco…). Prima il Livello degli altri non si vedeva."], 79: ["<b>Ripulire è un rischio.</b> Ogni volta che ripulisci soldi sporchi (Casinò, ShadowCoin, paradiso fiscale, la tua banca) la Finanza può scoprirti. Il rischio parte dal 3-6% e sale con la somma (+4% per ogni milione oltre il primo) e con quante volte hai ripulito negli ultimi 3 Cicli (+5% a volta), fino a un massimo del 50%. Lo vedi scritto prima di decidere.", "Se ti scopre: ti sequestra metà della somma, il resto resta sporco, +12 Tracce e l'indagine sale di un gradino. Il banchiere Lenz dalla tua parte abbassa il rischio. Somme piccole e pause tengono basso il pericolo."], 78: ["<b>Sentenza spiegata.</b> Quando ti condannano si apre una finestra grande: perché sei finito a Processo, quanto è grave la pena (e cosa l'ha alzata o abbassata), e ogni effetto uno per uno: cosa perdi, quanto e per quanto tempo. In fondo, in breve, come funzionano soldi sporchi e condanne.", "Puoi rileggere l'ultima sentenza dall'app Soldi sporchi, nella scheda «Le tue piste»."],
+const NOVITA = { 81: ["<b>La Fedina degli altri è segreta.</b> Vedi solo la tua: degli altri non sai più se hanno fatto cose losche.", "<b>Mercato Nero più duro.</b> Maschera, disturbatore, telefono usa-e-getta e documenti falsi non ci sono più tutte le notti: ogni notte ne escono solo 2. E costano di più: maschera 70.000 €, disturbatore 150.000 €, telefono 35.000 €, documenti 250.000 €.", "<b>Chi non risponde.</b> Se un amico non si fa vivo da 3 minuti, accanto al suo nome in alto compare «non risponde» e, a chi ha creato la partita, il pulsante «Fai giocare il computer».", "<b>La notte finisce quando la chiudi tu.</b> Se stai ancora leggendo «Com'è andata», i dadi del giorno dopo aspettano il tuo Avanti.", "<b>Tabellone:</b> sul telefono il nome dell'isola non copre più le caselle (prima il Molo non si poteva toccare)."], 80: ["<b>Gazzetta: i giocatori.</b> In cima alla Gazzetta, anche dal telefono, c'è la tabella di tutti i giocatori: Livello, fama e come vivono (Benestante, Ricco…). Prima il Livello degli altri non si vedeva."], 79: ["<b>Ripulire è un rischio.</b> Ogni volta che ripulisci soldi sporchi (Casinò, ShadowCoin, paradiso fiscale, la tua banca) la Finanza può scoprirti. Il rischio parte dal 3-6% e sale con la somma (+4% per ogni milione oltre il primo) e con quante volte hai ripulito negli ultimi 3 Cicli (+5% a volta), fino a un massimo del 50%. Lo vedi scritto prima di decidere.", "Se ti scopre: ti sequestra metà della somma, il resto resta sporco, +12 Tracce e l'indagine sale di un gradino. Il banchiere Lenz dalla tua parte abbassa il rischio. Somme piccole e pause tengono basso il pericolo."], 78: ["<b>Sentenza spiegata.</b> Quando ti condannano si apre una finestra grande: perché sei finito a Processo, quanto è grave la pena (e cosa l'ha alzata o abbassata), e ogni effetto uno per uno: cosa perdi, quanto e per quanto tempo. In fondo, in breve, come funzionano soldi sporchi e condanne.", "Puoi rileggere l'ultima sentenza dall'app Soldi sporchi, nella scheda «Le tue piste»."],
   77: ["<b>Chi esce dalla partita.</b> Accanto al nome di chi ha chiuso il gioco compare \"non collegato\". Se resta via più di 3 minuti, al suo posto gioca il computer e la partita va avanti; quando torna riprende lui.", "<b>Esci dalla partita</b> (in fondo al telefono) ora è vero: il tuo posto passa al computer e gli altri continuano. Chi ha creato la partita può anche far giocare subito il computer al posto di chi non c'è.", "<b>Sala d'attesa.</b> Chi esce dalla sala libera il suo posto; chi ha creato la partita vede chi non è collegato e può mettere il computer al suo posto."],
   76: ["<b>Viaggio rapido.</b> Ora si fa una volta ogni 2 Cicli e costa il carburante: motoscafo 100.000 €, elicottero 300.000 €, jet 600.000 €. Ti costa anche la mossa del giorno. Il taxi per il Municipio non c'è più: ti candidi a Sindaco allo sportello, o dal telefono pagando il doppio.",
   "<b>Il Timbro del Municipio</b> non si consuma più da solo: quando chiedi un permesso il gioco ti chiede se vuoi usarlo.",
@@ -1874,7 +1885,7 @@ function disegnaTelefono(me) {
   const ora = S.fase === "notte" && S.notte ? L.ORE[S.notte.ora] : ["9:00", "13:00", "18:00"][S.giorno] || "9:00";
   let dentro;
   if (!app) {
-    dentro = homeTelefono(me, nuovi) + `${S.modoFine === "libera" && mioId === S.players[0].id && !S.fine ? `<button class="piccolo esci-partita" id="chiudiPartita">${S.chiusura ? "Non chiudere più la partita" : "Chiudi la partita"}</button>` : ""}${LOCALE ? `<button class="piccolo esci-partita" id="cambiaNome">Cambia nome</button>` : ""}${!LOCALE && mioId === S.players[0].id && !S.fine ? S.players.filter((q) => q.id !== mioId && !q.bot && presenze[q.id] && presenze[q.id].persona && (presenze[q.id].secondi === null || presenze[q.id].secondi >= 60)).map((q) => `<button class="piccolo esci-partita" data-sostituisci="${q.id}">🤖 ${esc(q.nome)} non c'è: fai giocare il computer</button>`).join("") : ""}<button class="piccolo esci-partita" id="esciPartita">Esci dalla partita</button>`;
+    dentro = homeTelefono(me, nuovi) + `${S.modoFine === "libera" && mioId === S.players[0].id && !S.fine ? `<button class="piccolo esci-partita" id="chiudiPartita">${S.chiusura ? "Non chiudere più la partita" : "Chiudi la partita"}</button>` : ""}${LOCALE ? `<button class="piccolo esci-partita" id="cambiaNome">Cambia nome</button>` : ""}${!LOCALE && mioId === S.players[0].id && !S.fine ? S.players.filter(puoSostituire).map((q) => `<button class="piccolo esci-partita" data-sostituisci="${q.id}">🤖 ${esc(q.nome)} non c'è: fai giocare il computer</button>`).join("") : ""}<button class="piccolo esci-partita" id="esciPartita">Esci dalla partita</button>`;
   } else {
     const A = APPS.find((a) => a.k === app);
     dentro = `<div class="app-testa"><button id="indietro">‹ Home</button><b>${A.ico} ${A.nome}</b></div><div class="app-corpo">${contenutoApp(me, app)}</div>`;
@@ -2874,7 +2885,7 @@ function finestraOccasione(me, n) {
 }
 function finestraNegozio(me) {
   const dove = S.notte.dove[mioId];
-  const merce = Object.entries(L.OGGETTI).filter(([k, O]) => O.dove === dove).map(([k, O]) => [k, O, O.prezzo]);
+  const fissi = S.notte && S.notte.fissi, merce = Object.entries(L.OGGETTI).filter(([k, O]) => O.dove === dove && !(dove === "mercato" && Array.isArray(fissi) && !fissi.includes(k))).map(([k, O]) => [k, O, O.prezzo]);
   const banco = ((S.notte && S.notte.banco) || []).map((b) => [b.id, OGG(b.id), b.prezzo]);
   const v = me.valigetta || [], usati = S.postiUsati ?? v.length, liberi = S.postiValigetta - usati;
   const riga = ([k, O, prezzo]) => { const posti = O.subito ? 0 : O.posti || 1; return `<div class="ogg"><span class="ic">${ICO_OGG[k] || ""}</span><div style="flex:1"><b>${esc(O.nome)}</b>${posti > 1 ? ` <span class="tag">${posti} posti</span>` : ""}${O.raro ? `<span class="tag" style="color:var(--oro)">${RARO[O.raro].slice(3)}</span>` : ""}<div class="sub" style="font-size:12px">${esc(O.descr)}</div></div><button class="piccolo oro" data-ogg="${k}" ${posti > liberi || me.cash + me.sporchi < prezzo ? "disabled" : ""}>${euro(prezzo)}</button></div>`; };

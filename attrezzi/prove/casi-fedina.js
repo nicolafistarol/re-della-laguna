@@ -137,7 +137,7 @@ console.log("5. La vista di un terzo giocatore (Dario)");
   const vc = v.players.find((x) => x.id === C.id), vb = v.players.find((x) => x.id === B.id), va = v.players.find((x) => x.id === A.id);
   prova("Fascicolo degli altri: mai nella vista", !("fascicolo" in vc) && !JSON.stringify(v).includes("\"fascicolo\""));
   prova("sottoInchiesta, contiVisti, macchia, espostoCiclo degli altri: segreti", !("sottoInchiesta" in vb) && !("contiVisti" in va) && !("macchia" in va) && !("espostoCiclo" in vc) && !("corrotti" in va));
-  prova("Fedina degli altri: pubblica", vc.fedina === 4);
+  prova("Fedina degli altri: segreta (v81)", vc.fedina === undefined);
   prova("Carla vede il suo fascicolo", vC.players.find((x) => x.id === C.id).fascicolo.su === B.id);
 }
 

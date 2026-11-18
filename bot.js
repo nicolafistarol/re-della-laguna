@@ -593,7 +593,7 @@ function grandiBot(o, i, n) {
                       : "club" === s && "Esperto" === e
                         ? ["macchina"]
                         : [];
-            for (const o of v) if (!r(i, o) && h < g && p > t.OGGETTI[o].prezzo + 4e5) return { tipo: "compra_oggetto", oggetto: o };
+            for (const o of v) if (!("mercato" === s && Array.isArray(n.fissi) && !n.fissi.includes(o)) && !r(i, o) && h < g && p > t.OGGETTI[o].prezzo + 4e5) return { tipo: "compra_oggetto", oggetto: o };
             // strumenti del banco di stanotte: il bot ne compra uno se ha spazio e soldi (lo Spavaldo e il Furbo di piu')
             if (n.banco && n.banco[s] && n.banco[s].length && !l["banco" + s] && Math.random() < ("Spavaldo" === e || "Furbo" === e ? 0.7 : 0.35)) {
               l["banco" + s] = !0;

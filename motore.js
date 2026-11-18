@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 80;
+  const VERSIONE_REGOLE = 81;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -1385,10 +1385,10 @@
     aeroporto: { nome: "Aeroporto della Laguna", isola: "Sole", sblocco: 2 },
   };
   const OGGETTI = {
-    maschera: { nome: "Maschera", dove: "mercato", prezzo: 40_000, illegale: true, salva: ["testimone", "telecamere", "fotografo"], consuma: true, descr: "Telecamere e testimoni non ti riconoscono." },
-    disturbatore: { nome: "Disturbatore radio", dove: "mercato", prezzo: 90_000, illegale: true, salva: ["allarme", "intercettazione", "radar"], consuma: true, descr: "Blocca allarmi, intercettazioni e radar per un colpo." },
-    telefono: { nome: "Telefono usa-e-getta", dove: "mercato", prezzo: 20_000, salva: ["intercettazione"], consuma: true, descr: "Accetti un'offerta senza lasciare il tuo nome." },
-    documenti: { nome: "Documenti falsi", dove: "mercato", prezzo: 150_000, illegale: true, salva: ["posto_di_blocco", "dogana"], consuma: true, descr: "Passi il Posto di blocco di giorno e la dogana dell'Aeroporto di notte." },
+    maschera: { nome: "Maschera", dove: "mercato", prezzo: 70_000, illegale: true, salva: ["testimone", "telecamere", "fotografo"], consuma: true, descr: "Telecamere e testimoni non ti riconoscono." },
+    disturbatore: { nome: "Disturbatore radio", dove: "mercato", prezzo: 150_000, illegale: true, salva: ["allarme", "intercettazione", "radar"], consuma: true, descr: "Blocca allarmi, intercettazioni e radar per un colpo." },
+    telefono: { nome: "Telefono usa-e-getta", dove: "mercato", prezzo: 35_000, salva: ["intercettazione"], consuma: true, descr: "Accetti un'offerta senza lasciare il tuo nome." },
+    documenti: { nome: "Documenti falsi", dove: "mercato", prezzo: 250_000, illegale: true, salva: ["posto_di_blocco", "dogana"], consuma: true, descr: "Passi il Posto di blocco di giorno e la dogana dell'Aeroporto di notte." },
     furgone: { nome: "Furgone pulito", dove: "porto", prezzo: 120_000, salva: ["pattuglia", "cani"], notti: 3, descr: "Il carico non si perde con le pattuglie e i cani antidroga non sentono niente. Dura 3 notti." },
     motoscafo: { nome: "Motoscafo a noleggio", dove: "marina", prezzo: 60_000, salva: ["guardia"], notti: 1, veloce: true, descr: "Stanotte ti sposti in 1 ora ovunque, e scappi dal mare." },
     avvocato: { nome: "Avvocato pagato", dove: "redazione", prezzo: 250_000, salva: ["sentenza"], consuma: true, descr: "La prossima sentenza scende di un gradino." },
@@ -1456,6 +1456,10 @@
       }
       s.notte.banco[l] = scelti;
     }
+    // v81: anche i 4 oggetti di sempre del Mercato Nero (maschera, disturbatore, telefono, documenti) non ci sono tutte le notti: ne escono 2 a caso
+    const fissi = Object.keys(OGGETTI).filter((k) => OGGETTI[k].dove === "mercato"), presi = [];
+    while (presi.length < 2 && fissi.length) presi.push(fissi.splice(Math.floor(rng(s) * fissi.length), 1)[0]);
+    s.notte.fissi = presi;
   }
   function oggettoDef(id) { return OGGETTI[id] || STRUMENTI[id]; }
   function postiUsati(p) { return (p.valigetta || []).reduce((a, o) => a + ((oggettoDef(o.id) || {}).posti || 1), 0); }
@@ -2359,7 +2363,10 @@
     if (nero) {
       const qua = s.notte.dove[p.id];
       if (!O.banco.includes(qua) || !(s.notte.banco && (s.notte.banco[qua] || []).includes(id))) err("Stanotte questo strumento qui non c'è.");
-    } else qui(s, p, O.dove, "Questo acquisto");
+    } else {
+      qui(s, p, O.dove, "Questo acquisto");
+      if (O.dove === "mercato" && Array.isArray(s.notte.fissi) && !s.notte.fissi.includes(id)) err("Stanotte al Mercato Nero questo non c'è: riprova un'altra notte.");
+    }
     p.valigetta = p.valigetta || [];
     const prezzo = prezzoOggetto(s, id);
     if (!O.subito && postiUsati(p) + (O.posti || 1) > postiValigetta(s, p)) err("Nella valigetta non c'è spazio (" + postiUsati(p) + " posti usati su " + postiValigetta(s, p) + (O.posti > 1 ? "; questo ne occupa " + O.posti : "") + ").");
@@ -5127,7 +5134,7 @@
     "faro", "fallito", "arresti", "condanne",                             // fatti pubblici: prigione, fallimento, condanne
     "fama", "pacchetto", "veicoli",                                       // quello che tutti vedono
     "piani", "funzioniPiani", "stanze",                                   // il Palazzo (le stanze segrete vengono coperte)
-    "senzaParola", "fedina", "operaFatta",                                // Favori e Fedina: gia' usciti sulla Gazzetta
+    "senzaParola", "operaFatta",                                          // Favori: gia' usciti sulla Gazzetta (la Fedina degli altri e' segreta dalla v81)
   ];
   const PIANI_SEGRETI = ["caveau", "piani_segreti", "sala_insonorizzata", "bunker", "osservatorio"];
   // dalla cronaca pubblica si tolgono le operazioni private degli altri (riconosciute dalle parole della frase)
@@ -5193,6 +5200,7 @@
         pericoloQui: me && !s.notte.viaggio[idGiocatore] && s.notte.dove[idGiocatore] !== "palazzo" ? s.notte.pericolo[s.notte.dove[idGiocatore]] : null,
         protezione: me ? (me.corrotti && me.corrotti["agente_" + (LUOGHI[s.notte.dove[idGiocatore]] || {}).isola] ? 0.6 : 1) * (me.corrotti && me.corrotti.commissario ? 0.8 : 1) * (poliziaOccupata(s, me) ? N.occupata : 1) * (dovePersonaggio(s, "commissario") === s.notte.dove[idGiocatore] && !(me.corrotti || {}).commissario ? 1.35 : 1) * sitMult(s, "gu", { luogo: s.notte.dove[idGiocatore] }) : 1,
         ospite: s.notte.ospite ? s.notte.ospite[idGiocatore] || null : null,
+        fissi: s.notte.fissi || null,
         banco: me && !s.notte.viaggio[idGiocatore] && s.notte.banco && BANCHI[s.notte.dove[idGiocatore]] ? (s.notte.banco[s.notte.dove[idGiocatore]] || []).map((id) => ({ id, prezzo: prezzoOggetto(s, id) })) : null,
         serate: Object.entries(s.notte.serate || {}).map(([id, se]) => { const h = s.players.find((x) => x.id === id); return { host: id, nome: h.nome, piani: h.piani, livello: livelloPalazzo(h), ingresso: se.ingresso, ospiti: se.ospiti.length, banco: id === idGiocatore ? se.banco : undefined }; }),
         proposte: (s.notte.proposte || []).filter((x) => (x.a === idGiocatore && x.stato !== "preparazione") || x.da === idGiocatore).map((x) => { const y = { ...x }; delete y.mazzo; if (y.da !== idGiocatore && y.stato !== "finita") delete y.manoDa; return y; }),
