@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 82;
+  const VERSIONE_REGOLE = 83;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -1896,6 +1896,7 @@
     const propostaVecchia = tuttiPronti && aperte.length && aperte.every((pr) => adesso() - (pr.quando || N2.inizio) >= TEMPO_PROPOSTA * 1000 - 1500);
     if (adesso() - N2.inizio < TEMPO_ORA * 1000 - 1500 && !propostaVecchia) err("Il tempo non è ancora finito.");
     chiudiTutteSM(s, true); // le mani ancora aperte: chi non ha finito "sta"
+    chiudiColpi(s); // i colpi a meta': chi non ha deciso esita
     for (const q of attivi(s)) {
       if (!N2.chiuso[q.id] && !N2.viaggio[q.id]) {
         N2.daScelta[q.id] = (N2.racconto[q.id] || []).length;
@@ -2321,6 +2322,7 @@
     inNotte2(s, p);
     if (s.notte.chiuso[p.id]) err("Hai già deciso cosa fare in quest'ora. Aspetta gli altri.");
     if (s.notte.viaggio[p.id]) err("Sei in viaggio.");
+    if (s.notte.colpi && s.notte.colpi[p.id]) err("Sei nel mezzo di un colpo: prima decidi cosa fare.");
   }
   function qui(s, p, luogo, cosa) {
     if (s.notte.viaggio[p.id]) err("Sei in viaggio.");
@@ -2357,6 +2359,7 @@
   function nomeLuogo(l) { return LUOGHI[l] ? LUOGHI[l].nome : l; }
   function tornaACasa(s, p) {
     inNotte2(s, p);
+    if (s.notte.colpi && s.notte.colpi[p.id]) err("Sei nel mezzo di un colpo: prima decidi cosa fare.");
     s.notteFatti[p.id] = true; s.notte.chiuso[p.id] = true;
     delete s.notte.viaggio[p.id];
     s.notte.dove[p.id] = "palazzo";
@@ -2395,7 +2398,7 @@
     const frase = { tranquillo: "stanotte è tranquillo, puoi stare sereno", agitato: "c'è movimento, meglio stare attenti", pericoloso: "è pieno di sbirri, stanne lontano" }[lv];
     racconta(s, p, "Un informatore ti sussurra che a " + LUOGHI[luogo].nome + " " + frase + ".");
   }
-  function prendiOccasione(s, p, n, oggetti) {
+  function prendiOccasione(s, p, n, oggetti, aScelte) {
     oraLibera(s, p);
     const o = s.notte.occasioni.find((x) => x.n === n);
     if (!o || !occasioniVisibili(s, p).includes(o)) err("Questa occasione non c'è più.");
@@ -2404,6 +2407,7 @@
     if (O.costo > 0) pagaMisto(s, p, O.costo);
     o.preso = p.id;
     s.notte.fatto[p.id] = { n, oggetti };
+    if (aScelte && !O.legale && O.guadagno && COLPI[O.id]) return iniziaColpo(s, p, o, O, oggetti);
     s.notte.chiuso[p.id] = true;
     if (!O.legale) { p.luoghiNotte = p.luoghiNotte || {}; p.luoghiNotte[o.luogo] = true; }
     racconta(s, p, O.legale ? O.nome + ": ci stai." : O.nome + ": accetti." + (oggetti.length ? " Porti con te: " + oggetti.map((x) => oggettoDef(x).nome.toLowerCase()).join(", ") + "." : ""));
@@ -2508,7 +2512,111 @@
     const N2 = s.notte; if (!N2) return [];
     return (N2.proposte || []).filter((pr) => (pr.stato === "attesa" && attivi(s).some((q) => q.id === pr.a)) || (pr.stato === "in_gioco" && s.manoSM && (s.manoSM[pr.da] || s.manoSM[pr.a])));
   }
-  function risolviOccasione(s, p, f) {
+  // la probabilita' di un guaio in un'occasione (senza toccare lo stato)
+  function rischioOccasione(s, p, o, O, usati) {
+    const isola = LUOGHI[o.luogo].isola;
+    let pg = P_GUAI[LIVELLI_PERICOLO.indexOf(s.notte.pericolo[o.luogo])];
+    if (p.corrotti["agente_" + isola]) pg *= 0.6;
+    if (p.corrotti.commissario) pg *= 0.8;
+    if (s.notte.rito && s.notte.rito[p.id]) pg *= 0.7; // la setta ti copre dopo il rito
+    if ((p.sette || []).some((id) => { const st = s.sette.find((x) => x.id === id); return st && st.commissario; })) pg *= 0.85; // il Commissario e' della setta
+    if (o.luogo === "aeroporto" && p.corrotti.doganiere) pg *= 0.5;
+    if (s.leggi.includes("polizia_doppia_" + isola)) pg *= 1.4;
+    if (poliziaOccupata(s, p)) pg *= N.occupata;
+    pg *= 1 + N.pistaLuogoNotte * ((p.calore || {})[o.luogo] || 0);
+    if (dovePersonaggio(s, "commissario") === o.luogo && !p.corrotti.commissario) pg *= 1.35; // il Commissario e' qui stanotte
+    pg *= sitMult(s, "gu", { luogo: o.luogo }) * strumentiMult(s, p, "gu", usati, { luogo: o.luogo, occ: O.id }); // situazioni e strumenti
+    pg = Math.min(0.95, pg);
+    if (o.luogo === "porto" && operaAttiva(s, p, "porto")) pg = 0; // Grande Opera: il Porto e' della setta
+    return pg;
+  }
+  // ================================================================ IL COLPO A SCELTE (v83)
+  // Un affare non si risolve piu' di colpo: 2 bivi (come entri, quanto prendi) e poi il momento della verita'.
+  // Ogni scelta cambia rischio (gu), bottino (ga) e Tracce (tr). Alla fine arriva un segnale: vero 3 volte su 4.
+  // Se esiti (finisce il tempo del bivio) prendi la scelta prudente ma il rischio sale.
+  const TEMPO_BIVIO = 20; // secondi per decidere (lo conta il telefono)
+  const COLPI = {
+    mare: [
+      { t: "La barca senza luci è a trecento metri. Come ci arrivi?", o: [
+        { l: "A remi, in silenzio", d: "Lento: carichi meno, ma nessuno ti sente.", gu: 0.8, ga: 0.9, tr: 0.9 },
+        { l: "Motore acceso, si fa in fretta", d: "Carichi di più, ma il rumore arriva fino al molo.", gu: 1.25, ga: 1.1, tr: 1.1 },
+        { l: "Paghi il guardiano del molo", d: "Chiude un occhio, e anche le luci.", gu: 0.65, ga: 1, tr: 1, costo: 60_000 },
+      ] },
+      { t: "Il carico è più grosso del previsto. Quanto prendi?", o: [
+        { l: "Solo le casse sicure", d: "Meno soldi, meno peso, meno tracce.", gu: 0.75, ga: 0.6, tr: 0.7 },
+        { l: "Tutto il carico", d: "Quello che era nei patti.", gu: 1, ga: 1, tr: 1 },
+        { l: "Anche il doppiofondo", d: "Molto di più, ma la barca resta in mare più a lungo.", gu: 1.4, ga: 1.5, tr: 1.3 },
+      ] },
+    ],
+  };
+  const SEGNALI = {
+    marina: { brutto: ["Una luce blu si accende in fondo al canale.", "Il guardiano parla al telefono e guarda verso di te.", "Un motore si avvicina senza fanali."], buono: ["Solo gabbiani e onde contro gli scogli.", "Il molo è buio e vuoto.", "Le motovedette sono tutte ormeggiate."] },
+    _: { brutto: ["Senti passi che non dovrebbero esserci.", "Una macchina si ferma qui vicino, a fari spenti.", "Qualcuno fa una telefonata di troppo."], buono: ["Silenzio. Nessuno in giro.", "Tutto tranquillo, come previsto.", "Nessuna luce accesa nei dintorni."] },
+  };
+  const ULTIMA = [
+    { l: "Molli tutto e scappi", d: "Porti via solo quello che hai in mano (un quarto). Niente guai, poche tracce.", k: "scappa" },
+    { l: "Ti nascondi e aspetti", d: "Se il pericolo è vero, una volta su due passa oltre. Perdi un po' di tempo e di carico.", k: "aspetta" },
+    { l: "Tiri dritto", d: "Se il pericolo è vero ti prende in pieno. Se non lo è, il sangue freddo paga: +15%.", k: "dritto" },
+  ];
+  function iniziaColpo(s, p, o, O, oggetti) {
+    s.notte.colpi = s.notte.colpi || {};
+    s.notte.colpi[p.id] = { n: o.n, oggetti, passo: 0, gu: 1, ga: 1, tr: 1, quando: adesso(), storia: [] };
+    racconta(s, p, O.nome + ": accetti." + (oggetti.length ? " Porti con te: " + oggetti.map((x) => oggettoDef(x).nome.toLowerCase()).join(", ") + "." : "") + " Adesso tocca a te giocartela.");
+  }
+  // la parte del colpo che il giocatore puo' vedere (mai il guaio gia' deciso)
+  function colpoVisibile(s, p) {
+    const C = s.notte && s.notte.colpi && s.notte.colpi[p.id]; if (!C) return null;
+    const o = s.notte.occasioni.find((x) => x.n === C.n), O = OCCASIONI.find((x) => x.id === o.id), passi = COLPI[O.id];
+    const pg = Math.min(0.95, rischioOccasione(s, p, o, O, C.oggetti) * C.gu);
+    const g = O.guadagno.map((x) => round(x * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p) * C.ga));
+    const ultimo = C.passo >= passi.length;
+    return { nome: O.nome, luogo: o.luogo, passo: C.passo, passi: passi.length + 1, rischio: Math.round(pg * 100), bottino: g, tracce: Math.round(O.tracce * 0.75 * C.tr), quando: C.quando, tempo: TEMPO_BIVIO, adesso: adesso(), storia: C.storia,
+      testo: ultimo ? "Il momento della verità. " + C.segnale : passi[C.passo].t, segnale: ultimo ? C.segnaleBrutto : null,
+      opzioni: (ultimo ? ULTIMA : passi[C.passo].o).map((x) => ({ l: x.l, d: x.d, costo: x.costo || 0, gu: x.gu || null, ga: x.ga || null })) };
+  }
+  function sceltaColpo(s, p, i, esitato, muto) {
+    inNotte2(s, p);
+    const C = s.notte.colpi && s.notte.colpi[p.id]; if (!C) err("Non sei in un colpo.");
+    if (C.quando && adesso() - C.quando > (TEMPO_BIVIO + 4) * 1000) esitato = true; // troppo tardi: hai esitato
+    const o = s.notte.occasioni.find((x) => x.n === C.n), O = OCCASIONI.find((x) => x.id === o.id), passi = COLPI[O.id];
+    i = Number(i) || 0;
+    if (C.passo < passi.length) {
+      const opz = passi[C.passo].o; if (i < 0 || i >= opz.length) err("Scelta sconosciuta.");
+      let x = opz[i];
+      if (x.costo && (p.cash + p.sporchi) < x.costo) err("Non hai abbastanza soldi per questa scelta.");
+      if (esitato) { x = opz[0]; C.gu *= 1.15; }
+      if (x.costo) pagaMisto(s, p, x.costo);
+      C.gu *= x.gu; C.ga *= x.ga; C.tr *= x.tr; C.passo += 1; C.quando = adesso();
+      C.storia.push((esitato ? "Esiti troppo: " : "") + x.l);
+      racconta(s, p, (esitato ? "Esiti troppo e perdi l'attimo. " : "") + x.l + ". " + x.d);
+      if (C.passo >= passi.length) { // si decide adesso se il guaio arriva, e si manda un segnale (vero 3 volte su 4)
+        const pg = Math.min(0.95, rischioOccasione(s, p, o, O, C.oggetti) * C.gu);
+        C.pg = pg;
+        C.guaio = O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
+        const brutto = C.guaio ? rng(s) < 0.75 : rng(s) < 0.25;
+        const SG = SEGNALI[o.luogo] || SEGNALI._, lista = brutto ? SG.brutto : SG.buono;
+        C.segnaleBrutto = brutto; C.segnale = lista[Math.floor(rng(s) * lista.length)];
+      }
+      return;
+    }
+    if (esitato) i = 2; // chi resta impietrito tira dritto senza volerlo
+    const k = (ULTIMA[i] || err("Scelta sconosciuta.")).k;
+    let guaio = C.guaio, ga = C.ga, tr = C.tr;
+    if (k === "scappa") { guaio = null; ga *= 0.25; tr *= 0.5; }
+    else if (k === "aspetta") { if (guaio && rng(s) < 0.5) guaio = null; ga *= 0.85; }
+    else if (!guaio) ga *= 1.15;
+    C.storia.push((esitato ? "Resti impietrito e " : "") + ULTIMA[i].l.toLowerCase());
+    racconta(s, p, k === "scappa" ? "Molli tutto e scappi nel buio. " + (C.guaio ? "Dietro di te arriva davvero qualcuno: l'hai scampata." : "Poi scopri che non c'era nessuno. Peccato.") : k === "aspetta" ? "Ti nascondi e trattieni il fiato. " + (C.guaio && !guaio ? "Il pericolo passa oltre." : "") : "Tiri dritto. " + (!C.guaio ? "Era solo paura: il sangue freddo paga." : ""));
+    delete s.notte.colpi[p.id];
+    s.notte.chiuso[p.id] = true;
+    risolviOccasione(s, p, s.notte.fatto[p.id], { pg: C.pg, guaio, ga, tr });
+    if (!muto) controllaOra(s);
+  }
+  // il tempo dell'ora finisce con un colpo aperto: si esita fino in fondo
+  function chiudiColpi(s) {
+    for (const id of Object.keys((s.notte && s.notte.colpi) || {})) { const p = giocatore(s, id); let g = 0; while (s.notte.colpi[id] && g++ < 6) sceltaColpo(s, p, 0, true, true); }
+  }
+  function risolviOccasione(s, p, f, cx) {
     const o = s.notte.occasioni.find((x) => x.n === f.n);
     const O = OCCASIONI.find((x) => x.id === o.id);
     const usati = f.oggetti || [];
@@ -2522,22 +2630,13 @@
     p.peggiorReato = peggio(p.peggiorReato, O.gravita);
     let tracce = O.tracce * 0.75 * (0.7 + 0.6 * rng(s));
     const isola = LUOGHI[o.luogo].isola;
-    let pg = P_GUAI[LIVELLI_PERICOLO.indexOf(s.notte.pericolo[o.luogo])];
-    if (p.corrotti["agente_" + isola]) { pg *= 0.6; p.corrotti["agente_" + isola].usi = (p.corrotti["agente_" + isola].usi || 0) + 1; }
-    if (p.corrotti.commissario) { pg *= 0.8; p.corrotti.commissario.usi = (p.corrotti.commissario.usi || 0) + 1; }
-    if (s.notte.rito && s.notte.rito[p.id]) pg *= 0.7; // la setta ti copre dopo il rito
-    if ((p.sette || []).some((id) => { const st = s.sette.find((x) => x.id === id); return st && st.commissario; })) pg *= 0.85; // il Commissario e' della setta
-    if (o.luogo === "aeroporto" && p.corrotti.doganiere) { pg *= 0.5; p.corrotti.doganiere.usi = (p.corrotti.doganiere.usi || 0) + 1; }
-    if (s.leggi.includes("polizia_doppia_" + isola)) pg *= 1.4;
-    if (poliziaOccupata(s, p)) pg *= N.occupata;
-    pg *= 1 + N.pistaLuogoNotte * ((p.calore || {})[o.luogo] || 0);
-    if (dovePersonaggio(s, "commissario") === o.luogo && !p.corrotti.commissario) pg *= 1.35; // il Commissario e' qui stanotte
-    pg *= sitMult(s, "gu", { luogo: o.luogo }) * strumentiMult(s, p, "gu", usati, { luogo: o.luogo, occ: O.id }); // situazioni e strumenti
-    pg = Math.min(0.95, pg);
-    if (o.luogo === "porto" && operaAttiva(s, p, "porto")) pg = 0; // Grande Opera: il Porto e' della setta
-    const guaio = O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
+    if (p.corrotti["agente_" + isola]) p.corrotti["agente_" + isola].usi = (p.corrotti["agente_" + isola].usi || 0) + 1;
+    if (p.corrotti.commissario) p.corrotti.commissario.usi = (p.corrotti.commissario.usi || 0) + 1;
+    if (o.luogo === "aeroporto" && p.corrotti.doganiere) p.corrotti.doganiere.usi = (p.corrotti.doganiere.usi || 0) + 1;
+    const pg = cx ? cx.pg : rischioOccasione(s, p, o, O, usati);
+    const guaio = cx ? cx.guaio : O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
     let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p) : 0;
-    guadagno *= sitMult(s, "ga", { luogo: o.luogo, occ: O.id }) * strumentiMult(s, p, "ga", usati, { luogo: o.luogo, occ: O.id });
+    guadagno *= sitMult(s, "ga", { luogo: o.luogo, occ: O.id }) * strumentiMult(s, p, "ga", usati, { luogo: o.luogo, occ: O.id }) * (cx ? cx.ga : 1);
     if (guaio) {
       const G = PERICOLI[guaio];
       const extra = sitSalvaExtra(s, guaio);
@@ -2565,6 +2664,7 @@
       if (altri.length) { const b = altri[Math.floor(rng(s) * altri.length)]; p.prove.push({ su: b.id, ciclo: s.ciclo + 1, cosa: "confidenze del politico" }); racconta(s, p, "Il politico ti racconta segreti su " + b.nome + ". Ora hai una Prova."); }
       else racconta(s, p, "Il politico parla tanto ma non dice niente di utile.");
     }
+    if (cx) tracce *= cx.tr;
     if (o.riservata === p.id && usati.includes("telefono")) tracce *= 0.5;
     if (inSetta(p)) tracce *= 0.7; // la setta copre i suoi
     if (operaAttiva(s, p, "amnistia")) tracce *= 1.3; // dopo l'Amnistia la Procura vi guarda
@@ -5091,7 +5191,8 @@
       case "tempo_scaduto": return tempoScaduto(s);
       case "pronto": case "torna_a_casa": return tornaACasa(s, p);
       // ---- notte: affari, oggetti, contatti, soldi sporchi
-      case "occasione": return prendiOccasione(s, p, a.n, a.oggetti);
+      case "occasione": return prendiOccasione(s, p, a.n, a.oggetti, !!a.scelte);
+      case "colpo": return sceltaColpo(s, p, a.i, !!a.esitato);
       case "compra_oggetto": return compraOggetto(s, p, a.oggetto);
       case "soffiata": return soffiata(s, p, a.luogo);
       case "foto": return fotografa(s, p, a.bersaglio);
@@ -5202,6 +5303,7 @@
       v.notte = {
         ora: s.notte.ora, dove: { ...s.notte.dove },
         viaggio: Object.fromEntries(Object.entries(s.notte.viaggio).map(([k, x]) => [k, { verso: k === idGiocatore ? x.verso : null, restano: k === idGiocatore ? x.restano : null, serata: k === idGiocatore ? x.serata || null : null }])),
+        colpo: me ? colpoVisibile(s, me) : null,
         chiuso: { [idGiocatore]: !!s.notte.chiuso[idGiocatore] }, racconto: s.notte.racconto[idGiocatore] || [],
         pronto: { [idGiocatore]: !!(s.notte.pronto && s.notte.pronto[idGiocatore]) }, inizio: s.notte.inizio, tempo: TEMPO_ORA, adesso: adesso(),
         daScelta: s.notte.daScelta[idGiocatore], inizioRacc: s.notte.inizioRacc[idGiocatore] || 0,
