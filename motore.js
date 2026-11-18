@@ -972,7 +972,7 @@
     if (gia + importo > G.riciclaMax) err("Nella tua banca ripulisci al massimo " + euro(G.riciclaMax) + " per Ciclo (ti restano " + euro(G.riciclaMax - gia) + ").");
     if (p.sporchi < importo) err("Non hai " + euro(importo) + " sporchi.");
     p.sporchi -= importo; p.cash += round(importo * 0.9); p.riciclTot = (p.riciclTot || 0) + importo; p.ripulitiCiclo = (p.ripulitiCiclo || 0) + importo;
-    p.tracce += 4 * importo / 1_000_000; p.calSoldi = Math.min(10, (p.calSoldi || 0) + 0.8 * importo / 1_000_000); p.pulitoCiclo = false; p.peggiorReato = peggio(p.peggiorReato, "media");
+    p.tracce += 4 * importo / 1_000_000; p.calSoldi = Math.min(10, (p.calSoldi || 0) + 0.8 * importo / 1_000_000); p.pulitoCiclo = false; p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "media");
     g.riciclato = gia + importo; g.riciclatoCiclo = s.ciclo;
     privato(s, p, "Hai ripulito " + euro(importo) + " nella tua banca (ti restano " + euro(round(importo * 0.9)) + " puliti). La Finanza però guarda i conti delle banche: è una pista.");
   }
@@ -1187,7 +1187,7 @@
     if (!perso) { p.sporchi += carico + profitto; p.affariOk += 1; p.reputazione += 2; }
     let tracce = A.tracce * tMult * (0.6 + 0.8 * rng(s)) * fT * protIsola;
     if (s.leggi.includes("polizia_doppia_" + isola)) tracce *= 2;
-    p.tracce += tracce; p.pulitoCiclo = false; segnaTraccia(s, p, tracce, A.nome);
+    p.tracce += tracce; p.pulitoCiclo = false; p.macchia = true; segnaTraccia(s, p, tracce, A.nome);
     p.peggiorReato = peggio(p.peggiorReato, intensita === "spavaldo" && A.gravita === "media" ? "grave" : A.gravita);
     p.affariStanotte.push({ tipo, intensita, mosse, isola });
     let colto = N.coltoBase * tMult * fC * (p.corrotti.commissario ? 0.5 : 1);
@@ -1225,7 +1225,7 @@
       return false;
     }
     p.corrotti[chiave] = { dal: s.ciclo };
-    p.tracce += 4; p.pulitoCiclo = false;
+    p.tracce += 4; p.pulitoCiclo = false; p.macchia = true;
     p.peggiorReato = peggio(p.peggiorReato, chi === "agente" || chi === "doganiere" ? "media" : "grave");
     privato(s, p, "Accordo fatto: ora hai dalla tua parte " + (chi === "agente" ? "l'agente di " + NOMI_ISOLE[isola] : chi === "commissario" ? "il Commissario Vargas" : chi === "doganiere" ? "il doganiere dell'Aeroporto" : "il banchiere Lenz") + ".");
     return true;
@@ -1256,7 +1256,7 @@
     } else err("Metodo sconosciuto.");
     p.ripulitiCiclo = (p.ripulitiCiclo || 0) + importo;
     segnaTraccia(s, p, metodo === "copertura" ? N.ricCopTracce * Math.min(importo, 5e6) / 100_000 : metodo === "shadow" ? N.shadowTracce * importo / 100_000 : 0.2 * Math.min(importo, 5e6) / 100_000, metodo === "paradiso" ? "il viaggio nel paradiso fiscale" : "i soldi ripuliti al Casinò Reale");
-    p.pulitoCiclo = false;
+    p.pulitoCiclo = false; p.macchia = true;
     if (p.riciclTot > 8_000_000) p.peggiorReato = peggio(p.peggiorReato, "grave");
   }
   function spia(s, p, idBersaglio) {
@@ -1704,6 +1704,7 @@
   function pagaMisto(s, p, costo) { // prima gli sporchi, poi i puliti
     if (p.sporchi + p.cash < costo) err("Non hai abbastanza soldi: servono " + euro(costo) + ".");
     const ds = Math.min(p.sporchi, costo); p.sporchi -= ds; p.cash -= costo - ds;
+    if (ds > 0) p.macchia = true; // anche 1 euro sporco macchia il Ciclo
   }
 
   const VERA = [
@@ -2274,6 +2275,7 @@
     if (!O.subito && postiUsati(p) + (O.posti || 1) > postiValigetta(s, p)) err("Nella valigetta non c'è spazio (" + postiUsati(p) + " posti usati su " + postiValigetta(s, p) + (O.posti > 1 ? "; questo ne occupa " + O.posti : "") + ").");
     if (!O.notti && !O.consuma && !O.subito && haOggetto(p, id)) err("Ce l'hai già.");
     pagaMisto(s, p, prezzo);
+    if (O.illegale) p.macchia = true;
     if (nero) { const b = s.notte.banco[s.notte.dove[p.id]]; b.splice(b.indexOf(id), 1); }
     if (!O.subito) p.valigetta.push({ id, notti: O.notti || null });
     racconta(s, p, "Compri: " + O.nome + (prezzo !== O.prezzo ? " (" + euro(prezzo) + ")" : "") + "." + (nero ? " Era l'unico: stanotte nessun altro lo trova." : ""));
@@ -2342,7 +2344,7 @@
     if (p.refurtiva && p.refurtiva.ciclo === s.ciclo) err("Stanotte hai già comprato dal Ricettatore.");
     if (importo < 100_000 || importo > 2_000_000) err("Il Ricettatore tratta da 100.000 € a 2 milioni.");
     if (p.sporchi < importo) err("Il Ricettatore vuole contanti sporchi: non ne hai abbastanza.");
-    p.sporchi -= importo; p.refurtiva = { ciclo: s.ciclo, importo }; p.pulitoCiclo = false; p.peggiorReato = peggio(p.peggiorReato, "media");
+    p.sporchi -= importo; p.refurtiva = { ciclo: s.ciclo, importo }; p.pulitoCiclo = false; p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "media");
     p.tracce += 3 * importo / 1_000_000; segnaTraccia(s, p, 3 * importo / 1_000_000, "Merce rubata (Mercato Nero)");
     s.notte.chiuso[p.id] = true;
     racconta(s, p, "Il Ricettatore conta i soldi due volte, poi ti indica un camion senza targa. " + euro(importo) + " di merce: all'Alba la rivendi, se la Finanza non arriva prima.");
@@ -2411,7 +2413,7 @@
       racconta(s, p, O.id === "festa" ? "Alla festa stringi le mani giuste. La tua fama cresce." : "Champagne, stelle e armatori. Domani tutti parleranno di te.");
       return;
     }
-    p.affariStanotte.push({ tipo: O.id }); p.pulitoCiclo = false; p.affariOk += 1; p.reputazione += 2;
+    p.affariStanotte.push({ tipo: O.id }); p.pulitoCiclo = false; p.macchia = true; p.affariOk += 1; p.reputazione += 2;
     p.peggiorReato = peggio(p.peggiorReato, O.gravita);
     let tracce = O.tracce * 0.75 * (0.7 + 0.6 * rng(s));
     const isola = LUOGHI[o.luogo].isola;
@@ -2675,7 +2677,7 @@
     if (!p.licenzaNegata) err("Non c'è nessuna licenza negata da sistemare.");
     pagaMisto(s, p, 650_000);
     s.licenze.push(p.id); p.licenzaNegata = false;
-    p.tracce += 10; p.pulitoCiclo = false; p.peggiorReato = peggio(p.peggiorReato, "lieve");
+    p.tracce += 10; p.pulitoCiclo = false; p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "lieve");
     privato(s, p, "Una busta gonfia passa sotto il tavolo. La licenza del casinò è tua.");
     log(s, p.nome + " ottiene la licenza per aprire un casinò.", p.id);
   }
@@ -2686,7 +2688,7 @@
     const costo = Math.max(50_000, round(l.prezzo * 0.1));
     pagaMisto(s, p, costo);
     l.permesso = true; l.negato = false;
-    p.tracce += 6; p.pulitoCiclo = false; p.peggiorReato = peggio(p.peggiorReato, "lieve");
+    p.tracce += 6; p.pulitoCiclo = false; p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "lieve");
     privato(s, p, "Una busta passa di mano. Il permesso per " + l.nome + " è approvato.");
     log(s, p.nome + " ottiene il permesso per costruire in " + l.nome + ".", p.id);
   }
@@ -2716,7 +2718,7 @@
     if (!si) { privato(s, p, "Riattacchi. Meglio non rischiare."); return; }
     const tel = conTelefono && haOggetto(p, "telefono");
     if (tel) togliOggetto(p, "telefono");
-    p.sporchi += pd.guadagno; p.tracce += tel ? 2 : 9; p.pulitoCiclo = false; p.peggiorReato = peggio(p.peggiorReato, "lieve");
+    p.sporchi += pd.guadagno; p.tracce += tel ? 2 : 9; p.pulitoCiclo = false; p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "lieve");
     privato(s, p, "Lavoretto fatto: +" + euro(pd.guadagno) + " in contanti sporchi." + (tel ? " Il telefono usa-e-getta finisce in mare." : " Hai usato il tuo numero: qualcuno potrebbe ascoltare."));
   }
   // Le perquisizioni all'Alba: piu' Tracce lasci, piu' e' facile che la polizia entri nel tuo Palazzo.
@@ -2860,7 +2862,7 @@
           notizia(s, "Blitz della Finanza su un'isola privata della Laguna. Nessuno sa di chi sia.", "scandalo");
         } else {
           st.tesoro += 1_500_000;
-          for (const m of membri) { m.sporchi += 800_000; m.pulitoCiclo = false; if (r[m.id]) r[m.id].isolaSetta = 800_000; }
+          for (const m of membri) { m.sporchi += 800_000; m.pulitoCiclo = false; m.macchia = true; if (r[m.id]) r[m.id].isolaSetta = 800_000; }
         }
       }
       // la proposta da votare
@@ -2887,7 +2889,7 @@
         const ok = rng(s) < 0.45 + commiss + piu;
         if (ok) {
           const parte = round(O.bottino / membri.length);
-          for (const m of membri) { m.sporchi += parte; m.tracce += 12; m.pulitoCiclo = false; m.peggiorReato = peggio(m.peggiorReato, "grave"); privato(s, m, "IL GRANDE COLPO (" + voti + ") è riuscito! Il caveau della Banca della Laguna è vuoto. La tua parte: " + euro(parte) + " sporchi. +12 Tracce."); }
+          for (const m of membri) { m.sporchi += parte; m.tracce += 12; m.pulitoCiclo = false; m.macchia = true; m.peggiorReato = peggio(m.peggiorReato, "grave"); privato(s, m, "IL GRANDE COLPO (" + voti + ") è riuscito! Il caveau della Banca della Laguna è vuoto. La tua parte: " + euro(parte) + " sporchi. +12 Tracce."); }
           notizia(s, "SVALIGIATO IL CAVEAU DELLA BANCA DELLA LAGUNA. Spariti 45 milioni. La polizia brancola nel buio.", "scandalo");
         } else {
           for (const m of membri) {
@@ -2918,7 +2920,7 @@
     if (p.sporchi < importo) err("Non hai " + euro(importo) + " sporchi.");
     const resa = round(importo * 0.7); if (st.tesoro < resa) err("Il Tesoro non ha " + euro(resa) + " puliti da darti in cambio.");
     p.sporchi -= importo; st.tesoro += importo - resa; p.cash += resa; p.lavato = gia + importo; p.lavatoCiclo = s.ciclo;
-    p.tracce += 2 * importo / 1_000_000; p.riciclTot = (p.riciclTot || 0) + importo; p.pulitoCiclo = false;
+    p.tracce += 2 * importo / 1_000_000; p.riciclTot = (p.riciclTot || 0) + importo; p.pulitoCiclo = false; p.macchia = true;
     guadagnaInfluenza(s, st, importo / 1_000_000, "Lavanderia (" + p.nome + ")");
     privato(s, p, "La setta ha ripulito " + euro(importo) + ": a te " + euro(resa) + " puliti, " + euro(importo - resa) + " restano nel Tesoro.");
   }
@@ -3017,7 +3019,7 @@
     if (sporchi) {
       p.sporchi -= importo;
       // nascondere gli sporchi nel Tesoro lascia Tracce, come ripulirli (ILL-11)
-      const tr = TRACCE_PASSAMANO * importo / 1_000_000; p.tracce += tr; p.pulitoCiclo = false; segnaTraccia(s, p, tr, "i soldi sporchi versati nel Tesoro della setta");
+      const tr = TRACCE_PASSAMANO * importo / 1_000_000; p.tracce += tr; p.pulitoCiclo = false; p.macchia = true; segnaTraccia(s, p, tr, "i soldi sporchi versati nel Tesoro della setta");
     } else p.cash -= importo;
     st.tesoro += importo;
   }
@@ -3193,7 +3195,7 @@
     st.tesoro -= O.costo; st.operazioni += 1; st.opNotte = s.ciclo;
     const riuscita = rng(s) < 0.75;
     // ILL-20: le Tracce dell'operazione le prende chi la ordina; agli altri membri ne resta una
-    for (const id of st.membri) { const m = giocatore(s, id), tr = id === p.id ? 5 : 1; m.tracce += tr; if (id === p.id) m.pulitoCiclo = false; segnaTraccia(s, m, tr, "l'operazione della setta (" + O.nome + ")"); }
+    for (const id of st.membri) { const m = giocatore(s, id), tr = id === p.id ? 5 : 1; m.tracce += tr; if (id === p.id) m.pulitoCiclo = false; m.macchia = true; segnaTraccia(s, m, tr, "l'operazione della setta (" + O.nome + ")"); }
     if (!riuscita) { privato(s, p, O.nome + ": l'operazione è fallita. +1 Influenza (almeno ci avete provato)."); guadagnaInfluenza(s, st, 1, O.nome + " (fallita)"); notizia(s, "Fallito un misterioso piano nella Laguna.", "voce"); return; }
     if (tipo === "manipola") {
       const f = lv >= 3 ? num(s, "spintaForte") : 0.15;
@@ -3233,7 +3235,7 @@
     importo = Math.floor(importo || 0);
     if (importo < 125_000) err("Un articolo costa almeno 125.000 €.");
     const b = giocatore(s, idBersaglio); // prima si controlla di chi si parla, poi si paga
-    if (sporchi) { if (p.sporchi < importo * 0.8) err("Non hai abbastanza sporchi."); p.sporchi -= importo * 0.8; p.tracce += 3; }
+    if (sporchi) { if (p.sporchi < importo * 0.8) err("Non hai abbastanza sporchi."); p.sporchi -= importo * 0.8; p.tracce += 3; p.macchia = true; }
     else { if (p.cash < importo) err("Non hai abbastanza soldi."); p.cash -= importo; }
     const forza = Math.min(20, Math.round(importo / 50_000));
     // credibilita': uno scandalo su chi ha davvero tracce e' credibile; su chi e' pulito puo' ritorcersi
@@ -3373,8 +3375,9 @@
       if (p.sporchi < importo) err("Non hai abbastanza sporchi."); p.sporchi -= importo; a.sporchi += importo;
       // una valigia di contanti sporchi che cambia mano lascia Tracce a tutti e due: non si nascondono dagli amici puliti
       const tr = Math.max(1, TRACCE_PASSAMANO * importo / 1_000_000);
-      p.tracce += tr; p.pulitoCiclo = false; segnaTraccia(s, p, tr, "i contanti sporchi passati a " + a.nome);
-      a.tracce += tr; a.pulitoCiclo = false; a.peggiorReato = peggio(a.peggiorReato, "lieve"); segnaTraccia(s, a, tr, "i contanti sporchi ricevuti da " + p.nome);
+      p.tracce += tr; p.pulitoCiclo = false; p.macchia = true; segnaTraccia(s, p, tr, "i contanti sporchi passati a " + a.nome);
+      a.tracce += tr; a.pulitoCiclo = false; // chi riceve non si macchia (0.4)
+      a.peggiorReato = peggio(a.peggiorReato, "lieve"); segnaTraccia(s, a, tr, "i contanti sporchi ricevuti da " + p.nome);
     }
     else { if (p.cash < importo) err("Non hai abbastanza soldi."); p.cash -= importo; a.cash += importo; }
     flusso(s, p, a, importo, sporchi ? "Regalo in contanti sporchi" : "Regalo", false);
@@ -3681,7 +3684,7 @@
       if (p.blocco > 0) { rend *= 0.5; p.blocco -= 1; }
       const zona = s.leggi.includes("zona_franca") ? propri(s, p).filter((l) => l.isola === "Sole").reduce((a, l) => a + rendita(s, l), 0) : 0;
       const evasa = rend * clamp(p.evasione || 0, 0, N.evasioneMax);
-      if (evasa > 0) { p.sporchi += evasa; p.tracce += 2 * (evasa > 0 ? 1 : 0); p.pulitoCiclo = false; p.peggiorReato = peggio(p.peggiorReato, "lieve"); }
+      if (evasa > 0) { p.sporchi += evasa; p.tracce += 2 * (evasa > 0 ? 1 : 0); p.pulitoCiclo = false; p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "lieve"); }
       const tassa = Math.max(0, (rend - evasa - zona) * s.tassa);
       // decima della setta
       let decima = 0;
