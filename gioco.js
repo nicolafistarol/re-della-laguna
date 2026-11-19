@@ -619,7 +619,7 @@ async function eseguiCoda() {
   animando = true;
   try { await eseguiCodaDentro(); } catch (e) { console.error("animazione", e); }
   // qualunque cosa succeda, la partita non resta mai bloccata sui "…"
-  finally { if (coda.length) { const v = coda.pop(); coda.length = 0; S = v; S.players.forEach((p) => disp[p.id] = copiaPos(p)); } animando = false; disegna(); }
+  finally { if (coda.length) { const v = coda.pop(); coda.length = 0; S = v; S.players.forEach((p) => disp[p.id] = copiaPos(p)); } animando = false; disegna(); try { seguiMioTurno(); } catch (e) { } }
 }
 async function eseguiCodaDentro() {
   while (coda.length) {
@@ -818,9 +818,10 @@ async function cammina(id, n, finale, mio) {
     const [x, y] = punti[punti.length - 1];
     ped.style.left = x + "%"; ped.style.top = y + "%"; ped.dataset.pos = q.pos;
     ped.classList.remove("salto"); void ped.offsetWidth; ped.classList.add("salto"); Suono.passo(mio);
+    if (mio) tieniInVista(x, y);
     await pausa(mio ? 190 : 95);
   }
-  if (finale) { const [x, y] = puntoMappa(finale); ped.style.left = x + "%"; ped.style.top = y + "%"; ped.dataset.pos = finale.pos; disp[id] = copiaPos(finale); }
+  if (finale) { const [x, y] = puntoMappa(finale); ped.style.left = x + "%"; ped.style.top = y + "%"; ped.dataset.pos = finale.pos; disp[id] = copiaPos(finale); if (mio) tieniInVista(x, y); }
   else disp[id] = q;
   await pausa(mio ? 500 : 150);
   const sv = document.querySelector("#mappa .scia"); if (sv) sv.classList.add("spegni");
@@ -1163,6 +1164,19 @@ function centraSu(px, py) {
   if (vista.z < 1.8) vista.z = 2;
   vista.x = -(px / 100 - 0.5) * w * vista.z; vista.y = -(py / 100 - 0.5) * h * vista.z; applicaVista();
 }
+// v105b: la visuale segue la tua pedina: se sta per uscire dallo spazio libero tra i pannelli, la mappa scorre (senza cambiare zoom)
+function tieniInVista(px, py, sempre) {
+  if (!TAB || TRE3D || document.querySelector("#mondo.trascino")) return;
+  const m = $("#mappa"); if (!m || !m.offsetWidth) return;
+  if (vista.z <= zMin() + 0.02) return; // vista intera: si vede gia' tutto
+  const w = m.offsetWidth, h = m.offsetHeight, W = innerWidth, H = innerHeight, L = areaLibera();
+  const sx = W / 2 + vista.x + (px / 100 - 0.5) * w * vista.z, sy = H / 2 + vista.y + (py / 100 - 0.5) * h * vista.z;
+  const mx = Math.min(140, (L.right - L.left) / 4), my = Math.min(110, (L.bottom - L.top) / 4);
+  if (!sempre && sx > L.left + mx && sx < L.right - mx && sy > L.top + my && sy < L.bottom - my) return;
+  vista.x += (L.left + L.right) / 2 - sx; vista.y += (L.top + L.bottom) / 2 - sy; applicaVista();
+}
+let turnoVisto = null;
+function seguiMioTurno() { if (!S || !mioTurno()) { turnoVisto = null; return; } const k = (S.giorno || 0) + "|" + S.turno; if (k === turnoVisto) return; turnoVisto = k; const me = io(); if (me) { const [x, y] = puntoMappa(disp[mioId] || me); tieniInVista(x, y, true); } }
 // muovendo il mouse verso il bordo dello schermo la mappa scorre (come nei giochi di strategia)
 const bordo = { x: 0, y: 0, attivo: false };
 function scorriAlBordo(t) {
