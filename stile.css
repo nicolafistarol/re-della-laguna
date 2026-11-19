@@ -801,3 +801,6 @@ body.cammino #mondo { z-index:17 }
 .statog .pg.mio{border-color:var(--oro);box-shadow:0 0 6px var(--oro)}
 .statog .sg-msg{font-size:12px;font-weight:700;color:var(--oro)}
 .mieo-g{padding:4px 0}
+#mondo.tab .torre.tab{position:absolute;transform:translate(-50%,-50%);z-index:4;display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:4px;padding:3px 8px 3px 3px;border-radius:999px;background:rgba(10,16,28,.88);border:2px solid var(--col);color:#fff;font-size:13px;font-weight:900;white-space:nowrap;box-shadow:0 0 12px var(--col),0 4px 10px rgba(0,0,0,.5);height:auto;width:auto}
+#mondo.tab .torre.tab b{width:20px;height:20px;border-radius:50%;background:var(--col);display:flex;align-items:center;justify-content:center;font-size:11px}
+#mondo.tab .torre.tab small{font-size:9.5px;font-weight:700;opacity:.8}

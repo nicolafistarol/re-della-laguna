@@ -282,7 +282,7 @@ function resort(ctx, x, y, a, R) {
   scatola(ctx, x, y, a, 24, 7, 7 + R() * 4, ["#fbf7ee", "#e7dfcf"], "#efe7d8");
 }
 function grattacielo(ctx, x, y, a, R) {
-  const w = 12 + R() * 8, h = 12 + R() * 8, z = 22 + R() * 40;
+  const w = 12 + R() * 8, h = 12 + R() * 8, z = 16 + R() * 22;
   const v = [["#a8dcf0", "#3b7fa8", "#5f8fb0"], ["#d3dde4", "#6c8293", "#8a9aa8"], ["#9be6dc", "#2f7f86", "#4f9a9f"], ["#efe0b6", "#9a8558", "#b8a070"], ["#c3d0ff", "#4a5ea8", "#6a7cc0"]][Math.floor(R() * 5)];
   const elip = R() < 0.3;
   scatola(ctx, x, y, a, w, h, z, [v[0], v[1]], v[2], () => {

@@ -19,7 +19,7 @@ const CUBETTI = location.search.includes("cubetti") || (!location.search.include
 import(CUBETTI ? "./cubetti.js?v=101" : "./tre.js?v=101").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=51";
-import * as Tab from "./tabellone.js?v=101b";
+import * as Tab from "./tabellone.js?v=101c";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
 let TRE3D = false;
 let camminaAttivo = false; // v87: di notte cammini col tuo personaggio nel mondo 3D
@@ -1103,6 +1103,8 @@ function torri() {
     const isola = isolaCasa(p); const k = (conta[isola] = (conta[isola] || 0) + 1) - 1;
     const [x, y] = POS_CASA[isola];
     const h = Math.min(150, 14 + p.piani * 3);
+    // v101c: nel tabellone il Palazzo e' un cartellino col numero dei piani, non una torre alta come mezza mappa
+    if (TAB) return `<div class="torre tab" title="Il Palazzo di ${esc(p.nome)}: ${p.piani} piani" style="left:${x}%;top:${y + k * 4.2}%;--col:${p.colore}"><b>${esc(p.nome[0].toUpperCase())}</b>🏛️ ${p.piani}<small>piani</small></div>`;
     return `<div class="torre" title="Il Palazzo di ${esc(p.nome)}: ${p.piani} piani" style="left:${x + k * 2.2}%;top:${y}%;--col:${p.colore};--h:${h}px"><div class="fusto"></div><span>${p.piani}</span></div>`;
   }).join("");
 }
@@ -1119,8 +1121,10 @@ function applicaVista() {
   m.style.setProperty("--z", vista.z);
   $("#mondo").classList.toggle("vicino", vista.z >= 1.6);
 }
+// v101c: nel tabellone si puo' allontanare finche' tutta la mappa entra nello schermo
+function zMin() { if (!TAB) return 1; const m = $("#mappa"); if (!m || !m.offsetWidth) return 1; return Math.min(1, 0.97 * Math.min(innerWidth / m.offsetWidth, innerHeight / m.offsetHeight)); }
 function zoomA(z, cx = innerWidth / 2, cy = innerHeight / 2) {
-  const nz = Math.max(1, Math.min(4, z));
+  const nz = Math.max(zMin(), Math.min(4, z));
   const k = nz / vista.z;
   vista.x = (vista.x - (cx - innerWidth / 2)) * k + (cx - innerWidth / 2);
   vista.y = (vista.y - (cy - innerHeight / 2)) * k + (cy - innerHeight / 2);
@@ -1230,7 +1234,7 @@ function collegaComandiVista(me) {
   $("#zPiu").onclick = () => TRE3D ? Tre.avvicina(0.7) : zoomA(vista.z * 1.35);
   $("#zMeno").onclick = () => TRE3D ? Tre.avvicina(1.4) : zoomA(vista.z / 1.35);
   if ($("#zSx")) { $("#zSx").onclick = () => Tre.ruota(-35); $("#zDx").onclick = () => Tre.ruota(35); }
-  if ($("#zTutto")) $("#zTutto").onclick = () => { if (TRE3D) return Tre.tutto(); vista = { z: 1, x: 0, y: 0 }; applicaVista(); };
+  if ($("#zTutto")) $("#zTutto").onclick = () => { if (TRE3D) return Tre.tutto(); vista = { z: zMin(), x: 0, y: 0 }; applicaVista(); };
   const modoV = (m) => { Tre.impostaModo(m, mioId); document.querySelectorAll("#vArci,#vSegui,#vLibera,#vAlto").forEach((b) => b.classList.toggle("attivo", b.id === { arcipelago: "vArci", segui: "vSegui", libera: "vLibera", alto: "vAlto" }[m])); };
   for (const [id, m] of [["#vArci", "arcipelago"], ["#vSegui", "segui"], ["#vLibera", "libera"], ["#vAlto", "alto"]]) if ($(id)) $(id).onclick = () => modoV(m);
   $("#zMio").onclick = () => { const notte = S.fase === "notte" && S.notte; const [x, y] = notte ? posLuogo(S.notte.dove[mioId], me) : puntoMappa(disp[mioId] || me); if (TRE3D && (Tre.DIORAMA || Tre.mondoNuovo()) && Tre.seguiPedina(mioId)) return; TRE3D ? Tre.centraSu(x, y) : centraSu(x, y); };
