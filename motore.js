@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 99;
+  const VERSIONE_REGOLE = 100;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -1901,6 +1901,7 @@
       }
     }
     denunceBot(s); // v85: qualche computer furbo vende una persona alla polizia
+    sabotaggiBot(s); // v100: e qualcuno manda i teppisti
     manoInizioNotte(s);
     log(s, "Cala la Notte sul Ciclo " + (s.ciclo + 1) + ".");
     for (const b of s.players) if (b.bot && b.faro === 0 && haPiano(b, "casino_privato") && rng(s) < 0.5) apriSerataSenzaOra(s, b, [50_000, 100_000][Math.floor(rng(s) * 2)]);
@@ -2371,7 +2372,8 @@
     });
     const sp = [];
     if (dove === "casino" && p.sporchi > 0) sp.push({ k: "ricicla", titolo: "Cambia i soldi sporchi in fiches", testo: "Compri fiches con i contanti sporchi, giochi poco e le ricambi: il cassiere non fa domande, ma se ne tiene il 25%." });
-    if (dove === "palazzo" && p.sporchi > 0 && !(N2.ospite && N2.ospite[p.id]) && copertura(s, p) - (p.copUsata || 0) > 0) sp.push({ k: "copertura", titolo: "Passa i soldi nei conti dei tuoi locali", testo: "Il tuo commercialista li fa sembrare incassi delle tue attività di copertura (lavanderia, galleria, magazzino...). Ne perdi solo il 15%, fino a " + euro(copertura(s, p) - (p.copUsata || 0)) + " in questo Ciclo." });
+    if (dove === "palazzo" && p.sporchi > 0 && !(N2.ospite && N2.ospite[p.id]) && copertura(s, p) - (p.copUsata || 0) > 0) sp.push({ k: "copertura", titolo: "Passa i soldi nei conti dei tuoi locali", testo: "⚡ Una telefonata: non ti costa l'ora. Il tuo commercialista li fa sembrare incassi delle tue attività di copertura (lavanderia, galleria, magazzino...). Ne perdi solo il 15%, fino a " + euro(copertura(s, p) - (p.copUsata || 0)) + " in questo Ciclo." });
+    if (dove === "bisca" && s.players.some((q) => q.id !== p.id && !q.uscito && propri(s, q).some((l) => l.tipo && l.lvl >= 1 && !(l.chiuso > 0))) && !((N2.sabotaggi || []).some((x) => x.da === p.id))) sp.push({ k: "sabota", titolo: "Assolda due teppisti", testo: "Nel retro della bisca, per qualche banconota, ti sfasciano un locale di un rivale: all'Alba resta chiuso e non incassa niente. Se li beccano, fanno il tuo nome." });
     if (dove === "aeroporto" && !p.corrotti.doganiere) sp.push({ k: "doganiere", titolo: "Una busta al doganiere", testo: "Il capo della dogana fa il turno di notte. Con lui i tuoi carichi rischiano la metà." });
     if (dove === "casino" && lv >= 1) sp.push({ k: "banchiere", titolo: "Un drink con il banchiere Lenz", testo: "Lenz siede sempre allo stesso tavolo. Con lui i soldi trovano strade nuove." });
     if (dove === "club" && lv >= 1) sp.push({ k: "polizia", titolo: "Parla con un agente fuori servizio", testo: "Al bancone c'è un poliziotto che beve da solo. Ha l'aria di chi cerca un extra." });
@@ -2536,7 +2538,8 @@
     const prima = p.cash;
     const ok = ricicla(s, p, metodo, importo);
     if (ok && metodo !== "paradiso" && haOggetto(p, "fiches")) { const bonus = round((p.cash - prima) * 0.1); p.cash += bonus; togliOggetto(p, "fiches"); }
-    s.notte.chiuso[p.id] = true;
+    // v100: una telefonata al commercialista non costa l'ora (le coperture hanno gia' il loro tetto per Ciclo)
+    if (metodo !== "copertura") s.notte.chiuso[p.id] = true;
     if (ok) racconta(s, p, "Ripulisci " + euro(p.cash - prima) + ": ora sono soldi puliti.");
     else racconta(s, p, "Un uomo della Finanza ti mette una mano sulla spalla. Sequestrano " + euro(p.ricScoperto.seq) + " e ti segnano il nome: l'indagine sale di un gradino.");
     controllaOra(s);
@@ -2633,7 +2636,7 @@
     pagaMisto(s, p, round(N_DENUNCIA.costo * (contro ? SFIDA.sconto : 1)));
     fattoDenuncia(s, p, q, luogo);
     if (contro) s.notte.denunce[s.notte.denunce.length - 1].rivale = true;
-    s.notte.chiuso[p.id] = true;
+    // v100: una telefonata dalla cabina e' un attimo: non costa l'ora (resta una sola soffiata a notte)
     racconta(s, p, "Da una cabina telefonica chiami la polizia, voce bassa: «Stanotte " + q.nome + " lavora a " + LUOGHI[luogo].nome + ".» Adesso è nelle loro mani.");
     controllaOra(s);
   }
@@ -2641,6 +2644,49 @@
     s.notte.denunce = s.notte.denunce || [];
     s.notte.denunce.push({ da: p.id, su: q.id, luogo });
     if (rng(s) < N_DENUNCIA.tradisce) privato(s, q, "Un informatore ti chiama di nascosto: «" + p.nome + " ha fatto il tuo nome alla polizia. Stanotte ti aspettano a " + LUOGHI[luogo].nome + ".»");
+  }
+  // ------------------------------------------------------------ v100: il sabotaggio (rivalita' diretta)
+  const SABOTA = { quota: 0.12, min: 150_000, preso: 0.25, tracce: 15, fama: 3, rivale: 0.75, nome: 0.5 };
+  function costoSabotaggio(s, p, l) { return round(Math.max(SABOTA.min, l.prezzo * SABOTA.quota) * (rivaleDi(s, p) === l.owner ? SABOTA.rivale : 1)); }
+  function bersagliSabotaggio(s, p) { return s.players.filter((q) => q.id !== p.id && !q.uscito).flatMap((q) => propri(s, q).filter((l) => l.tipo && l.lvl >= 1 && !(l.chiuso > 0)).map((l) => ({ lotto: l.id, nome: l.nome, owner: q.id, rendita: rendita(s, l), costo: costoSabotaggio(s, p, l) }))); }
+  function sabota(s, p, idLotto) {
+    oraLibera(s, p);
+    qui(s, p, "bisca", "Assoldare i teppisti");
+    const N2 = s.notte; N2.sabotaggi = N2.sabotaggi || [];
+    if (N2.sabotaggi.some((x) => x.da === p.id)) err("Stanotte hai già mandato i teppisti.");
+    const l = s.lotti.find((x) => x.id === idLotto);
+    if (!l || !l.owner || l.owner === p.id || !l.tipo || !(l.lvl >= 1) || l.chiuso > 0) err("Scegli un locale aperto di un rivale.");
+    const costo = costoSabotaggio(s, p, l);
+    if ((p.cash || 0) + (p.sporchi || 0) < costo) err("Non hai abbastanza soldi per i teppisti.");
+    pagaMisto(s, p, costo);
+    eseguiSabotaggio(s, p, l, rng(s) < SABOTA.preso);
+    N2.chiuso[p.id] = true;
+    controllaOra(s);
+  }
+  function eseguiSabotaggio(s, p, l, preso) {
+    const q = giocatore(s, l.owner), N2 = s.notte; N2.sabotaggi = N2.sabotaggi || [];
+    N2.sabotaggi.push({ da: p.id, su: q.id, lotto: l.id, preso });
+    if (preso) {
+      p.tracce = (p.tracce || 0) + SABOTA.tracce; p.fama = Math.max(0, p.fama - SABOTA.fama); p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "lieve");
+      racconta(s, p, "I tuoi teppisti arrivano a " + l.nome + ", ma c'è una pattuglia. Li prendono, e parlano: fanno il tuo nome.");
+      privato(s, q, "Stanotte la polizia ha fermato due teppisti davanti a " + l.nome + ". Li aveva mandati " + p.nome + ".");
+      notizia(s, "Fermati due teppisti davanti a " + l.nome + ": lavoravano per " + p.nome + ".", "scandalo");
+      return;
+    }
+    l.chiuso = Math.max(l.chiuso || 0, 1);
+    const sa = rng(s) < SABOTA.nome;
+    racconta(s, p, "I teppisti fanno il lavoro: " + l.nome + " di " + q.nome + " resta con le vetrine rotte. All'Alba non incassa niente.");
+    privato(s, q, "Stanotte qualcuno ha sfasciato " + l.nome + ": all'Alba resta chiuso e non incassa." + (sa ? " Un testimone giura che dietro c'è " + p.nome + "." : " Nessuno ha visto chi è stato."));
+    notizia(s, "Vandali a " + l.nome + ": il locale di " + q.nome + " resta chiuso per un giorno.", "scandalo");
+  }
+  // i computer piu' cattivi a volte mandano i teppisti dal loro rivale (o da chi e' primo)
+  function sabotaggiBot(s) {
+    for (const b of s.players) {
+      if (!b.bot || b.faro || b.uscito || !["Furbo", "Spavaldo"].includes(b.strat) || rng(s) >= 0.2) continue;
+      const riv = rivaleDi(s, b); const ber = bersagliSabotaggio(s, b).filter((x) => !riv || x.owner === riv).sort((x, y) => y.rendita - x.rendita)[0];
+      if (!ber || b.cash + b.sporchi < ber.costo * 3) continue;
+      pagaMisto(s, b, ber.costo); eseguiSabotaggio(s, b, s.lotti.find((x) => x.id === ber.lotto), rng(s) < SABOTA.preso);
+    }
   }
   // all'inizio della notte i computer piu' furbi possono vendere una persona alla polizia
   function denunceBot(s) {
@@ -5549,6 +5595,7 @@
       // ---- notte: affari, oggetti, contatti, soldi sporchi
       case "occasione": return prendiOccasione(s, p, a.n, a.oggetti, !!a.scelte);
       case "colpo": return sceltaColpo(s, p, a.i, !!a.esitato);
+      case "sabota": return sabota(s, p, a.lotto);
       case "soffiata_rivale": return soffiataRivale(s, p, a.su, a.luogo);
       case "compra_oggetto": return compraOggetto(s, p, a.oggetto);
       case "soffiata": return soffiata(s, p, a.luogo);
@@ -5727,7 +5774,7 @@
     // tabellone e giorno
     CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, casella, corrente, haSerie, propri, haAttivita, prezzoAgenzia, destinazioniRapide,
     // soldi e valori
-    euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
+    euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, SABOTA, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
     // Palazzo
     costoCantiere, guadagnoLivello, puoSalire, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale,
     costoPiano, costoPiani, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, livelloPalazzo, lustro,
