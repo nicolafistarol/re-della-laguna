@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 103;
+  const VERSIONE_REGOLE = 104;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -51,7 +51,7 @@
     lussoRend: 1, permessoBollo: 0, decimaMax: 0, terrenoInizialeMin: 150_000,
     illegaleLivello: [1, 1, 1, 1, 1], // gli affari della notte valgono di piu' salendo di Livello (solo gen 2)
     astaBase: 0.6, // base d'asta: il 60% del prezzo del terreno. Sotto non si vende (vale per tutte le aste dei terreni)
-    bonusIllegale: 1.4, // gli affari della notte rendono il 40% in piu': tanto premio, tanto rischio
+    bonusIllegale: 1.0, // v104: prima 1.4; gli affari della notte rendono il 40% in piu': tanto premio, tanto rischio
     borsaMu: 0.21, dividendoInv: 0.04, borsaSd: 0.16, criptoMu: 0.40, criptoSd: 0.50, criptoCrash: 0.12,
     caricoBase: 350_000, caricoGrow: 150_000, caricoMax: 3_000_000, caricoMagazzino: 1.5,
     profittoBase: 0.65, tracceAffare: 10, coltoBase: 0.012, affariNotte: 2,
@@ -74,12 +74,12 @@
       disturbatore: { nome: "Disturbatore", tracce: 1, colto: 1, carico: 1, costo: 75_000 },
     },
     veicoli: {
-      motoscafo: { nome: "Motoscafo", prezzo: 300_000, rend: 0.10, fama: 2 },
-      supercar: { nome: "Supercar", prezzo: 650_000, rend: 0.08, fama: 4, famaAlba: 1 },
-      yacht: { nome: "Yacht", prezzo: 2_000_000, rend: 0.18, fama: 6, famaAlba: 1 },
-      elicottero: { nome: "Elicottero", prezzo: 2_500_000, rend: 0.14, fama: 6 },
-      megayacht: { nome: "Megayacht", prezzo: 6_000_000, rend: 0.20, fama: 12, famaAlba: 2 },
-      jet: { nome: "Jet privato", prezzo: 9_000_000, rend: 0.18, fama: 15, famaAlba: 2 },
+      motoscafo: { nome: "Motoscafo", prezzo: 300_000, rend: 0.22, fama: 2 },
+      supercar: { nome: "Supercar", prezzo: 650_000, rend: 0.20, fama: 4, famaAlba: 1 },
+      yacht: { nome: "Yacht", prezzo: 2_000_000, rend: 0.28, fama: 6, famaAlba: 1 },
+      elicottero: { nome: "Elicottero", prezzo: 2_500_000, rend: 0.25, fama: 6 },
+      megayacht: { nome: "Megayacht", prezzo: 6_000_000, rend: 0.30, fama: 12, famaAlba: 2 },
+      jet: { nome: "Jet privato", prezzo: 9_000_000, rend: 0.28, fama: 15, famaAlba: 2 },
     },
   };
   // I numeri che cambiano SOLO per le partite nuove (gen 2). Stessa chiave di N, una riga per tema.
@@ -96,7 +96,7 @@
     permessoBollo: 0.10,   // il permesso e' sicuro ma si paga: 10% del prezzo del terreno (gratis se sei fermo sul Municipio)
     terrenoInizialeMin: 350_000, // ECO-03: terreni iniziali di valore vicino
     // --- notte e affari illegali
-    illegaleLivello: [1, 1, 1.3, 1.8, 2.4], // ECO-02; v82: prima [1, 1, 1.5, 2.5, 4], si facevano troppi soldi sporchi
+    illegaleLivello: [1, 1, 1.12, 1.25, 1.4], // v104: prima [1, 1, 1.3, 1.8, 2.4]; ECO-02; v82: prima [1, 1, 1.5, 2.5, 4], si facevano troppi soldi sporchi
     dividendoInv: 0.025,
     // --- polizia e pene
     // --- setta
@@ -282,7 +282,8 @@
     if (l.lvl === 0) return round(base * (haSerie(s, owner, l.serie) ? 2 : 1) * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1) * sm);
     const t = ATTIVITA[l.tipo];
     // partite nuove: l'affitto cresce di piu' con il livello, e il gruppo completo da' +50% anche alle attivita'
-    if (gen2(s)) return round(base * t.a * num(s, "affLvl")[l.lvl] * (haSerie(s, owner, l.serie) ? 1.5 : 1) * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1) * sm);
+    // v104: l'affitto non supera mai la meta' di quanto vale il terreno con l'attivita' (60% col gruppo completo)
+    if (gen2(s)) return round(Math.min(valoreLotto(l) * (haSerie(s, owner, l.serie) ? 0.6 : 0.5) * (owner.pacchetto === "commerciante" ? 1.25 : 1), base * t.a * num(s, "affLvl")[l.lvl] * (haSerie(s, owner, l.serie) ? 1.5 : 1) * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1) * sm));
     return round(base * t.a * N.affLvl[l.lvl] * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1) * sm);
   }
   function rendita(s, l) {
@@ -290,6 +291,7 @@
     const t = ATTIVITA[l.tipo];
     let r = num(s, "R") * t.r * N.rendLvl[l.lvl] * l.prezzo * vmult(s, l.isola) * sitMult(s, "re", { isola: l.isola, tipo: l.tipo });
     if (gen2(s) && lussoFama(t)) r *= num(s, "lussoRend");
+    if (gen2(s)) r = Math.min(r, 0.35 * valoreLotto(l) * sitMult(s, "re", { isola: l.isola, tipo: l.tipo })); // v104: un'attivita' rende al massimo il 35% di quanto vale a Ciclo
     if (l.ipoteca) r *= 0.5;
     return round(r);
   }
@@ -422,8 +424,10 @@
     for (const p of s.players) {
       const i = Math.floor(rng(s) * pool.length); const l = pool.splice(i, 1)[0]; if (!l) continue;
       const tipo = ["ristorante", "hotel", "uffici", "boutique"].find((k) => ATTIVITA[k].isole.includes(l.isola));
-      l.owner = p.id; l.lvl = 1; l.tipo = tipo; p.cash += TETTO - l.prezzo;
-      privato(s, p, "Ti tocca in sorte " + l.nome + " (" + NOMI_ISOLE[l.isola] + "), con un " + ATTIVITA[tipo].nome.toLowerCase() + " già aperto" + (TETTO - l.prezzo > 0 ? ", più " + euro(TETTO - l.prezzo) + " per pareggiare il valore" : "") + ".");
+      // v104: nelle partite nuove il terreno di partenza e' vuoto: l'attivita' la scegli e la paghi tu (prima un hotel aperto decideva la partita)
+      const vuoto = gen2(s);
+      l.owner = p.id; l.lvl = vuoto ? 0 : 1; l.tipo = vuoto ? null : tipo; p.cash += TETTO - l.prezzo;
+      privato(s, p, "Ti tocca in sorte " + l.nome + " (" + NOMI_ISOLE[l.isola] + ")" + (vuoto ? ", ancora vuoto: decidi tu cosa costruirci" : ", con un " + ATTIVITA[tipo].nome.toLowerCase() + " già aperto") + (TETTO - l.prezzo > 0 ? ", più " + euro(TETTO - l.prezzo) + " per pareggiare il valore" : "") + ".");
       log(s, p.nome + " riceve " + l.nome + ".", p.id);
     }
   }
@@ -1757,19 +1761,19 @@
     { id: "festa", luogo: "club", sblocco: 0, legale: true, nome: "La festa privata", testo: "Al piano di sopra c'è una festa con gente che conta. L'ingresso costa caro.", costo: 50_000, fama: 4, pericoli: [] },
     { id: "giro_barca", luogo: "marina", sblocco: 0, legale: true, nome: "Il giro in barca", testo: "Un armatore offre un giro sotto le stelle a chi offre lo champagne.", costo: 80_000, fama: 5, pericoli: [] },
     { id: "vip", luogo: "club", sblocco: 1, nome: "Il VIP ubriaco", testo: "Un politico ha bevuto troppo e parla di cose che non dovrebbe. Basta stargli vicino.", costo: 20_000, prova: true, pericoli: ["fotografo"], tracce: 3, gravita: "lieve" },
-    { id: "container", luogo: "porto", sblocco: 1, nome: "Il container dimenticato", testo: "Un container senza bolla, il lucchetto già rotto. Nessuno lo reclama.", costo: 0, guadagno: [600_000, 960_000], pericoli: ["pattuglia"], tracce: 6, gravita: "media" },
-    { id: "orologi", luogo: "porto", sblocco: 1, nome: "Il carico di orologi", testo: "Un marinaio vende una cassa di orologi svizzeri. Contanti, subito.", costo: 200_000, guadagno: [1_680_000, 2_480_000], pericoli: ["pattuglia", "intercettazione"], tracce: 9, gravita: "media" },
-    { id: "mare", luogo: "marina", sblocco: 1, nome: "Il carico dal mare", testo: "Una barca senza luci aspetta al largo. Il carico va preso e portato a terra.", costo: 300_000, guadagno: [2_720_000, 3_960_000], pericoli: ["guardia", "pattuglia"], tracce: 12, gravita: "media" },
-    { id: "tavolo", luogo: "bisca", sblocco: 1, nome: "Il tavolo truccato", testo: "Il croupier è un amico. Stanotte le carte girano dalla tua parte, se paghi la sua parte.", costo: 100_000, guadagno: [820_000, 1_400_000], pericoli: ["testimone", "rissa"], tracce: 6, gravita: "lieve" },
-    { id: "refurtiva", luogo: "mercato", sblocco: 1, nome: "La merce rubata", testo: "Gioielli da un furto in villa. Il prezzo è un regalo, la provenienza no.", costo: 150_000, guadagno: [1_050_000, 1_490_000], pericoli: ["retata", "testimone"], tracce: 7, gravita: "media" },
-    { id: "quadri", luogo: "club", sblocco: 2, nome: "I quadri falsi", testo: "Un collezionista cerca chi venda due tele \"d'autore\" a un ricco turista.", costo: 200_000, guadagno: [1_840_000, 2_800_000], pericoli: ["testimone", "fotografo"], tracce: 10, gravita: "grave" },
-    { id: "pesce", luogo: "porto", sblocco: 2, nome: "Il peschereccio", testo: "Sotto il ghiaccio del pesce c'è altro. Va scaricato prima dell'alba.", costo: 350_000, guadagno: [3_080_000, 4_400_000], pericoli: ["pattuglia", "telecamere"], tracce: 13, gravita: "grave" },
-    { id: "colpo", luogo: "villa", sblocco: 3, nome: "Il Colpo alla villa", testo: "Il proprietario è in viaggio. In cassaforte, dicono, ci sono i gioielli di famiglia.", costo: 250_000, guadagno: [5_720_000, 8_360_000], pericoli: ["allarme", "telecamere"], tracce: 26, gravita: "grave" },
-    { id: "cargo", luogo: "aeroporto", sblocco: 2, nome: "Il volo cargo", testo: "Un cargo dall'estero atterra a luci spente. Nella stiva c'è un carico di droga che nessuno deve vedere.", costo: 400_000, guadagno: [3_400_000, 5_000_000], pericoli: ["dogana", "cani"], tracce: 16, gravita: "grave" },
-    { id: "spedizione", luogo: "aeroporto", sblocco: 2, nome: "La spedizione", testo: "Un pilota parte all'alba per l'estero. Ci metti un milione di merce: se passa i controlli, torna il doppio.", costo: 1_000_000, guadagno: [1_500_000, 1_700_000], pericoli: ["dogana", "radar"], tracce: 12, gravita: "grave" },
-    { id: "confraternita", luogo: "faro", sblocco: 0, soloSetta: true, nome: "Il carico della confraternita", testo: "Una nave senza bandiera aspetta il segnale della lanterna. Il carico è per la setta: chi lo scarica si prende la sua parte.", costo: 500_000, guadagno: [5_000_000, 8_000_000], pericoli: ["guardia"], tracce: 16, gravita: "grave" },
-    { id: "senatore", luogo: "faro", sblocco: 0, soloSetta: true, nome: "Il segreto del senatore", testo: "I confratelli hanno le foto di un senatore. Pagherà bene per farle sparire, se qualcuno va a chiederglielo.", costo: 200_000, guadagno: [3_000_000, 5_000_000], pericoli: ["intercettazione", "fotografo"], tracce: 12, gravita: "grave" },
-    { id: "lingotti", luogo: "villa", sblocco: 3, nome: "I lingotti nella cantina", testo: "Il custode della villa ha debiti di gioco. Per una cifra giusta, lascia la porta aperta.", costo: 400_000, guadagno: [3_960_000, 5_720_000], pericoli: ["allarme", "testimone"], tracce: 18, gravita: "grave" },
+    { id: "container", luogo: "porto", sblocco: 1, nome: "Il container dimenticato", testo: "Un container senza bolla, il lucchetto già rotto. Nessuno lo reclama.", costo: 150000, guadagno: [330000, 520000], pericoli: ["pattuglia"], tracce: 6, gravita: "media" },
+    { id: "orologi", luogo: "porto", sblocco: 1, nome: "Il carico di orologi", testo: "Un marinaio vende una cassa di orologi svizzeri. Contanti, subito.", costo: 300000, guadagno: [660000, 1050000], pericoli: ["pattuglia", "intercettazione"], tracce: 9, gravita: "media" },
+    { id: "mare", luogo: "marina", sblocco: 1, nome: "Il carico dal mare", testo: "Una barca senza luci aspetta al largo. Il carico va preso e portato a terra.", costo: 400000, guadagno: [880000, 1400000], pericoli: ["guardia", "pattuglia"], tracce: 12, gravita: "media" },
+    { id: "tavolo", luogo: "bisca", sblocco: 1, nome: "Il tavolo truccato", testo: "Il croupier è un amico. Stanotte le carte girano dalla tua parte, se paghi la sua parte.", costo: 150000, guadagno: [330000, 525000], pericoli: ["testimone", "rissa"], tracce: 6, gravita: "lieve" },
+    { id: "refurtiva", luogo: "mercato", sblocco: 1, nome: "La merce rubata", testo: "Gioielli da un furto in villa. Il prezzo è un regalo, la provenienza no.", costo: 200000, guadagno: [440000, 700000], pericoli: ["retata", "testimone"], tracce: 7, gravita: "media" },
+    { id: "quadri", luogo: "club", sblocco: 2, nome: "I quadri falsi", testo: "Un collezionista cerca chi venda due tele \"d'autore\" a un ricco turista.", costo: 400000, guadagno: [880000, 1400000], pericoli: ["testimone", "fotografo"], tracce: 10, gravita: "grave" },
+    { id: "pesce", luogo: "porto", sblocco: 2, nome: "Il peschereccio", testo: "Sotto il ghiaccio del pesce c'è altro. Va scaricato prima dell'alba.", costo: 600000, guadagno: [1320000, 2100000], pericoli: ["pattuglia", "telecamere"], tracce: 13, gravita: "grave" },
+    { id: "colpo", luogo: "villa", sblocco: 3, nome: "Il Colpo alla villa", testo: "Il proprietario è in viaggio. In cassaforte, dicono, ci sono i gioielli di famiglia.", costo: 1200000, guadagno: [2640000, 4200000], pericoli: ["allarme", "telecamere"], tracce: 26, gravita: "grave" },
+    { id: "cargo", luogo: "aeroporto", sblocco: 2, nome: "Il volo cargo", testo: "Un cargo dall'estero atterra a luci spente. Nella stiva c'è un carico di droga che nessuno deve vedere.", costo: 700000, guadagno: [1540000, 2450000], pericoli: ["dogana", "cani"], tracce: 16, gravita: "grave" },
+    { id: "spedizione", luogo: "aeroporto", sblocco: 2, nome: "La spedizione", testo: "Un pilota parte all'alba per l'estero. Ci metti un milione di merce: se passa i controlli, torna il doppio.", costo: 1000000, guadagno: [2000000, 2800000], pericoli: ["dogana", "radar"], tracce: 12, gravita: "grave" },
+    { id: "confraternita", luogo: "faro", sblocco: 0, soloSetta: true, nome: "Il carico della confraternita", testo: "Una nave senza bandiera aspetta il segnale della lanterna. Il carico è per la setta: chi lo scarica si prende la sua parte.", costo: 1000000, guadagno: [2200000, 3500000], pericoli: ["guardia"], tracce: 16, gravita: "grave" },
+    { id: "senatore", luogo: "faro", sblocco: 0, soloSetta: true, nome: "Il segreto del senatore", testo: "I confratelli hanno le foto di un senatore. Pagherà bene per farle sparire, se qualcuno va a chiederglielo.", costo: 400000, guadagno: [880000, 1400000], pericoli: ["intercettazione", "fotografo"], tracce: 12, gravita: "grave" },
+    { id: "lingotti", luogo: "villa", sblocco: 3, nome: "I lingotti nella cantina", testo: "Il custode della villa ha debiti di gioco. Per una cifra giusta, lascia la porta aperta.", costo: 900000, guadagno: [1980000, 3150000], pericoli: ["allarme", "testimone"], tracce: 18, gravita: "grave" },
   ];
   const INDIZI = {
     club: [["La musica è alta, la gente balla. Nessuno guarda nessuno.", "Il buttafuori ti saluta per nome. Tutto tranquillo."], ["Al bancone ci sono due uomini che non bevono.", "Un fotografo gira tra i tavoli più del solito."], ["Fuori dal club c'è un furgone con i vetri scuri, il motore acceso.", "Il barista ti fa segno di non fermarti troppo."]],
@@ -2936,12 +2940,13 @@
     s.notte.colpi[p.id] = { n: o.n, oggetti, passo: 0, gu: 1, ga: 1, tr: 1, quando: adesso(), storia: [] };
     racconta(s, p, O.nome + ": accetti." + (oggetti.length ? " Porti con te: " + oggetti.map((x) => oggettoDef(x).nome.toLowerCase()).join(", ") + "." : "") + " Adesso tocca a te giocartela.");
   }
+  function tettoColpo(O) { return 4 * Math.max(O.costo || 0, 150_000); }
   // la parte del colpo che il giocatore puo' vedere (mai il guaio gia' deciso)
   function colpoVisibile(s, p) {
     const C = s.notte && s.notte.colpi && s.notte.colpi[p.id]; if (!C) return null;
     const o = s.notte.occasioni.find((x) => x.n === C.n), O = OCCASIONI.find((x) => x.id === o.id), passi = COLPI[O.id];
     const pg = Math.min(0.95, rischioOccasione(s, p, o, O, C.oggetti) * C.gu);
-    const g = O.guadagno.map((x) => round(x * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p) * C.ga));
+    const g = O.guadagno.map((x) => round(Math.min(tettoColpo(O), x * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p) * C.ga)));
     const ultimo = C.passo >= passi.length;
     return { nome: O.nome, luogo: o.luogo, passo: C.passo, passi: passi.length + 1, rischio: Math.round(pg * 100), bottino: g, tracce: Math.round(O.tracce * 0.75 * C.tr), quando: C.quando, tempo: TEMPO_BIVIO, adesso: adesso(), storia: C.storia,
       testo: ultimo ? "Il momento della verità. " + C.segnale : passi[C.passo].t, segnale: ultimo ? C.segnaleBrutto : null,
@@ -3012,6 +3017,8 @@
     const guaio = cx ? cx.guaio : O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
     let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p) : 0;
     guadagno *= sitMult(s, "ga", { luogo: o.luogo, occ: O.id }) * strumentiMult(s, p, "ga", usati, { luogo: o.luogo, occ: O.id }) * (cx ? cx.ga : 1);
+    guadagno = Math.min(guadagno, tettoColpo(O)); // v104: un affare rende al massimo 4 volte la puntata
+    tracce += guadagno / 250_000; // v104: piu' soldi sporchi muovi, piu' tracce lasci (1 milione = +4)
     if (denunciatoQui(s, p, o.luogo)) esitoDenuncia(s, p, o.luogo, guaio, O.nome);
     if (guaio) {
       const G = PERICOLI[guaio];
@@ -4787,6 +4794,8 @@
       const st = (p.storiaTracce || []).filter((x) => x.ciclo >= s.ciclo - 2).sort((a, b) => b.quanto - a.quanto)[0];
       out.push({ k: "voci", peso: p.tracce, testo: st ? "La polizia ha collegato a te " + (st.cosa.startsWith("i ") || st.cosa.startsWith("il ") ? st.cosa : "«" + st.cosa + "»") + (st.ciclo === s.ciclo ? ", di questo Ciclo." : ", del Ciclo " + (st.ciclo + 1) + ".") : "Troppi affari sporchi: in giro si parla di te." });
     }
+    // v104: tenere tanti soldi sporchi si nota: 3 punti per ogni milione
+    if ((p.sporchi || 0) >= 1_000_000) out.push({ k: "sporchi", peso: 3 * p.sporchi / 1_000_000, testo: "Giri con " + euro(p.sporchi) + " di soldi sporchi: chi spende così, prima o poi si fa notare." });
     for (const [l, c] of Object.entries(p.calore || {})) if (c >= 1) out.push({ k: "luogo", luogo: l, calore: c, peso: N.pistaLuogo * c * c, testo: "Ti hanno riconosciuto: troppe notti nello stesso posto (" + nomeLuogo(l) + ")." });
     // ILL-02: il banchiere Lenz, se e' dei tuoi, fa sparire meta' dei conti che non tornano
     if (p.calSoldi > 0) out.push({ k: "soldi", peso: N.pistaSoldi * p.calSoldi * (p.corrotti && p.corrotti.banchiere ? LENZ_COPRE : 1), testo: "La Finanza ha visto i tuoi conti: i tuoi soldi non tornano con quello che rendono i tuoi locali." + (p.corrotti && p.corrotti.banchiere ? " Il banchiere Lenz ne copre la metà." : "") });
@@ -5795,7 +5804,7 @@
     // soldi e valori
     euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, SABOTA, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
     // Palazzo
-    costoCantiere, guadagnoLivello, puoSalire, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale,
+    costoCantiere, guadagnoLivello, puoSalire, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale, tettoColpo,
     costoPiano, costoPiani, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, livelloPalazzo, lustro,
     // Grandi Affari e durata della partita
     GRANDI, ORDINE_GRANDI, partitaLunga,
