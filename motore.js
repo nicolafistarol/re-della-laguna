@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 106;
+  const VERSIONE_REGOLE = 107;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -476,6 +476,20 @@
       p.haTirato = true; // non si muove; puo' fare 1 azione
     } else chiamataLampo(s, p);
     avviaAstaSequestro(s);
+    if (s.turno === 0) avviaAstaRinunce(s);
+  }
+  // v106: l'Asta di fine giornata. Dei terreni rifiutati nel giorno si mette all'asta solo il piu' caro; gli altri restano liberi.
+  function avviaAstaRinunce(s) {
+    if (s.pending || s.fase !== "giorno") return;
+    const coda = (s.asteRinunce || []).filter((q) => !lotto(s, q.lotto).owner); s.asteRinunce = [];
+    if (!coda.length) return;
+    coda.sort((a, b) => lotto(s, b.lotto).prezzo - lotto(s, a.lotto).prezzo);
+    const q = coda[0], l = lotto(s, q.lotto), minimo = baseAsta(l), minimoDi = {};
+    const part = s.players.filter((x) => !x.fallito && x.faro === 0 && x.cash >= (x.id === q.da ? l.prezzo : minimo)).map((x) => x.id);
+    if (q.da) minimoDi[q.da] = l.prezzo;
+    if (!part.length) return;
+    s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: corrente(s).id, partecipanti: part, minimo, minimoDi, rinunciaDi: q.da || null, inizio: adesso() };
+    notizia(s, "Asta di fine giornata: si vende " + l.nome + " (vale " + euro(l.prezzo) + "). Base d'asta " + euro(minimo) + ".", "affari");
   }
 
   function albaInAttesa(s) {
@@ -684,11 +698,11 @@
       notizia(s, p.nome + " compra " + l.nome + ".", "affari");
       controllaValoreLusso(s, l);
     } else {
-      // chi rinuncia non puo' ricomprarlo all'asta a meno (era la mossa migliore: rifiutare e poi vincere a poco)
-      const minimo = baseAsta(l), part = partecipantiAsta(s, minimo, p.id);
-      if (!part.length) { s.pending = null; log(s, p.nome + " rinuncia a " + l.nome + ". Nessun altro può offrire la base d'asta (" + euro(minimo) + "): il terreno resta libero.", p.id); return; }
-      s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: p.id, partecipanti: part, minimo, escluso: p.id, inizio: adesso() };
-      log(s, p.nome + " rinuncia: " + l.nome + " va all'asta tra gli altri. Base d'asta " + euro(minimo) + ".", p.id);
+      // v106: niente asta subito. Il terreno va all'Asta di fine giornata (una sola al giorno: il terreno che vale di piu').
+      // Chi ha rinunciato puo' offrire, ma per lui il minimo e' il prezzo pieno (cosi' rifiutare per ricomprare a meno non conviene).
+      s.pending = null;
+      s.asteRinunce = (s.asteRinunce || []).filter((q) => q.lotto !== l.id); s.asteRinunce.push({ lotto: l.id, da: p.id });
+      log(s, p.nome + " rinuncia a " + l.nome + ": finisce all'Asta di fine giornata (base " + euro(baseAsta(l)) + ").", p.id);
     }
   }
   function offerta(s, p, importo) {
@@ -698,7 +712,7 @@
     if (pd.offerte[p.id] !== undefined) err("La tua offerta l'hai già fatta: è segreta e non si cambia.");
     importo = Math.max(0, Math.floor(importo || 0));
     if (importo > p.cash) err("Non puoi offrire più dei tuoi soldi puliti.");
-    if (pd.minimo && importo > 0 && importo < pd.minimo) err("La base d'asta è " + euro(pd.minimo) + ": offri almeno questa cifra, oppure 0 per non offrire.");
+    { const mn = (pd.minimoDi && pd.minimoDi[p.id]) || pd.minimo; if (mn && importo > 0 && importo < mn) err((pd.minimoDi && pd.minimoDi[p.id] ? "Avevi rinunciato a comprarlo: per riaverlo offri almeno il prezzo pieno, " : "La base d'asta è ") + euro(mn) + ". Oppure 0 per non offrire."); }
     pd.offerte[p.id] = importo;
     if (Object.keys(pd.offerte).length >= pd.partecipanti.length) chiudiAsta(s);
   }

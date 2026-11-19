@@ -2,6 +2,16 @@
   "use strict";
   const t = o.Laguna || ("undefined" != typeof require ? require("./motore.js") : null);
   // quanto paga al massimo un computer per un tuo terreno (lo usa anche la finestra "Vendi un terreno" per dire subito il prezzo giusto)
+  // v106: quanto conta un terreno per i gruppi: 2 = chiude un gruppo (mio) o lo toglie a un rivale che ne ha gia' tutti gli altri, 1 = ne ho gia' uno, 0 = niente
+  function interesseGruppo(o, i, l) {
+    if (!l || !l.serie) return 0;
+    const altri = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id);
+    const miei = altri.filter((x) => x.owner === i.id).length;
+    if (altri.length && miei === altri.length) return 2;
+    const rivali = {}; for (const x of altri) if (x.owner && x.owner !== i.id) rivali[x.owner] = (rivali[x.owner] || 0) + 1;
+    if (altri.length && Object.values(rivali).some((c) => c === altri.length)) return 2;
+    return miei ? 1 : 0;
+  }
   function quantoPaga(o, idBot, idLotto) {
     const l = o.lotti.find((x) => x.id === idLotto); if (!l) return 0;
     const valore = l.prezzo * (1 + 0.6 * (l.lvl || 0));
@@ -406,10 +416,10 @@ function grandiBot(o, i, n) {
       }
       if (o.pending && "asta" === o.pending.tipo && o.pending.partecipanti.includes(i.id) && void 0 === o.pending.offerte[i.id]) {
         const t = o.lotti.find((t) => t.id === o.pending.lotto),
-          e = (o.pending.busta ? 0.55 : 0.7) + 0.5 * Math.random(),
+          e = (o.pending.busta ? 0.55 : 0.7) + 0.5 * Math.random() + (o.pending.busta ? 0 : 0.2 * interesseGruppo(o, i, t)),
           r = 3e5,
           valore = o.pending.busta && o.pending.lotti ? o.pending.lotti.reduce((a, id) => a + o.lotti.find((x) => x.id === id).prezzo, 0) : t.prezzo;
-        { const v = Math.max(0, Math.min(i.cash - r, Math.round(valore * e))); return { tipo: "offerta", importo: o.pending.minimo && v < o.pending.minimo ? 0 : v }; }
+        { const v = Math.max(0, Math.min(i.cash - r, Math.round(valore * e))); const mn = (o.pending.minimoDi && o.pending.minimoDi[i.id]) || o.pending.minimo; return { tipo: "offerta", importo: mn && v < mn ? 0 : v }; }
       }
       const prop = (o.proposte || []).find((x) => x.a === i.id && "proposta" === x.stato);
       if (prop) {
@@ -457,7 +467,9 @@ function grandiBot(o, i, n) {
         if (r && r.giocatore === i.id) {
           if ("compra" === r.tipo) {
             const t = o.lotti.find((o) => o.id === r.lotto);
-            return { tipo: "compra", si: i.cash - t.prezzo > ("Investitore" === n ? 4e5 : 2e5) };
+            // v106: bot piu' furbi: se il terreno chiude o avvicina un gruppo (suo o di un rivale) lo prendono anche con meno cuscinetto
+            const g = interesseGruppo(o, i, t);
+            return { tipo: "compra", si: i.cash - t.prezzo > (g >= 2 ? 5e4 : g >= 1 ? 1e5 : "Investitore" === n ? 4e5 : 2e5) };
           }
           if ("gala" === r.tipo) return { tipo: "gala", importo: i.cash > 3e6 ? 3e5 : 0 };
           if ("casino_reale" === r.tipo) return { tipo: "casino_reale", importo: 0 };
