@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 94;
+  const VERSIONE_REGOLE = 95;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -86,6 +86,8 @@
   // Vuoto finche' nessuno ne aggiunge: num(s, k) allora da' sempre N[k].
   const N_GEN2 = {
     // --- economia e Palazzo
+    pianoRend: 0.34,       // v95: capo Fista "girano soldi troppo facilmente": il Palazzo rendeva quanto tutti i terreni insieme (sim: 121 M a testa in 16 Cicli). Prima 0,62
+    R: 0.62,               // v95: le attivita' rendono un terzo in meno (prima 0,95): i soldi sono scarsi, ogni spesa e' una scelta
     pianoRendGrow: 1.04,   // ECO-01: la rendita dei piani cresce meno del loro costo. Il rapporto diceva 1,05: provato insieme agli altri ritocchi dava 800 M a 20 Cicli, con 1,04 circa 600 M
     borsaMu: 0.18,         // ECO-05: con 0,36 l'Investitore vinceva 7 partite su 10; con 0,24 ancora 4 su 10 (sim 18/11 sera); 0,18 = come le partite vecchie
     // --- giorno: terreni, affitti, permessi
@@ -286,7 +288,7 @@
   function rendita(s, l) {
     if (!l.tipo || l.lvl === 0 || l.chiuso > 0 || l.cantiere) return 0;
     const t = ATTIVITA[l.tipo];
-    let r = N.R * t.r * N.rendLvl[l.lvl] * l.prezzo * vmult(s, l.isola) * sitMult(s, "re", { isola: l.isola, tipo: l.tipo });
+    let r = num(s, "R") * t.r * N.rendLvl[l.lvl] * l.prezzo * vmult(s, l.isola) * sitMult(s, "re", { isola: l.isola, tipo: l.tipo });
     if (gen2(s) && lussoFama(t)) r *= num(s, "lussoRend");
     if (l.ipoteca) r *= 0.5;
     return round(r);
@@ -308,7 +310,7 @@
   const SOGLIE_BASE = [0, 3_500_000, 7_000_000, 15_000_000, 40_000_000];
   function soglieLivello(s) {
     if (!gen2(s) || (s.modoFine || "cicli") !== "cicli") return SOGLIE_BASE;
-    const f = { 6: 0.6, 8: 0.75, 10: 0.9, 12: 1, 16: 1.5, 20: 2.5 }[s.cicli || N.cicli] || 1;
+    const f = { 6: 0.6, 8: 0.75, 10: 0.9, 12: 1, 16: 1.2, 20: 1.8 }[s.cicli || N.cicli] || 1;
     return SOGLIE_BASE.map((x) => round(x * f));
   }
   // di quanto valgono di piu' gli affari della notte per il Livello del giocatore (1 nelle partite vecchie)
@@ -832,7 +834,7 @@
   function stanzeDi(p) { if (!p.stanze) p.stanze = (p.funzioniPiani || []).filter((f) => STANZE[f]); return p.stanze; }
   function fasciaPalazzo(n) { return FASCE_PALAZZO.reduce((r, f, i) => (n >= f.da ? i : r), 0); }
   // ATTENZIONE: passare sempre la partita (s). Senza s si ottengono i numeri delle partite vecchie.
-  function baseRendPiano(i, s) { return N.pianoCost * Math.pow(num(s, "pianoRendGrow"), i) * N.pianoRend * FASCE_PALAZZO[fasciaPalazzo(i + 1)].rend; }
+  function baseRendPiano(i, s) { return N.pianoCost * Math.pow(num(s, "pianoRendGrow"), i) * num(s, "pianoRend") * FASCE_PALAZZO[fasciaPalazzo(i + 1)].rend; }
   function renditaPiani(n, s) { let r = 0; for (let i = 0; i < n; i++) r += baseRendPiano(i, s); return round(r); }
   function renditaPalazzo(p, s) { let r = renditaPiani(p.piani, s); for (const f of (p.stanze || (p.funzioniPiani || []).filter((x) => STANZE[x]))) r += STANZE[f].rendita || 0; return round(r); }
   function costoPiano(p) { return costoPiani(p, 1); }
