@@ -805,3 +805,5 @@ body.cammino #mondo { z-index:17 }
 #mondo.tab .torre.tab b{width:20px;height:20px;border-radius:50%;background:var(--col);display:flex;align-items:center;justify-content:center;font-size:11px}
 #mondo.tab .torre.tab small{font-size:9.5px;font-weight:700;opacity:.8}
 .gr-sotto{margin:6px 0 4px;min-height:20px}
+/* v102b: vista intera del tabellone, le caselle rimpiccioliscono un po' con la mappa per non accavallarsi */
+#mondo.tab #mappa .cas,#mondo.tab #mappa .ped,#mondo.tab #mappa .luogo,#mondo.tab #mappa .torre,#mondo.tab .isola-nome{scale:calc(1 / max(var(--z), .8))}

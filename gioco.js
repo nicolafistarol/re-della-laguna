@@ -19,7 +19,7 @@ const CUBETTI = location.search.includes("cubetti") || (!location.search.include
 import(CUBETTI ? "./cubetti.js?v=102" : "./tre.js?v=102").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=51";
-import * as Tab from "./tabellone.js?v=101d";
+import * as Tab from "./tabellone.js?v=102b";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
 let TRE3D = false;
 let camminaAttivo = false; // v87: di notte cammini col tuo personaggio nel mondo 3D
@@ -1140,13 +1140,21 @@ function applicaVista() {
   $("#mondo").classList.toggle("vicino", vista.z >= 1.6);
 }
 // v101c: nel tabellone si puo' allontanare finche' tutta la mappa entra nello schermo
-function zMin() { if (!TAB) return 1; const m = $("#mappa"); if (!m || !m.offsetWidth) return 1; return Math.min(1, 0.97 * Math.min(innerWidth / m.offsetWidth, innerHeight / m.offsetHeight)); }
+// v102b: lo spazio libero tra i pannelli (in alto i dati, in basso la carta, a destra la Vista)
+function areaLibera() {
+  const W = innerWidth, H = innerHeight, r = sel => { const e = document.querySelector(sel); return e && e.offsetWidth ? e.getBoundingClientRect() : null; };
+  const a = r(".hud-alto"), c = r(".carta"), v = r(".comandi-vista");
+  const top = a ? a.bottom + 6 : 10, bottom = c ? c.top - 6 : H - 56, right = v && v.left > W * 0.6 ? v.left - 8 : W - 10, left = 10;
+  return { top, bottom: Math.max(top + 200, bottom), left, right: Math.max(left + 300, right) };
+}
+function zMin() { if (!TAB) return 1; const m = $("#mappa"); if (!m || !m.offsetWidth) return 1; const L = areaLibera(); return Math.min(1, Math.min((L.right - L.left) / m.offsetWidth, (L.bottom - L.top) / m.offsetHeight)); }
+function vistaIntera() { const L = areaLibera(); vista = { z: zMin(), x: (L.left + L.right) / 2 - innerWidth / 2, y: (L.top + L.bottom) / 2 - innerHeight / 2 }; applicaVista(); }
 function zoomA(z, cx = innerWidth / 2, cy = innerHeight / 2) {
   const nz = Math.max(zMin(), Math.min(4, z));
   const k = nz / vista.z;
   vista.x = (vista.x - (cx - innerWidth / 2)) * k + (cx - innerWidth / 2);
   vista.y = (vista.y - (cy - innerHeight / 2)) * k + (cy - innerHeight / 2);
-  vista.z = nz; applicaVista();
+  vista.z = nz; if (TAB && nz <= zMin() + 0.001) return vistaIntera(); applicaVista();
 }
 function centraSu(px, py) {
   const m = $("#mappa"); const w = m.offsetWidth, h = m.offsetHeight;
@@ -1252,7 +1260,7 @@ function collegaComandiVista(me) {
   $("#zPiu").onclick = () => TRE3D ? Tre.avvicina(0.7) : zoomA(vista.z * 1.35);
   $("#zMeno").onclick = () => TRE3D ? Tre.avvicina(1.4) : zoomA(vista.z / 1.35);
   if ($("#zSx")) { $("#zSx").onclick = () => Tre.ruota(-35); $("#zDx").onclick = () => Tre.ruota(35); }
-  if ($("#zTutto")) $("#zTutto").onclick = () => { if (TRE3D) return Tre.tutto(); vista = { z: zMin(), x: 0, y: 0 }; applicaVista(); };
+  if ($("#zTutto")) $("#zTutto").onclick = () => { if (TRE3D) return Tre.tutto(); vistaIntera(); };
   const modoV = (m) => { Tre.impostaModo(m, mioId); document.querySelectorAll("#vArci,#vSegui,#vLibera,#vAlto").forEach((b) => b.classList.toggle("attivo", b.id === { arcipelago: "vArci", segui: "vSegui", libera: "vLibera", alto: "vAlto" }[m])); };
   for (const [id, m] of [["#vArci", "arcipelago"], ["#vSegui", "segui"], ["#vLibera", "libera"], ["#vAlto", "alto"]]) if ($(id)) $(id).onclick = () => modoV(m);
   $("#zMio").onclick = () => { const notte = S.fase === "notte" && S.notte; const [x, y] = notte ? posLuogo(S.notte.dove[mioId], me) : puntoMappa(disp[mioId] || me); if (TRE3D && (Tre.DIORAMA || Tre.mondoNuovo()) && Tre.seguiPedina(mioId)) return; TRE3D ? Tre.centraSu(x, y) : centraSu(x, y); };
