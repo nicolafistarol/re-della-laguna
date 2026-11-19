@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 97;
+  const VERSIONE_REGOLE = 98;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -2629,8 +2629,10 @@
     if (s.notte.denunce.some((d) => d.da === p.id)) err("Stanotte hai già fatto una soffiata.");
     const q = s.players.find((x) => x.id === su); if (!q || q.id === p.id) err("Su chi vuoi fare la soffiata?");
     if (!LUOGHI_AFFARI.includes(luogo)) err("In quale posto pensi che lavori?");
-    pagaMisto(s, p, N_DENUNCIA.costo);
+    const contro = rivaleDi(s, p) === q.id; // v98: contro il tuo rivale della sfida costa la meta'
+    pagaMisto(s, p, round(N_DENUNCIA.costo * (contro ? SFIDA.sconto : 1)));
     fattoDenuncia(s, p, q, luogo);
+    if (contro) s.notte.denunce[s.notte.denunce.length - 1].rivale = true;
     s.notte.chiuso[p.id] = true;
     racconta(s, p, "Da una cabina telefonica chiami la polizia, voce bassa: «Stanotte " + q.nome + " lavora a " + LUOGHI[luogo].nome + ".» Adesso è nelle loro mani.");
     controllaOra(s);
@@ -2676,7 +2678,7 @@
     if (dovePersonaggio(s, "commissario") === o.luogo && !p.corrotti.commissario) pg *= 1.35; // il Commissario e' qui stanotte
     pg *= sitMult(s, "gu", { luogo: o.luogo }) * strumentiMult(s, p, "gu", usati, { luogo: o.luogo, occ: O.id }); // situazioni e strumenti
     pg = Math.min(0.95, pg);
-    if (denunciatoQui(s, p, o.luogo)) pg = Math.min(0.95, pg * N_DENUNCIA.rischio); // v85: un rivale ha fatto il tuo nome
+    if (denunciatoQui(s, p, o.luogo)) pg = Math.min(0.95, pg * N_DENUNCIA.rischio * ((s.notte.denunce || []).some((d) => d.su === p.id && d.luogo === o.luogo && d.rivale) ? SFIDA.rischio : 1)); // v85: un rivale ha fatto il tuo nome
     if (o.luogo === "porto" && operaAttiva(s, p, "porto")) pg = 0; // Grande Opera: il Porto e' della setta
     return pg;
   }
@@ -3083,6 +3085,7 @@
       p.valigetta = (p.valigetta || []).map((o) => o.notti ? { ...o, notti: o.notti - 1 } : o).filter((o) => o.notti === null || o.notti === undefined || o.notti > 0);
       s.notteFatti[p.id] = true;
     }
+    s.denunceUltime = (s.notte.denunce || []).map((d) => ({ da: d.da, su: d.su })); // v98: per le vendette dell'Alba
     s.notte = null;
     alba(s);
   }
@@ -5012,6 +5015,7 @@
     // elezioni ogni 2 cicli
     if (s.ciclo % 2 === 1) elezioni(s);
     albaGrandi(s, riepilogo, lussoAltri);
+    albaSfide(s, riepilogo);
     s.ultimaAlba = { ciclo: s.ciclo + 1, riepilogo };
     s.blackout = null;
     s.leggi = s.leggi.filter((x) => !x.startsWith("giro_cripto"));
@@ -5022,6 +5026,42 @@
     s.fase = "giorno"; s.giorno = 0; s.turno = 0;
     notizia(s, "Sorge il sole sul Ciclo " + (s.ciclo + 1) + ".", "evento");
     iniziaTurno(s);
+  }
+
+  // ------------------------------------------------------------ la sfida del Ciclo (v98: la rivalita' tra giocatori)
+  // A ogni Alba i giocatori vengono messi a coppie: prima le vendette (chi ti ha venduto alla polizia stanotte),
+  // poi chi e' vicino in classifica. Chi fa crescere di piu' il suo patrimonio entro l'Alba dopo prende la posta dall'altro.
+  const SFIDA = { quota: 0.06, min: 250_000, max: 3_000_000, fama: 5, famaPerde: 2, sconto: 0.5, rischio: 1.25 };
+  function rivaleDi(s, p) { const sf = (s.sfide || []).find((x) => x.a === p.id || x.b === p.id); return sf ? (sf.a === p.id ? sf.b : sf.a) : null; }
+  function albaSfide(s, riepilogo) {
+    const segno = (x) => (x >= 0 ? "+" : "−") + Math.round(Math.abs(x) * 100) + "%";
+    for (const sf of s.sfide || []) {
+      const a = giocatore(s, sf.a), b = giocatore(s, sf.b); if (!a || !b) continue;
+      // conta la crescita in percentuale: cosi' anche il piu' povero dei due puo' vincere
+      const ga = (patrimonio(s, a, true) - sf.pa) / Math.max(1, sf.pa), gb = (patrimonio(s, b, true) - sf.pb) / Math.max(1, sf.pb);
+      const [w, l, gw, gl] = ga >= gb ? [a, b, ga, gb] : [b, a, gb, ga];
+      const pagata = round(Math.min(Math.max(0, l.cash), clamp(l.cash * SFIDA.quota, SFIDA.min, SFIDA.max)));
+      l.cash -= pagata; w.cash += pagata; w.fama += SFIDA.fama; l.fama = Math.max(0, l.fama - SFIDA.famaPerde);
+      w.sfideVinte = (w.sfideVinte || 0) + 1; l.sfidePerse = (l.sfidePerse || 0) + 1;
+      if (pagata) flusso(s, l, w, pagata, "Sfida del Ciclo", true);
+      notizia(s, "Sfida del Ciclo: " + w.nome + " batte " + l.nome + " (" + segno(gw) + " contro " + segno(gl) + ") e incassa " + euro(pagata) + ".", "scandalo");
+      privato(s, w, "Hai vinto la sfida del Ciclo contro " + l.nome + ": sei cresciuto di " + segno(gw) + ", lui di " + segno(gl) + ". Incassi " + euro(pagata) + " e +" + SFIDA.fama + " fama.");
+      privato(s, l, "Hai perso la sfida del Ciclo contro " + w.nome + ": lui è cresciuto di " + segno(gw) + ", tu di " + segno(gl) + ". Gli paghi " + euro(pagata) + " e perdi " + SFIDA.famaPerde + " fama.");
+      if (riepilogo[w.id]) riepilogo[w.id].sfida = { contro: l.id, vinta: true, soldi: pagata, mio: Math.round(gw * 100), suo: Math.round(gl * 100) };
+      if (riepilogo[l.id]) riepilogo[l.id].sfida = { contro: w.id, vinta: false, soldi: -pagata, mio: Math.round(gl * 100), suo: Math.round(gw * 100) };
+    }
+    const vive = s.players.filter((p) => !p.uscito), liberi = new Set(vive.map((p) => p.id)), nuove = [];
+    const coppia = (x, y, motivo) => { if (!liberi.has(x) || !liberi.has(y) || x === y) return; liberi.delete(x); liberi.delete(y); nuove.push({ a: x, b: y, motivo }); };
+    for (const d of s.denunceUltime || []) coppia(d.su, d.da, "vendetta");
+    const ord = vive.filter((p) => liberi.has(p.id)).sort((x, y) => patrimonio(s, y, true) - patrimonio(s, x, true));
+    for (let i = 0; i + 1 < ord.length; i += 2) coppia(ord[i].id, ord[i + 1].id, "classifica");
+    s.sfide = nuove.map((sf) => ({ ...sf, pa: round(patrimonio(s, giocatore(s, sf.a), true)), pb: round(patrimonio(s, giocatore(s, sf.b), true)), ciclo: s.ciclo + 1 }));
+    s.denunceUltime = [];
+    for (const sf of s.sfide) {
+      const a = giocatore(s, sf.a), b = giocatore(s, sf.b);
+      notizia(s, (sf.motivo === "vendetta" ? "Vendetta! " : "") + "Sfida del Ciclo: " + a.nome + " contro " + b.nome + ". Chi cresce di più entro la prossima Alba prende la posta.", "evento");
+      for (const [p, q] of [[a, b], [b, a]]) privato(s, p, (sf.motivo === "vendetta" ? (p.id === sf.a ? q.nome + " ti ha venduto alla polizia: adesso è il tuo nemico. " : q.nome + " sa che hai fatto il suo nome: vuole vendetta. ") : "") + "Questo Ciclo il tuo rivale è " + q.nome + ": se entro la prossima Alba il tuo patrimonio cresce più del suo (in percentuale, così conta anche chi parte più povero), gli prendi il 6% dei contanti (da 250.000 € a 3 milioni) e +5 fama. Contro di lui la soffiata costa la metà e gli fa più male.");
+    }
   }
 
   // quando si vota la prossima volta (numero del Ciclo, come si legge a schermo): si vota all'Alba dei Cicli pari
@@ -5579,6 +5619,9 @@
   function vista(s, idGiocatore) {
     const v = JSON.parse(JSON.stringify(s));
     delete v.rngState; delete v.seed;
+    delete v.denunceUltime; // chi ha fatto il nome di chi resta segreto
+    // la sfida del Ciclo: si vede chi sfida chi e chi e' in vantaggio adesso, mai i patrimoni esatti degli altri
+    v.sfide = (s.sfide || []).map((sf) => { const a = s.players.find((x) => x.id === sf.a), b = s.players.find((x) => x.id === sf.b); const ga = a ? (patrimonio(s, a, true) - sf.pa) / Math.max(1, sf.pa) : 0, gb = b ? (patrimonio(s, b, true) - sf.pb) / Math.max(1, sf.pb) : 0; return { a: sf.a, b: sf.b, motivo: sf.motivo, avanti: ga >= gb ? sf.a : sf.b, ciclo: sf.ciclo }; });
     delete v.manoSM; // le mani di Sette e mezzo (con il mazzo!): la tua, senza mazzo, sta in v.notte.manoSM
     v.versioneMotore = VERSIONE; v.versioneRegole = VERSIONE_REGOLE; v.gen = s.gen || 1; // con che motore e' stata calcolata questa vista, e di che generazione e' la partita
     v.players = v.players.map((p) => {
@@ -5684,7 +5727,7 @@
     // tabellone e giorno
     CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, casella, corrente, haSerie, propri, haAttivita, prezzoAgenzia, destinazioniRapide,
     // soldi e valori
-    euro, giocatore, patrimonio, fascia, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
+    euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
     // Palazzo
     costoCantiere, guadagnoLivello, puoSalire, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale,
     costoPiano, costoPiani, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, livelloPalazzo, lustro,

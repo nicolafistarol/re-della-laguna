@@ -768,3 +768,12 @@ body.cammino #mondo { z-index:17 }
 .rl-paga { font-size: 11px; text-align: center; margin-top: 6px; }
 .velo.roulette .pulsanti { margin-top: 8px; }
 @media (max-width: 380px) { .rl-tappeto { grid-template-rows: repeat(3, 27px) 24px 24px; } .rl-c { font-size: 10px; } .rl-ruota3d { height: 210px; } }
+/* v98: la sfida del Ciclo */
+.chip.rivale { box-shadow: 0 0 0 2px #ff5c5c, 0 0 14px rgba(255,92,92,.45); }
+.riv-chip { color: #ff8a8a; font-weight: 700; }
+.sfida-stato { margin: 8px auto; padding: 8px 12px; border-radius: 12px; font-weight: 800; text-align: center; }
+.sfida-stato.su, .sfida-esito.su { background: rgba(123,216,143,.15); border: 1px solid rgba(123,216,143,.5); color: var(--pulito); }
+.sfida-stato.giu, .sfida-esito.giu { background: rgba(255,92,92,.12); border: 1px solid rgba(255,92,92,.45); color: #ffb3b3; }
+.sfida-esito { display: flex; flex-direction: column; gap: 3px; margin: 12px 0 4px; padding: 10px 12px; border-radius: 12px; text-align: left; }
+.sfida-esito span { color: var(--testo, #e5e7eb); font-size: 13px; }
+.sfida-nuova { margin: 6px 0; font-size: 13px; color: #ffb3b3; text-align: left; }
