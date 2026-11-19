@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 89;
+  const VERSIONE_REGOLE = 90;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -431,15 +431,25 @@
     (s.sequestrati = s.sequestrati || []).push({ lotto: l.id, escluso: ex ? ex.id : null });
     notizia(s, "Il Comune sequestra " + l.nome + ": andrà all'Asta del Comune.", "affari");
   }
+  // v90: quando ci sono 2 o piu' terreni sequestrati, il Comune li vende a BUSTA CHIUSA: 2 o 3 terreni insieme, non sai quali.
+  // Base d'asta piu' bassa (85% della somma delle basi) perche' compri al buio. Un'asta sola invece di tante: piu' veloce.
+  const SCONTO_BUSTA = 0.85;
   function avviaAstaSequestro(s) {
     if (s.pending || s.fase !== "giorno" || !(s.sequestrati || []).length) return;
-    const q = s.sequestrati.shift(), l = lotto(s, q.lotto);
-    if (l.owner) return avviaAstaSequestro(s);
-    const minimo = baseAsta(l);
-    const part = partecipantiAsta(s, minimo, q.escluso);
-    if (!part.length) { s.sequestrati.unshift(q); return; } // nessuno puo' partecipare adesso: il terreno resta in coda (ILL-14)
-    s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: corrente(s).id, partecipanti: part, sequestro: true, minimo, escluso: q.escluso, inizio: adesso() };
-    notizia(s, "Asta del Comune: si vende " + l.nome + " (sequestrato). Base d'asta " + euro(minimo) + ".", "affari");
+    s.sequestrati = s.sequestrati.filter((q) => !lotto(s, q.lotto).owner);
+    if (!s.sequestrati.length) return;
+    const quanti = s.sequestrati.length >= 3 ? (rng(s) < 0.5 ? 2 : 3) : s.sequestrati.length >= 2 ? 2 : 1;
+    const gruppo = s.sequestrati.splice(0, quanti), ls = gruppo.map((q) => lotto(s, q.lotto));
+    const esclusi = [...new Set(gruppo.map((q) => q.escluso).filter(Boolean))];
+    const busta = ls.length > 1;
+    const minimo = busta ? round(ls.reduce((a, l) => a + baseAsta(l), 0) * SCONTO_BUSTA) : baseAsta(ls[0]);
+    const part = partecipantiAsta(s, minimo, esclusi);
+    if (!part.length) { s.sequestrati.unshift(...gruppo); return; } // nessuno puo' partecipare adesso: i terreni restano in coda (ILL-14)
+    s.pending = { tipo: "asta", lotto: ls[0].id, offerte: {}, giocatore: corrente(s).id, partecipanti: part, sequestro: true, minimo, escluso: esclusi[0] || null, esclusi, inizio: adesso() };
+    if (busta) {
+      Object.assign(s.pending, { busta: true, lotti: ls.map((l) => l.id), quanti: ls.length, idBusta: "b" + ((s.nAste || 0) + 1), stimaDa: round(ls.reduce((a, l) => a + l.prezzo, 0) * 0.7 / 10000) * 10000, stimaA: round(ls.reduce((a, l) => a + l.prezzo, 0) * 1.3 / 10000) * 10000 });
+      notizia(s, "Asta del Comune a busta chiusa: " + ls.length + " terreni sequestrati insieme, non si sa quali. Base d'asta " + euro(minimo) + ".", "affari");
+    } else notizia(s, "Asta del Comune: si vende " + ls[0].nome + " (sequestrato). Base d'asta " + euro(minimo) + ".", "affari");
   }
   // LE ASTE DEI TERRENI (regole uguali per tutte):
   //  - base d'asta = 60% del prezzo: un'offerta piu' bassa non vale, e se nessuno ci arriva il terreno resta libero;
@@ -448,7 +458,7 @@
   //  - offerte segrete, una a testa; vince la piu' alta; a parita' vince chi ha offerto per primo;
   //  - quando l'asta si chiude le offerte si vedono tutte (s.ultimaAsta).
   function baseAsta(l) { return round(l.prezzo * N.astaBase); }
-  function partecipantiAsta(s, minimo, escluso) { return s.players.filter((x) => !x.fallito && x.faro === 0 && x.id !== escluso && x.cash >= minimo).map((x) => x.id); }
+  function partecipantiAsta(s, minimo, escluso) { const fuori = Array.isArray(escluso) ? escluso : [escluso]; return s.players.filter((x) => !x.fallito && x.faro === 0 && !fuori.includes(x.id) && x.cash >= minimo).map((x) => x.id); }
   function iniziaTurno(s) {
     const p = corrente(s);
     if (s.transenna && s.transenna.da === p.id) s.transenna = null; // la transenna resta fino al prossimo turno di chi l'ha messa
@@ -670,7 +680,7 @@
   function offerta(s, p, importo) {
     const pd = s.pending;
     if (!pd || pd.tipo !== "asta") err("Non c'è un'asta in corso.");
-    if (!pd.partecipanti.includes(p.id)) err(pd.escluso === p.id ? (pd.sequestro ? "Il terreno era tuo: a questa asta non puoi partecipare." : "Hai rinunciato a questo terreno: a questa asta non puoi offrire.") : "Non partecipi a questa asta.");
+    if (!pd.partecipanti.includes(p.id)) err((pd.esclusi || [pd.escluso]).includes(p.id) ? (pd.sequestro ? "Il terreno era tuo: a questa asta non puoi partecipare." : "Hai rinunciato a questo terreno: a questa asta non puoi offrire.") : "Non partecipi a questa asta.");
     if (pd.offerte[p.id] !== undefined) err("La tua offerta l'hai già fatta: è segreta e non si cambia.");
     importo = Math.max(0, Math.floor(importo || 0));
     if (importo > p.cash) err("Non puoi offrire più dei tuoi soldi puliti.");
@@ -685,13 +695,16 @@
     for (const [id, v] of Object.entries(pd.offerte)) { if (v > bid) { best = id; bid = v; pari = false; } else if (v === bid && v > 0) pari = true; }
     s.pending = null;
     // l'esito con TUTTE le offerte: adesso non sono piu' segrete
-    s.ultimaAsta = { n: (s.nAste = (s.nAste || 0) + 1), ciclo: s.ciclo + 1, giorno: s.giorno + 1, lotto: l.id, nome: l.nome, prezzo: l.prezzo, minimo: pd.minimo || 0, sequestro: !!pd.sequestro, escluso: pd.escluso || null, offerte: { ...pd.offerte }, vincitore: best && bid > 0 ? best : null, importo: best && bid > 0 ? bid : 0, pari };
+    const ls = (pd.lotti || [pd.lotto]).map((id) => lotto(s, id)), nomi = ls.map((x) => x.nome).join(", ");
+    const nomeAsta = pd.busta ? "la busta chiusa (" + nomi + ")" : l.nome;
+    s.ultimaAsta = { n: (s.nAste = (s.nAste || 0) + 1), ciclo: s.ciclo + 1, giorno: s.giorno + 1, lotto: l.id, nome: pd.busta ? "Busta chiusa: " + nomi : l.nome, busta: !!pd.busta, lotti: ls.map((x) => x.id), prezzo: l.prezzo, minimo: pd.minimo || 0, sequestro: !!pd.sequestro, escluso: pd.escluso || null, offerte: { ...pd.offerte }, vincitore: best && bid > 0 ? best : null, importo: best && bid > 0 ? bid : 0, pari };
     if (best && bid > 0) {
       const w = giocatore(s, best);
-      w.cash -= bid; l.owner = w.id; flusso(s, w, null, bid, "Asta vinta: " + l.nome, true);
-      log(s, "Asta: " + w.nome + " vince " + l.nome + " con " + euro(bid) + (pari ? " (offerta pari a un'altra: vince chi ha offerto per primo)" : "") + ".", w.id);
-      notizia(s, "Asta per " + l.nome + ": se la aggiudica " + w.nome + " con " + euro(bid) + ".", "affari");
-    } else log(s, "Asta per " + l.nome + ": nessuna offerta" + (pd.minimo ? " sopra la base di " + euro(pd.minimo) : "") + ". Il terreno resta libero.");
+      w.cash -= bid; for (const x of ls) x.owner = w.id; flusso(s, w, null, bid, "Asta vinta: " + nomeAsta, true);
+      log(s, "Asta: " + w.nome + " vince " + nomeAsta + " con " + euro(bid) + (pari ? " (offerta pari a un'altra: vince chi ha offerto per primo)" : "") + ".", w.id);
+      notizia(s, "Asta per " + nomeAsta + ": se la aggiudica " + w.nome + " con " + euro(bid) + ".", "affari");
+      if (pd.busta) privato(s, w, "Apri la busta: dentro ci sono " + nomi + ". Valore totale " + euro(ls.reduce((a, x) => a + x.prezzo, 0)) + ", li hai pagati " + euro(bid) + ".");
+    } else log(s, "Asta per " + nomeAsta + ": nessuna offerta" + (pd.minimo ? " sopra la base di " + euro(pd.minimo) : "") + ". " + (pd.busta ? "I terreni restano liberi." : "Il terreno resta libero."));
     if (pd.sequestro) avviaAstaSequestro(s);
   }
 
@@ -5514,6 +5527,7 @@
     if (s.esposto) v.esposto = s.esposto.da === idGiocatore ? { ...s.esposto } : { ciclo: s.esposto.ciclo }; else delete v.esposto;
     v.opere = (s.opere || []).map((o) => ({ ...o }));
     v.contratti = s.contratti.filter((k) => k.da === idGiocatore || k.a === idGiocatore || (k.tipo === "notarile" && k.stato !== "proposto")).map((k) => (k.da === idGiocatore || k.a === idGiocatore) ? k : { id: k.id, da: k.da, a: k.a, tipo: k.tipo, stato: k.stato });
+    if (v.pending && v.pending.tipo === "asta" && v.pending.busta) { v.pending.lotto = null; v.pending.lotti = null; } // busta chiusa: non sai quali terreni ci sono
     if (v.pending && v.pending.tipo === "asta") v.pending.offerte = Object.fromEntries(Object.keys(s.pending.offerte).map((k) => [k, k === idGiocatore ? s.pending.offerte[k] : "segreta"]));
     if (v.ultimaAlba) v.ultimaAlba.riepilogo = { [idGiocatore]: s.ultimaAlba.riepilogo[idGiocatore] };
     if (v.pending && v.pending.tipo === "chiamata" && v.pending.giocatore !== idGiocatore) v.pending = { tipo: "chiamata", giocatore: v.pending.giocatore };

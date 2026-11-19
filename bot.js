@@ -406,9 +406,10 @@ function grandiBot(o, i, n) {
       }
       if (o.pending && "asta" === o.pending.tipo && o.pending.partecipanti.includes(i.id) && void 0 === o.pending.offerte[i.id]) {
         const t = o.lotti.find((t) => t.id === o.pending.lotto),
-          e = 0.7 + 0.5 * Math.random(),
-          r = 3e5;
-        { const v = Math.max(0, Math.min(i.cash - r, Math.round(t.prezzo * e))); return { tipo: "offerta", importo: o.pending.minimo && v < o.pending.minimo ? 0 : v }; }
+          e = (o.pending.busta ? 0.55 : 0.7) + 0.5 * Math.random(),
+          r = 3e5,
+          valore = o.pending.busta && o.pending.lotti ? o.pending.lotti.reduce((a, id) => a + o.lotti.find((x) => x.id === id).prezzo, 0) : t.prezzo;
+        { const v = Math.max(0, Math.min(i.cash - r, Math.round(valore * e))); return { tipo: "offerta", importo: o.pending.minimo && v < o.pending.minimo ? 0 : v }; }
       }
       const prop = (o.proposte || []).find((x) => x.a === i.id && "proposta" === x.stato);
       if (prop) {
