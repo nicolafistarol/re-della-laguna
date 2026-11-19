@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 102;
+  const VERSIONE_REGOLE = 103;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -474,7 +474,15 @@
     avviaAstaSequestro(s);
   }
 
+  function albaInAttesa(s) {
+    const A = s.attesaAlba; if (!A || s.fase !== "giorno") return false;
+    if (adesso() - (A.quando || 0) > 120_000) { s.attesaAlba = null; return false; }
+    const vivi = A.chi.filter((id) => { const q = s.players.find((x) => x.id === id); return q && !q.bot && !q.uscito; });
+    if (!vivi.length) { s.attesaAlba = null; return false; }
+    return true;
+  }
   function tira(s, p) {
+    if (p.bot && albaInAttesa(s)) err("Il computer aspetta che tutti abbiano visto l'Alba.");
     if (s.fase !== "giorno") err("Si tirano i dadi solo di giorno.");
     if (corrente(s).id !== p.id) err("Non è il tuo turno.");
     if (p.haTirato) err("Hai già tirato i dadi.");
@@ -1984,7 +1992,8 @@
   function giraRoulette(s, p, importo, sc) {
     oraLibera(s, p);
     const N2 = s.notte;
-    if (N2.dove[p.id] !== "casino") err("La roulette è al Casinò Reale.");
+    const mio = nelMioCasino(s, p); // v103: anche nel Casino' privato del tuo Palazzo
+    if (N2.dove[p.id] !== "casino" && !mio) err("La roulette è al Casinò Reale.");
     sc = sc || {}; const ok = { colore: ["rosso", "nero"], parita: ["pari", "dispari"], meta: ["basso", "alto"], dozzina: ["1", "2", "3"], colonna: ["1", "2", "3"] };
     if (sc.tipo === "numero") { const n = Number(sc.valore); if (!(n >= 0 && n <= 36 && Math.floor(n) === n)) err("Scegli un numero da 0 a 36."); }
     else if (!ok[sc.tipo] || !ok[sc.tipo].includes(String(sc.valore))) err("Scegli su cosa puntare.");
@@ -1993,7 +2002,7 @@
     if (importo > 2_000_000) err("Il banco non accetta più di 2 milioni a puntata.");
     if (p.cash < importo) err("Al Casinò Reale si gioca solo con soldi puliti.");
     N2.giri = N2.giri || {}; const giri = (N2.giri[p.id] || 0) + 1;
-    if (giri > GIRI_ORA) err("Il croupier ti fa capire che è ora di alzarti.");
+    if (giri > GIRI_ORA) err(mio ? "Il tuo croupier cambia il panno: per quest'ora il tavolo è chiuso, torna tra un'ora." : "Il croupier ti fa capire che è ora di alzarti.");
     N2.giri[p.id] = giri;
     p.cash -= importo;
     const n = Math.floor(rng(s) * 37), molt = vinceRoulette(n, sc), vinto = importo * molt;
@@ -2003,12 +2012,14 @@
     (N2.roulette = N2.roulette || {})[p.id] = { n, molt, importo, vinto, sc: { tipo: sc.tipo, valore: String(sc.valore) }, giri, resta: GIRI_ORA - giri, saldo: ((N2.roulette[p.id] && N2.roulette[p.id].ora === N2.ora ? N2.roulette[p.id].saldo : 0) + vinto - importo), ora: N2.ora };
     N2.roulette[p.id].k = kPrima + 1; // v97: ogni giro ha il suo numero, cosi' la ruota 3D sa che e' uscito un numero nuovo
     racconta(s, p, "Roulette: esce il " + nome + ". " + (molt ? "Vinci " + euro(vinto) + "." : "Perdi " + euro(importo) + "."));
-    if (giri >= GIRI_ORA) { racconta(s, p, "Ti alzi dal tavolo della roulette."); N2.chiuso[p.id] = true; controllaOra(s); }
+    if (giri >= GIRI_ORA && !mio) { racconta(s, p, "Ti alzi dal tavolo della roulette."); N2.chiuso[p.id] = true; controllaOra(s); }
   }
+  function nelMioCasino(s, p) { return aCasaSua(s, p) && haPiano(p, "casino_privato"); }
   function lasciaTavolo(s, p) {
     oraLibera(s, p);
     const N2 = s.notte, r = N2.roulette && N2.roulette[p.id];
     racconta(s, p, "Ti alzi dal tavolo della roulette" + (r && r.ora === N2.ora ? (r.saldo >= 0 ? " con " + euro(r.saldo) + " in più." : " con " + euro(-r.saldo) + " in meno.") : "."));
+    if (nelMioCasino(s, p)) return; // a casa tua alzarti non ti costa l'ora
     N2.chiuso[p.id] = true; controllaOra(s);
   }
   function attivitaNotte(s, p, importo) {
@@ -2105,7 +2116,7 @@
     racconta(s, p, "Accendi le luci del tuo Casinò privato. Gli inviti partono: ingresso " + euro(ingresso) + ". Tu tieni il banco.");
     for (const q of s.players) if (q.id !== p.id) privato(s, q, "Invito da " + p.nome + ": stanotte serata nel Casinò privato del suo Palazzo, al piano " + p.piani + ". Ingresso " + euro(ingresso) + ".");
     notizia(s, p.nome + " apre il suo Casinò privato: stanotte si gioca al piano " + p.piani + ".", "voce");
-    N2.chiuso[p.id] = true; controllaOra(s);
+    // v103: gli inviti sono telefonate, non ti costano l'ora
   }
   function apriSerataSenzaOra(s, p, ingresso) {
     const N2 = s.notte; N2.serate = N2.serate || {};
@@ -2402,8 +2413,8 @@
         { k: "brinda", a: ospiteDi, titolo: "Brinda con " + h.nome, testo: "Un bicchiere con chi ti ospita: +2 fama se accetta.", costo: 20_000 },
         { k: "aspetta", titolo: "Goditi la vista", testo: "Dal piano " + h.piani + " la Laguna sembra piccola." }];
     }
-    if (dove === "palazzo" && N2.serate && N2.serate[p.id]) { const se = N2.serate[p.id]; sp.push({ k: "mia_serata", rapida: true, ospitiNomi: se.ospiti.map((id) => giocatore(s, id).nome), banco: se.banco, ingresso: se.ingresso, giroFatto: !!(N2.giroSerata && N2.giroSerata[p.id]), titolo: "⚡ Scendi nel tuo Casinò", testo: (se.ospiti.length ? (se.ospiti.length === 1 ? "1 ospite" : se.ospiti.length + " ospiti") + " al tavolo, il banco ha fatto " + euro(se.banco) + ". Fai il giro dei tavoli." : "La sala è ancora vuota: rimandi gli inviti.") }); }
-    if (dove === "palazzo" && haPiano(p, "casino_privato") && !(N2.serate && N2.serate[p.id])) sp.push({ k: "serata", titolo: "Apri una serata nel tuo Casinò", testo: "Gli altri ricevono l'invito. Chi viene paga l'ingresso, e il banco sei tu." });
+    if (dove === "palazzo" && haPiano(p, "casino_privato")) { const se = (N2.serate && N2.serate[p.id]) || null; sp.push({ k: "mia_serata", rapida: true, serata: !!se, ospitiNomi: se ? se.ospiti.map((id) => giocatore(s, id).nome) : [], banco: se ? se.banco : 0, ingresso: se ? se.ingresso : 0, giroFatto: !!(N2.giroSerata && N2.giroSerata[p.id]), giri: (N2.giri && N2.giri[p.id]) || 0, titolo: "⚡ Scendi nel tuo Casinò", testo: se ? (se.ospiti.length ? (se.ospiti.length === 1 ? "1 ospite" : se.ospiti.length + " ospiti") + " al tavolo, il banco ha fatto " + euro(se.banco) + ". Gioca alla roulette o fai il giro dei tavoli." : "Gioca alla roulette. La sala è ancora vuota: puoi rimandare gli inviti.") : "Gioca alla roulette quando vuoi o apri una serata per gli altri. Non ti costa l'ora." }); }
+    if (false) sp.push({ k: "serata", titolo: "Apri una serata nel tuo Casinò", testo: "Gli altri ricevono l'invito. Chi viene paga l'ingresso, e il banco sei tu." });
     if (dove === "palazzo" && haPiano(p, "spa") && !(N2.spaFatta && N2.spaFatta[p.id])) sp.push({ k: "spa", titolo: "Una serata nella tua Spa", testo: "Un ospite famoso, fotografi discreti. 50.000 €, +3 fama." });
     if (dove === "palazzo" && haPiano(p, "sala_insonorizzata") && lv >= 1) sp.push({ k: "polizia", titolo: "Un incontro nella sala insonorizzata", testo: "Qui dentro nessuno ascolta. Puoi comprare un poliziotto o il banchiere." });
     if (dove === "palazzo" && p.sporchi > 0 && p.veicoli.includes("jet")) sp.push({ k: "paradiso", titolo: "Volo nel paradiso fiscale", testo: "Il jet è pronto. All'alba i soldi sporchi saranno puliti, meno la commissione." });
@@ -5073,6 +5084,8 @@
     if (finisceQui(s)) return fine(s);
     if ((s.modoFine || "cicli") === "cicli" && s.ciclo === (s.cicli || N.cicli) - 1) annunciaResa(s);
     s.fase = "giorno"; s.giorno = 0; s.turno = 0;
+    // v103: i computer non tirano i dadi finche' ogni persona non ha visto l'Alba (o sono passati 2 minuti)
+    s.attesaAlba = { quando: adesso(), chi: s.players.filter((q) => !q.bot && !q.uscito && !q.fallito).map((q) => q.id) };
     notizia(s, "Sorge il sole sul Ciclo " + (s.ciclo + 1) + ".", "evento");
     iniziaTurno(s);
   }
@@ -5515,6 +5528,9 @@
   function applica0(s, idGiocatore, a) {
     if (s.fine && a.tipo !== "nulla") err("La partita è finita.");
     const p = giocatore(s, idGiocatore);
+    // v103: qualunque mossa di una persona di giorno vuol dire che l'Alba l'ha vista
+    if (s.attesaAlba && !p.bot) { s.attesaAlba.chi = s.attesaAlba.chi.filter((id) => id !== p.id); if (!s.attesaAlba.chi.length) s.attesaAlba = null; }
+    if (a.tipo === "alba_vista") return;
     // Al Faro, di giorno, una sola telefonata per turno. Si segna usata solo se l'azione riesce: se viene rifiutata non la perdi.
     const telefonata = p.faro > 0 && s.fase === "giorno" && corrente(s).id === p.id && AZIONI_TELEFONO_FARO.includes(a.tipo);
     const turno = s.ciclo * 10 + s.giorno;
