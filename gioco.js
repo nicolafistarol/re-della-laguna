@@ -19,7 +19,7 @@ const CUBETTI = location.search.includes("cubetti") || (!location.search.include
 import(CUBETTI ? "./cubetti.js?v=101" : "./tre.js?v=101").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=51";
-import * as Tab from "./tabellone.js?v=101c";
+import * as Tab from "./tabellone.js?v=101d";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
 let TRE3D = false;
 let camminaAttivo = false; // v87: di notte cammini col tuo personaggio nel mondo 3D
@@ -696,16 +696,17 @@ function finestraTratta(me, idA) {
   const a = S.players.find((x) => x.id === idA); if (!a) return;
   const suoi = S.lotti.filter((l) => l.owner === a.id && (l.tipoCasella === "lotto" || l.tipoCasella === "molo"));
   const miei = S.lotti.filter((l) => l.owner === mioId && (l.tipoCasella === "lotto" || l.tipoCasella === "molo") && !l.cantiere);
-  const opz = (arr) => arr.map((l) => `<option value="${l.id}" data-p="${l.prezzo}">${esc(l.nome)}${l.lvl ? " · " + esc(L.ATTIVITA[l.tipo]?.nome || "") + " liv. " + l.lvl : ""} (vale ${euro(l.prezzo)})</option>`).join("");
+  const opz = (arr) => arr.map((l) => `<option value="${l.id}" data-p="${l.prezzo}">${testoGruppoOpz(l)}${esc(l.nome)}${l.lvl ? " · " + esc(L.ATTIVITA[l.tipo]?.nome || "") + " liv. " + l.lvl : ""} (vale ${euro(l.prezzo)})</option>`).join("");
   finestra(`<span class="kick" style="color:var(--oro)">${ico("handshake")} Affari con ${esc(a.nome)}</span><h2>Cosa gli proponi?</h2>
     <p class="sub">${esc(a.nome)} riceve la proposta e può accettare o rifiutare. Le compravendite le vedono tutti.</p>
-    ${suoi.length ? `<div class="scheda"><h4>Compro un suo terreno</h4><select id="tSuo">${opz(suoi)}</select><div class="riga"><input id="tSuoP" type="number" placeholder="la tua offerta"><button class="oro piccolo" id="tCompra">Proponi</button></div></div>` : `<p class="sub">${esc(a.nome)} non ha terreni.</p>`}
-    ${miei.length ? `<div class="scheda"><h4>Gli vendo un mio terreno</h4><select id="tMio">${opz(miei)}</select><div class="riga"><input id="tMioP" type="number" placeholder="il tuo prezzo"><button class="oro piccolo" id="tVendi">Proponi</button></div><span class="sub" id="tMioH"></span><button class="piccolo" id="tTutti" style="margin-top:6px">🏷️ Vendi a chi paga di più</button></div>` : ""}
+    ${suoi.length ? `<div class="scheda"><h4>Compro un suo terreno</h4><select id="tSuo">${opz(suoi)}</select><div class="gr-sotto" id="tSuoG"></div><div class="riga"><input id="tSuoP" type="number" placeholder="la tua offerta"><button class="oro piccolo" id="tCompra">Proponi</button></div></div>` : `<p class="sub">${esc(a.nome)} non ha terreni.</p>`}
+    ${miei.length ? `<div class="scheda"><h4>Gli vendo un mio terreno</h4><select id="tMio">${opz(miei)}</select><div class="gr-sotto" id="tMioG"></div><div class="riga"><input id="tMioP" type="number" placeholder="il tuo prezzo"><button class="oro piccolo" id="tVendi">Proponi</button></div><span class="sub" id="tMioH"></span><button class="piccolo" id="tTutti" style="margin-top:6px">🏷️ Vendi a chi paga di più</button></div>` : ""}
     <div class="scheda"><h4>Altro</h4><div class="riga"><button class="piccolo" id="tPatto">Un patto con pagamenti</button><button class="piccolo" id="tRegalo">Un regalo</button></div></div>
     <div class="pulsanti"><button id="chiudi">Chiudi</button></div>`, (d, c) => {
     const prezzo = (sel, inp) => { const o = d.querySelector(sel).selectedOptions[0]; if (!o || d.querySelector(inp).value) return; const qp = sel === "#tMio" && a.bot && globalThis.LagunaBot && LagunaBot.quantoPaga ? LagunaBot.quantoPaga(S, a.id, o.value) : 0; d.querySelector(inp).value = qp || Math.round(+o.dataset.p * 1.3); const h = d.querySelector("#tMioH"); if (sel === "#tMio" && h) h.textContent = qp ? esc(a.nome) + " ti paga fino a " + euro(qp) + " e risponde subito." : ""; };
-    if (suoi.length) { prezzo("#tSuo", "#tSuoP"); d.querySelector("#tSuo").onchange = () => { d.querySelector("#tSuoP").value = ""; prezzo("#tSuo", "#tSuoP"); }; d.querySelector("#tCompra").onclick = () => { c(); agisci({ tipo: "proponi_lotto", a: a.id, lotto: d.querySelector("#tSuo").value, prezzo: +d.querySelector("#tSuoP").value, compro: true }); toast("Proposta inviata a " + a.nome + "."); }; }
-    if (miei.length) { prezzo("#tMio", "#tMioP"); d.querySelector("#tMio").onchange = () => { d.querySelector("#tMioP").value = ""; prezzo("#tMio", "#tMioP"); }; d.querySelector("#tVendi").onclick = () => { c(); agisci({ tipo: "proponi_lotto", a: a.id, lotto: d.querySelector("#tMio").value, prezzo: +d.querySelector("#tMioP").value, compro: false }); toast("Proposta inviata a " + a.nome + "."); }; }
+    const grSotto = (sel, box) => { const l = S.lotti.find((x) => x.id === d.querySelector(sel).value); d.querySelector(box).innerHTML = l ? statoGruppo(l.serie) : ""; };
+    if (suoi.length) { prezzo("#tSuo", "#tSuoP"); grSotto("#tSuo", "#tSuoG"); d.querySelector("#tSuo").onchange = () => { d.querySelector("#tSuoP").value = ""; prezzo("#tSuo", "#tSuoP"); grSotto("#tSuo", "#tSuoG"); }; d.querySelector("#tCompra").onclick = () => { c(); agisci({ tipo: "proponi_lotto", a: a.id, lotto: d.querySelector("#tSuo").value, prezzo: +d.querySelector("#tSuoP").value, compro: true }); toast("Proposta inviata a " + a.nome + "."); }; }
+    if (miei.length) { prezzo("#tMio", "#tMioP"); grSotto("#tMio", "#tMioG"); d.querySelector("#tMio").onchange = () => { d.querySelector("#tMioP").value = ""; prezzo("#tMio", "#tMioP"); grSotto("#tMio", "#tMioG"); }; d.querySelector("#tVendi").onclick = () => { c(); agisci({ tipo: "proponi_lotto", a: a.id, lotto: d.querySelector("#tMio").value, prezzo: +d.querySelector("#tMioP").value, compro: false }); toast("Proposta inviata a " + a.nome + "."); }; }
     if (miei.length) d.querySelector("#tTutti").onclick = () => { const id = d.querySelector("#tMio").value; c(); finestraVendi(me, id); };
     d.querySelector("#tPatto").onclick = () => { c(); apriApp("contratti"); };
     d.querySelector("#tRegalo").onclick = () => { c(); apriApp("banca"); };
@@ -719,12 +720,13 @@ function finestraVendi(me, idScelto) {
   const altri = S.players.filter((q) => q.id !== mioId && !q.fallito);
   const QP = globalThis.LagunaBot && LagunaBot.quantoPaga;
   finestra(`<span class="kick" style="color:var(--oro)">🏷️ Vendi un terreno</span><h2>A chi lo vendi?</h2>
-    <select id="vLotto">${miei.map((l) => `<option value="${l.id}" ${l.id === idScelto ? "selected" : ""}>${esc(l.nome)}${l.lvl ? " · " + esc(L.ATTIVITA[l.tipo]?.nome || "") + " liv. " + l.lvl : ""} (vale ${euro(l.prezzo)})</option>`).join("")}</select>
-    <div id="vRighe"></div>
+    <select id="vLotto">${miei.map((l) => `<option value="${l.id}" ${l.id === idScelto ? "selected" : ""}>${testoGruppoOpz(l)}${esc(l.nome)}${l.lvl ? " · " + esc(L.ATTIVITA[l.tipo]?.nome || "") + " liv. " + l.lvl : ""} (vale ${euro(l.prezzo)})</option>`).join("")}</select>
+    <div class="gr-sotto" id="vGr"></div><div id="vRighe"></div>
     <p class="sub">I computer ti dicono subito quanto pagano al massimo. Alle persone mandi una proposta: decidono loro.</p>
     <div class="pulsanti"><button id="chiudi">Chiudi</button></div>`, (d, c) => {
     const righe = () => {
       const id = d.querySelector("#vLotto").value, l = S.lotti.find((x) => x.id === id);
+      d.querySelector("#vGr").innerHTML = l ? statoGruppo(l.serie) : "";
       const lista = altri.map((q) => ({ q, paga: q.bot && QP ? QP(S, q.id, id) : 0 })).sort((x, y) => y.paga - x.paga);
       d.querySelector("#vRighe").innerHTML = lista.map(({ q, paga }) => `<div class="scheda" style="display:flex;flex-direction:row;align-items:center;gap:10px;margin-top:6px;padding:8px 12px;text-align:left"><div class="pall" style="background:${q.colore};width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px">${esc(q.nome[0])}</div><b style="flex:1">${esc(q.nome)}</b>${q.bot ? `<span class="sub">fino a <b style="color:var(--oro)">${euro(paga)}</b></span><button class="oro piccolo" data-vbot="${q.id}" data-p="${paga}">Vendi</button>` : `<input type="number" data-vp="${q.id}" value="${Math.round(l.prezzo * 1.2)}" style="width:110px"><button class="piccolo" data-vum="${q.id}">Proponi</button>`}</div>`).join("");
       d.querySelectorAll("[data-vbot]").forEach((b) => b.onclick = async () => {
@@ -1036,6 +1038,14 @@ function statoGruppo(serie) {
   const altro = !mie && vie.every((v) => v.owner && v.owner === vie[0].owner) ? S.players.find((p) => p.id === vie[0].owner) : null;
   const msg = !manca.length ? "👑 Gruppo completo: è tuo!" : altro ? `👑 Tutto di ${esc(altro.nome)}` : manca.length === 1 && mie ? (chi ? `Te ne manca 1: ce l'ha <b style="color:${chi.colore}">${esc(chi.nome)}</b>` : "Te ne manca 1, ed è libera!") : "";
   return `<span class="statog">${tagGruppo(serie)}${pall}${msg ? `<span class="sg-msg">${msg}</span>` : ""}</span>`;
+}
+// nelle tendine (dove i colori non si vedono) il gruppo e' scritto: «[Spezie ✓✓·] Vicolo…», e se quella via ti completa il gruppo lo dice
+function testoGruppoOpz(l) {
+  if (!l || !l.serie) return "";
+  if (l.serie === "Moli") return "[Moli] ";
+  const vie = S.lotti.filter((x) => x.serie === l.serie), mie = vie.filter((x) => x.owner === mioId).length;
+  const completa = l.owner !== mioId && mie === vie.length - 1;
+  return `[${l.serie} · tue ${mie}/${vie.length}${completa ? " · ★ ti completa il gruppo" : ""}] `;
 }
 // i gruppi di vie: spiegati con parole semplici
 function gruppo(l) {
@@ -2383,7 +2393,7 @@ function finestraServizio(me, tipo, isola) {
     const ultimo = (S.giorno || 0) >= 3 && S.players.every((q, i) => i <= S.turno || q.fallito);
     return finestra(`<span class="kick" style="color:var(--sporco)">🚧 L'agente di ${esc(L.NOMI_ISOLE[isola])}</span><h2>Dove metto la transenna?</h2>
       <p>Chi si ferma lì viene controllato, come al Posto di blocco del Ponte Est. Chi la polizia tiene d'occhio viene fermato sempre.</p>
-      <div class="campo"><label for="trC">Casella</label><select id="trC">${lotti.map((l) => `<option value="${l.idx}">${esc(l.nome)}${l.owner ? " · di " + esc(nomeDi(l.owner)) : " · libera"}</option>`).join("")}</select></div>
+      <div class="campo"><label for="trC">Casella</label><select id="trC">${lotti.map((l) => `<option value="${l.idx}">${testoGruppoOpz(l)}${esc(l.nome)}${l.owner ? " · di " + esc(nomeDi(l.owner)) : " · libera"}</option>`).join("")}</select></div>
       <p class="sub">Tutti la vedono. Vale anche per te. Resta fino al tuo prossimo turno, o fino alla Notte.${ultimo ? " <b>È l'ultimo giro del giorno 4: con la Notte sparisce quasi subito.</b>" : ""}</p>
       ${avvisoFedina(me2)}<p class="sub">+3 Tracce. L'agente diventa più nervoso.</p>
       <div class="pulsanti"><button id="x">Lascia stare</button><button class="oro" id="ok" ${lotti.length ? "" : "disabled"}>Mettila</button></div>`, (d, c) => {
