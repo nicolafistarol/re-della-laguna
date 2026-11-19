@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 92;
+  const VERSIONE_REGOLE = 93;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -110,17 +110,17 @@
     ristorante: { nome: "Ristorante", perk: "Rende bene, sempre. È l'attività normale.", perche: "Sceglilo quando vuoi solo soldi sicuri a ogni Alba.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Ambra", "Palma", "Corona"] },
     hotel: { nome: "Hotel di lusso", perk: "Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", perche: "Sceglilo se ti serve fama: elezioni, sale riservate di notte, livello Icona.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma", "Flamingo", "Corona"], lusso: true },
     boutique: { nome: "Boutique di lusso", perk: "Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", perche: "Sceglila se ti serve fama: elezioni, sale riservate di notte, livello Icona.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Flamingo", "Corona"], lusso: true },
-    uffici: { nome: "Uffici e hub tech", perk: "Fa salire SoleTech in Borsa.", perche: "Sceglili se hai (o vuoi) azioni SoleTech: ogni ufficio le spinge su.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Sole", "Corona"] },
-    yachtclub: { nome: "Yacht club", perk: "I tuoi mezzi a noleggio rendono il 25% in più.", perche: "Sceglilo se hai mezzi a noleggio: yacht, elicottero, jet.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma"] },
-    agenzia: { nome: "Agenzia immobiliare", perk: "All'Agenzia compri i terreni senza il 20% in più.", perche: "Sceglila se vuoi comprare tanti terreni: all'Agenzia risparmi il 20% ogni volta.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: null },
-    legale: { nome: "Studio legale", perk: "Se ti condannano, la multa è più bassa del 30%.", perche: "Sceglilo se fai affari sporchi: se ti condannano paghi meno.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: ["Corona", "Sole"] },
-    lavanderia: { nome: "Lavanderia", perk: "Ti fa ripulire i soldi sporchi al Casinò Reale.", perche: "Sceglila se di notte fai soldi sporchi: senza una copertura non li ripulisci.", rischio: "Se fai affari sporchi, attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Ambra", "Sole"] },
-    galleria: { nome: "Galleria d'arte", perk: "Ripulisce soldi sporchi e apre l'affare «Falsi d'autore».", perche: "Sceglila se vuoi un affare tutto tuo di notte: i falsi d'autore.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Flamingo", "Corona"] },
-    magazzino: { nome: "Magazzino portuale", perk: "Ripulisce soldi sporchi e al Porto carichi il 50% in più.", perche: "Sceglilo se fai contrabbando al Porto: carichi il 50% in più.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Sole", "Ambra"] },
-    discoteca: { nome: "Discoteca", perk: "Rende tanto e apre la bisca clandestina. È anche lusso.", perche: "Sceglila se vuoi tanto incasso e la bisca, e accetti la polizia addosso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Flamingo", "Palma"], lusso: true },
-    beachclub: { nome: "Beach club", perk: "Rende tanto, apre la bisca clandestina e ti dà +2 fama a ogni Alba.", perche: "Sceglilo se vuoi incasso e fama insieme, e accetti la polizia addosso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Palma"] },
-    casino: { nome: "Casinò", perk: "Rende più di tutte e ripulisce tanto. Serve la licenza.", perche: "Sceglilo se hai la licenza e tanti soldi sporchi da ripulire.", rischio: "La polizia lo guarda moltissimo.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 4, isole: ["Flamingo", "Corona"], licenza: true, lusso: true },
-    bancaprivata: { nome: "Banca privata", perk: "Rende più di tutte e ripulisce tanto. Serve tutto il gruppo di vie.", perche: "Sceglila se hai tutto il gruppo di vie a Isola Corona: rende più di tutte.", rischio: "La polizia la guarda molto.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 3, isole: ["Corona"], serie: true },
+    uffici: { nome: "Uffici e hub tech", perk: "Ci lavorano le aziende tech: ogni ufficio fa salire SoleTech in Borsa.", perche: "Sceglili se hai (o vuoi) azioni SoleTech: ogni ufficio le spinge su.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Sole", "Corona"] },
+    yachtclub: { nome: "Yacht club", perk: "Il tuo porticciolo: yacht, elicottero e jet che dai a noleggio rendono il 25% in più.", perche: "Sceglilo se hai mezzi a noleggio: yacht, elicottero, jet.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma"] },
+    agenzia: { nome: "Agenzia immobiliare", perk: "Conosci chi vende: all'Agenzia compri i terreni senza il 20% in più.", perche: "Sceglila se vuoi comprare tanti terreni: all'Agenzia risparmi il 20% ogni volta.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: null },
+    legale: { nome: "Studio legale", perk: "I tuoi avvocati: se ti condannano, la multa è più bassa del 30%.", perche: "Sceglilo se fai affari sporchi: se ti condannano paghi meno.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: ["Corona", "Sole"] },
+    lavanderia: { nome: "Lavanderia", perk: "Copertura: i suoi incassi in contanti nascondono i tuoi soldi sporchi. Di notte, dal tuo Palazzo, li fai passare nei suoi conti e ne perdi solo il 15%.", perche: "Sceglila se di notte fai soldi sporchi: senza coperture li ripulisci solo al Casinò (perdi il 25%) o col jet (30%).", rischio: "Se fai affari sporchi, attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Ambra", "Sole"] },
+    galleria: { nome: "Galleria d'arte", perk: "Copertura (i quadri si vendono a prezzi che nessuno controlla) e apre l'affare «Falsi d'autore».", perche: "Sceglila se vuoi un affare tutto tuo di notte: i falsi d'autore.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Flamingo", "Corona"] },
+    magazzino: { nome: "Magazzino portuale", perk: "Copertura (merce che entra ed esce senza bolle) e al Porto carichi il 50% in più: hai dove nasconderla.", perche: "Sceglilo se fai contrabbando al Porto: carichi il 50% in più.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Sole", "Ambra"] },
+    discoteca: { nome: "Discoteca", perk: "Rende tanto, è lusso e nel retro apre la bisca clandestina (un tuo affare della notte).", perche: "Sceglila se vuoi tanto incasso e la bisca, e accetti la polizia addosso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Flamingo", "Palma"], lusso: true },
+    beachclub: { nome: "Beach club", perk: "Rende tanto, ti dà +2 fama a ogni Alba (ci vanno i famosi) e nel retro apre la bisca clandestina.", perche: "Sceglilo se vuoi incasso e fama insieme, e accetti la polizia addosso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Palma"] },
+    casino: { nome: "Casinò", perk: "Rende più di tutte ed è la copertura più grande: le vincite al tavolo spiegano qualsiasi contante. Serve la licenza.", perche: "Sceglilo se hai la licenza e tanti soldi sporchi da ripulire.", rischio: "La polizia lo guarda moltissimo.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 4, isole: ["Flamingo", "Corona"], licenza: true, lusso: true },
+    bancaprivata: { nome: "Banca privata", perk: "Rende più di tutte ed è una grande copertura: i conti li tieni tu. Serve tutto il gruppo di vie.", perche: "Sceglila se hai tutto il gruppo di vie a Isola Corona: rende più di tutte.", rischio: "La polizia la guarda molto.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 3, isole: ["Corona"], serie: true },
   };
 
   const AFFARI = {
@@ -2365,7 +2365,8 @@
       return { k: "occ", n: o.n, titolo: O.nome, testo: O.testo, costo: O.costo || 0, legale: !!O.legale, riservata: !!o.riservata };
     });
     const sp = [];
-    if (dove === "casino" && p.sporchi > 0) sp.push({ k: "ricicla", titolo: "Ripulisci i soldi sporchi", testo: "Il cassiere cambia le fiches senza fare domande. Una parte resta a lui." });
+    if (dove === "casino" && p.sporchi > 0) sp.push({ k: "ricicla", titolo: "Cambia i soldi sporchi in fiches", testo: "Compri fiches con i contanti sporchi, giochi poco e le ricambi: il cassiere non fa domande, ma se ne tiene il 25%." });
+    if (dove === "palazzo" && p.sporchi > 0 && !(N2.ospite && N2.ospite[p.id]) && copertura(s, p) - (p.copUsata || 0) > 0) sp.push({ k: "copertura", titolo: "Passa i soldi nei conti dei tuoi locali", testo: "Il tuo commercialista li fa sembrare incassi delle tue attività di copertura (lavanderia, galleria, magazzino...). Ne perdi solo il 15%, fino a " + euro(copertura(s, p) - (p.copUsata || 0)) + " in questo Ciclo." });
     if (dove === "aeroporto" && !p.corrotti.doganiere) sp.push({ k: "doganiere", titolo: "Una busta al doganiere", testo: "Il capo della dogana fa il turno di notte. Con lui i tuoi carichi rischiano la metà." });
     if (dove === "casino" && lv >= 1) sp.push({ k: "banchiere", titolo: "Un drink con il banchiere Lenz", testo: "Lenz siede sempre allo stesso tavolo. Con lui i soldi trovano strade nuove." });
     if (dove === "club" && lv >= 1) sp.push({ k: "polizia", titolo: "Parla con un agente fuori servizio", testo: "Al bancone c'è un poliziotto che beve da solo. Ha l'aria di chi cerca un extra." });
@@ -2524,7 +2525,9 @@
   function ricicla2(s, p, metodo, importo) {
     oraLibera(s, p);
     if (metodo === "paradiso") qui(s, p, "palazzo", "Il viaggio nel paradiso fiscale (col jet)");
-    else qui(s, p, "casino", "Ripulire i soldi");
+    // v93: le coperture si usano dal tuo Palazzo (i conti dei tuoi locali); al Casino' Reale si cambiano le fiches
+    else if (metodo === "copertura") { if (!["palazzo", "casino"].includes(s.notte.dove[p.id]) || s.notte.viaggio[p.id]) err("I conti dei tuoi locali si sistemano dal tuo Palazzo."); }
+    else qui(s, p, "casino", "Il cambio fiches");
     const prima = p.cash;
     const ok = ricicla(s, p, metodo, importo);
     if (ok && metodo !== "paradiso" && haOggetto(p, "fiches")) { const bonus = round((p.cash - prima) * 0.1); p.cash += bonus; togliOggetto(p, "fiches"); }
