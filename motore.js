@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 104;
+  const VERSIONE_REGOLE = 105;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -1120,12 +1120,15 @@
     notizia(s, "Avvistato alla Marina dei Re: il nuovo " + v.nome.toLowerCase() + " di " + p.nome + ".", "fama");
   }
   function prestito(s, p, importo) {
-    azioneGiorno(s, p);
+    // v105: il prestito non e' la mossa del giorno: basta che sia il tuo turno
+    if (s.fase !== "giorno" || corrente(s).id !== p.id) err("Non è il tuo turno.");
+    if (s.pending) err("Prima finisci la scelta in corso.");
+    if (p.prestitoTurno === s.ciclo * 100 + s.giorno * 10 + s.turno) err("Un prestito per turno.");
     if (p.contoBloccato === s.ciclo) err("La Banca della Laguna ti ha bloccato il conto: niente prestiti fino all'Alba.");
     importo = Math.floor(importo || 0);
     const cap = N.prestitoQuota * (p.pacchetto === "ereditiera" ? 2 : 1) * propri(s, p).reduce((a, l) => a + valoreLotto(l), 0) - p.debito;
     if (importo <= 0 || importo > cap) err("Puoi chiedere al massimo " + euro(Math.max(0, cap)) + ".");
-    p.debito += importo; p.cash += importo; p.azioneGiornoFatta = true;
+    p.debito += importo; p.cash += importo; p.prestitoTurno = s.ciclo * 100 + s.giorno * 10 + s.turno;
     p.prestiti.push({ importo, inizio: s.ciclo, scadenza: s.ciclo + 3 });
     log(s, p.nome + " ottiene un prestito di " + euro(importo) + " dalla Banca Centrale.", p.id);
   }
@@ -1863,10 +1866,15 @@
     "Vera: \"Sei entrato nel giro dei Grandi Affari. Di ognuno ce n'è uno solo in tutta la Laguna: prima la TV, poi la Banca della Laguna. Apri l'app Grandi Affari.\"",
   ];
 
+  // v105: il livello sale subito (dopo ogni mossa), un messaggio di Vera per ogni livello raggiunto
+  function aggiornaLivelli(s) {
+    if (!s || !s.players || s.fase === "lobby" || !s.lotti) return;
+    for (const p of s.players) { if (p.fallito) continue; const prima = p.livello || 0, ora = livelloPersonale(s, p); if (ora > prima) { p.livelloNuovo = ora; for (let k = prima + 1; k <= ora; k++) if (VERA[k]) privato(s, p, VERA[k]); } }
+  }
   function iniziaNotte(s) {
     s.fase = "notte"; s.notteFatti = {};
     const lv = livelloSblocco(s);
-    for (const p of s.players) { const prima = p.livello || 0, ora = livelloPersonale(s, p); if (ora > prima) { p.livelloNuovo = ora; privato(s, p, VERA[ora]); } }
+    aggiornaLivelli(s);
     apriAsteGrandi(s);
     s.notte = { ora: 0, pericolo: {}, occasioni: [], chiuso: {}, viaggio: {}, dove: {}, fatto: {}, foto: {}, racconto: {}, pronto: {}, daScelta: {}, inizioRacc: {}, base: {}, inizio: 0, proposte: [], serate: {} };
     riempiBanchi(s);
@@ -1929,7 +1937,7 @@
     for (const p of s.players) {
       if (prima) N2.inizioRacc[p.id] = 0;
       if (s.notteFatti[p.id] || p.faro > 0) continue;
-      N2.base[p.id] = { soldi: p.cash + p.sporchi, sporchi: p.sporchi, fama: p.fama, tracce: p.tracce };
+      N2.base[p.id] = { soldi: p.cash + p.sporchi + posteInSospeso(N2, p), sporchi: p.sporchi, fama: p.fama, tracce: p.tracce };
     }
   }
   function avanti(s, p) {
@@ -2015,7 +2023,7 @@
     const kPrima = ((N2.roulette || {})[p.id] || {}).k || 0;
     (N2.roulette = N2.roulette || {})[p.id] = { n, molt, importo, vinto, sc: { tipo: sc.tipo, valore: String(sc.valore) }, giri, resta: GIRI_ORA - giri, saldo: ((N2.roulette[p.id] && N2.roulette[p.id].ora === N2.ora ? N2.roulette[p.id].saldo : 0) + vinto - importo), ora: N2.ora };
     N2.roulette[p.id].k = kPrima + 1; // v97: ogni giro ha il suo numero, cosi' la ruota 3D sa che e' uscito un numero nuovo
-    racconta(s, p, "Roulette: esce il " + nome + ". " + (molt ? "Vinci " + euro(vinto) + "." : "Perdi " + euro(importo) + "."));
+    racconta(s, p, "Roulette: esce il " + nome + ". " + (molt ? "Il banco ti paga " + euro(vinto) + ": guadagni " + euro(vinto - importo) + "." : "Perdi " + euro(importo) + "."));
     if (giri >= GIRI_ORA && !mio) { racconta(s, p, "Ti alzi dal tavolo della roulette."); N2.chiuso[p.id] = true; controllaOra(s); }
   }
   function nelMioCasino(s, p) { return aCasaSua(s, p) && haPiano(p, "casino_privato"); }
@@ -2331,6 +2339,8 @@
     N2.chiuso[p.id] = true;
     controllaOra(s);
   }
+  // v105: la posta di una sfida in attesa non e' persa: nel riepilogo dell'ora conta ancora come tua
+  function posteInSospeso(N2, p) { return (N2.proposte || []).filter((x) => x.da === p.id && x.stato === "attesa").reduce((a, x) => a + (x.importo || 0), 0); }
   function restituisci_(p, pr) { p.sporchi += pr.sporchiDa || 0; p.cash += pr.importo - (pr.sporchiDa || 0); }
   function rispondiIncontro(s, p, id, si) {
     if (s.fase !== "notte" || !s.notte) err("Non è notte.");
@@ -2504,7 +2514,8 @@
     const prezzo = prezzoOggetto(s, id);
     if (!O.subito && postiUsati(p) + (O.posti || 1) > postiValigetta(s, p)) err("Nella valigetta non c'è spazio (" + postiUsati(p) + " posti usati su " + postiValigetta(s, p) + (O.posti > 1 ? "; questo ne occupa " + O.posti : "") + ").");
     if (!O.notti && !O.consuma && !O.subito && haOggetto(p, id)) err("Ce l'hai già.");
-    pagaMisto(s, p, prezzo);
+    if (!O.illegale && p.cash >= prezzo) p.cash -= prezzo; // v105: le cose legali le paghi coi soldi puliti, se li hai: niente macchia
+    else pagaMisto(s, p, prezzo);
     if (O.illegale) p.macchia = true;
     if (nero) { const b = s.notte.banco[s.notte.dove[p.id]]; b.splice(b.indexOf(id), 1); }
     if (!O.subito) p.valigetta.push({ id, notti: O.notti || null });
@@ -3129,7 +3140,7 @@
       const dt = p.tracce - b.tracce;
       per[p.id] = {
         dove: N2.viaggio[p.id] ? "in viaggio" : nomeLuogo(d), visti,
-        soldi: round(p.cash + p.sporchi - b.soldi), sporchi: round(p.sporchi - b.sporchi), fama: Math.round(p.fama - b.fama),
+        soldi: round(p.cash + p.sporchi + posteInSospeso(N2, p) - b.soldi), sporchi: round(p.sporchi - b.sporchi), fama: Math.round(p.fama - b.fama),
         rischio: dt <= 0.5 ? 0 : dt < 8 ? 1 : dt < 16 ? 2 : 3,
         righe: (N2.racconto[p.id] || []).slice(N2.inizioRacc[p.id] || 0, fineRacc[p.id]),
         aCasa: !!s.notteFatti[p.id],
@@ -3166,6 +3177,7 @@
     if (l.cantiere) err("C'è già un cantiere aperto.");
     if (l.permesso) err("Il permesso ce l'hai già: puoi costruire.");
     if (l.lvl >= 5) err("Il lotto è già al massimo.");
+    { const ps = puoSalire(s, p, l); if (!ps.ok) err(ps.perche + " Il permesso adesso non ti servirebbe."); } // v105: niente permessi pagati per niente
     const turno = s.ciclo * 100 + s.giorno * 10 + s.turno;
     if (p.permessoTurno === turno) err("Al Municipio si va una volta per turno.");
     if (p.rapidoTurno === turno) err("Oggi hai usato la mossa del giorno per il viaggio rapido: il permesso lo chiedi al prossimo turno.");
@@ -4665,7 +4677,7 @@
       case "rispondi_invito": return !!a.si;
       case "evasione": return (Number(a.quota) || 0) > 0;
       case "articolo": case "regala": case "versa_setta": return !!a.sporchi;
-      case "compra_oggetto": { const O = oggettoDef(a.oggetto); return !!(O && O.illegale) || (p.sporchi || 0) > 0; }
+      case "compra_oggetto": { const O = oggettoDef(a.oggetto); return !!(O && O.illegale) || ((p.sporchi || 0) > 0 && !!O && p.cash < (O.prezzo || 0)); }
       case "occasione": { const o = s.notte && s.notte.occasioni.find((x) => x.n === a.n); const O = o && OCCASIONI.find((x) => x.id === o.id); return !!(O && (!O.legale || (O.costo > 0 && (p.sporchi || 0) > 0))); }
       // di notte si paga prima con gli sporchi (pagaMisto): anche 1 euro sporco macchia
       case "attivita": case "spa": case "vai_serata": case "gioca_serata": case "incontro": case "rispondi_incontro": return (p.sporchi || 0) > 0 && (a.tipo !== "rispondi_incontro" || !!a.si);
@@ -4796,7 +4808,7 @@
     }
     // v104: tenere tanti soldi sporchi si nota: 3 punti per ogni milione
     if ((p.sporchi || 0) >= 1_000_000) out.push({ k: "sporchi", peso: 3 * p.sporchi / 1_000_000, testo: "Giri con " + euro(p.sporchi) + " di soldi sporchi: chi spende così, prima o poi si fa notare." });
-    for (const [l, c] of Object.entries(p.calore || {})) if (c >= 1) out.push({ k: "luogo", luogo: l, calore: c, peso: N.pistaLuogo * c * c, testo: "Ti hanno riconosciuto: troppe notti nello stesso posto (" + nomeLuogo(l) + ")." });
+    for (const [l, c] of Object.entries(p.calore || {})) if (c >= 2) out.push({ k: "luogo", luogo: l, calore: c, peso: N.pistaLuogo * c * c, testo: "Ti hanno riconosciuto: troppe notti nello stesso posto (" + nomeLuogo(l) + ")." });
     // ILL-02: il banchiere Lenz, se e' dei tuoi, fa sparire meta' dei conti che non tornano
     if (p.calSoldi > 0) out.push({ k: "soldi", peso: N.pistaSoldi * p.calSoldi * (p.corrotti && p.corrotti.banchiere ? LENZ_COPRE : 1), testo: "La Finanza ha visto i tuoi conti: i tuoi soldi non tornano con quello che rendono i tuoi locali." + (p.corrotti && p.corrotti.banchiere ? " Il banchiere Lenz ne copre la metà." : "") });
     // ILL-19: una Prova pesa solo quando viene CONSEGNATA alla polizia (la denuncia). Finche' resta in tasca a un rivale non conta.
@@ -5517,6 +5529,7 @@
     const pA = s.players.find((x) => x.id === idGiocatore), tr0 = pA ? pA.tracce || 0 : 0, st0 = pA ? pA.stato || 0 : 0;
     const r = applica0(s, idGiocatore, a);
     controllaNumeri(s, a);
+    try { aggiornaLivelli(s); } catch (e) { /* mai bloccare una mossa per il livello */ }
     if (a && a.tipo) registraConti(s, idGiocatore, a, primaConti, ciclo0);
     // di notte, dopo ogni azione: il riquadro "com'e' andata" (soldi, Tracce lasciate, polizia)
     if (N0 && pA && s.ciclo === ciclo0 && !["pronto", "avanti", "aspetta", "vai", "msg_setta", "preferenze"].includes(a.tipo)) {
