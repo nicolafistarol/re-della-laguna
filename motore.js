@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 85;
+  const VERSIONE_REGOLE = 88;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -2029,6 +2029,23 @@
     for (const q of s.players) if (q.id !== p.id) privato(s, q, "Invito da " + p.nome + ": stanotte poker nel Casinò privato del suo Palazzo, al piano " + p.piani + ". Ingresso " + euro(ingresso) + ".");
     notizia(s, p.nome + " apre il suo Casinò privato: stanotte si gioca a poker al piano " + p.piani + ".", "voce");
   }
+  // Chi ospita scende nel suo Casino': vede chi c'e' e quanto ha fatto il banco; il primo giro della notte da' fama
+  function giroSerata(s, p) {
+    oraLibera(s, p);
+    const N2 = s.notte, se = N2.serate && N2.serate[p.id];
+    if (!se || !aCasaSua(s, p)) err("La tua serata non è aperta.");
+    const ospiti = se.ospiti.map((id) => giocatore(s, id).nome);
+    N2.giroSerata = N2.giroSerata || {};
+    if (!ospiti.length) {
+      for (const q of s.players) if (q.id !== p.id && !s.notteFatti[q.id]) privato(s, q, p.nome + " ti richiama: il Casinò privato al piano " + p.piani + " è aperto, ingresso " + euro(se.ingresso) + ". Lo trovi in \"Vai altrove\".");
+      racconta(s, p, "Scendi nel tuo Casinò: i tavoli sono pronti ma la sala è ancora vuota. Mandi un altro giro di inviti.");
+    } else {
+      const fama = N2.giroSerata[p.id] ? 0 : Math.min(3, ospiti.length);
+      p.fama += fama; N2.giroSerata[p.id] = true;
+      racconta(s, p, "Scendi nel tuo Casinò: al tavolo ci sono " + ospiti.join(", ") + ". Il banco finora ha fatto " + euro(se.banco) + "." + (fama ? " Fai il giro dei tavoli, stringi mani: +" + fama + " fama." : " Controlli che il croupier non si distragga."));
+    }
+    N2.chiuso[p.id] = true; controllaOra(s);
+  }
   function vaiSerata(s, p, idHost) {
     oraLibera(s, p);
     const N2 = s.notte, host = giocatore(s, idHost), se = N2.serate && N2.serate[idHost];
@@ -2296,6 +2313,7 @@
         { k: "brinda", a: ospiteDi, titolo: "Brinda con " + h.nome, testo: "Un bicchiere con chi ti ospita: +2 fama se accetta.", costo: 20_000 },
         { k: "aspetta", titolo: "Goditi la vista", testo: "Dal piano " + h.piani + " la Laguna sembra piccola." }];
     }
+    if (dove === "palazzo" && N2.serate && N2.serate[p.id]) { const se = N2.serate[p.id]; sp.push({ k: "mia_serata", titolo: "Scendi nel tuo Casinò", testo: (se.ospiti.length ? (se.ospiti.length === 1 ? "1 ospite" : se.ospiti.length + " ospiti") + " al tavolo, il banco ha fatto " + euro(se.banco) + ". Fai il giro dei tavoli." : "La sala è ancora vuota: rimandi gli inviti.") }); }
     if (dove === "palazzo" && haPiano(p, "casino_privato") && !(N2.serate && N2.serate[p.id])) sp.push({ k: "serata", titolo: "Apri una serata nel tuo Casinò", testo: "Gli altri ricevono l'invito. Chi viene paga l'ingresso, e il banco sei tu." });
     if (dove === "palazzo" && haPiano(p, "spa") && !(N2.spaFatta && N2.spaFatta[p.id])) sp.push({ k: "spa", titolo: "Una serata nella tua Spa", testo: "Un ospite famoso, fotografi discreti. 50.000 €, +3 fama." });
     if (dove === "palazzo" && haPiano(p, "sala_insonorizzata") && lv >= 1) sp.push({ k: "polizia", titolo: "Un incontro nella sala insonorizzata", testo: "Qui dentro nessuno ascolta. Puoi comprare un poliziotto o il banchiere." });
@@ -2305,7 +2323,7 @@
       if (q) sp.push({ k: "foto", bersaglio: q.id, titolo: "Fotografa " + q.nome, testo: q.nome + " è qui. Se fa qualcosa di strano, avrai una Prova." });
     }
     const fissa = ATTIVITA_NOTTE[dove] ? { k: "fissa", ...ATTIVITA_NOTTE[dove] } : null;
-    const PRIMA = ["rito", "scava", "jet"], prima = sp.filter((x) => PRIMA.includes(x.k)), resto = sp.filter((x) => !PRIMA.includes(x.k)); // il rito della setta viene prima di tutto
+    const PRIMA = ["rito", "scava", "jet", "mia_serata", "serata"], prima = sp.filter((x) => PRIMA.includes(x.k)), resto = sp.filter((x) => !PRIMA.includes(x.k)); // il rito della setta viene prima di tutto
     const tutte = fissa ? [...[...prima, ...occ, ...resto].slice(0, 2), fissa] : [...prima, ...occ, ...resto].slice(0, 3);
     if (tutte.length < 3) {
       const tardi = s.notte.occasioni.some((o) => !o.preso && o.luogo === dove && o.dalle > N2.ora && (!o.riservata || o.riservata === p.id));
@@ -5185,7 +5203,7 @@
     occasione: "Affari della notte", ricettatore: "Ricettatore (merce rubata)", ballo: "Ballo in Maschera", ricicla: "Soldi ripuliti", ricicla_banca: "Soldi ripuliti",
     corrompi: "Corruzione", scarica_contatto: "Corruzione", servizio: "Corruzione", togli_transenna: "Corruzione", opera_pubblica: "Opere pubbliche", compra_oggetto: "Mercato Nero", chiamata: "Lavoretti al telefono", soffiata: "Soffiate", spa: "Notte",
     // serate e carte
-    sm: "Sette e mezzo", carte: "Sette e mezzo", serata: "Serate", gioca_serata: "Serate", vai_serata: "Serate",
+    sm: "Sette e mezzo", carte: "Sette e mezzo", serata: "Serate", gioca_serata: "Serate", vai_serata: "Serate", giro_serata: "Serate",
     // setta
     fonda_setta: "Setta", versa_setta: "Setta", lava_setta: "Setta: Lavanderia", rispondi_invito: "Setta", scava: "Setta", seppellisci: "Setta", tradisci: "Setta",
     // Grandi Affari
@@ -5407,6 +5425,7 @@
       case "spa": return spa(s, p);
       case "serata": return apriSerata(s, p, a.ingresso);
       case "vai_serata": return vaiSerata(s, p, a.host);
+      case "giro_serata": return giroSerata(s, p);
       case "gioca_serata": return giocaSerata(s, p, a.importo);
       case "sm": return mossaSM(s, p, a.mossa);
       case "incontro": return incontro(s, p, a.a, a.cosa, a.importo);
