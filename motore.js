@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 93;
+  const VERSIONE_REGOLE = 94;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -75,11 +75,11 @@
     },
     veicoli: {
       motoscafo: { nome: "Motoscafo", prezzo: 300_000, rend: 0.10, fama: 2 },
-      supercar: { nome: "Supercar", prezzo: 650_000, rend: 0.08, fama: 4 },
-      yacht: { nome: "Yacht", prezzo: 2_000_000, rend: 0.18, fama: 6 },
+      supercar: { nome: "Supercar", prezzo: 650_000, rend: 0.08, fama: 4, famaAlba: 1 },
+      yacht: { nome: "Yacht", prezzo: 2_000_000, rend: 0.18, fama: 6, famaAlba: 1 },
       elicottero: { nome: "Elicottero", prezzo: 2_500_000, rend: 0.14, fama: 6 },
-      megayacht: { nome: "Megayacht", prezzo: 6_000_000, rend: 0.20, fama: 12 },
-      jet: { nome: "Jet privato", prezzo: 9_000_000, rend: 0.18, fama: 15 },
+      megayacht: { nome: "Megayacht", prezzo: 6_000_000, rend: 0.20, fama: 12, famaAlba: 2 },
+      jet: { nome: "Jet privato", prezzo: 9_000_000, rend: 0.18, fama: 15, famaAlba: 2 },
     },
   };
   // I numeri che cambiano SOLO per le partite nuove (gen 2). Stessa chiave di N, una riga per tema.
@@ -2849,6 +2849,15 @@
     faro: { brutto: ["Una motovedetta compare all'orizzonte.", "Qualcuno sulla scogliera guarda col binocolo.", "Un elicottero passa basso sul mare."], buono: ["Il mare è nero e calmo.", "Solo il vento tra gli scogli.", "Nessuna luce sull'acqua, a parte la tua."] },
     _: { brutto: ["Senti passi che non dovrebbero esserci.", "Una macchina si ferma qui vicino, a fari spenti.", "Qualcuno fa una telefonata di troppo."], buono: ["Silenzio. Nessuno in giro.", "Tutto tranquillo, come previsto.", "Nessuna luce accesa nei dintorni."] },
   };
+  // v94: i mezzi di lusso servono a scappare. Dal mare (motoscafo, yacht, megayacht), su strada (supercar), ovunque (elicottero).
+  const LUOGHI_MARE = ["marina", "porto", "faro", "villa"], LUOGHI_STRADA = ["club", "mercato", "bisca", "casino", "redazione", "aeroporto", "villa"];
+  function mezzoFuga(s, p, luogo) {
+    const v = p.veicoli || [];
+    if (v.includes("elicottero")) return N.veicoli.elicottero;
+    if (LUOGHI_MARE.includes(luogo)) { const m = ["megayacht", "yacht", "motoscafo"].find((x) => v.includes(x)); if (m) return N.veicoli[m]; if (haOggetto(p, "motoscafo")) return { nome: "Motoscafo" }; }
+    if (LUOGHI_STRADA.includes(luogo) && v.includes("supercar")) return N.veicoli.supercar;
+    return null;
+  }
   const ULTIMA = [
     { l: "Molli tutto e scappi", d: "Porti via solo quello che hai in mano (un quarto). Niente guai, poche tracce.", k: "scappa" },
     { l: "Ti nascondi e aspetti", d: "Se il pericolo è vero, una volta su due passa oltre. Perdi un po' di tempo e di carico.", k: "aspetta" },
@@ -2870,7 +2879,7 @@
     return { nome: O.nome, luogo: o.luogo, passo: C.passo, passi: passi.length + 1, rischio: Math.round(pg * 100), bottino: g, tracce: Math.round(O.tracce * 0.75 * C.tr), quando: C.quando, tempo: TEMPO_BIVIO, adesso: adesso(), storia: C.storia,
       testo: ultimo ? "Il momento della verità. " + C.segnale : passi[C.passo].t, segnale: ultimo ? C.segnaleBrutto : null,
       venduto: denunciatoQui(s, p, o.luogo) && rng2(s, p, C) ? "Stanotte qui ci sono più divise del solito. Come se aspettassero qualcuno." : null,
-      opzioni: (ultimo ? ULTIMA : passi[C.passo].o).map((x) => ({ l: x.l, d: x.d, costo: x.costo || 0, gu: x.gu || null, ga: x.ga || null })) };
+      opzioni: (ultimo ? ULTIMA.map((x) => { const f = x.k === "scappa" && mezzoFuga(s, p, o.luogo); return f ? { l: "Scappi col tuo " + f.nome.toLowerCase(), d: "Il tuo mezzo ti aspetta: porti via metà del carico, niente guai, poche tracce." } : x; }) : passi[C.passo].o).map((x) => ({ l: x.l, d: x.d, costo: x.costo || 0, gu: x.gu || null, ga: x.ga || null })) };
   }
   function sceltaColpo(s, p, i, esitato, muto) {
     inNotte2(s, p);
@@ -2900,11 +2909,12 @@
     if (esitato) i = 2; // chi resta impietrito tira dritto senza volerlo
     const k = (ULTIMA[i] || err("Scelta sconosciuta.")).k;
     let guaio = C.guaio, ga = C.ga, tr = C.tr;
-    if (k === "scappa") { guaio = null; ga *= 0.25; tr *= 0.5; }
+    const fuga = k === "scappa" ? mezzoFuga(s, p, o.luogo) : null;
+    if (k === "scappa") { guaio = null; ga *= fuga ? 0.5 : 0.25; tr *= fuga ? 0.4 : 0.5; }
     else if (k === "aspetta") { if (guaio && rng(s) < 0.5) guaio = null; ga *= 0.85; }
     else if (!guaio) ga *= 1.15;
     C.storia.push((esitato ? "Resti impietrito e " : "") + ULTIMA[i].l.toLowerCase());
-    racconta(s, p, k === "scappa" ? "Molli tutto e scappi nel buio. " + (C.guaio ? "Dietro di te arriva davvero qualcuno: l'hai scampata." : "Poi scopri che non c'era nessuno. Peccato.") : k === "aspetta" ? "Ti nascondi e trattieni il fiato. " + (C.guaio && !guaio ? "Il pericolo passa oltre." : "") : "Tiri dritto. " + (!C.guaio ? "Era solo paura: il sangue freddo paga." : ""));
+    racconta(s, p, k === "scappa" ? (fuga ? "Salti sul tuo " + fuga.nome.toLowerCase() + " e sparisci col carico che riesci a portare. " : "Molli tutto e scappi nel buio. ") + (C.guaio ? "Dietro di te arriva davvero qualcuno: l'hai scampata." : "Poi scopri che non c'era nessuno. Peccato.") : k === "aspetta" ? "Ti nascondi e trattieni il fiato. " + (C.guaio && !guaio ? "Il pericolo passa oltre." : "") : "Tiri dritto. " + (!C.guaio ? "Era solo paura: il sangue freddo paga." : ""));
     delete s.notte.colpi[p.id];
     s.notte.chiuso[p.id] = true;
     risolviOccasione(s, p, s.notte.fatto[p.id], { pg: C.pg, guaio, ga, tr });
@@ -4901,6 +4911,7 @@
       // veicoli a noleggio
       const yc = haAttivita(s, p, "yachtclub") ? 1.25 : 1;
       for (const v of p.veicoli) r.veicoli += N.veicoli[v].prezzo * N.veicoli[v].rend * (haPiano(p, "garage") ? 1.5 : 1) * yc;
+      { const fm = Math.min(3, p.veicoli.reduce((a, v) => a + (N.veicoli[v].famaAlba || 0), 0)); if (fm) { p.fama += fm; r.famaMezzi = fm; } } // v94: i mezzi di lusso si fanno vedere
       if (haAttivita(s, p, "beachclub")) p.fama += 2;
       if (haPiano(p, "ristorante_panoramico")) p.fama += 1;
       if (haPiano(p, "suite")) p.fama += 3;

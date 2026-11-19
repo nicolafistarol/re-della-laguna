@@ -11,7 +11,7 @@
 // Stessa interfaccia del vecchio mondo a cubetti (ora cubetti.js, solo con ?cubetti).
 // =====================================================================
 import * as THREE from "three";
-import { creaRilievo, creaVeduta, GEO, RUMORE } from "./mondo3d.js?v=93";
+import { creaRilievo, creaVeduta, GEO, RUMORE } from "./mondo3d.js?v=94";
 
 export const DIORAMA = true;
 export function mondoNuovo() { return false; }          // il mondo modellato a cubetti non c'entra piu'
