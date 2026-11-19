@@ -777,3 +777,27 @@ body.cammino #mondo { z-index:17 }
 .sfida-esito { display: flex; flex-direction: column; gap: 3px; margin: 12px 0 4px; padding: 10px 12px; border-radius: 12px; text-align: left; }
 .sfida-esito span { color: var(--testo, #e5e7eb); font-size: 13px; }
 .sfida-nuova { margin: 6px 0; font-size: 13px; color: #ffb3b3; text-align: left; }
+/* v98: tabellone visto dall'alto */
+#mondo.tab #mappa{background-color:#0a3f6b;background-image:none;background-size:cover}
+#mondo.tab .cas.terreno i{min-width:0;width:46px;height:40px;padding:0;border-radius:7px;flex-direction:column;gap:0;background:#fffaf0;color:#14181f;border:2px solid rgba(0,0,0,.45);border-top:10px solid var(--serie);box-shadow:0 0 0 1.5px rgba(255,255,255,.85),0 5px 12px rgba(0,0,0,.55);font-size:19px;line-height:1}
+#mondo.tab .cas.terreno em{font-size:13px;font-weight:900;letter-spacing:-.3px}
+#mondo.tab .cas.terreno.molo i{font-size:12px}
+#mondo.tab .cas.terreno.molo em{font-size:10.5px}
+#mondo.tab .cas.terreno.pres i{background:color-mix(in srgb,var(--own) 30%,#fff);border:3px solid var(--own);border-top:10px solid var(--serie);box-shadow:0 0 0 1.5px #fff,0 0 12px var(--own),0 5px 12px rgba(0,0,0,.55)}
+#mondo.tab .cas.terreno.pres i small{font-size:9.5px;font-weight:800;color:#a11}
+#mondo.tab .cas.terreno.mio i{border-color:var(--oro);box-shadow:0 0 0 2px #1a1206,0 0 16px var(--oro),0 5px 12px rgba(0,0,0,.55)}
+#mondo.tab .cas .inz{position:absolute;top:-9px;right:-9px;width:19px;height:19px;border-radius:50%;background:var(--own);color:#fff;border:2px solid #fff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;text-shadow:0 1px 2px rgba(0,0,0,.6);box-shadow:0 2px 5px rgba(0,0,0,.5);z-index:2}
+#mondo.tab .cas .corona{position:absolute;top:-14px;left:-10px;font-size:16px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6));z-index:2}
+#mondo.tab .cas .livc{position:absolute;bottom:-9px}
+#mondo.tab .cas.terreno .cn{position:absolute;top:100%;margin-top:8px}
+#mondo.tab .isola-nome{font-size:30px;color:#fff8e6}
+#mondo.tab .cas.ang i{width:46px;height:46px}
+#mondo.tab .cas.spec .cn,#mondo.tab .cas.ang .cn{font-size:9.5px;padding:0 4px;opacity:.92}
+#mondo.tab{background:#0b3e68}
+.tagg{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:800;border:1.5px solid rgba(255,255,255,.85);vertical-align:middle;box-shadow:0 1px 4px rgba(0,0,0,.4);letter-spacing:.2px}
+.statog{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+.statog .pg{width:18px;height:18px;border-radius:50%;font-style:normal;font-size:10px;font-weight:900;color:#fff;display:inline-flex;align-items:center;justify-content:center;border:2px solid #fff;text-shadow:0 1px 2px rgba(0,0,0,.8);box-sizing:border-box}
+.statog .pg.lib{background:transparent;border:2px dashed rgba(255,255,255,.65)}
+.statog .pg.mio{border-color:var(--oro);box-shadow:0 0 6px var(--oro)}
+.statog .sg-msg{font-size:12px;font-weight:700;color:var(--oro)}
+.mieo-g{padding:4px 0}
