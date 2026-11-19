@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 91;
+  const VERSIONE_REGOLE = 92;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -1957,12 +1957,54 @@
     mercato: { id: "chiedi", titolo: "Chiedi in giro", testo: "Un vecchio al banco sa sempre dove gira la roba stanotte." },
     bisca: { id: "carte", titolo: "Una mano a carte", testo: "Si punta forte. Puoi raddoppiare o perdere tutto.", puntata: true },
     porto: { id: "gruisti", titolo: "Parla con i gruisti", testo: "Sanno quali navi arrivano più tardi, e cosa portano." },
-    casino: { id: "roulette", titolo: "Gioca alla roulette", testo: "Tutto in regola, niente Tracce. Rosso o nero?", puntata: true },
+    casino: { id: "roulette", titolo: "Siediti al tavolo della roulette", testo: "Tutto in regola, niente Tracce. Rosso o nero, pari o dispari, una dozzina o un numero secco: fino a 6 giri nella stessa ora.", puntata: true },
     redazione: { id: "bozze", titolo: "Leggi le bozze di domani", testo: "Sul tavolo del caporedattore c'è la prima pagina di domani." },
     villa: { id: "osserva", titolo: "Osserva la villa dal buio", testo: "Dal bosco si vedono finestre, guardie e telecamere." },
     aeroporto: { id: "voli", titolo: "Guarda i voli in arrivo", testo: "Dal bar dell'aeroporto si vede chi atterra e chi parte, e con quali valigie." },
     faro: { id: "mare", titolo: "Guarda chi arriva dal mare", testo: "Dall'alto del Faro si vedono tutte le luci della Laguna." },
   };
+  // v92: LA SALA DA GIOCO DEL CASINO' REALE. La roulette vera (37 numeri, lo zero e' del banco):
+  // rosso/nero, pari/dispari, basso/alto pagano 2x; una dozzina 3x; un numero secco 36x.
+  // Si possono fare fino a GIRI_ORA giocate nella stessa ora: l'ora finisce quando ti alzi dal tavolo (o al 6o giro).
+  const GIRI_ORA = 6, ROSSI = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+  function vinceRoulette(n, sc) {
+    if (n === 0) return 0;
+    const t = sc.tipo, v = sc.valore;
+    if (t === "colore") return (v === "rosso") === ROSSI.includes(n) ? 2 : 0;
+    if (t === "parita") return (v === "pari") === (n % 2 === 0) ? 2 : 0;
+    if (t === "meta") return (v === "basso") === (n <= 18) ? 2 : 0;
+    if (t === "dozzina") return Math.ceil(n / 12) === Number(v) ? 3 : 0;
+    if (t === "numero") return n === Number(v) ? 36 : 0;
+    return 0;
+  }
+  function giraRoulette(s, p, importo, sc) {
+    oraLibera(s, p);
+    const N2 = s.notte;
+    if (N2.dove[p.id] !== "casino") err("La roulette è al Casinò Reale.");
+    sc = sc || {}; const ok = { colore: ["rosso", "nero"], parita: ["pari", "dispari"], meta: ["basso", "alto"], dozzina: ["1", "2", "3"] };
+    if (sc.tipo === "numero") { const n = Number(sc.valore); if (!(n >= 0 && n <= 36 && Math.floor(n) === n)) err("Scegli un numero da 0 a 36."); }
+    else if (!ok[sc.tipo] || !ok[sc.tipo].includes(String(sc.valore))) err("Scegli su cosa puntare.");
+    importo = round(Number(importo) || 0);
+    if (importo < 10_000) err("La puntata minima è 10.000 €.");
+    if (importo > 2_000_000) err("Il banco non accetta più di 2 milioni a puntata.");
+    if (p.cash < importo) err("Al Casinò Reale si gioca solo con soldi puliti.");
+    N2.giri = N2.giri || {}; const giri = (N2.giri[p.id] || 0) + 1;
+    if (giri > GIRI_ORA) err("Il croupier ti fa capire che è ora di alzarti.");
+    N2.giri[p.id] = giri;
+    p.cash -= importo;
+    const n = Math.floor(rng(s) * 37), molt = vinceRoulette(n, sc), vinto = importo * molt;
+    p.cash += vinto;
+    const nome = n === 0 ? "0 verde" : n + " " + (ROSSI.includes(n) ? "rosso" : "nero");
+    (N2.roulette = N2.roulette || {})[p.id] = { n, molt, importo, vinto, sc: { tipo: sc.tipo, valore: String(sc.valore) }, giri, resta: GIRI_ORA - giri, saldo: ((N2.roulette[p.id] && N2.roulette[p.id].ora === N2.ora ? N2.roulette[p.id].saldo : 0) + vinto - importo), ora: N2.ora };
+    racconta(s, p, "Roulette: esce il " + nome + ". " + (molt ? "Vinci " + euro(vinto) + "." : "Perdi " + euro(importo) + "."));
+    if (giri >= GIRI_ORA) { racconta(s, p, "Ti alzi dal tavolo della roulette."); N2.chiuso[p.id] = true; controllaOra(s); }
+  }
+  function lasciaTavolo(s, p) {
+    oraLibera(s, p);
+    const N2 = s.notte, r = N2.roulette && N2.roulette[p.id];
+    racconta(s, p, "Ti alzi dal tavolo della roulette" + (r && r.ora === N2.ora ? (r.saldo >= 0 ? " con " + euro(r.saldo) + " in più." : " con " + euro(-r.saldo) + " in meno.") : "."));
+    N2.chiuso[p.id] = true; controllaOra(s);
+  }
   function attivitaNotte(s, p, importo) {
     oraLibera(s, p);
     const N2 = s.notte, dove = N2.dove[p.id], A = ATTIVITA_NOTTE[dove];
@@ -3008,7 +3050,7 @@
     }
     s.riepOra = { n: (s.riepOra ? s.riepOra.n : 0) + 1, ciclo: s.ciclo, da: ORE[N2.ora], a: ORE[N2.ora + 1], per };
     // 5. l'ora avanza
-    N2.ora += 1; N2.chiuso = {}; N2.fatto = {}; N2.foto = {}; N2.pronto = {}; N2.daScelta = {};
+    N2.ora += 1; N2.chiuso = {}; N2.giri = {}; N2.fatto = {}; N2.foto = {}; N2.pronto = {}; N2.daScelta = {};
     for (const p of s.players) { N2.inizioRacc[p.id] = fineRacc[p.id]; if (s.notteFatti[p.id] || p.faro > 0) N2.chiuso[p.id] = true; }
     if (N2.ora >= 6) return fineNotte(s);
     apriOra(s);
@@ -5239,7 +5281,7 @@
     occasione: "Affari della notte", ricettatore: "Ricettatore (merce rubata)", ballo: "Ballo in Maschera", ricicla: "Soldi ripuliti", ricicla_banca: "Soldi ripuliti",
     corrompi: "Corruzione", scarica_contatto: "Corruzione", servizio: "Corruzione", togli_transenna: "Corruzione", opera_pubblica: "Opere pubbliche", compra_oggetto: "Mercato Nero", chiamata: "Lavoretti al telefono", soffiata: "Soffiate", spa: "Notte",
     // serate e carte
-    sm: "Sette e mezzo", carte: "Sette e mezzo", serata: "Serate", gioca_serata: "Serate", vai_serata: "Serate", giro_serata: "Serate",
+    sm: "Sette e mezzo", carte: "Sette e mezzo", serata: "Serate", gioca_serata: "Serate", vai_serata: "Serate", roulette: "Serate", lascia_tavolo: "Serate", giro_serata: "Serate",
     // setta
     fonda_setta: "Setta", versa_setta: "Setta", lava_setta: "Setta: Lavanderia", rispondi_invito: "Setta", scava: "Setta", seppellisci: "Setta", tradisci: "Setta",
     // Grandi Affari
@@ -5463,6 +5505,8 @@
       case "serata": return apriSerata(s, p, a.ingresso);
       case "vai_serata": return vaiSerata(s, p, a.host);
       case "giro_serata": return giroSerata(s, p);
+      case "roulette": return giraRoulette(s, p, a.importo, { tipo: a.su, valore: a.valore });
+      case "lascia_tavolo": return lasciaTavolo(s, p);
       case "gioca_serata": return giocaSerata(s, p, a.importo);
       case "sm": return mossaSM(s, p, a.mossa);
       case "incontro": return incontro(s, p, a.a, a.cosa, a.importo);
@@ -5582,6 +5626,8 @@
         convocazione: me ? (() => { const cv = convocazioneDi(s, me); return cv ? { luogo: cv.c.luogo, ora: cv.c.ora, nome: cv.st.nome, gm: cv.st.gm === idGiocatore, jet: giocatore(s, cv.st.gm).veicoli.includes("jet") } : null; })() : null,
         manoSM: s.manoSM && s.manoSM[idGiocatore] ? (({ mazzo, ...r }) => ({ ...r, totale: totaleSM(r.carte) }))(s.manoSM[idGiocatore]) : null,
         ultimaMano: s.notte.ultimaMano ? s.notte.ultimaMano[idGiocatore] || null : null,
+        roulette: s.notte.roulette && s.notte.roulette[idGiocatore] && s.notte.roulette[idGiocatore].ora === s.notte.ora ? s.notte.roulette[idGiocatore] : null,
+        giri: s.notte.giri ? s.notte.giri[idGiocatore] || 0 : 0,
         occasioni: me ? occasioniVisibili(s, me).map((o) => ({ ...o, ...OCCASIONI.find((x) => x.id === o.id), n: o.n })) : [],
         piuTardi: me && !s.notte.viaggio[idGiocatore] ? s.notte.occasioni.filter((o) => !o.preso && o.luogo === s.notte.dove[idGiocatore] && o.dalle > s.notte.ora && (!o.riservata || o.riservata === idGiocatore)).length : 0,
         chiamate: s.notte.occasioni.filter((o) => o.riservata === idGiocatore && !o.preso).map((o) => ({ n: o.n, luogo: o.luogo, alle: o.alle, nome: OCCASIONI.find((x) => x.id === o.id).nome })),
@@ -5630,7 +5676,7 @@
     // carte e serate
     punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso),
     // polizia e pene
-    descriviPena, PREMIO_SOCIO, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, tacche, TETTO_SCONTI, MULTA_CONDANNA,
+    descriviPena, PREMIO_SOCIO, ROSSI, GIRI_ORA, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, tacche, TETTO_SCONTI, MULTA_CONDANNA,
     rischioResa, rischioPerquisizione, rischioRicicla, bonusSetta, quotaRicicla, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     // setta
     livelloSetta, influenzaDi, OPERE, costoOpera,

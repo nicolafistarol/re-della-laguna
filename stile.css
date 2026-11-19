@@ -731,3 +731,23 @@ body.cammino .scena, body.cammino #radice > .scena, body.cammino .esito-notte { 
 .cammina-barra span{font-size:13px;color:#fff;max-width:440px}
 body.cammino #panorama, body.cammino #sfondo { display:none !important }
 body.cammino #mondo { z-index:17 }
+/* v92: il tavolo della roulette */
+.velo.roulette .rl-fin { max-width: 460px; background: radial-gradient(circle at 50% 0%, #135c3a 0%, #0b2e20 55%, #081a14 100%); border: 1px solid rgba(243,197,107,.5); }
+.rl-ruota-box { position: relative; width: 170px; height: 170px; margin: 6px auto 10px; }
+.rl-ruota { width: 100%; height: 100%; border-radius: 50%; border: 8px solid #6b4a1f; box-shadow: 0 0 0 3px #f3c56b, 0 10px 30px rgba(0,0,0,.5); }
+.rl-ruota.gira { animation: rlGira 1.6s cubic-bezier(.15,.7,.25,1); }
+.rl-centro { position: absolute; inset: 32%; border-radius: 50%; background: radial-gradient(circle, #f3c56b, #8a6424); box-shadow: inset 0 0 8px rgba(0,0,0,.5); }
+.rl-pallina { position: absolute; top: 10px; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px #fff; }
+@keyframes rlGira { from { transform: rotate(0); } to { transform: rotate(var(--fine, 1440deg)); } }
+.rl-esito { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 4px 0 8px; animation: rlEsito .4s 1.5s both; }
+.rl-esito.vinto b { color: var(--pulito); font-size: 20px; } .rl-esito.perso b { color: #ffb3b3; font-size: 18px; }
+@keyframes rlEsito { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: none; } }
+.rl-num { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: #fff; font-weight: 800; font-size: 20px; border: 2px solid #f3c56b; }
+.rl-info { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.rl-fiches { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 8px; }
+.rl-fiche { width: 48px; height: 48px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.7); background: #2b5fa8; color: #fff; font-weight: 800; font-size: 12px; padding: 0; }
+.rl-fiche.su { background: #f3c56b; color: #2a1c05; border-style: solid; transform: scale(1.1); }
+.rl-griglia { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.rl-bet { font-size: 13px; padding: 9px 4px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25); color: #fff; border-radius: 10px; }
+.rl-bet.rosso { background: #b52f2f; } .rl-bet.nero { background: #1b1b1f; }
+.rl-bet:disabled { opacity: .45; }
