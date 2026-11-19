@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 101;
+  const VERSIONE_REGOLE = 102;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -2121,6 +2121,9 @@
     const ospiti = se.ospiti.map((id) => giocatore(s, id).nome);
     N2.giroSerata = N2.giroSerata || {};
     if (!ospiti.length) {
+      N2.invitiSerata = N2.invitiSerata || {};
+      if (N2.invitiSerata[p.id] === N2.ora) err("Gli inviti li hai appena mandati: aspetta che arrivi qualcuno.");
+      N2.invitiSerata[p.id] = N2.ora;
       for (const q of s.players) if (q.id !== p.id && !s.notteFatti[q.id]) privato(s, q, p.nome + " ti richiama: il Casinò privato al piano " + p.piani + " è aperto, ingresso " + euro(se.ingresso) + ". Lo trovi in \"Vai altrove\".");
       racconta(s, p, "Scendi nel tuo Casinò: i tavoli sono pronti ma la sala è ancora vuota. Mandi un altro giro di inviti.");
     } else {
@@ -2128,7 +2131,7 @@
       p.fama += fama; N2.giroSerata[p.id] = true;
       racconta(s, p, "Scendi nel tuo Casinò: al tavolo ci sono " + ospiti.join(", ") + ". Il banco finora ha fatto " + euro(se.banco) + "." + (fama ? " Fai il giro dei tavoli, stringi mani: +" + fama + " fama." : " Controlli che il croupier non si distragga."));
     }
-    N2.chiuso[p.id] = true; controllaOra(s);
+    // v102: e' casa tua, scendi con l'ascensore: non costa l'ora
   }
   function vaiSerata(s, p, idHost) {
     oraLibera(s, p);
@@ -2399,7 +2402,7 @@
         { k: "brinda", a: ospiteDi, titolo: "Brinda con " + h.nome, testo: "Un bicchiere con chi ti ospita: +2 fama se accetta.", costo: 20_000 },
         { k: "aspetta", titolo: "Goditi la vista", testo: "Dal piano " + h.piani + " la Laguna sembra piccola." }];
     }
-    if (dove === "palazzo" && N2.serate && N2.serate[p.id]) { const se = N2.serate[p.id]; sp.push({ k: "mia_serata", titolo: "Scendi nel tuo Casinò", testo: (se.ospiti.length ? (se.ospiti.length === 1 ? "1 ospite" : se.ospiti.length + " ospiti") + " al tavolo, il banco ha fatto " + euro(se.banco) + ". Fai il giro dei tavoli." : "La sala è ancora vuota: rimandi gli inviti.") }); }
+    if (dove === "palazzo" && N2.serate && N2.serate[p.id]) { const se = N2.serate[p.id]; sp.push({ k: "mia_serata", rapida: true, ospitiNomi: se.ospiti.map((id) => giocatore(s, id).nome), banco: se.banco, ingresso: se.ingresso, giroFatto: !!(N2.giroSerata && N2.giroSerata[p.id]), titolo: "⚡ Scendi nel tuo Casinò", testo: (se.ospiti.length ? (se.ospiti.length === 1 ? "1 ospite" : se.ospiti.length + " ospiti") + " al tavolo, il banco ha fatto " + euro(se.banco) + ". Fai il giro dei tavoli." : "La sala è ancora vuota: rimandi gli inviti.") }); }
     if (dove === "palazzo" && haPiano(p, "casino_privato") && !(N2.serate && N2.serate[p.id])) sp.push({ k: "serata", titolo: "Apri una serata nel tuo Casinò", testo: "Gli altri ricevono l'invito. Chi viene paga l'ingresso, e il banco sei tu." });
     if (dove === "palazzo" && haPiano(p, "spa") && !(N2.spaFatta && N2.spaFatta[p.id])) sp.push({ k: "spa", titolo: "Una serata nella tua Spa", testo: "Un ospite famoso, fotografi discreti. 50.000 €, +3 fama." });
     if (dove === "palazzo" && haPiano(p, "sala_insonorizzata") && lv >= 1) sp.push({ k: "polizia", titolo: "Un incontro nella sala insonorizzata", testo: "Qui dentro nessuno ascolta. Puoi comprare un poliziotto o il banchiere." });
