@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 107;
+  const VERSIONE_REGOLE = 108;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -1790,6 +1790,8 @@
     { id: "spedizione", luogo: "aeroporto", sblocco: 2, nome: "La spedizione", testo: "Un pilota parte all'alba per l'estero. Ci metti un milione di merce: se passa i controlli, torna il doppio.", costo: 1000000, guadagno: [2000000, 2800000], pericoli: ["dogana", "radar"], tracce: 12, gravita: "grave" },
     { id: "confraternita", luogo: "faro", sblocco: 0, soloSetta: true, nome: "Il carico della confraternita", testo: "Una nave senza bandiera aspetta il segnale della lanterna. Il carico è per la setta: chi lo scarica si prende la sua parte.", costo: 1000000, guadagno: [2200000, 3500000], pericoli: ["guardia"], tracce: 16, gravita: "grave" },
     { id: "senatore", luogo: "faro", sblocco: 0, soloSetta: true, nome: "Il segreto del senatore", testo: "I confratelli hanno le foto di un senatore. Pagherà bene per farle sparire, se qualcuno va a chiederglielo.", costo: 400000, guadagno: [880000, 1400000], pericoli: ["intercettazione", "fotografo"], tracce: 12, gravita: "grave" },
+    // v108: il biglietto "Al Faro, a mezzanotte" (Livello 3) porta davvero a qualcosa: un incontro che c'e' solo alle 00:00
+    { id: "mezzanotte", luogo: "faro", sblocco: 3, mezzanotte: true, nome: "L'uomo del biglietto", testo: "A mezzanotte, sotto la lanterna, ti aspetta l'uomo che ha scritto il biglietto. Ha una sacca di diamanti grezzi che a Palma nessuno osa comprare: chi li prende stanotte li rivende domani a un gioielliere di Corona.", costo: 800000, guadagno: [1760000, 2800000], pericoli: ["guardia", "intercettazione"], tracce: 14, gravita: "grave" },
     { id: "lingotti", luogo: "villa", sblocco: 3, nome: "I lingotti nella cantina", testo: "Il custode della villa ha debiti di gioco. Per una cifra giusta, lascia la porta aperta.", costo: 900000, guadagno: [1980000, 3150000], pericoli: ["allarme", "testimone"], tracce: 18, gravita: "grave" },
   ];
   const INDIZI = {
@@ -1905,7 +1907,9 @@
     let n = 1;
     for (const l of Object.keys(LUOGHI)) {
       if (!luogoAperto(s, l)) continue;
-      const pool = OCCASIONI.filter((o) => o.luogo === l && o.sblocco <= lv && (!o.soloSetta || s.sette.length > 0));
+      const pool = OCCASIONI.filter((o) => o.luogo === l && !o.mezzanotte && o.sblocco <= lv && (!o.soloSetta || s.sette.length > 0));
+      // v108: al Faro, se qualcuno e' al Livello 3, c'e' sempre l'uomo del biglietto, ma solo alle 00:00
+      if (l === "faro" && s.players.some((p) => (p.livello || 0) >= 3)) s.notte.occasioni.push({ n: n++, id: "mezzanotte", luogo: "faro", dalle: 2, alle: 3, preso: null, riservata: null });
       if (!pool.length) continue;
       const quante = rng(s) < 0.4 ? 1 : 2;
       for (let k = 0; k < quante && pool.length; k++) {
@@ -1922,7 +1926,7 @@
       // una chiamata, a volte
       if (livelloSblocco(s, p) >= 1 && rng(s) < 0.45) {
         const lvp = livelloSblocco(s, p);
-        const tutte = OCCASIONI.filter((o) => !o.legale && !o.soloSetta && o.sblocco <= lvp && luogoAperto(s, o.luogo, p));
+        const tutte = OCCASIONI.filter((o) => !o.legale && !o.soloSetta && !o.mezzanotte && o.sblocco <= lvp && luogoAperto(s, o.luogo, p));
         // ognuno ha il suo appuntamento: se si puo', in un posto diverso da quello degli altri
         const giaUsati = new Set(s.notte.occasioni.filter((x) => x.riservata).map((x) => x.luogo));
         const libere = tutte.filter((o) => !giaUsati.has(o.luogo));
