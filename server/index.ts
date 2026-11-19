@@ -11,8 +11,8 @@
 // Il saldo segreto resta qui: ai giocatori arriva solo la loro "vista" (Laguna.vistaSicura).
 // =====================================================================
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@482ca3f5580754cfa7e87f553fe48730af044ebe/server/motore.js";
-import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@482ca3f5580754cfa7e87f553fe48730af044ebe/server/bot.js";
+import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@77c75f1b95cef952225d7e8857d47d5e200df605/server/motore.js";
+import "https://cdn.jsdelivr.net/gh/nicolafistarol/re-della-laguna@77c75f1b95cef952225d7e8857d47d5e200df605/server/bot.js";
 
 // deno-lint-ignore no-explicit-any
 const L = (globalThis as any).Laguna;
