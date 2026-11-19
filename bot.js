@@ -1,6 +1,15 @@
 !(function (o) {
   "use strict";
   const t = o.Laguna || ("undefined" != typeof require ? require("./motore.js") : null);
+  // quanto paga al massimo un computer per un tuo terreno (lo usa anche la finestra "Vendi un terreno" per dire subito il prezzo giusto)
+  function quantoPaga(o, idBot, idLotto) {
+    const l = o.lotti.find((x) => x.id === idLotto); if (!l) return 0;
+    const valore = l.prezzo * (1 + 0.6 * (l.lvl || 0));
+    const delGruppo = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id && x.owner === idBot).length;
+    const gruppo = o.lotti.filter((x) => x.serie === l.serie).length;
+    const completa = delGruppo === gruppo - 1;
+    return Math.ceil(valore * (completa ? 1.8 : delGruppo >= 1 ? 1.25 : 1.0) / 10000) * 10000;
+  }
   function i(o, i) {
     const e = t.ATTIVITA;
     return (
@@ -418,8 +427,7 @@ function grandiBot(o, i, n) {
           return prop.prezzo >= soglia ? { tipo: "rispondi_proposta", id: prop.id, si: !0 } : { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Lo venderebbe per almeno " + soglia.toLocaleString("it-IT") + " €." };
         }
         // un altro vuole vendere un suo terreno al bot
-        const completa = delGruppo === gruppo - 1;
-        const massimo = arrot(valore * (completa ? 1.8 : delGruppo >= 1 ? 1.25 : 1.0));
+        const massimo = quantoPaga(o, i.id, l.id);
         if (i.cash - prop.prezzo < 3e5) return { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Adesso non ha abbastanza soldi." };
         return prop.prezzo <= massimo ? { tipo: "rispondi_proposta", id: prop.id, si: !0 } : { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Al massimo pagherebbe " + massimo.toLocaleString("it-IT") + " €." };
       }
@@ -660,6 +668,7 @@ function grandiBot(o, i, n) {
       }
       return esito;
     },
+    quantoPaga: (o, idBot, idLotto) => quantoPaga(o, idBot, idLotto),
     STRATEGIE: ["Legale", "Costruttore", "Investitore", "Furbo", "Spavaldo", "Esperto"],
   };
   "undefined" != typeof module && module.exports ? (module.exports = n) : (o.LagunaBot = n);
