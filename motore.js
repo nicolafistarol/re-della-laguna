@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 90;
+  const VERSIONE_REGOLE = 91;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -937,6 +937,29 @@
     for (let i = 0; i < n; i++) g.prezzoQuota = round(g.prezzoQuota * 1.1);
     g.mercato -= n; g.quote[p.id] = (g.quote[p.id] || 0) + n; g.quoteCiclo = g.quoteCiclo || {}; g.quoteCiclo[p.id] = gia + n;
     log(s, p.nome + " compra " + n + (n === 1 ? " quota" : " quote") + " di " + G.nome + " (" + euro(costo) + ").", p.id);
+    controllaCapo(s, k);
+  }
+  // v91: quando sul mercato non ci sono piu' quote, chi arriva tardi puo' COMPRARE UNA QUOTA DA UN SOCIO:
+  // il socio e' obbligato a vendere, ma prende il 50% in piu' del prezzo della quota (soldi puliti). Conta nel limite per Ciclo.
+  const PREMIO_SOCIO = 1.5;
+  function quotaDaSocio(s, p, k, idSocio) {
+    if (!GRANDI[k]) err("Affare sconosciuto.");
+    const g = grande(s, k), G = GRANDI[k];
+    if (g.stato !== "attiva") err(G.nome + " non è ancora di nessuno.");
+    if (livelloSblocco(s, p) < 4) err("Le quote le comprano solo i giocatori al Livello 4.");
+    if (g.mercato > 0) err("Ci sono ancora quote sul mercato: comprale da lì.");
+    const socio = giocatore(s, idSocio);
+    if (!socio || socio.id === p.id || !((g.quote || {})[socio.id] > 0)) err("Scegli un socio che ha quote.");
+    const gia = (g.quoteCiclo || {})[p.id] || 0;
+    if (gia + 1 > G.maxQuoteCiclo) err("Puoi comprare al massimo " + G.maxQuoteCiclo + " quote per Ciclo.");
+    const costo = round(g.prezzoQuota * PREMIO_SOCIO);
+    if (p.cash < costo) err("Ti servono " + euro(costo) + " puliti.");
+    p.cash -= costo; socio.cash += costo; flusso(s, p, socio, costo, "una quota di " + G.nome, true);
+    g.quote[socio.id] -= 1; if (!g.quote[socio.id]) delete g.quote[socio.id];
+    g.quote[p.id] = (g.quote[p.id] || 0) + 1; g.quoteCiclo = g.quoteCiclo || {}; g.quoteCiclo[p.id] = gia + 1;
+    g.prezzoQuota = round(g.prezzoQuota * 1.1);
+    privato(s, socio, p.nome + " ti ha comprato una quota di " + G.nome + " (sei obbligato a vendere): ti paga " + euro(costo) + ", il 50% in più del suo prezzo.");
+    log(s, p.nome + " compra una quota di " + G.nome + " da " + socio.nome + " (" + euro(costo) + ").", p.id);
     controllaCapo(s, k);
   }
   function controllaCapo(s, k) {
@@ -5220,7 +5243,7 @@
     // setta
     fonda_setta: "Setta", versa_setta: "Setta", lava_setta: "Setta: Lavanderia", rispondi_invito: "Setta", scava: "Setta", seppellisci: "Setta", tradisci: "Setta",
     // Grandi Affari
-    offerta_grande: "Grandi Affari", quote_grande: "Grandi Affari", titolone: "Grandi Affari", tasso_banca: "Grandi Affari", blocca_conto: "Grandi Affari",
+    offerta_grande: "Grandi Affari", quote_grande: "Grandi Affari", quota_socio: "Grandi Affari", titolone: "Grandi Affari", tasso_banca: "Grandi Affari", blocca_conto: "Grandi Affari",
   };
   // lo stesso movimento, visto da chi lo riceve senza averlo fatto
   const MOTIVO_ALTRI = {
@@ -5388,6 +5411,7 @@
       // ---- Grandi Affari
       case "offerta_grande": return offertaGrande(s, p, a.affare, a.importo);
       case "quote_grande": return comprareQuote(s, p, a.affare, a.n);
+      case "quota_socio": return quotaDaSocio(s, p, a.affare, a.socio);
       case "titolone": return titolone(s, p, a);
       case "tasso_banca": return tassoBanca(s, p, a.tasso);
       case "blocca_conto": return bloccaConto(s, p, a.bersaglio);
@@ -5606,7 +5630,7 @@
     // carte e serate
     punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso),
     // polizia e pene
-    descriviPena, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, tacche, TETTO_SCONTI, MULTA_CONDANNA,
+    descriviPena, PREMIO_SOCIO, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, tacche, TETTO_SCONTI, MULTA_CONDANNA,
     rischioResa, rischioPerquisizione, rischioRicicla, bonusSetta, quotaRicicla, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     // setta
     livelloSetta, influenzaDi, OPERE, costoOpera,
