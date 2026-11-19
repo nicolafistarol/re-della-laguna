@@ -16,7 +16,7 @@ const LOCALE = location.search.includes("locale");  // ?locale = partita contro 
 let Tre = null, motivo3D = "", provato3D = false;
 // v86: il mondo 3D libero (si gira e si avvicina da ogni lato). Si sceglie dal pannello Vista e resta ricordato; ?foto torna al diorama.
 const CUBETTI = location.search.includes("cubetti") || (!location.search.includes("foto") && (() => { try { return localStorage.getItem("laguna_motore") === "libero"; } catch (e) { return false; } })());
-import(CUBETTI ? "./cubetti.js?v=96" : "./tre.js?v=96").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
+import(CUBETTI ? "./cubetti.js?v=97" : "./tre.js?v=97").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=51";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
@@ -34,7 +34,7 @@ function avviso3D() {
   d.querySelector("#av3dSi").onclick = () => location.reload();
   d.querySelector("#av3dNo").onclick = () => { motivo3D = ""; d.remove(); };
 }
-import * as Loc from "./locale.js?v=96";   // ?veloce = senza animazioni (per le prove)
+import * as Loc from "./locale.js?v=97";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -93,7 +93,7 @@ function sfondo(img) { $("#sfondo").style.backgroundImage = `url('${img}')`; }
 //          └─ effetti (suoni sintetizzati: niente file)
 // Il tasto del suono spegne tutto (master a zero e brano fermato).
 const Suono = (() => {
-  let ctx = null, master = null, busMusica = null, busEffetti = null, eco = null, acceso = true, modo = null;
+  let ctx = null, master = null, busMusica = null, busEffetti = null, eco = null, acceso = true, modo = null, rotolio = null;
   try { acceso = localStorage.getItem("laguna_audio") !== "0"; } catch (e) { }
   const VOL_MASTER = 0.9, VOL_MUSICA = 0.34, VOL_EFFETTI = 0.6;
   function avvia() {
@@ -215,6 +215,23 @@ const Suono = (() => {
     // l'attimo prima di sapere com'e' andata: un battito che accelera
     suspense() { if (!ok()) return; const t = adesso(); [0, 0.34, 0.62, 0.84, 1.0].forEach((d, i) => nota(70, t + d, 0.18, 0.13 + i * 0.01, "sine", false, 45)); },
     esito(bene) { if (!ok()) return; const t = adesso(); if (bene) { nota(659.3, t, 0.3, 0.07); nota(987.8, t + 0.09, 0.6, 0.07); } else { nota(207.7, t, 0.5, 0.08, "sawtooth"); nota(155.6, t + 0.14, 0.8, 0.08, "sawtooth"); } },
+    // v97: la roulette 3D. Il rotolare e' un rumore continuo filtrato: piu' la pallina va veloce, piu' e' acuto e forte
+    rotola(liv) {
+      if (!ok()) return;
+      if (!rotolio) {
+        if (!liv) return;
+        const b = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), d = b.getChannelData(0); let u = 0;
+        for (let i = 0; i < d.length; i++) { u = u * 0.6 + (Math.random() * 2 - 1) * 0.4; d[i] = u * (0.7 + 0.3 * Math.sin(i / 900)); }
+        const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = b; src.loop = true; f.type = "bandpass"; f.Q.value = 0.9; g.gain.value = 0;
+        src.connect(f); f.connect(g); g.connect(busEffetti); src.start(); rotolio = { src, f, g };
+      }
+      const t = ctx.currentTime;
+      rotolio.g.gain.setTargetAtTime(Math.min(1, liv) * 0.55, t, 0.08); rotolio.f.frequency.setTargetAtTime(500 + Math.min(1, liv) * 2600, t, 0.1);
+      if (!liv) { const r = rotolio; rotolio = null; setTimeout(() => { try { r.src.stop(); } catch (e) { } }, 600); }
+    },
+    clic(forza) { if (!ok()) return; const t = adesso(); rumore(t, 0.025, 0.25 + forza * 0.5, 2800 + Math.random() * 2200, 3); nota(1800 + Math.random() * 900, t, 0.04, 0.03 + forza * 0.04, "triangle", false); },
+    lancio() { if (!ok()) return; const t = adesso(); rumore(t, 0.12, 0.5, 1800, 1.5); nota(420, t, 0.18, 0.05, "sine", false, 900); },
+    dentro() { if (!ok()) return; const t = adesso(); rumore(t, 0.05, 0.6, 2400, 2); nota(1200, t + 0.02, 0.15, 0.06, "triangle", false, 800); },
     // la pallina della roulette: tic sempre piu' lenti, poi si ferma
     pallina() { if (!ok()) return; const t = adesso(); let x = 0; for (let i = 0; i < 22; i++) { x += 0.045 + i * i * 0.0011; rumore(t + x, 0.03, 0.35 - i * 0.012, 3500 + Math.random() * 1500, 2); } nota(900, t + x + 0.05, 0.12, 0.03, "triangle", false, 600); },
     clic() { if (!ok()) return; nota(1500, adesso(), 0.035, 0.02, "sine", false, 1100); },
@@ -1532,7 +1549,7 @@ function collegaScena(me) {
     if (c.k === "jet") return agisci({ tipo: "jet_setta", setta: c.setta });
     if (c.k === "foto") return agisci({ tipo: "foto", bersaglio: c.bersaglio });
     if (c.k === "aspetta") return agisci({ tipo: "aspetta" });
-    if (c.k === "fissa" && c.id === "roulette") { rouletteAperta = true; chiaveRoulette = ""; return tavoloRoulette(me); }
+    if (c.k === "fissa" && c.id === "roulette") { rouletteAperta = true; return tavoloRoulette(me); }
     if (c.k === "fissa") return c.puntata ? finestraPuntata(me, c) : agisci({ tipo: "attivita" });
     if (c.k === "spa") return agisci({ tipo: "spa" });
     if (c.k === "mia_serata") return agisci({ tipo: "giro_serata" });
@@ -1808,7 +1825,7 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 96: ["<b>I dadi aspettano te.</b> Quando la notte finisce, prima leggi com'è andata l'ultima ora e l'Alba; solo quando chiudi le finestre gli altri tirano i dadi."], 95: ["<b>I soldi non piovono più.</b> Prima i piani del Palazzo e le attività rendevano così tanto che vincevi comunque, senza pensarci. Ora il Palazzo rende circa la metà per piano e le attività un terzo in meno. Ogni spesa è una scelta: costruire, comprare un mezzo, rischiare un colpo di notte.", "Per compensare, i Livelli arrivano un po' prima nelle partite lunghe (16 e 20 Cicli). Gli affari della notte non cambiano: adesso pesano di più."], 94: ["<b>I mezzi di lusso servono davvero.</b> Ora ognuno ha i suoi poteri, scritti nella concessionaria e nell'app Lusso.", "<b>Fuga.</b> Nei colpi della notte, quando scegli «Scappi», col mezzo giusto porti via metà del carico invece di un quarto: motoscafo, yacht e megayacht dal mare (Marina, Porto, Faro, Villa), supercar su strada (Club, Mercato, Bisca, Casinò, Redazione, Aeroporto, Villa), elicottero ovunque.", "<b>Fama a ogni Alba.</b> Supercar e yacht +1, megayacht e jet +2 (al massimo +3 in tutto). La fama serve per le elezioni e le sale riservate."], 93: ["<b>Le costruzioni ora hanno senso.</b> Ogni attività spiega cosa fa davvero. Lavanderia, Galleria, Magazzino, Casinò e Banca privata sono <b>coperture</b>: i loro incassi nascondono i tuoi soldi sporchi. Di notte, a casa nel tuo Palazzo, trovi «Passa i soldi nei conti dei tuoi locali»: ne perdi solo il 15%, fino a quanto reggono i tuoi locali in quel Ciclo.", "<b>Senza coperture</b> vai al Casinò Reale e cambi i soldi sporchi in fiches: il cassiere se ne tiene il 25%. Col jet, il paradiso fiscale ne tiene il 30%."], 92: ["<b>La roulette vera.</b> Al Casinò Reale ti siedi al tavolo e giochi davvero: scegli la fiche, poi rosso o nero, pari o dispari, 1-18 o 19-36 (pagano il doppio), una dozzina (il triplo) o un numero secco (36 volte). La ruota gira e vedi dove si ferma la pallina.", "<b>Una giocata non costa più un'ora.</b> Nella stessa ora puoi fare fino a 6 giri. L'ora finisce solo quando ti alzi dal tavolo."], 91: ["<b>Il Sindaco serve.</b> Nell'app Municipio ora c'è scritto cosa fa il Sindaco: stipendio a ogni Alba, una legge per Ciclo (ogni legge spiega cosa fa e quando ti conviene), le tasse e le transenne. Se sei Sindaco e non hai ancora firmato la legge del Ciclo, il telefono te lo ricorda.", "<b>Grandi Affari anche per chi arriva tardi.</b> Se arrivi al Livello 4 quando la TV o la Banca sono già di altri e sul mercato non ci sono più quote, ora puoi comprare una quota da un socio: è obbligato a vendertela, ma gli paghi il 50% in più. Al massimo 2 quote per Ciclo. Con abbastanza quote, il comando passa a te."], 90: ["<b>Aste a busta chiusa.</b> Quando il Giudice sequestra più terreni, il Comune non li vende più uno alla volta: li mette in una busta da 2 o 3 terreni, e non sai quali sono. Vedi solo quanti sono e una stima del valore. Base d'asta più bassa, perché compri al buio. Chi vince apre la busta e scopre cosa ha preso. Un'asta sola invece di tante: molto più veloce.", "<b>La condanna non si ripete più.</b> La finestra della sentenza si apre una volta sola, anche se ricarichi la pagina (prima tornava e sembrava una condanna nuova, ma i soldi li toglieva una volta sola).", "<b>Come e quando ti condannano.</b> Sotto i tuoi soldi, accanto a «Nessuno parla di te», ci sono 4 pallini: sono i gradini della polizia. Toccali: vedi a che gradino sei, quanto rischi di salire al prossimo controllo (a fine di ogni giorno) e cosa perderesti se ti condannassero adesso. La condanna arriva solo al gradino 4, all'Alba."], 89: ["<b>Vendere un terreno è più veloce.</b> Tocca il tuo nome in alto (o, negli affari con un giocatore, «Vendi a chi paga di più»): scegli il terreno e vedi subito quanto paga ogni computer, dal più alto. Un tocco su «Vendi» e il terreno è venduto. Alle persone mandi la proposta come prima. Anche nella finestra di un computer il prezzo è già quello giusto, così non ti dice più di no."], 88: ["<b>La tua serata.</b> Dopo che hai aperto la serata nel tuo Casinò privato, ogni ora trovi «Scendi nel tuo Casinò»: vedi chi è al tavolo e quanto ha fatto il banco. Il primo giro dei tavoli con ospiti dà fama (+1 per ospite, fino a 3). Se la sala è vuota, rimandi gli inviti.", "«Apri una serata» ora compare sempre per prima nel tuo Palazzo: prima poteva sparire dietro altre scelte."], 85: ["<b>La soffiata.</b> Di notte, da qualunque posto, puoi chiamare la polizia e fare il nome di un rivale e del posto dove pensi che lavori. Se indovini, i suoi guai lì quasi raddoppiano e, se lo prendono, hai una Prova contro di lui. Costa 100.000 €.", "<b>Attento a te.</b> Anche gli altri possono venderti, compresi i computer più furbi, che sanno dove lavori di solito. Se senti che ci sono più divise del solito, forse aspettano proprio te. A volte un informatore ti avvisa di chi ti ha tradito.", "<b>Mondo 3D.</b> Nel pannello Vista a destra c'è il tasto «Mondo 3D»: la Laguna diventa un mondo vero che giri e avvicini da ogni lato, con il mare che cambia colore sui fondali, palme, barche che navigano, grattacieli e casette con le finestre (di notte si accendono). Il tasto «Foto» ti riporta alla foto. Il gioco ricorda la tua scelta.", "<b>Cammina di notte.</b> Con il Mondo 3D acceso, di notte c'è il tasto «🚶 Cammina»: guidi il tuo personaggio per le isole (frecce o W A S D, sul telefono tocchi dove andare). Ogni posto è una colonna di luce: avvicinati e premi «Entra» per andarci (costa le ore di sempre)."], 84: ["<b>Tutti gli affari si giocano.</b> Come alla Marina, ora anche il container, gli orologi, il tavolo truccato, la merce rubata, i quadri falsi, il peschereccio, la villa, i lingotti, il volo cargo, la spedizione e gli affari della setta al Faro hanno i loro bivi: come entri, quanto prendi, e poi il segnale. Ogni posto ha i suoi segnali: impara a leggerli."], 83: ["<b>Il colpo si gioca.</b> Alla Marina dei Re «Il carico dal mare» non si risolve più da solo: decidi come arrivi alla barca (a remi, a motore o pagando il guardiano) e quanto carico prendi. Ogni scelta cambia il rischio e il bottino, e lo vedi subito.", "Alla fine arriva un segnale (una luce, un rumore). Dice il vero 3 volte su 4: scappi, ti nascondi o tiri dritto? Hai 20 secondi per ogni scelta: se esiti, va peggio.", "Presto lo stesso negli altri affari della notte."], 82: ["<b>La condanna fa più paura.</b> Le protezioni (setta, Giudici, avvocato) abbassano la pena, ma la multa resta almeno il 60% di quella piena, in proporzione a quanto possiedi. Un reato gravissimo non scende mai sotto Grave. E 1 volta su 8 il Procuratore capo non fa nessuno sconto: lo vedi scritto prima, nella pena che rischi. Caveau e Giudice supremo salvano al massimo il 60% dei soldi sporchi.", "<b>Soldi sporchi più duri da fare.</b> Ai Livelli alti gli affari della notte rendono meno di prima (Livello 4: ×2,4 invece di ×4), e la finestra dell'affare ora mostra la cifra vera. Ripulire: +5% di rischio per ogni milione oltre il primo (prima +4%).", "<b>La setta conta.</b> Di notte la tua setta lavora con te: +10% sugli affari sporchi per ogni suo livello (livello 4 = +40%), e quando ripulisci ti copre (rischio × 0,8)."], 81: ["<b>La Fedina degli altri è segreta.</b> Vedi solo la tua: degli altri non sai più se hanno fatto cose losche.", "<b>Mercato Nero più duro.</b> Maschera, disturbatore, telefono usa-e-getta e documenti falsi non ci sono più tutte le notti: ogni notte ne escono solo 2. E costano di più: maschera 70.000 €, disturbatore 150.000 €, telefono 35.000 €, documenti 250.000 €.", "<b>Chi non risponde.</b> Se un amico non si fa vivo da 3 minuti, accanto al suo nome in alto compare «non risponde» e, a chi ha creato la partita, il pulsante «Fai giocare il computer».", "<b>La notte finisce quando la chiudi tu.</b> Se stai ancora leggendo «Com'è andata», i dadi del giorno dopo aspettano il tuo Avanti.", "<b>Tabellone:</b> sul telefono il nome dell'isola non copre più le caselle (prima il Molo non si poteva toccare)."], 80: ["<b>Gazzetta: i giocatori.</b> In cima alla Gazzetta, anche dal telefono, c'è la tabella di tutti i giocatori: Livello, fama e come vivono (Benestante, Ricco…). Prima il Livello degli altri non si vedeva."], 79: ["<b>Ripulire è un rischio.</b> Ogni volta che ripulisci soldi sporchi (Casinò, ShadowCoin, paradiso fiscale, la tua banca) la Finanza può scoprirti. Il rischio parte dal 3-6% e sale con la somma (+4% per ogni milione oltre il primo) e con quante volte hai ripulito negli ultimi 3 Cicli (+5% a volta), fino a un massimo del 50%. Lo vedi scritto prima di decidere.", "Se ti scopre: ti sequestra metà della somma, il resto resta sporco, +12 Tracce e l'indagine sale di un gradino. Il banchiere Lenz dalla tua parte abbassa il rischio. Somme piccole e pause tengono basso il pericolo."], 78: ["<b>Sentenza spiegata.</b> Quando ti condannano si apre una finestra grande: perché sei finito a Processo, quanto è grave la pena (e cosa l'ha alzata o abbassata), e ogni effetto uno per uno: cosa perdi, quanto e per quanto tempo. In fondo, in breve, come funzionano soldi sporchi e condanne.", "Puoi rileggere l'ultima sentenza dall'app Soldi sporchi, nella scheda «Le tue piste»."],
+const NOVITA = { 97: ["<b>La roulette vera.</b> Al Casinò Reale c'è una ruota europea in 3D, in legno e ottone. La pallina corre sul bordo al contrario della ruota, rallenta, scende, rimbalza sui diamanti e sulle caselle e si ferma nel numero. La senti rotolare e saltare.", "<b>Il tappeto.</b> Scegli la fiche, poi posala sul tappeto: un numero (36 volte), una dozzina o una colonna «2:1» (3 volte), rosso o nero, pari o dispari, 1-18 o 19-36 (il doppio). Poi «Punta e lancia». Il numero uscito si accende sul tappeto."], 96: ["<b>I dadi aspettano te.</b> Quando la notte finisce, prima leggi com'è andata l'ultima ora e l'Alba; solo quando chiudi le finestre gli altri tirano i dadi."], 95: ["<b>I soldi non piovono più.</b> Prima i piani del Palazzo e le attività rendevano così tanto che vincevi comunque, senza pensarci. Ora il Palazzo rende circa la metà per piano e le attività un terzo in meno. Ogni spesa è una scelta: costruire, comprare un mezzo, rischiare un colpo di notte.", "Per compensare, i Livelli arrivano un po' prima nelle partite lunghe (16 e 20 Cicli). Gli affari della notte non cambiano: adesso pesano di più."], 94: ["<b>I mezzi di lusso servono davvero.</b> Ora ognuno ha i suoi poteri, scritti nella concessionaria e nell'app Lusso.", "<b>Fuga.</b> Nei colpi della notte, quando scegli «Scappi», col mezzo giusto porti via metà del carico invece di un quarto: motoscafo, yacht e megayacht dal mare (Marina, Porto, Faro, Villa), supercar su strada (Club, Mercato, Bisca, Casinò, Redazione, Aeroporto, Villa), elicottero ovunque.", "<b>Fama a ogni Alba.</b> Supercar e yacht +1, megayacht e jet +2 (al massimo +3 in tutto). La fama serve per le elezioni e le sale riservate."], 93: ["<b>Le costruzioni ora hanno senso.</b> Ogni attività spiega cosa fa davvero. Lavanderia, Galleria, Magazzino, Casinò e Banca privata sono <b>coperture</b>: i loro incassi nascondono i tuoi soldi sporchi. Di notte, a casa nel tuo Palazzo, trovi «Passa i soldi nei conti dei tuoi locali»: ne perdi solo il 15%, fino a quanto reggono i tuoi locali in quel Ciclo.", "<b>Senza coperture</b> vai al Casinò Reale e cambi i soldi sporchi in fiches: il cassiere se ne tiene il 25%. Col jet, il paradiso fiscale ne tiene il 30%."], 92: ["<b>La roulette vera.</b> Al Casinò Reale ti siedi al tavolo e giochi davvero: scegli la fiche, poi rosso o nero, pari o dispari, 1-18 o 19-36 (pagano il doppio), una dozzina (il triplo) o un numero secco (36 volte). La ruota gira e vedi dove si ferma la pallina.", "<b>Una giocata non costa più un'ora.</b> Nella stessa ora puoi fare fino a 6 giri. L'ora finisce solo quando ti alzi dal tavolo."], 91: ["<b>Il Sindaco serve.</b> Nell'app Municipio ora c'è scritto cosa fa il Sindaco: stipendio a ogni Alba, una legge per Ciclo (ogni legge spiega cosa fa e quando ti conviene), le tasse e le transenne. Se sei Sindaco e non hai ancora firmato la legge del Ciclo, il telefono te lo ricorda.", "<b>Grandi Affari anche per chi arriva tardi.</b> Se arrivi al Livello 4 quando la TV o la Banca sono già di altri e sul mercato non ci sono più quote, ora puoi comprare una quota da un socio: è obbligato a vendertela, ma gli paghi il 50% in più. Al massimo 2 quote per Ciclo. Con abbastanza quote, il comando passa a te."], 90: ["<b>Aste a busta chiusa.</b> Quando il Giudice sequestra più terreni, il Comune non li vende più uno alla volta: li mette in una busta da 2 o 3 terreni, e non sai quali sono. Vedi solo quanti sono e una stima del valore. Base d'asta più bassa, perché compri al buio. Chi vince apre la busta e scopre cosa ha preso. Un'asta sola invece di tante: molto più veloce.", "<b>La condanna non si ripete più.</b> La finestra della sentenza si apre una volta sola, anche se ricarichi la pagina (prima tornava e sembrava una condanna nuova, ma i soldi li toglieva una volta sola).", "<b>Come e quando ti condannano.</b> Sotto i tuoi soldi, accanto a «Nessuno parla di te», ci sono 4 pallini: sono i gradini della polizia. Toccali: vedi a che gradino sei, quanto rischi di salire al prossimo controllo (a fine di ogni giorno) e cosa perderesti se ti condannassero adesso. La condanna arriva solo al gradino 4, all'Alba."], 89: ["<b>Vendere un terreno è più veloce.</b> Tocca il tuo nome in alto (o, negli affari con un giocatore, «Vendi a chi paga di più»): scegli il terreno e vedi subito quanto paga ogni computer, dal più alto. Un tocco su «Vendi» e il terreno è venduto. Alle persone mandi la proposta come prima. Anche nella finestra di un computer il prezzo è già quello giusto, così non ti dice più di no."], 88: ["<b>La tua serata.</b> Dopo che hai aperto la serata nel tuo Casinò privato, ogni ora trovi «Scendi nel tuo Casinò»: vedi chi è al tavolo e quanto ha fatto il banco. Il primo giro dei tavoli con ospiti dà fama (+1 per ospite, fino a 3). Se la sala è vuota, rimandi gli inviti.", "«Apri una serata» ora compare sempre per prima nel tuo Palazzo: prima poteva sparire dietro altre scelte."], 85: ["<b>La soffiata.</b> Di notte, da qualunque posto, puoi chiamare la polizia e fare il nome di un rivale e del posto dove pensi che lavori. Se indovini, i suoi guai lì quasi raddoppiano e, se lo prendono, hai una Prova contro di lui. Costa 100.000 €.", "<b>Attento a te.</b> Anche gli altri possono venderti, compresi i computer più furbi, che sanno dove lavori di solito. Se senti che ci sono più divise del solito, forse aspettano proprio te. A volte un informatore ti avvisa di chi ti ha tradito.", "<b>Mondo 3D.</b> Nel pannello Vista a destra c'è il tasto «Mondo 3D»: la Laguna diventa un mondo vero che giri e avvicini da ogni lato, con il mare che cambia colore sui fondali, palme, barche che navigano, grattacieli e casette con le finestre (di notte si accendono). Il tasto «Foto» ti riporta alla foto. Il gioco ricorda la tua scelta.", "<b>Cammina di notte.</b> Con il Mondo 3D acceso, di notte c'è il tasto «🚶 Cammina»: guidi il tuo personaggio per le isole (frecce o W A S D, sul telefono tocchi dove andare). Ogni posto è una colonna di luce: avvicinati e premi «Entra» per andarci (costa le ore di sempre)."], 84: ["<b>Tutti gli affari si giocano.</b> Come alla Marina, ora anche il container, gli orologi, il tavolo truccato, la merce rubata, i quadri falsi, il peschereccio, la villa, i lingotti, il volo cargo, la spedizione e gli affari della setta al Faro hanno i loro bivi: come entri, quanto prendi, e poi il segnale. Ogni posto ha i suoi segnali: impara a leggerli."], 83: ["<b>Il colpo si gioca.</b> Alla Marina dei Re «Il carico dal mare» non si risolve più da solo: decidi come arrivi alla barca (a remi, a motore o pagando il guardiano) e quanto carico prendi. Ogni scelta cambia il rischio e il bottino, e lo vedi subito.", "Alla fine arriva un segnale (una luce, un rumore). Dice il vero 3 volte su 4: scappi, ti nascondi o tiri dritto? Hai 20 secondi per ogni scelta: se esiti, va peggio.", "Presto lo stesso negli altri affari della notte."], 82: ["<b>La condanna fa più paura.</b> Le protezioni (setta, Giudici, avvocato) abbassano la pena, ma la multa resta almeno il 60% di quella piena, in proporzione a quanto possiedi. Un reato gravissimo non scende mai sotto Grave. E 1 volta su 8 il Procuratore capo non fa nessuno sconto: lo vedi scritto prima, nella pena che rischi. Caveau e Giudice supremo salvano al massimo il 60% dei soldi sporchi.", "<b>Soldi sporchi più duri da fare.</b> Ai Livelli alti gli affari della notte rendono meno di prima (Livello 4: ×2,4 invece di ×4), e la finestra dell'affare ora mostra la cifra vera. Ripulire: +5% di rischio per ogni milione oltre il primo (prima +4%).", "<b>La setta conta.</b> Di notte la tua setta lavora con te: +10% sugli affari sporchi per ogni suo livello (livello 4 = +40%), e quando ripulisci ti copre (rischio × 0,8)."], 81: ["<b>La Fedina degli altri è segreta.</b> Vedi solo la tua: degli altri non sai più se hanno fatto cose losche.", "<b>Mercato Nero più duro.</b> Maschera, disturbatore, telefono usa-e-getta e documenti falsi non ci sono più tutte le notti: ogni notte ne escono solo 2. E costano di più: maschera 70.000 €, disturbatore 150.000 €, telefono 35.000 €, documenti 250.000 €.", "<b>Chi non risponde.</b> Se un amico non si fa vivo da 3 minuti, accanto al suo nome in alto compare «non risponde» e, a chi ha creato la partita, il pulsante «Fai giocare il computer».", "<b>La notte finisce quando la chiudi tu.</b> Se stai ancora leggendo «Com'è andata», i dadi del giorno dopo aspettano il tuo Avanti.", "<b>Tabellone:</b> sul telefono il nome dell'isola non copre più le caselle (prima il Molo non si poteva toccare)."], 80: ["<b>Gazzetta: i giocatori.</b> In cima alla Gazzetta, anche dal telefono, c'è la tabella di tutti i giocatori: Livello, fama e come vivono (Benestante, Ricco…). Prima il Livello degli altri non si vedeva."], 79: ["<b>Ripulire è un rischio.</b> Ogni volta che ripulisci soldi sporchi (Casinò, ShadowCoin, paradiso fiscale, la tua banca) la Finanza può scoprirti. Il rischio parte dal 3-6% e sale con la somma (+4% per ogni milione oltre il primo) e con quante volte hai ripulito negli ultimi 3 Cicli (+5% a volta), fino a un massimo del 50%. Lo vedi scritto prima di decidere.", "Se ti scopre: ti sequestra metà della somma, il resto resta sporco, +12 Tracce e l'indagine sale di un gradino. Il banchiere Lenz dalla tua parte abbassa il rischio. Somme piccole e pause tengono basso il pericolo."], 78: ["<b>Sentenza spiegata.</b> Quando ti condannano si apre una finestra grande: perché sei finito a Processo, quanto è grave la pena (e cosa l'ha alzata o abbassata), e ogni effetto uno per uno: cosa perdi, quanto e per quanto tempo. In fondo, in breve, come funzionano soldi sporchi e condanne.", "Puoi rileggere l'ultima sentenza dall'app Soldi sporchi, nella scheda «Le tue piste»."],
   77: ["<b>Chi esce dalla partita.</b> Accanto al nome di chi ha chiuso il gioco compare \"non collegato\". Se resta via più di 3 minuti, al suo posto gioca il computer e la partita va avanti; quando torna riprende lui.", "<b>Esci dalla partita</b> (in fondo al telefono) ora è vero: il tuo posto passa al computer e gli altri continuano. Chi ha creato la partita può anche far giocare subito il computer al posto di chi non c'è.", "<b>Sala d'attesa.</b> Chi esce dalla sala libera il suo posto; chi ha creato la partita vede chi non è collegato e può mettere il computer al suo posto."],
   76: ["<b>Viaggio rapido.</b> Ora si fa una volta ogni 2 Cicli e costa il carburante: motoscafo 100.000 €, elicottero 300.000 €, jet 600.000 €. Ti costa anche la mossa del giorno. Il taxi per il Municipio non c'è più: ti candidi a Sindaco allo sportello, o dal telefono pagando il doppio.",
   "<b>Il Timbro del Municipio</b> non si consuma più da solo: quando chiedi un permesso il gioco ti chiede se vuoi usarlo.",
@@ -2774,47 +2791,126 @@ function finestraDenuncia(me) {
 }
 // ---------------------------------------------------------------- Il colpo a scelte (v83)
 let chiaveColpo = "", timerColpo = null;
-// v92: il tavolo della roulette del Casino' Reale. Fino a 6 giri nella stessa ora; l'ora finisce quando ti alzi.
-let rouletteAperta = false, chiaveRoulette = "", puntataRoulette = 100_000;
-const NOMI_SCOMMESSE = { colore: { rosso: "Rosso", nero: "Nero" }, parita: { pari: "Pari", dispari: "Dispari" }, meta: { basso: "1-18", alto: "19-36" }, dozzina: { 1: "1ª dozzina (1-12)", 2: "2ª dozzina (13-24)", 3: "3ª dozzina (25-36)" } };
+// v97: il tavolo della roulette del Casino' Reale, vero: ruota 3D (roulette3d.js), tappeto con le fiches, pallina che rimbalza.
+// Fino a 6 giri nella stessa ora; l'ora finisce quando ti alzi. Il tavolo resta aperto tra un giro e l'altro (la ruota non si ricrea).
+let rouletteAperta = false, puntataRoulette = 100_000, chiaveRoulette = "";
+let RL = null; // { el, ruota, bet, attesa, kLancio, timer, chiudi }
+let modRuota = null;
+const NOMI_SCOMMESSE = { colore: { rosso: "Rosso", nero: "Nero" }, parita: { pari: "Pari", dispari: "Dispari" }, meta: { basso: "1-18", alto: "19-36" }, dozzina: { 1: "1ª dozzina (1-12)", 2: "2ª dozzina (13-24)", 3: "3ª dozzina (25-36)" }, colonna: { 1: "la colonna dell'1", 2: "la colonna del 2", 3: "la colonna del 3" } };
+const PAGA = { colore: 2, parita: 2, meta: 2, dozzina: 3, colonna: 3, numero: 36 };
 function coloreNumero(n) { return n === 0 ? "#1f9d55" : (L.ROSSI || []).includes(n) ? "#d23b3b" : "#1b1b1f"; }
+function nomeBet(b) { return b.su === "numero" ? "il " + b.valore : (NOMI_SCOMMESSE[b.su] || {})[b.valore] || ""; }
+function vinceBet(b, n) { if (n === 0) return b.su === "numero" && +b.valore === 0; const R = (L.ROSSI || []).includes(n);
+  return b.su === "numero" ? +b.valore === n : b.su === "colore" ? (b.valore === "rosso") === R : b.su === "parita" ? (b.valore === "pari") === (n % 2 === 0) : b.su === "meta" ? (b.valore === "basso") === (n <= 18) : b.su === "dozzina" ? Math.ceil(n / 12) === +b.valore : b.su === "colonna" ? ((n - 1) % 3) + 1 === +b.valore : false; }
+function tappetoRoulette() {
+  const cella = (su, val, testo, stile, cls = "") => `<button class="rl-c ${cls}" data-su="${su}" data-val="${val}" style="${stile}">${testo}</button>`;
+  let h = cella("numero", 0, "0", "grid-column:1;grid-row:1/4", "verde");
+  for (let c = 0; c < 12; c++) for (let r = 0; r < 3; r++) { const n = c * 3 + (3 - r); h += cella("numero", n, n, `grid-column:${c + 2};grid-row:${r + 1}`, (L.ROSSI || []).includes(n) ? "rosso" : "nero"); }
+  for (let r = 0; r < 3; r++) h += cella("colonna", 3 - r, "2:1", `grid-column:14;grid-row:${r + 1}`, "fuori");
+  ["1ª 12", "2ª 12", "3ª 12"].forEach((t, k) => h += cella("dozzina", k + 1, t, `grid-column:${2 + k * 4}/span 4;grid-row:4`, "fuori"));
+  [["meta", "basso", "1-18"], ["parita", "pari", "Pari"], ["colore", "rosso", "<i class='rombo r'></i>"], ["colore", "nero", "<i class='rombo n'></i>"], ["parita", "dispari", "Dispari"], ["meta", "alto", "19-36"]].forEach(([su, v, t], k) => h += cella(su, v, t, `grid-column:${2 + k * 2}/span 2;grid-row:5`, "fuori"));
+  return `<div class="rl-tappeto">${h}</div>`;
+}
+function fichesLabel(x) { return x >= 1e6 ? x / 1e6 + "M" : x / 1000 + "k"; }
+function chiudiRoulette() { if (RL) { clearTimeout(RL.timer); if (RL.ruota) RL.ruota.chiudi(); RL.el.remove(); RL = null; } }
 function tavoloRoulette(me) {
-  const N2 = S.notte, aperto = document.querySelector(".velo.roulette");
+  const N2 = S.notte;
   const puo = rouletteAperta && N2 && N2.dove[mioId] === "casino" && !N2.chiuso[mioId] && !N2.viaggio[mioId] && !S.notteFatti[mioId];
-  if (!puo) { rouletteAperta = false; if (aperto) aperto.remove(); chiaveRoulette = ""; return false; }
-  const R = N2.roulette, giri = N2.giri || 0, chiave = giri + "_" + N2.ora;
-  if (aperto && chiave === chiaveRoulette) return true;
-  const nuovoGiro = R && aperto && chiaveRoulette && chiave !== chiaveRoulette;
-  if (aperto) aperto.remove();
-  if (document.querySelector(".velo")) document.querySelectorAll(".velo").forEach((x) => x.remove());
-  chiaveRoulette = chiave;
-  const max = L.GIRI_ORA || 6, resta = max - giri;
-  const fiches = [10_000, 50_000, 100_000, 250_000, 500_000, 1_000_000].filter((x) => x <= me.cash);
-  if (!fiches.includes(puntataRoulette)) puntataRoulette = fiches.length ? fiches[Math.min(2, fiches.length - 1)] : 10_000;
-  const settori = Array.from({ length: 37 }, (_, i) => `${coloreNumero(i)} ${(i * 360) / 37}deg ${((i + 1) * 360) / 37}deg`).join(",");
-  const esito = R ? `<div class="rl-esito ${R.molt ? "vinto" : "perso"}"><span class="rl-num" style="background:${coloreNumero(R.n)}">${R.n}</span><b>${R.molt ? "Vinci " + euro(R.vinto) + "!" : "Perdi " + euro(R.importo)}</b><span class="sub">Avevi puntato su ${esc(R.sc.tipo === "numero" ? "il " + R.sc.valore : (NOMI_SCOMMESSE[R.sc.tipo] || {})[R.sc.valore] || "")}. In quest'ora: <b style="color:${R.saldo >= 0 ? "var(--pulito)" : "#ffb3b3"}">${R.saldo >= 0 ? "+" : "−"}${euro(Math.abs(R.saldo))}</b></span></div>` : `<p class="sub">Scegli quanto puntare, poi dove. Lo 0 verde è del banco.</p>`;
-  const bott = (su, val, testo, cls = "") => `<button class="rl-bet ${cls}" data-su="${su}" data-val="${val}" ${resta > 0 && me.cash >= puntataRoulette ? "" : "disabled"}>${testo}</button>`;
-  const d = document.createElement("div"); d.className = "velo roulette";
-  d.innerHTML = `<div class="fin rl-fin"><span class="kick" style="color:var(--oro)">🎰 Casinò Reale · ore ${L.ORE[N2.ora]}</span><h2>La roulette</h2>
-    <div class="rl-ruota-box"><div class="rl-ruota ${nuovoGiro ? "gira" : ""}" style="background:conic-gradient(${settori});--fine:${R ? 1440 - (R.n + 0.5) * 360 / 37 : 0}deg;transform:rotate(${R ? -(R.n + 0.5) * 360 / 37 : 0}deg)"><div class="rl-centro"></div></div><div class="rl-pallina"></div></div>
-    ${esito}
-    <div class="rl-info">Giri rimasti in quest'ora: <b>${resta}</b> di ${max} · Puliti: <b>${euro(me.cash)}</b></div>
-    <div class="rl-fiches">${fiches.map((x) => `<button class="rl-fiche ${x === puntataRoulette ? "su" : ""}" data-fiche="${x}">${x >= 1e6 ? x / 1e6 + " M" : x / 1000 + "k"}</button>`).join("")}</div>
-    <div class="rl-griglia">${bott("colore", "rosso", "Rosso · 2x", "rosso")}${bott("colore", "nero", "Nero · 2x", "nero")}${bott("parita", "pari", "Pari · 2x")}${bott("parita", "dispari", "Dispari · 2x")}${bott("meta", "basso", "1-18 · 2x")}${bott("meta", "alto", "19-36 · 2x")}${bott("dozzina", "1", "1-12 · 3x")}${bott("dozzina", "2", "13-24 · 3x")}${bott("dozzina", "3", "25-36 · 3x")}</div>
-    <div class="riga" style="margin-top:8px"><input id="rlNum" type="number" min="0" max="36" placeholder="numero 0-36" style="width:120px"><button class="rl-bet oro" data-su="numero" data-val="campo" ${resta > 0 && me.cash >= puntataRoulette ? "" : "disabled"}>Numero secco · 36x</button></div>
-    <div class="pulsanti"><button id="rlAlza">Alzati dal tavolo (finisce l'ora)</button></div></div>`;
-  document.body.appendChild(d);
-  if (nuovoGiro) Suono.pallina();
-  if (R && nuovoGiro) setTimeout(() => { R.molt ? Suono.soldi(true, R.vinto) : Suono.esito(false); }, 1500);
-  d.querySelectorAll("[data-fiche]").forEach((b) => b.onclick = () => { puntataRoulette = +b.dataset.fiche; chiaveRoulette = ""; tavoloRoulette(me); });
-  d.querySelectorAll(".rl-bet").forEach((b) => b.onclick = () => {
-    const val = b.dataset.val === "campo" ? d.querySelector("#rlNum").value : b.dataset.val;
-    if (b.dataset.su === "numero" && (val === "" || +val < 0 || +val > 36)) return toast("Scrivi un numero da 0 a 36.");
-    d.querySelectorAll("button").forEach((x) => x.disabled = true);
-    agisciSubito({ tipo: "roulette", importo: puntataRoulette, su: b.dataset.su, valore: b.dataset.su === "numero" ? +val : val });
-  });
-  d.querySelector("#rlAlza").onclick = () => { rouletteAperta = false; d.remove(); agisci({ tipo: "lascia_tavolo" }); };
+  const U = N2 && N2.rouletteUltima;
+  if (RL && !document.body.contains(RL.el)) { clearTimeout(RL.timer); if (RL.ruota) RL.ruota.chiudi(); RL = null; }
+  // l'ultimo giro chiude l'ora: prima si guarda la pallina fermarsi, poi il tavolo si chiude
+  if (!puo) {
+    if (RL && RL.attesa && U && U.k !== RL.kLancio && !RL.chiudendo) { RL.chiudendo = true; arrivaNumero(me, U, true); return true; }
+    if (RL && RL.chiudendo) return true;
+    rouletteAperta = false; chiudiRoulette(); return false;
+  }
+  if (!RL) creaTavolo(me);
+  if (RL.attesa && U && U.k !== RL.kLancio) arrivaNumero(me, U, false);
+  aggiornaTavolo(me);
   return true;
+}
+function creaTavolo(me) {
+  document.querySelectorAll(".velo").forEach((x) => x.remove());
+  const d = document.createElement("div"); d.className = "velo roulette";
+  d.innerHTML = `<div class="fin rl-fin"><span class="kick" style="color:var(--oro)">🎰 Casinò Reale · <span id="rlOra"></span></span><h2>La roulette</h2>
+    <div class="rl-ruota3d" id="rlRuota"><div class="rl-carica">Il croupier prepara la ruota…</div></div>
+    <div class="rl-esito" id="rlEsito"><span class="sub">Scegli la fiche, poi toccala sul tappeto dove vuoi puntare. Lo 0 verde è del banco.</span></div>
+    <div class="rl-info" id="rlInfo"></div>
+    <div class="rl-fiches" id="rlFiches"></div>
+    ${tappetoRoulette()}
+    <div class="rl-paga sub">Paga: numero secco 36 volte · dozzina o colonna 3 volte · rosso/nero, pari/dispari, 1-18/19-36 il doppio</div>
+    <div class="pulsanti"><button id="rlAlza">Alzati (finisce l'ora)</button><button class="oro" id="rlLancia" disabled>Punta e lancia</button></div></div>`;
+  document.body.appendChild(d);
+  RL = { el: d, ruota: null, bet: null, attesa: false, kLancio: 0, timer: null };
+  const box = d.querySelector("#rlRuota");
+  (modRuota || (modRuota = import("./roulette3d.js?v=97"))).then((M) => {
+    if (!RL || RL.el !== d) return;
+    box.innerHTML = "";
+    try { RL.ruota = M.creaRuota(box, { suono: Suono }); const U = S.notte && S.notte.rouletteUltima; if (U) RL.ruota.metti(U.n); }
+    catch (e) { console.error("ruota", e); box.innerHTML = `<div class="rl-carica">La ruota 3D non parte su questo telefono: il gioco va avanti lo stesso.</div>`; }
+  }).catch((e) => { console.error(e); box.innerHTML = `<div class="rl-carica">La ruota 3D non si è caricata: il gioco va avanti lo stesso.</div>`; });
+  d.querySelectorAll(".rl-c").forEach((b) => b.onclick = () => {
+    if (!RL || RL.attesa) return;
+    RL.bet = { su: b.dataset.su, valore: b.dataset.su === "numero" ? +b.dataset.val : b.dataset.val };
+    Suono.clic && Suono.clic(0.6); aggiornaTavolo(io());
+  });
+  d.querySelector("#rlLancia").onclick = () => {
+    const me2 = io(); if (!RL || RL.attesa || !RL.bet) return;
+    if (me2.cash < puntataRoulette) return toast("Non hai abbastanza soldi puliti per questa fiche.");
+    RL.attesa = true; RL.kLancio = (S.notte.rouletteUltima || {}).k || 0;
+    d.querySelectorAll(".rl-c.uscito,.rl-c.vince").forEach((x) => x.classList.remove("uscito", "vince"));
+    d.querySelector("#rlEsito").innerHTML = `<span class="sub">«Rien ne va plus.» La pallina corre…</span>`;
+    if (RL.ruota) RL.ruota.lancia();
+    aggiornaTavolo(me2);
+    RL.timer = setTimeout(() => { if (RL && RL.attesa) { RL.attesa = false; if (RL.ruota) RL.ruota.annulla(); d.querySelector("#rlEsito").innerHTML = `<span class="sub">Il croupier ferma la ruota: la puntata non è passata.</span>`; aggiornaTavolo(io()); } }, 12000);
+    agisciSubito({ tipo: "roulette", importo: puntataRoulette, su: RL.bet.su, valore: RL.bet.valore });
+  };
+  d.querySelector("#rlAlza").onclick = () => { if (RL && RL.attesa) return; rouletteAperta = false; chiudiRoulette(); agisci({ tipo: "lascia_tavolo" }); };
+}
+function arrivaNumero(me, U, eUltimo) {
+  clearTimeout(RL.timer);
+  const fatto = () => {
+    if (!RL) return;
+    RL.attesa = false;
+    const d = RL.el, cell = d.querySelector(`.rl-c[data-su="numero"][data-val="${U.n}"]`);
+    if (cell) cell.classList.add("uscito");
+    if (U.molt) d.querySelectorAll(".rl-c").forEach((c) => { if (vinceBet({ su: c.dataset.su, valore: c.dataset.su === "numero" ? +c.dataset.val : c.dataset.val }, U.n) && RL.bet && c.dataset.su === RL.bet.su && String(c.dataset.val) === String(RL.bet.valore)) c.classList.add("vince"); });
+    const nome = U.n === 0 ? "0 verde" : U.n + ((L.ROSSI || []).includes(U.n) ? " rosso" : " nero");
+    const R = S.notte && S.notte.roulette;
+    d.querySelector("#rlEsito").innerHTML = `<span class="rl-num" style="background:${coloreNumero(U.n)}">${U.n}</span><div><b class="${U.molt ? "rl-vinto" : "rl-perso"}">${U.molt ? "Esce il " + nome + ": vinci " + euro(U.vinto) + "!" : "Esce il " + nome + ": perdi " + euro(U.importo)}</b>${R ? `<div class="sub">In quest'ora: <b style="color:${R.saldo >= 0 ? "var(--pulito)" : "#ffb3b3"}">${R.saldo >= 0 ? "+" : "−"}${euro(Math.abs(R.saldo))}</b></div>` : ""}</div>`;
+    if (U.molt) Suono.soldi(true, U.vinto); else Suono.esito(false);
+    const ch = d.querySelector(".rl-chip"); if (ch && !U.molt) ch.classList.add("via");
+    if (eUltimo) setTimeout(() => { rouletteAperta = false; chiudiRoulette(); disegna(); }, 2600);
+    else aggiornaTavolo(io());
+  };
+  if (RL.ruota) RL.ruota.ferma(U.n, fatto); else fatto();
+}
+function aggiornaTavolo(me) {
+  if (!RL) return;
+  const d = RL.el, N2 = S.notte, max = L.GIRI_ORA || 6, giri = (N2 && N2.giri) || 0, resta = Math.max(0, max - giri);
+  d.querySelector("#rlOra").textContent = "ore " + L.ORE[N2.ora];
+  d.querySelector("#rlInfo").innerHTML = `Giri rimasti in quest'ora: <b>${resta}</b> di ${max} · Puliti: <b>${euro(me.cash)}</b>`;
+  const fiches = [10_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 2_000_000].filter((x) => x <= Math.max(me.cash, 10_000));
+  if (!fiches.includes(puntataRoulette)) puntataRoulette = fiches[Math.min(2, fiches.length - 1)];
+  const fb = d.querySelector("#rlFiches"), chiaveF = fiches.join() + "|" + puntataRoulette + "|" + RL.attesa;
+  if (fb.dataset.k !== chiaveF) {
+    fb.dataset.k = chiaveF;
+    fb.innerHTML = fiches.map((x, i) => `<button class="rl-fiche f${i} ${x === puntataRoulette ? "su" : ""}" data-fiche="${x}" ${RL.attesa ? "disabled" : ""}>${fichesLabel(x)}</button>`).join("");
+    fb.querySelectorAll("[data-fiche]").forEach((b) => b.onclick = () => { puntataRoulette = +b.dataset.fiche; Suono.clic && Suono.clic(0.4); aggiornaTavolo(io()); });
+  }
+  // la fiche sul tappeto
+  d.querySelectorAll(".rl-c.scelta").forEach((x) => x.classList.remove("scelta"));
+  const vecchia = d.querySelector(".rl-chip:not(.via)"); if (vecchia) vecchia.remove();
+  if (RL.bet) {
+    const c = d.querySelector(`.rl-c[data-su="${RL.bet.su}"][data-val="${RL.bet.valore}"]`);
+    if (c) { c.classList.add("scelta"); const ch = document.createElement("span"); ch.className = "rl-chip f" + Math.max(0, fiches.indexOf(puntataRoulette)); ch.textContent = fichesLabel(puntataRoulette); c.appendChild(ch); }
+  }
+  d.querySelectorAll(".rl-chip.via").forEach((x) => setTimeout(() => x.remove(), 900));
+  const lan = d.querySelector("#rlLancia");
+  lan.disabled = !RL.bet || RL.attesa || resta <= 0 || me.cash < puntataRoulette;
+  lan.textContent = RL.attesa ? "La pallina corre…" : RL.bet ? `Punta ${euro(puntataRoulette)} su ${nomeBet(RL.bet)} e lancia` : "Metti una fiche sul tappeto";
+  d.querySelector("#rlAlza").disabled = RL.attesa;
+  d.querySelectorAll(".rl-c").forEach((c) => c.disabled = RL.attesa);
 }
 function tavoloColpo(me) {
   const C = S.notte && S.notte.colpo;

@@ -732,22 +732,39 @@ body.cammino .scena, body.cammino #radice > .scena, body.cammino .esito-notte { 
 body.cammino #panorama, body.cammino #sfondo { display:none !important }
 body.cammino #mondo { z-index:17 }
 /* v92: il tavolo della roulette */
-.velo.roulette .rl-fin { max-width: 460px; background: radial-gradient(circle at 50% 0%, #135c3a 0%, #0b2e20 55%, #081a14 100%); border: 1px solid rgba(243,197,107,.5); }
-.rl-ruota-box { position: relative; width: 170px; height: 170px; margin: 6px auto 10px; }
-.rl-ruota { width: 100%; height: 100%; border-radius: 50%; border: 8px solid #6b4a1f; box-shadow: 0 0 0 3px #f3c56b, 0 10px 30px rgba(0,0,0,.5); }
-.rl-ruota.gira { animation: rlGira 1.6s cubic-bezier(.15,.7,.25,1); }
-.rl-centro { position: absolute; inset: 32%; border-radius: 50%; background: radial-gradient(circle, #f3c56b, #8a6424); box-shadow: inset 0 0 8px rgba(0,0,0,.5); }
-.rl-pallina { position: absolute; top: 10px; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px #fff; }
-@keyframes rlGira { from { transform: rotate(0); } to { transform: rotate(var(--fine, 1440deg)); } }
-.rl-esito { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 4px 0 8px; animation: rlEsito .4s 1.5s both; }
-.rl-esito.vinto b { color: var(--pulito); font-size: 20px; } .rl-esito.perso b { color: #ffb3b3; font-size: 18px; }
-@keyframes rlEsito { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: none; } }
-.rl-num { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: #fff; font-weight: 800; font-size: 20px; border: 2px solid #f3c56b; }
-.rl-info { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+
+/* v97: la roulette vera */
+.velo.roulette .rl-fin { max-width: 520px; width: calc(100vw - 16px); padding: 12px 12px 14px; background: radial-gradient(ellipse at 50% 0%, #1d6b45 0%, #0d3a26 50%, #071a11 100%); border: 1px solid rgba(243,197,107,.55); box-shadow: 0 20px 60px rgba(0,0,0,.6), inset 0 0 0 4px rgba(90,52,20,.55); }
+.velo.roulette h2 { margin: 2px 0 4px; }
+.rl-ruota3d { position: relative; width: 100%; height: 250px; margin: 0 auto 6px; border-radius: 14px; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, rgba(255,230,170,.10), transparent 70%); }
+.rl-ruota3d canvas { display: block; }
+.rl-carica { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; text-align: center; padding: 10px; }
+.rl-esito { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 46px; margin: 2px 0 4px; text-align: left; }
+.rl-esito b.rl-vinto { color: var(--pulito); font-size: 17px; } .rl-esito b.rl-perso { color: #ffb3b3; font-size: 16px; }
+.rl-num { flex: none; display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; color: #fff; font-weight: 800; font-size: 19px; border: 2px solid #f3c56b; box-shadow: 0 0 14px rgba(243,197,107,.5); animation: rlPop .4s both; }
+@keyframes rlPop { from { transform: scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+.rl-info { text-align: center; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
 .rl-fiches { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 8px; }
-.rl-fiche { width: 48px; height: 48px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.7); background: #2b5fa8; color: #fff; font-weight: 800; font-size: 12px; padding: 0; }
-.rl-fiche.su { background: #f3c56b; color: #2a1c05; border-style: solid; transform: scale(1.1); }
-.rl-griglia { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.rl-bet { font-size: 13px; padding: 9px 4px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25); color: #fff; border-radius: 10px; }
-.rl-bet.rosso { background: #b52f2f; } .rl-bet.nero { background: #1b1b1f; }
-.rl-bet:disabled { opacity: .45; }
+.rl-fiche, .rl-chip { --c: #2b5fa8; display: inline-grid; place-items: center; border-radius: 50%; color: #fff; font-weight: 800; background: radial-gradient(circle, var(--c) 0 52%, #fff 53% 58%, var(--c) 59%); border: 3px dashed rgba(255,255,255,.85); box-shadow: 0 2px 4px rgba(0,0,0,.5); }
+.rl-fiche { width: 44px; height: 44px; font-size: 11px; padding: 0; transition: transform .15s; }
+.rl-fiche.su { transform: translateY(-4px) scale(1.12); box-shadow: 0 0 0 2px #f3c56b, 0 6px 10px rgba(0,0,0,.5); }
+.f0 { --c: #8a8f99; } .f1 { --c: #c0392b; } .f2 { --c: #2b5fa8; } .f3 { --c: #1e8a4c; } .f4 { --c: #6b2fa8; } .f5 { --c: #1b1b1f; } .f6 { --c: #b8860b; }
+.rl-tappeto { display: grid; grid-template-columns: 1.15fr repeat(12, 1fr) 1.35fr; grid-template-rows: repeat(3, 30px) 26px 26px; gap: 0; border: 2px solid #e9dcb5; border-radius: 6px; background: #0f5a37; overflow: hidden; }
+.rl-c { position: relative; padding: 0; margin: 0; border: 1px solid rgba(233,220,181,.75); border-radius: 0; background: transparent; color: #fff; font-weight: 700; font-size: 11.5px; min-width: 0; font-family: Georgia, serif; }
+.rl-c.rosso { color: #fff; background: radial-gradient(circle, #c4303a 0 38%, transparent 40%); }
+.rl-c.nero { background: radial-gradient(circle, #151517 0 38%, transparent 40%); }
+.rl-c.verde { background: #13824a; font-size: 14px; }
+.rl-c.fuori { font-size: 10.5px; font-family: inherit; }
+.rl-c:disabled { opacity: 1; }
+.rl-c.scelta { background-color: rgba(243,197,107,.22); }
+.rl-c.uscito { box-shadow: inset 0 0 0 2px #fff, 0 0 12px #fff; animation: rlLampo 1s 3; z-index: 2; }
+.rl-c.vince { background-color: rgba(123,216,143,.45); }
+@keyframes rlLampo { 50% { background-color: rgba(255,255,255,.45); } }
+.rombo { display: inline-block; width: 12px; height: 12px; transform: rotate(45deg); } .rombo.r { background: #c4303a; } .rombo.n { background: #111; border: 1px solid #888; }
+.rl-chip { position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; font-size: 7.5px; border-width: 2px; z-index: 3; pointer-events: none; animation: rlPosa .25s both; }
+.rl-chip.via { animation: rlVia .8s forwards; }
+@keyframes rlPosa { from { transform: translateY(-30px) scale(1.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes rlVia { to { transform: translate(40px, -60px) scale(.5); opacity: 0; } }
+.rl-paga { font-size: 11px; text-align: center; margin-top: 6px; }
+.velo.roulette .pulsanti { margin-top: 8px; }
+@media (max-width: 380px) { .rl-tappeto { grid-template-rows: repeat(3, 27px) 24px 24px; } .rl-c { font-size: 10px; } .rl-ruota3d { height: 210px; } }

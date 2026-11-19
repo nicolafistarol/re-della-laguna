@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 96;
+  const VERSIONE_REGOLE = 97;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -1976,6 +1976,7 @@
     if (t === "parita") return (v === "pari") === (n % 2 === 0) ? 2 : 0;
     if (t === "meta") return (v === "basso") === (n <= 18) ? 2 : 0;
     if (t === "dozzina") return Math.ceil(n / 12) === Number(v) ? 3 : 0;
+    if (t === "colonna") return ((n - 1) % 3) + 1 === Number(v) ? 3 : 0; // v97: colonna 1 = 1,4,7... colonna 3 = 3,6,9...
     if (t === "numero") return n === Number(v) ? 36 : 0;
     return 0;
   }
@@ -1983,7 +1984,7 @@
     oraLibera(s, p);
     const N2 = s.notte;
     if (N2.dove[p.id] !== "casino") err("La roulette è al Casinò Reale.");
-    sc = sc || {}; const ok = { colore: ["rosso", "nero"], parita: ["pari", "dispari"], meta: ["basso", "alto"], dozzina: ["1", "2", "3"] };
+    sc = sc || {}; const ok = { colore: ["rosso", "nero"], parita: ["pari", "dispari"], meta: ["basso", "alto"], dozzina: ["1", "2", "3"], colonna: ["1", "2", "3"] };
     if (sc.tipo === "numero") { const n = Number(sc.valore); if (!(n >= 0 && n <= 36 && Math.floor(n) === n)) err("Scegli un numero da 0 a 36."); }
     else if (!ok[sc.tipo] || !ok[sc.tipo].includes(String(sc.valore))) err("Scegli su cosa puntare.");
     importo = round(Number(importo) || 0);
@@ -1997,7 +1998,9 @@
     const n = Math.floor(rng(s) * 37), molt = vinceRoulette(n, sc), vinto = importo * molt;
     p.cash += vinto;
     const nome = n === 0 ? "0 verde" : n + " " + (ROSSI.includes(n) ? "rosso" : "nero");
+    const kPrima = ((N2.roulette || {})[p.id] || {}).k || 0;
     (N2.roulette = N2.roulette || {})[p.id] = { n, molt, importo, vinto, sc: { tipo: sc.tipo, valore: String(sc.valore) }, giri, resta: GIRI_ORA - giri, saldo: ((N2.roulette[p.id] && N2.roulette[p.id].ora === N2.ora ? N2.roulette[p.id].saldo : 0) + vinto - importo), ora: N2.ora };
+    N2.roulette[p.id].k = kPrima + 1; // v97: ogni giro ha il suo numero, cosi' la ruota 3D sa che e' uscito un numero nuovo
     racconta(s, p, "Roulette: esce il " + nome + ". " + (molt ? "Vinci " + euro(vinto) + "." : "Perdi " + euro(importo) + "."));
     if (giri >= GIRI_ORA) { racconta(s, p, "Ti alzi dal tavolo della roulette."); N2.chiuso[p.id] = true; controllaOra(s); }
   }
@@ -5643,6 +5646,7 @@
         manoSM: s.manoSM && s.manoSM[idGiocatore] ? (({ mazzo, ...r }) => ({ ...r, totale: totaleSM(r.carte) }))(s.manoSM[idGiocatore]) : null,
         ultimaMano: s.notte.ultimaMano ? s.notte.ultimaMano[idGiocatore] || null : null,
         roulette: s.notte.roulette && s.notte.roulette[idGiocatore] && s.notte.roulette[idGiocatore].ora === s.notte.ora ? s.notte.roulette[idGiocatore] : null,
+        rouletteUltima: s.notte.roulette && s.notte.roulette[idGiocatore] ? { n: s.notte.roulette[idGiocatore].n, k: s.notte.roulette[idGiocatore].k || 0, molt: s.notte.roulette[idGiocatore].molt, vinto: s.notte.roulette[idGiocatore].vinto, importo: s.notte.roulette[idGiocatore].importo } : null,
         giri: s.notte.giri ? s.notte.giri[idGiocatore] || 0 : 0,
         occasioni: me ? occasioniVisibili(s, me).map((o) => ({ ...o, ...OCCASIONI.find((x) => x.id === o.id), n: o.n })) : [],
         piuTardi: me && !s.notte.viaggio[idGiocatore] ? s.notte.occasioni.filter((o) => !o.preso && o.luogo === s.notte.dove[idGiocatore] && o.dalle > s.notte.ora && (!o.riservata || o.riservata === idGiocatore)).length : 0,
