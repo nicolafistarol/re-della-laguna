@@ -19,7 +19,7 @@ const CUBETTI = location.search.includes("cubetti") || (!location.search.include
 import(CUBETTI ? "./cubetti.js?v=101" : "./tre.js?v=101").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=51";
-import * as Tab from "./tabellone.js?v=101";
+import * as Tab from "./tabellone.js?v=101b";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
 let TRE3D = false;
 let camminaAttivo = false; // v87: di notte cammini col tuo personaggio nel mondo 3D
