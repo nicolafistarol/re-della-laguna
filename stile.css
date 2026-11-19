@@ -725,3 +725,9 @@ button.spento{opacity:.55}
 .colpo-tempo i{display:block;height:100%;width:100%;transition:width .25s linear}
 @media (max-width:480px){.colpo-stato{grid-template-columns:1fr 1fr 1fr}.colpo-stato b{font-size:12px}}
 .colpo-fin .kick{display:block;padding-right:34px}
+/* v87: camminare di notte nel mondo 3D */
+body.cammino .scena, body.cammino #radice > .scena, body.cammino .esito-notte { display:none !important }
+.cammina-barra{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:16px;max-width:calc(100vw - 32px);flex-wrap:wrap;justify-content:center}
+.cammina-barra span{font-size:13px;color:#fff;max-width:440px}
+body.cammino #panorama, body.cammino #sfondo { display:none !important }
+body.cammino #mondo { z-index:17 }

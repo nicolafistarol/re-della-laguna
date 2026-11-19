@@ -7,7 +7,7 @@
 // =====================================================================
 import * as THREE from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
-import * as M3 from "./cubetti-mondo.js?v=86";
+import * as M3 from "./cubetti-mondo.js?v=87";
 
 // Il mondo modellato (isole, strada, ponti, mare) al posto della foto. ?foto = torna alla foto.
 const MONDO = (() => { try { const q = location.search; if (q.includes("foto")) return false; if (q.includes("mondo=3d")) return true; return localStorage.getItem("laguna_mondo") !== "foto"; } catch (e) { return true; } })();
@@ -474,8 +474,107 @@ function frame() {
   proiettaHtml();
 }
 
+// ================================================================ CAMMINARE DI NOTTE (v87)
+// Il tuo personaggio cammina nel mondo 3D. Frecce/WASD o tocca un punto per andarci. Vicino a un posto: "Entra".
+let cammino = null; // { avatar, fari:[{id,nome,pos,mesh}], onVicino, dir, vel }
+const tasti = new Set();
+addEventListener("keydown", (e) => { if (cammino && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "a", "s", "d", "W", "A", "S", "D"].includes(e.key)) { tasti.add(e.key.toLowerCase()); e.preventDefault(); } });
+addEventListener("keyup", (e) => tasti.delete(e.key.toLowerCase()));
+function omino(colore) {
+  const g = new THREE.Group(), pelle = new THREE.MeshStandardMaterial({ color: "#e0b48a", roughness: 0.7 });
+  const vestito = new THREE.MeshStandardMaterial({ color: colore, roughness: 0.5, emissive: colore, emissiveIntensity: 0.25 });
+  const scuro = new THREE.MeshStandardMaterial({ color: "#1d2230", roughness: 0.6 });
+  const busto = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.6, 4, 10), vestito); busto.position.y = 1.15;
+  const testa = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 10), pelle); testa.position.y = 1.85;
+  const capelli = new THREE.Mesh(new THREE.SphereGeometry(0.25, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), scuro); capelli.position.y = 1.88;
+  const gambe = [-0.13, 0.13].map((x) => { const l = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.55, 3, 6), scuro); l.position.set(x, 0.42, 0); g.add(l); return l; });
+  const braccia = [-0.42, 0.42].map((x) => { const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.5, 3, 6), vestito); b.position.set(x, 1.15, 0); g.add(b); return b; });
+  g.add(busto, testa, capelli);
+  const anello = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.65, 28), new THREE.MeshBasicMaterial({ color: colore, transparent: true, opacity: 0.85, side: THREE.DoubleSide })); anello.rotation.x = -Math.PI / 2; anello.position.y = 0.05; g.add(anello);
+  g.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+  g.userData.passo = (t, va) => { const a = va ? Math.sin(t * 9) * 0.6 : 0; gambe[0].rotation.x = a; gambe[1].rotation.x = -a; braccia[0].rotation.x = -a * 0.8; braccia[1].rotation.x = a * 0.8; };
+  g.scale.setScalar(1.3);
+  return g;
+}
+function cartello(testo, colore) {
+  const c = document.createElement("canvas"); c.width = 512; c.height = 128; const g = c.getContext("2d");
+  g.fillStyle = "rgba(8,12,24,.85)"; g.beginPath(); g.roundRect(4, 4, 504, 120, 28); g.fill(); g.fillStyle = colore; g.fillRect(4, 4, 18, 120);
+  g.fillStyle = "#fff"; g.font = "800 54px Manrope, sans-serif"; g.textBaseline = "middle"; g.fillText(testo, 40, 66);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true })); s.scale.set(5, 1.25, 1); s.renderOrder = 20; return s;
+}
+function liberoPerCamminare(x, z) {
+  if (!M) return true;
+  if (M.suTerra(x, z)) return true;
+  for (let i = 0; i < 400; i++) { const p = M.curva.getPoint(i / 400); if (Math.hypot(p.x - x, p.z - z) < 2.4) return true; } // i ponti
+  return false;
+}
+export function avviaCammino({ x, y, colore, luoghi, vicino }) {
+  if (!attivo || !M) return false;
+  fermaCammino();
+  const avatar = omino(colore || "#ffcc00"); const p = daMappa(x, y); p.y = Q;
+  if (!liberoPerCamminare(p.x, p.z)) { let best = null, bd = Infinity; for (let i = 0; i < 400; i++) { const q = M.curva.getPoint(i / 400); const d = q.distanceTo(p); if (d < bd && M.suTerra(q.x, q.z)) { bd = d; best = q; } } if (best) p.set(best.x, Q, best.z); }
+  avatar.position.copy(p); scena.add(avatar);
+  const fari = luoghi.map((l) => {
+    const pos = daMappa(l.x, l.y); pos.y = Q;
+    const g = new THREE.Group(); g.position.copy(pos);
+    const colonna = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 14, 18, 1, true), new THREE.MeshBasicMaterial({ color: l.colore || "#ffd27a", transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide })); colonna.position.y = 7;
+    const base = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.9, 32), new THREE.MeshBasicMaterial({ color: l.colore || "#ffd27a", transparent: true, opacity: 0.8, side: THREE.DoubleSide })); base.rotation.x = -Math.PI / 2; base.position.y = 0.08;
+    const etich = cartello(l.nome, l.colore || "#ffd27a"); etich.position.y = 7.5;
+    g.add(colonna, base, etich); scena.add(g);
+    return { ...l, pos, mesh: g };
+  });
+  cammino = { avatar, fari, vicino, meta: null, ultimo: null, ang: 0 };
+  controlli.enabled = false;
+  renderer.domElement.addEventListener("pointerup", tocco);
+  return true;
+}
+function tocco(e) {
+  if (!cammino) return;
+  const r = new THREE.Raycaster(); r.setFromCamera({ x: e.clientX / innerWidth * 2 - 1, y: -(e.clientY / innerHeight) * 2 + 1 }, camera);
+  const p = new THREE.Vector3(); if (r.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -Q), p)) cammino.meta = p;
+}
+export function fermaCammino() {
+  if (!cammino) return;
+  scena.remove(cammino.avatar); for (const f of cammino.fari) scena.remove(f.mesh);
+  renderer.domElement.removeEventListener("pointerup", tocco);
+  cammino = null; controlli.enabled = true; tasti.clear();
+}
+export function camminando() { return !!cammino; }
+function passoCammino(dt, ora) {
+  const C = cammino, a = C.avatar;
+  // la direzione: avanti = verso dove guarda la camera
+  const avanti = a.position.clone().sub(camera.position).setY(0).normalize(), destra = new THREE.Vector3(-avanti.z, 0, avanti.x);
+  const m = new THREE.Vector3();
+  if (tasti.has("arrowup") || tasti.has("w")) m.add(avanti);
+  if (tasti.has("arrowdown") || tasti.has("s")) m.sub(avanti);
+  if (tasti.has("arrowleft") || tasti.has("a")) m.sub(destra);
+  if (tasti.has("arrowright") || tasti.has("d")) m.add(destra);
+  if (m.lengthSq() > 0) C.meta = null;
+  else if (C.meta) { m.copy(C.meta).sub(a.position).setY(0); if (m.length() < 0.4) { C.meta = null; m.set(0, 0, 0); } }
+  const va = m.lengthSq() > 0;
+  if (va) {
+    m.normalize().multiplyScalar(9 * dt);
+    const nx = a.position.x + m.x, nz = a.position.z + m.z;
+    if (liberoPerCamminare(nx, nz)) { a.position.x = nx; a.position.z = nz; }
+    else if (liberoPerCamminare(nx, a.position.z)) a.position.x = nx;
+    else if (liberoPerCamminare(a.position.x, nz)) a.position.z = nz;
+    else C.meta = null;
+    const sullAcqua = !M.suTerra(a.position.x, a.position.z); a.position.y = sullAcqua ? Q + 0.5 : Q;
+    const voluto = Math.atan2(m.x, m.z); let d = voluto - C.ang; d = Math.atan2(Math.sin(d), Math.cos(d)); C.ang += d * Math.min(1, dt * 12); a.rotation.y = C.ang;
+  }
+  a.userData.passo(ora / 1000, va);
+  // la camera: dietro e sopra, morbida
+  const dietro = new THREE.Vector3(Math.sin(C.ang), 0, Math.cos(C.ang)).multiplyScalar(-13);
+  const voluta = a.position.clone().add(dietro).setY(a.position.y + 8.5);
+  camera.position.lerp(voluta, Math.min(1, dt * 3)); controlli.target.lerp(a.position.clone().setY(a.position.y + 1.5), Math.min(1, dt * 6)); camera.lookAt(controlli.target);
+  // il posto piu' vicino
+  let piu = null, dmin = 3.2; for (const f of C.fari) { const d = Math.hypot(f.pos.x - a.position.x, f.pos.z - a.position.z); f.mesh.children[0].material.opacity = 0.12 + 0.1 * Math.sin(ora / 300); if (d < dmin) { dmin = d; piu = f; } }
+  const id = piu ? piu.id : null;
+  if (id !== C.ultimo) { C.ultimo = id; if (C.vicino) C.vicino(id); }
+}
 function frameMondo() {
   const ora = performance.now(), dt = Math.min(0.05, (ora - tPrima) / 1000); tPrima = ora;
+  if (cammino) passoCammino(dt, ora);
   if (mare3) mare3.userData.onda(ora / 1000);
   if (M && M.barche) M.barche.userData.muovi(ora / 1000);
   if (cielo3) cielo3.position.copy(camera.position);
@@ -500,7 +599,7 @@ function frameMondo() {
     if (muove && id === mioIdTre && modo === "segui") { seguiId = id; seguiFino = ora + 1200; }
   }
   // terza persona: la camera sta dietro e sopra la tua auto mentre si muove
-  if (seguiId && ora < seguiFino) {
+  if (seguiId && ora < seguiFino && !cammino) {
     const d = dietroA(pedine.get(seguiId));
     camera.position.lerp(d.pos, 0.08); controlli.target.lerp(d.target, 0.14);
   }
