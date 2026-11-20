@@ -1024,3 +1024,11 @@ button,input,select,textarea{font-family:inherit}
 .fine-corta .alba-tutto{text-align:left}
 @keyframes gradino{0%{transform:translateY(30px);opacity:0}100%{transform:none;opacity:1}}
 @media(max-width:700px){#avvisi{top:104px!important}.gradino{padding:10px 4px 8px}.gradino b{font-size:15px}.gradino .pat{font-size:13px;white-space:nowrap}.fine-corta h2{font-size:28px}}
+/* v122: sovrapposizioni rimaste */
+body:has(.ultimora:not(.via)) #toasts{top:122px}
+.pano-punto.senza-nome .etich{opacity:0}
+.pano-punto.sotto{opacity:0;pointer-events:none}
+.pano-punto .etich{transition:opacity .2s}
+.velo.rosso-su{z-index:95}
+.fin:has(.sch[data-pk]){width:min(980px,96vw)}.fin .sch[data-pk] p,.fin .sch[disabled] p{font-size:15px;line-height:1.35}
+.fin .sch[data-pk],.fin .sch[disabled]{display:flex;flex-direction:column;justify-content:flex-start}

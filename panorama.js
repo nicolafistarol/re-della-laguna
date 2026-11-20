@@ -84,12 +84,23 @@ function gira() {
   renderer.render(scena, camera);
   // i punti da toccare seguono la foto
   const w = box.clientWidth, h = box.clientHeight;
+  // v122: le scritte dei punti non finiscono mai sopra il titolo del posto o sui pannelli delle scelte
+  const br = box.getBoundingClientRect();
+  const muri = [...document.querySelectorAll(".scena-testa h1, .scena-testa .kick, .scena-testa .sala, .scena-testa .perl-qui, .scena-dentro > :not(.scena-testa), .conv-banner")].map((e) => e.getBoundingClientRect()).filter((r) => r.width && r.height).map((r) => ({ l: r.left - br.left - 8, r: r.right - br.left + 8, t: r.top - br.top - 8, b: r.bottom - br.top + 8 }));
   for (const pt of punti) {
     const ry = THREE.MathUtils.degToRad(pt.yaw);
     const v = new THREE.Vector3(Math.sin(ry) * RAGGIO * 0.98, Math.tan(THREE.MathUtils.degToRad(pt.pitch)) * RAGGIO * 0.98, -Math.cos(ry) * RAGGIO * 0.98).project(camera);
     const davanti = v.z < 1 && Math.abs(v.x) < 1.2 && Math.abs(v.y) < 1.2;
     pt.el.style.display = davanti ? "flex" : "none";
-    if (davanti) pt.el.style.transform = `translate(${(v.x + 1) / 2 * w}px, ${(1 - v.y) / 2 * h}px) translate(-50%, -50%)`;
+    if (davanti) {
+      const x = (v.x + 1) / 2 * w, y = (1 - v.y) / 2 * h;
+      pt.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+      const lw = Math.min(260, 20 + 7.5 * String(pt.testo || "").length) / 2;
+      const tocca = (a) => muri.some((m) => a.l < m.r && a.r > m.l && a.t < m.b && a.b > m.t);
+      const sotto = tocca({ l: x - 24, r: x + 24, t: y - 24, b: y + 24 });
+      pt.el.classList.toggle("sotto", sotto);
+      pt.el.classList.toggle("senza-nome", !sotto && tocca({ l: x - lw, r: x + lw, t: y + 20, b: y + 52 }));
+    }
   }
 }
 
@@ -117,6 +128,7 @@ export function mostra(nuovoUrl, nuoviPunti, opz = {}) {
     strato.appendChild(el);
     return { ...p, el };
   });
+  sporco = true; setTimeout(() => { sporco = true; }, 250); // ricontrolla le scritte quando la scena e' disegnata
 }
 export function nascondi() { attivo = false; url = null; punti = []; if (box) { box.style.display = "none"; box.querySelector(".pano-punti").innerHTML = ""; } }
 export function guarda(y) { yaw = y; limita(); ultimoTocco = Date.now(); sporco = true; }

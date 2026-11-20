@@ -30,7 +30,7 @@ let Tre = null, motivo3D = "", provato3D = false;
 const CUBETTI = location.search.includes("cubetti") || (!location.search.includes("foto") && (() => { try { return localStorage.getItem("laguna_motore") === "libero"; } catch (e) { return false; } })());
 import(CUBETTI ? "./cubetti.js?v=116" : "./tre.js?v=116").then((m) => { Tre = m; motivo3D = ""; }, (e) => { console.warn("Tabellone 3D non caricato:", e); motivo3D = "La grafica 3D non si è scaricata (connessione o un blocco del browser)."; }).then(() => { if (S) disegna(); });
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
-import * as Pano from "./panorama.js?v=111";
+import * as Pano from "./panorama.js?v=122";
 import * as Tab from "./tabellone.js?v=102b";
 import * as Cas from "./caselle.js?v=117";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
@@ -814,7 +814,7 @@ let cassaMostrata = null, cassaAnim = 0;
 function contaSoldi(me) {
   const el = document.querySelector(".saldo-su .tot"); if (!el || saldoNascosto) { cassaMostrata = me.cash; return; }
   const da = cassaMostrata, a = me.cash;
-  if (da == null || da === a || VELOCE) { cassaMostrata = a; return; }
+  if (da == null || da === a || da <= 0 || VELOCE) { cassaMostrata = a; return; } // v122: da 0 (dopo un buco coperto) si mostra subito il valore vero
   el.textContent = euro(Math.round(da)); el.classList.remove("conta-su", "conta-giu"); void el.offsetWidth; el.classList.add(a > da ? "conta-su" : "conta-giu");
   if (Math.abs(a - da) >= 1000) Suono.conta(a > da);
   const t0 = performance.now(), dur = 700, mio = ++cassaAnim;
@@ -3275,6 +3275,7 @@ function avvisiImportanti(me) {
 // v109: sei andato sotto zero. Il gioco si ferma e ti fa scegliere come coprire il buco (niente prestito al 25% a sorpresa)
 function finestraRosso(me) {
   const r = me.rosso, liberi = S.lotti.filter((l) => l.owner === mioId && !l.ipoteca).length, mieiTurno = S.fase === "giorno" && tocca();
+  document.querySelectorAll(".velo").forEach((v) => { if (/Il bivio del giorno/.test(v.textContent)) v.remove(); });
   finestra(`<span class="kick" style="color:#ff8a8a">⚠️ Conti in rosso</span><h2>Ti mancano ${euro(r.resto)}</h2>
     <p>Hai dovuto pagare più dei contanti che avevi. La Banca ha anticipato ${euro(r.resto)}: decidi tu come coprirli. Finché non scegli, non puoi tirare i dadi né finire il turno.</p>
     <div class="pulsanti" style="flex-direction:column;align-items:stretch">
@@ -3283,6 +3284,7 @@ function finestraRosso(me) {
       <button id="rEm">Prestito d'emergenza al ${Math.round(L.N.emergenzaInt * 100)}% (lo copre subito la Banca Centrale)</button>
       <button class="piccolo" id="rDopo">Ci penso un attimo</button>
     </div>${mieiTurno ? "" : `<p class="sub">Vendere, ipotecare e chiedere prestiti si può nel tuo turno. Se all'Alba il buco è ancora aperto, parte il prestito d'emergenza.</p>`}`, (d, c) => {
+    d.classList.add("rosso-su");
     const b = (id, f) => { const x = d.querySelector(id); if (x) x.onclick = () => { c(); f(); }; };
     b("#rUsa", () => agisci({ tipo: "copri_rosso" })); b("#rVendi", () => finestraVendi(me)); b("#rBanca", () => apriApp("banca"));
     b("#rEm", () => agisci({ tipo: "rosso_emergenza" })); b("#rDopo", () => { });
@@ -3291,6 +3293,8 @@ function finestraRosso(me) {
 // v110: il bivio del giorno. Due strade, costi e guadagni scritti, niente timer.
 function finestraBivio(me) {
   const B = me.bivio; if (!B) return;
+  if (me.rosso) return finestraRosso(me); // v122: prima si copre il buco, poi il bivio
+  if (document.querySelector(".velo.rosso-su")) return;
   const FAM = { tua: "Il tuo locale", altro: "Sul terreno di un altro", rivale: "Il tuo rivale", strada: "Per strada", citta: "La città" };
   finestra(`<span class="kick" style="color:var(--oro)">🔀 Il bivio del giorno · ${FAM[B.fam] || ""}</span><h2>${esc(B.testo)}</h2>
     <div class="pulsanti" style="flex-direction:column;align-items:stretch">
