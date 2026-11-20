@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 108;
+  const VERSIONE_REGOLE = 109;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -135,14 +135,14 @@
 
   // Le classi: tutti partono con gli stessi soldi e un terreno a sorte; ogni classe ha un vantaggio suo.
   const PACCHETTI = [
-    { id: "commerciante", nome: "Il Commerciante", perk: "Tutti i tuoi affitti rendono il 25% in più.", extra: {} },
-    { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 15% in meno. Il permesso del Palazzo è gratis.", extra: {} },
-    { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo (4%; nelle partite nuove 2,5%).", extra: {} },
-    { id: "playboy", nome: "Il Playboy", perk: "+2 fama ogni Alba. Parti con il motoscafo (Viaggio rapido tra i Moli) e gli amici dello yacht.", extra: { veicolo: "motoscafo" } },
-    { id: "contrabbandiere", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta.", extra: {} },
-    { id: "politico", nome: "Il Politico", perk: "Parti con fama 20. Candidarti a Sindaco costa metà e la licenza del casinò è più facile (3 volte su 4 al primo colpo).", extra: { fama: 20 } },
-    { id: "ereditiera", nome: "L'Ereditiera", perk: "La banca ti presta il doppio e senza interessi.", extra: {} },
-    { id: "speculatore", nome: "Lo Speculatore", perk: "Ogni Alba le tue cripto crescono del 5% in più.", extra: {} },
+    { id: "commerciante", nome: "Il Commerciante", perk: "Tutti i tuoi affitti rendono il 25% in più. Di notte: il carico in saldo alla Marina.", extra: {} },
+    { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 15% in meno. Il permesso del Palazzo è gratis. Di notte: il geometra del Comune al Club.", extra: {} },
+    { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo (4%; nelle partite nuove 2,5%). Di notte: la soffiata di Borsa al Club.", extra: {} },
+    { id: "playboy", nome: "Il Playboy", perk: "+2 fama ogni Alba. Parti con il motoscafo (Viaggio rapido tra i Moli) e gli amici dello yacht. Di notte: la festa sullo yacht.", extra: { veicolo: "motoscafo" } },
+    { id: "contrabbandiere", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta. Il Mercato Nero ti apre dal Ciclo 2 e ogni notte hai la tua cassa al molo.", extra: {} },
+    { id: "politico", nome: "Il Politico", perk: "Parti con fama 20. Candidarti a Sindaco costa metà e la licenza del casinò è più facile (3 volte su 4 al primo colpo). Di notte: la cena col consigliere.", extra: { fama: 20 } },
+    { id: "ereditiera", nome: "L'Ereditiera", perk: "La banca ti presta il doppio e senza interessi. Di notte: il ballo della contessa.", extra: {} },
+    { id: "speculatore", nome: "Lo Speculatore", perk: "Ogni Alba le tue cripto crescono del 5% in più. Di notte: il wallet del marinaio alla Marina.", extra: {} },
   ];
 
 
@@ -309,11 +309,11 @@
     return { ok: true, perche: "" };
   }
   // Le soglie dei Livelli del giocatore. Partite nuove: piu' basse nelle partite corte, piu' alte in quelle lunghe (ECO-04).
-  const SOGLIE_BASE = [0, 3_500_000, 7_000_000, 15_000_000, 40_000_000];
+  const SOGLIE_BASE = [0, 2_500_000, 7_000_000, 15_000_000, 40_000_000]; // v109: Livello 1 a 2,5 milioni (prima 3,5): arriva nella prima mezz'ora
   function soglieLivello(s) {
     if (!gen2(s) || (s.modoFine || "cicli") !== "cicli") return SOGLIE_BASE;
     const f = { 6: 0.6, 8: 0.75, 10: 0.9, 12: 1, 16: 1.2, 20: 1.8 }[s.cicli || N.cicli] || 1;
-    return SOGLIE_BASE.map((x) => round(x * f));
+    return SOGLIE_BASE.map((x, i) => i === 1 ? Math.max(2_000_000, round(x * f)) : round(x * f));
   }
   // di quanto valgono di piu' gli affari della notte per il Livello del giocatore (1 nelle partite vecchie)
   function moltIllegale(s, p) { return (num(s, "illegaleLivello")[Math.min(4, (p && p.livello) || 0)] || 1) * (1 + bonusSetta(s, p)); }
@@ -340,7 +340,7 @@
     s.flussi.push({ n: (s.nFlussi = (s.nFlussi || 0) + 1), c: s.ciclo + 1, g: s.giorno + 1, da: da ? da.id : null, a: a ? a.id : null, importo, motivo, pubblico: !!pubblico });
     if (s.flussi.length > 160) s.flussi.shift();
   }
-  function privato(s, p, testo) { p.messaggi.push({ ciclo: s.ciclo + 1, testo }); if (p.messaggi.length > 60) p.messaggi.shift(); }
+  function privato(s, p, testo) { if ((p.messaggi || []).some((m) => m.ciclo === s.ciclo + 1 && m.testo === testo)) return; /* v109: lo stesso messaggio non arriva due volte nello stesso Ciclo */ p.messaggi.push({ ciclo: s.ciclo + 1, testo }); if (p.messaggi.length > 60) p.messaggi.shift(); }
   // un messaggio "lieve": l'avviso di una casella dove non c'e' niente da decidere. L'interfaccia puo' mostrarlo come
   // avviso che sparisce e non contarlo tra i messaggi nuovi (cosi' quelli importanti non si perdono).
   function avvisoCasella(s, p, testo) { p.messaggi.push({ ciclo: s.ciclo + 1, testo, lieve: true }); if (p.messaggi.length > 60) p.messaggi.shift(); }
@@ -504,6 +504,7 @@
     if (s.fase !== "giorno") err("Si tirano i dadi solo di giorno.");
     if (corrente(s).id !== p.id) err("Non è il tuo turno.");
     if (p.haTirato) err("Hai già tirato i dadi.");
+    if (p.rosso && !p.bot) err("Prima copri il buco di " + euro(p.rosso.resto) + ": vendi, ipoteca, prestito o prestito d'emergenza.");
     if (s.pending) err("Prima finisci la scelta in corso.");
     // tre dadi: si va avanti della somma; un tris (tre uguali) fa ritirare
     const d = [dado(s), dado(s), dado(s)], n = d[0] + d[1] + d[2];
@@ -1140,11 +1141,27 @@
     if (p.prestitoTurno === s.ciclo * 100 + s.giorno * 10 + s.turno) err("Un prestito per turno.");
     if (p.contoBloccato === s.ciclo) err("La Banca della Laguna ti ha bloccato il conto: niente prestiti fino all'Alba.");
     importo = Math.floor(importo || 0);
-    const cap = N.prestitoQuota * (p.pacchetto === "ereditiera" ? 2 : 1) * propri(s, p).reduce((a, l) => a + valoreLotto(l), 0) - p.debito;
+    const cap = N.prestitoQuota * (p.pacchetto === "ereditiera" ? 2 : 1) * propri(s, p).reduce((a, l) => a + valoreLotto(l), 0) - (p.debito - (p.rosso ? p.rosso.resto : 0));
     if (importo <= 0 || importo > cap) err("Puoi chiedere al massimo " + euro(Math.max(0, cap)) + ".");
     p.debito += importo; p.cash += importo; p.prestitoTurno = s.ciclo * 100 + s.giorno * 10 + s.turno;
+    if (p.rosso) copriRosso(s, p, true);
     p.prestiti.push({ importo, inizio: s.ciclo, scadenza: s.ciclo + 3 });
     log(s, p.nome + " ottiene un prestito di " + euro(importo) + " dalla Banca Centrale.", p.id);
+  }
+  // v109: il buco (p.rosso) si copre coi contanti appena ci sono; o si accetta il prestito d'emergenza (25%)
+  function copriRosso(s, p, zitto) {
+    if (!p.rosso) { if (zitto) return; err("Non sei in rosso."); }
+    const q = Math.min(p.rosso.resto, Math.max(0, Math.floor(p.cash)));
+    if (q <= 0) { if (zitto) return; err("Non hai contanti: vendi un terreno, ipoteca o chiedi un prestito."); }
+    p.cash -= q; p.debito = Math.max(0, p.debito - q); p.rosso.resto = round(p.rosso.resto - q);
+    if (p.rosso.resto < 1) { p.rosso = null; privato(s, p, "Buco coperto: sei di nuovo in pari con la Banca."); }
+  }
+  function rossoEmergenza(s, p, daAlba) {
+    if (!p.rosso) return;
+    p.emergenza = true;
+    privato(s, p, (daAlba ? "All'Alba il buco di " + euro(p.rosso.resto) + " non era coperto: " : "") + "prestito d'emergenza della Banca Centrale, al " + Math.round(N.emergenzaInt * 100) + "% finché non restituisci tutto il debito.");
+    notizia(s, "Voci di corridoio: " + p.nome + " ha chiesto un prestito d'emergenza alla Banca Centrale.", "voce");
+    p.rosso = null;
   }
   function restituisci(s, p, importo) {
     importo = Math.min(Math.floor(importo || 0), p.debito, p.cash);
@@ -1215,6 +1232,7 @@
     if (s.fase !== "giorno" || corrente(s).id !== p.id) err("Non è il tuo turno.");
     if (!p.haTirato) err("Prima tira i dadi.");
     if (s.pending) err("Prima finisci la scelta in corso.");
+    if (p.rosso && !p.bot) err("Prima copri il buco di " + euro(p.rosso.resto) + ": vendi, ipoteca, prestito o prestito d'emergenza.");
     p.scontoCarico = p.scontoCarico || false;
     prossimoTurno(s);
   }
@@ -1792,6 +1810,15 @@
     { id: "senatore", luogo: "faro", sblocco: 0, soloSetta: true, nome: "Il segreto del senatore", testo: "I confratelli hanno le foto di un senatore. Pagherà bene per farle sparire, se qualcuno va a chiederglielo.", costo: 400000, guadagno: [880000, 1400000], pericoli: ["intercettazione", "fotografo"], tracce: 12, gravita: "grave" },
     // v108: il biglietto "Al Faro, a mezzanotte" (Livello 3) porta davvero a qualcosa: un incontro che c'e' solo alle 00:00
     { id: "mezzanotte", luogo: "faro", sblocco: 3, mezzanotte: true, nome: "L'uomo del biglietto", testo: "A mezzanotte, sotto la lanterna, ti aspetta l'uomo che ha scritto il biglietto. Ha una sacca di diamanti grezzi che a Palma nessuno osa comprare: chi li prende stanotte li rivende domani a un gioielliere di Corona.", costo: 800000, guadagno: [1760000, 2800000], pericoli: ["guardia", "intercettazione"], tracce: 14, gravita: "grave" },
+    // v109: l'affare della tua storia, una volta a notte e gia' dal Livello 0 (solo per te: storia = id del pacchetto)
+    { id: "st_cassa", storia: "contrabbandiere", luogo: "marina", sblocco: 0, nome: "La cassa al molo", testo: "Un pescatore ha una cassa di sigarette senza bollo. Va scaricata e rivenduta prima dell'alba. Una volta su quattro arriva la Guardia Costiera.", costo: 100000, guadagno: [180000, 300000], pericoli: ["guardia"], rischioMin: 0.25, tracce: 4, gravita: "lieve" },
+    { id: "st_yacht", storia: "playboy", luogo: "marina", sblocco: 0, legale: true, nome: "La festa sullo yacht", testo: "I tuoi amici dello yacht danno una festa: se porti tu lo champagne, domani la Laguna parla di te.", costo: 60000, fama: 6, pericoli: [] },
+    { id: "st_geometra", storia: "costruttore", luogo: "club", sblocco: 0, nome: "Il geometra del Comune", testo: "Il geometra del Comune beve troppo e ha in tasca i progetti di un appalto. Per una busta te li fa vedere: rivendi la dritta a un'impresa.", costo: 150000, guadagno: [250000, 400000], pericoli: ["fotografo"], rischioMin: 0.2, tracce: 5, gravita: "lieve" },
+    { id: "st_saldo", storia: "commerciante", luogo: "marina", sblocco: 0, nome: "Il carico in saldo", testo: "Un armatore deve liberare la stiva stanotte: vende la merce a metà prezzo, in contanti e senza fattura.", costo: 120000, guadagno: [190000, 300000], pericoli: ["guardia"], rischioMin: 0.15, tracce: 3, gravita: "lieve" },
+    { id: "st_borsa", storia: "investitore", luogo: "club", sblocco: 0, nome: "La soffiata di Borsa", testo: "Un banchiere ubriaco parla di una fusione che domani farà volare un titolo. Se ci metti dei soldi stanotte, tramite un prestanome...", costo: 150000, guadagno: [230000, 380000], pericoli: ["intercettazione"], rischioMin: 0.2, tracce: 4, gravita: "lieve" },
+    { id: "st_cena", storia: "politico", luogo: "club", sblocco: 0, legale: true, nome: "La cena col consigliere", testo: "Un consigliere comunale cena al Club. Se offri tu, si ricorderà di te alle elezioni.", costo: 40000, fama: 6, pericoli: [] },
+    { id: "st_ballo", storia: "ereditiera", luogo: "club", sblocco: 0, legale: true, nome: "Il ballo della contessa", testo: "La vecchia contessa ti invita al suo ballo: ci sono tutti quelli che contano. Si entra con un regalo all'altezza.", costo: 80000, fama: 7, pericoli: [] },
+    { id: "st_wallet", storia: "speculatore", luogo: "marina", sblocco: 0, nome: "Il wallet del marinaio", testo: "Un marinaio ha trovato le chiavi di un portafoglio cripto e non sa cosa farne. Lo compri a poco e lo svuoti prima che qualcuno se ne accorga.", costo: 100000, guadagno: [160000, 320000], pericoli: ["intercettazione"], rischioMin: 0.2, tracce: 3, gravita: "lieve" },
     { id: "lingotti", luogo: "villa", sblocco: 3, nome: "I lingotti nella cantina", testo: "Il custode della villa ha debiti di gioco. Per una cifra giusta, lascia la porta aperta.", costo: 900000, guadagno: [1980000, 3150000], pericoli: ["allarme", "testimone"], tracce: 18, gravita: "grave" },
   ];
   const INDIZI = {
@@ -1820,7 +1847,7 @@
   }
   function livelloSblocco(s, p) { return p ? p.livello || 0 : 3; }
   function postiValigetta(s, p) { return [2, 4, 4, 6, 6][livelloSblocco(s, p)] + (p && p.pacchetto === "contrabbandiere" ? 1 : 0); }
-  function luogoAperto(s, l, p) { return LUOGHI[l] && !(l !== "palazzo" && sitChiuso(s, l)) && (LUOGHI[l].sblocco <= livelloSblocco(s, p) || (l === "faro" && p && inSetta(p))); }
+  function luogoAperto(s, l, p) { return LUOGHI[l] && !(l !== "palazzo" && sitChiuso(s, l)) && (LUOGHI[l].sblocco <= livelloSblocco(s, p) || (l === "faro" && p && inSetta(p)) || (l === "mercato" && p && p.pacchetto === "contrabbandiere" && s.ciclo >= 1)); }
   function isolaCasa(s, p) { const l = s.lotti.find((x) => x.owner === p.id && x.isola); return l ? l.isola : "Corona"; }
   function isolaLuogo(s, p, l) { return l === "palazzo" ? isolaCasa(s, p) : LUOGHI[l].isola; }
   function oreViaggio(s, p, da, a) {
@@ -1907,7 +1934,7 @@
     let n = 1;
     for (const l of Object.keys(LUOGHI)) {
       if (!luogoAperto(s, l)) continue;
-      const pool = OCCASIONI.filter((o) => o.luogo === l && !o.mezzanotte && o.sblocco <= lv && (!o.soloSetta || s.sette.length > 0));
+      const pool = OCCASIONI.filter((o) => o.luogo === l && !o.mezzanotte && !o.storia && o.sblocco <= lv && (!o.soloSetta || s.sette.length > 0));
       // v108: al Faro, se qualcuno e' al Livello 3, c'e' sempre l'uomo del biglietto, ma solo alle 00:00
       if (l === "faro" && s.players.some((p) => (p.livello || 0) >= 3)) s.notte.occasioni.push({ n: n++, id: "mezzanotte", luogo: "faro", dalle: 2, alle: 3, preso: null, riservata: null });
       if (!pool.length) continue;
@@ -1923,10 +1950,11 @@
       s.notte.dove[p.id] = "palazzo";
       if (p.faro > 0) { s.notteFatti[p.id] = true; racconta(s, p, "Passi la notte al Faro, in cella. Fuori la Laguna si muove senza di te."); continue; }
       racconta(s, p, "Esci dal tuo palazzo. La Laguna è accesa.");
+      { const st = OCCASIONI.find((o) => o.storia && o.storia === p.pacchetto); if (st && luogoAperto(s, st.luogo, p)) s.notte.occasioni.push({ n: n++, id: st.id, luogo: st.luogo, dalle: 0, alle: 6, preso: null, riservata: p.id }); }
       // una chiamata, a volte
       if (livelloSblocco(s, p) >= 1 && rng(s) < 0.45) {
         const lvp = livelloSblocco(s, p);
-        const tutte = OCCASIONI.filter((o) => !o.legale && !o.soloSetta && !o.mezzanotte && o.sblocco <= lvp && luogoAperto(s, o.luogo, p));
+        const tutte = OCCASIONI.filter((o) => !o.legale && !o.soloSetta && !o.mezzanotte && !o.storia && o.sblocco <= lvp && luogoAperto(s, o.luogo, p));
         // ognuno ha il suo appuntamento: se si puo', in un posto diverso da quello degli altri
         const giaUsati = new Set(s.notte.occasioni.filter((x) => x.riservata).map((x) => x.luogo));
         const libere = tutte.filter((o) => !giaUsati.has(o.luogo));
@@ -2500,11 +2528,39 @@
     racconta(s, p, "Parti verso " + LUOGHI[luogo].nome + (ore > 1 ? ": ci vorranno 2 ore, attraverso i ponti." : "."));
     controllaOra(s);
   }
+  // v109: «Guardati intorno» fa sempre succedere qualcosa: un incontro con una dritta, una soffiata su un rival,
+  // un piccolo affare che compare qui per l'ora dopo, oppure almeno un indizio sul pericolo
+  function guardatiIntorno(s, p, dove) {
+    const N2 = s.notte, x = rng(s), aperti = Object.keys(LUOGHI).filter((l) => l !== "palazzo" && l !== dove && luogoAperto(s, l, p));
+    const rivali = s.players.filter((q) => q.id !== p.id && !q.fallito && !q.faro);
+    if (x < 0.4 && aperti.length) {
+      const due = aperti.sort(() => rng(s) - 0.5).slice(0, 2);
+      racconta(s, p, "Un tipo al bancone attacca bottone e ti dà una dritta: stanotte " + due.map((l) => LUOGHI[l].nome + " è " + N2.pericolo[l]).join(", ") + ".");
+      return;
+    }
+    if (x < 0.7 && rivali.length) {
+      const q = rivali[Math.floor(rng(s) * rivali.length)], qd = N2.dove[q.id];
+      racconta(s, p, "Senti un nome al tavolo accanto: " + q.nome + (N2.viaggio[q.id] ? " è in viaggio" : qd === "palazzo" ? " è chiuso nel suo Palazzo" : " è a " + LUOGHI[qd].nome) + (q.tracce > 25 ? ", e la polizia lo tiene d'occhio." : "."));
+      return;
+    }
+    if (x < 0.9 && N2.ora < 5) {
+      const lvp = livelloSblocco(s, p);
+      const pool = OCCASIONI.filter((o) => o.luogo === dove && !o.storia && !o.mezzanotte && !o.soloSetta && o.sblocco <= lvp);
+      if (pool.length) {
+        const O = pool[Math.floor(rng(s) * pool.length)], n = N2.occasioni.reduce((a, o) => Math.max(a, o.n), 0) + 1;
+        N2.occasioni.push({ n, id: O.id, luogo: dove, dalle: N2.ora + 1, alle: Math.min(6, N2.ora + 2), preso: null, riservata: p.id });
+        racconta(s, p, "Osservando bene, noti qualcosa: " + O.testo + " Se resti qui, l'ora dopo puoi provarci (" + O.nome + ").");
+        return;
+      }
+    }
+    racconta(s, p, "Non succede niente, ma capisci l'aria che tira: qui stanotte è " + N2.pericolo[dove] + ".");
+  }
   function aspetta(s, p) {
     oraLibera(s, p);
     s.notte.chiuso[p.id] = true;
     const osp = s.notte.ospite && s.notte.ospite[p.id];
     racconta(s, p, osp ? "Resti alla serata di " + giocatore(s, osp).nome + ", un bicchiere in mano e la Laguna sotto i piedi." : s.notte.dove[p.id] === "palazzo" ? "Resti nel tuo Palazzo a guardare le luci della Laguna." : "Resti a " + nomeLuogo(s.notte.dove[p.id]) + " a guardarti intorno.");
+    { const dv = s.notte.dove[p.id]; if (!osp && dv && dv !== "palazzo" && LUOGHI[dv]) guardatiIntorno(s, p, dv); }
     controllaOra(s);
   }
   function nomeLuogo(l) { return LUOGHI[l] ? LUOGHI[l].nome : l; }
@@ -2770,6 +2826,7 @@
     pg *= 1 + N.pistaLuogoNotte * ((p.calore || {})[o.luogo] || 0);
     if (dovePersonaggio(s, "commissario") === o.luogo && !p.corrotti.commissario) pg *= 1.35; // il Commissario e' qui stanotte
     pg *= sitMult(s, "gu", { luogo: o.luogo }) * strumentiMult(s, p, "gu", usati, { luogo: o.luogo, occ: O.id }); // situazioni e strumenti
+    if (O.rischioMin) pg = Math.max(pg, O.rischioMin); // v109: gli affari della storia hanno sempre un rischio vero
     pg = Math.min(0.95, pg);
     if (denunciatoQui(s, p, o.luogo)) pg = Math.min(0.95, pg * N_DENUNCIA.rischio * ((s.notte.denunce || []).some((d) => d.su === p.id && d.luogo === o.luogo && d.rivale) ? SFIDA.rischio : 1)); // v85: un rivale ha fatto il tuo nome
     if (o.luogo === "porto" && operaAttiva(s, p, "porto")) pg = 0; // Grande Opera: il Porto e' della setta
@@ -3032,7 +3089,7 @@
     for (const id of usati) if (oggettoDef(id).consuma) togliOggetto(p, id);
     if (O.legale) {
       p.fama += Math.round((O.fama + lustro(s, p)) * sitMult(s, "fa") * strumentiMult(s, p, "fa", usati, { luogo: o.luogo, occ: O.id }));
-      racconta(s, p, O.id === "festa" ? "Alla festa stringi le mani giuste. La tua fama cresce." : "Champagne, stelle e armatori. Domani tutti parleranno di te.");
+      racconta(s, p, O.id === "festa" ? "Alla festa stringi le mani giuste. La tua fama cresce." : O.id === "giro_barca" ? "Champagne, stelle e armatori. Domani tutti parleranno di te." : O.nome + ": stringi le mani giuste. Domani tutti parleranno di te.");
       return;
     }
     p.affariStanotte.push({ tipo: O.id }); p.pulitoCiclo = false; p.macchia = true; p.affariOk += 1; p.reputazione += 2;
@@ -4716,8 +4773,10 @@
     if (pagato < importo) {
       const resto = importo - pagato;
       p.debito += resto; if (a) a.cash += resto;
-      p.emergenza = true;
-      notizia(s, "Voci di corridoio: " + p.nome + " ha chiesto un prestito d'emergenza alla Banca Centrale.", "voce");
+      // v109: una persona non finisce in emergenza da sola: il gioco si ferma e le chiede come coprire il buco
+      // (vendere, ipotecare, prestito normale o prestito d'emergenza). I computer vanno in emergenza come prima.
+      if (!p.bot) { p.rosso = { resto: round((p.rosso ? p.rosso.resto : 0) + resto), n: (s.nAvvisi || 0) + 1 }; }
+      else { p.emergenza = true; notizia(s, "Voci di corridoio: " + p.nome + " ha chiesto un prestito d'emergenza alla Banca Centrale.", "voce"); }
     }
     // chi non aveva abbastanza contanti lo deve sapere subito: cosa e' stato venduto, quanto debito, a che tasso
     if (cash0 < importo && importo > 0) {
@@ -4990,6 +5049,7 @@
 
   // ------------------------------------------------------------ alba
   function alba(s) {
+    for (const p of s.players) if (p.rosso) { if (p.cash >= 1) copriRosso(s, p, true); if (p.rosso) rossoEmergenza(s, p, true); }
     for (const p of s.players) if (p.trucchi) for (const k of Object.keys(p.trucchi)) p.trucchi[k] = Math.max(0, p.trucchi[k] - 0.5); // col tempo la polizia dimentica
     s.fase = "alba";
     const riepilogo = {};
@@ -5396,7 +5456,7 @@
       if (p.scoperte[sc.id] !== undefined || !sc.fatto(a)) continue;
       p.scoperte[sc.id] = s.ciclo + 1;
       p.fama += 1;
-      if (s.consigli !== false) privato(s, p, "Nuova scoperta (+1 fama): " + sc.nome + ". " + sc.spiega);
+      if (s.consigli !== false) avvisoCasella(s, p, "Nuova scoperta (+1 fama): " + sc.nome + ". " + sc.spiega); // v109: lieve, niente pallino
       // chi non l'ha mai fatto lo vede fare (solo le cose che si vedono in pubblico)
       if (sc.pubblico && s.consigli !== false) for (const q of s.players) if (q.id !== p.id && !q.bot && !(q.scoperte || {})[sc.id] && !(q.visteFare || {})[sc.id]) {
         q.visteFare = q.visteFare || {}; q.visteFare[sc.id] = true;
@@ -5409,13 +5469,13 @@
     if (p.bot || s.consigli === false) return null;
     p.scoperte = p.scoperte || {}; p.consigliati = p.consigliati || {};
     const lv = livelloSblocco(s, p);
-    const ok = SCOPERTE.filter((sc) => sc.lv <= lv && p.scoperte[sc.id] === undefined && (p.consigliati[sc.id] || 0) < 2 && (() => { try { return sc.quando(s, p); } catch (e) { return false; } })());
+    const ok = SCOPERTE.filter((sc) => sc.lv <= lv && p.scoperte[sc.id] === undefined && (p.consigliati[sc.id] || 0) < 1 && (() => { try { return sc.quando(s, p); } catch (e) { return false; } })());
     if (!ok.length) return null;
     // prima le cose mai consigliate, poi quelle consigliate una volta
     ok.sort((x, y) => (p.consigliati[x.id] || 0) - (p.consigliati[y.id] || 0));
     const sc = ok[0];
     p.consigliati[sc.id] = (p.consigliati[sc.id] || 0) + 1;
-    privato(s, p, "Vera: \"" + sc.consiglio + "\"");
+    avvisoCasella(s, p, "Vera: \"" + sc.consiglio + "\""); // v109: consiglio una volta sola, senza pallino
     return { id: sc.id, nome: sc.nome, testo: sc.consiglio };
   }
 
@@ -5548,6 +5608,7 @@
     const r = applica0(s, idGiocatore, a);
     controllaNumeri(s, a);
     try { aggiornaLivelli(s); } catch (e) { /* mai bloccare una mossa per il livello */ }
+    for (const q of s.players) if (q.rosso && q.cash >= 1) copriRosso(s, q, true); // v109: appena entrano contanti, coprono il buco
     if (a && a.tipo) registraConti(s, idGiocatore, a, primaConti, ciclo0);
     // di notte, dopo ogni azione: il riquadro "com'e' andata" (soldi, Tracce lasciate, polizia)
     if (N0 && pA && s.ciclo === ciclo0 && !["pronto", "avanti", "aspetta", "vai", "msg_setta", "preferenze"].includes(a.tipo)) {
@@ -5609,6 +5670,8 @@
       // ---- banca, Borsa, tasse
       case "prestito": return prestito(s, p, a.importo);
       case "restituisci": return restituisci(s, p, a.importo);
+      case "copri_rosso": return copriRosso(s, p);
+      case "rosso_emergenza": if (!p.rosso) err("Non sei in rosso."); return rossoEmergenza(s, p);
       case "ipoteca": return ipoteca(s, p, a.lotto);
       case "riscatta": return riscatta(s, p, a.lotto);
       case "investi": return investi(s, p, a.cosa, a.nome, a.importo);
