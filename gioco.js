@@ -1637,7 +1637,7 @@ function riquadroEsito(me) {
   const TR = ["nessuna traccia", "poche Tracce", "parecchie Tracce", "molte Tracce"], COL = ["var(--pulito)", "#ffd27a", "#ffab5e", "#ff6b6b"];
   const STATI = ["", "Voci: si parla di te", "Osservato: la polizia ti tiene d'occhio", "Indagato: la Gazzetta fa il tuo nome", "Processo all'Alba"];
   return `<div class="esito-notte"><b>Com'è andata</b><div class="esito-cifre">${soldi(e.dc) || ""}${e.dc && e.ds ? " · " : ""}${soldi(e.ds, true)}${e.df ? `${e.dc || e.ds ? " · " : ""}<span style="color:${e.df > 0 ? "var(--oro)" : "#ffb3b3"}">${e.df > 0 ? "+" : "−"}${Math.abs(e.df)} fama</span>` : ""}${!e.dc && !e.ds && !e.df ? "<span>nessun soldo mosso</span>" : ""}</div>
-    <div><span class="pallino" style="background:${COL[e.tr]}"></span> ${e.tr ? "Hai lasciato" : "Non hai lasciato"} <b>${e.tr ? TR[e.tr] : "tracce"}</b>${e.dtr > 0 ? ` (+${e.dtr}, ora ${Math.round(me.tracce || 0)})` : ""}${e.tr >= 2 ? ": all'Alba la polizia tira i dadi, più Tracce hai più rischi." : "."}</div>${e.sale ? `<div style="color:#ffb3b3">⚠️ ${STATI[e.sale]}.</div>` : ""}</div>`;
+    <div><span class="pallino" style="background:${COL[e.tr]}"></span> ${e.tr ? "Hai lasciato" : "Non hai lasciato"} <b>${e.tr ? TR[e.tr] : "tracce"}</b>${e.dtr > 0 ? ` (+${e.dtr})` : ""}${e.tr >= 2 ? ": all'Alba la polizia tira i dadi, più Tracce hai più rischi." : "."}</div>${e.sale ? `<div style="color:#ffb3b3">⚠️ ${STATI[e.sale]}.</div>` : ""}</div>`;
 }
 function testoTempo(r) { return r > 0 ? "Restano " + r + " secondi per quest'ora" : "Tempo finito: chi non ha scelto resta dov'è"; }
 let orologioNotte = null, scadutoInviato = "", ultimoScaduto = 0;
