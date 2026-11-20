@@ -1046,3 +1046,12 @@ button.oro{background-image:linear-gradient(180deg,rgba(255,255,255,.28),rgba(25
 .podio .gradino.g1 .med{display:inline-block;animation:corona 2.4s ease-in-out 3}
 @media(max-width:700px){.chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;max-width:100%}.chips::-webkit-scrollbar{display:none}.chips .chip{flex:0 0 auto}}
 @media(prefers-reduced-motion:reduce){.velo > .fin,.podio .gradino.g1 .med{animation:none}}
+/* v126: il nome del gioco, ORDO. Logo solo testo (nessuna immagine da scaricare) */
+.logo-ordo{display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0 4px;user-select:none}
+.logo-ordo b{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:clamp(56px,11vw,84px);line-height:.9;letter-spacing:.32em;margin-right:-.32em;background:linear-gradient(180deg,#fff3cf 0%,#f3c56b 45%,#a8792a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 rgba(0,0,0,.45)) drop-shadow(0 0 18px rgba(243,197,107,.25));animation:ordoEntra .9s ease-out both}
+.logo-ordo i{flex:1;max-width:70px;height:1px;background:linear-gradient(90deg,transparent,rgba(243,197,107,.8));position:relative}
+.logo-ordo i:last-child{background:linear-gradient(270deg,transparent,rgba(243,197,107,.8))}
+.logo-ordo i::after{content:"";position:absolute;top:-3px;width:7px;height:7px;background:#f3c56b;transform:rotate(45deg)}
+.logo-ordo i:first-child::after{right:-3px}.logo-ordo i:last-child::after{left:-3px}
+@keyframes ordoEntra{0%{opacity:0;letter-spacing:.6em}100%{opacity:1;letter-spacing:.32em}}
+@media(prefers-reduced-motion:reduce){.logo-ordo b{animation:none}}

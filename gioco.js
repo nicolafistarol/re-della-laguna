@@ -410,7 +410,7 @@ function schermataProvaLocale(seed) {
   const disegna = () => {
     schermoIngresso(`<div class="cartaI vetro" style="width:min(560px,94vw)">
       <span class="kick" style="color:var(--oro)">Prova da solo</span>
-      <span class="serif" style="font-size:44px;line-height:1">Re della Laguna</span>
+      <span class="logo-ordo" aria-label="ORDO"><i></i><b>ORDO</b><i></i></span>
       <span class="sub">Tu contro Rocco, Greta e Dario (giocatori-computer).</span>
       <div class="campo"><label for="nomeLoc">Come ti chiami?</label><input id="nomeLoc" maxlength="24" placeholder="Scrivi il tuo nome" value="${esc(nomeLocale() === "Tu" ? "" : nomeLocale())}"></div>
       <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">${sceltaDurataHtml()}
@@ -439,7 +439,7 @@ function schermataNome() {
   const cod = codiceDalLink();
   schermoIngresso(`<div class="cartaI vetro">
     <span class="kick" style="color:var(--oro)">${cod ? "Ti hanno invitato a una partita · codice " + esc(cod) : "Benvenuto nella Laguna"}</span>
-    <span class="serif" style="font-size:52px;line-height:1">Re della Laguna</span>
+    <span class="logo-ordo" aria-label="ORDO"><i></i><b>ORDO</b><i></i></span>
     <div class="campo"><label for="nome">Come ti chiami?</label><input id="nome" maxlength="24" placeholder="Il tuo nome"></div>
     <button class="oro grande" id="entra">Entra</button>
     <span style="font-size:12px;color:var(--muted)">Niente email e niente password: ti ricordiamo su questo computer.</span></div>`);
@@ -457,7 +457,7 @@ function schermataCasa() {
   const disegnaCasa = () => {
     schermoIngresso(`<div class="cartaI vetro" style="width:min(560px,94vw)">
       <span class="kick" style="color:var(--oro)">Ciao ${esc(nomeMio())}</span>
-      <span class="serif" style="font-size:44px;line-height:1">Re della Laguna</span>
+      <span class="logo-ordo" aria-label="ORDO"><i></i><b>ORDO</b><i></i></span>
       <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px;border:1px solid rgba(79,195,247,.6)">
         <b>Un amico ti ha invitato? Scrivi il codice</b>
         <div class="riga"><input id="codice" placeholder="es. PALMA-4821" style="flex:1;text-transform:uppercase"><button class="oro" id="unisciti">Entra</button></div>
@@ -2231,7 +2231,7 @@ function disegnaTelefono(me) {
   box.querySelectorAll("[data-app]").forEach((b) => b.onclick = () => apriApp(b.dataset.app));
   if ($("#cambiaNome")) $("#cambiaNome").onclick = () => finestra(`<h2>Come ti chiami?</h2><input id="nuovoNome" maxlength="24" value="${esc(me.nome)}"><div class="pulsanti"><button id="no">Annulla</button><button class="oro" id="si">Salva</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { const n = d.querySelector("#nuovoNome").value.trim(); if (!n) return toast("Scrivi un nome."); try { localStorage.setItem("laguna_nome_locale", n); } catch (e) { } Loc.rinomina(n); c(); caricaVista(); }; });
   if ($("#chiudiPartita")) $("#chiudiPartita").onclick = () => S.chiusura ? agisci({ tipo: "chiudi_partita", si: false })
-    : finestra(`<h2>Chiudi la partita?</h2><p>Questa diventa l'ultima notte. All'Alba arriva la classifica finale e si scopre chi è il Re della Laguna. Fino all'Alba puoi ancora cambiare idea.</p><div class="pulsanti"><button id="no">Continuiamo</button><button class="oro" id="si">Chiudo</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "chiudi_partita", si: true }); }; });
+    : finestra(`<h2>Chiudi la partita?</h2><p>Questa diventa l'ultima notte. All'Alba arriva la classifica finale e si scopre chi vince ORDO. Fino all'Alba puoi ancora cambiare idea.</p><div class="pulsanti"><button id="no">Continuiamo</button><button class="oro" id="si">Chiudo</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "chiudi_partita", si: true }); }; });
   if ($("#esciPartita")) $("#esciPartita").onclick = () => finestra(`<h2>Esci dalla partita?</h2><p>${LOCALE ? "Torni alla schermata iniziale. La partita di prova si cancella." : "Esci per sempre: <b>al tuo posto gioca il computer</b>, così la partita va avanti per gli altri. Non potrai rientrare."}</p>${LOCALE ? "" : `<p class="sub">Devi solo chiudere un attimo? Non serve uscire: se resti via più di 3 minuti il computer gioca per te, e quando torni riprendi tu.</p>`}<div class="pulsanti"><button id="no">Resto</button><button class="oro" id="si">Esco</button></div>`, (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = async () => { c(); if (LOCALE) { try { localStorage.removeItem("laguna_locale"); } catch (e) { } } else { const r = await chiama({ comando: "esci", partita }); if (r && r.errore) { toast(r.errore); return; } } esciDallaPartita(LOCALE ? "" : "Sei uscito: al tuo posto ora gioca il computer."); }; });
   document.querySelectorAll("[data-sostituisci]").forEach((b) => b.onclick = async () => { b.disabled = true; const r = await chiama({ comando: "computer", partita, player: b.dataset.sostituisci }); if (r && r.errore) toast(r.errore); else toast("Al suo posto ora gioca il computer. Quando torna, riprende lui."); await caricaVista(); });
   if ($("#indietro")) $("#indietro").onclick = () => { app = null; chatAperta = null; disegnaTelefono(me); };
@@ -3972,7 +3972,7 @@ function fine() {
   if (document.querySelector(".velo")) return;
   if (S.classifica && S.classifica[0]) { if (S.classifica[0].nome === (io() || {}).nome) Suono.vittoria(); else Suono.esito(false); }
   const podio = S.classifica.slice(0, 3), ioNome = (io() || {}).nome, mioPosto = S.classifica.findIndex((c) => c.nome === ioNome) + 1;
-  finestra(`<div class="fine-corta"><span class="kick" style="color:var(--oro)">Fine della partita</span><h2>${mioPosto === 1 ? "Sei il Re della Laguna!" : esc(podio[0].nome) + " è il Re della Laguna"}</h2>${S.motivoFine ? `<p class="sub">${esc(S.motivoFine)}</p>` : ""}
+  finestra(`<div class="fine-corta"><span class="kick" style="color:var(--oro)">Fine della partita</span><h2>${mioPosto === 1 ? "Hai vinto ORDO" : esc(podio[0].nome) + " vince ORDO"}</h2>${S.motivoFine ? `<p class="sub">${esc(S.motivoFine)}</p>` : ""}
     <div class="podio">${[1, 0, 2].filter((i) => podio[i]).map((i) => `<div class="gradino g${i + 1} ${podio[i].nome === ioNome ? "io" : ""}"><span class="med">${["👑", "🥈", "🥉"][i]}</span><b>${esc(podio[i].nome)}</b><span class="pat">${euro(podio[i].patrimonio)}</span><i>${i + 1}°</i></div>`).join("")}</div>
     ${mioPosto > 3 ? `<p class="fine-mio">Tu sei arrivato <b>${mioPosto}°</b> con ${euro(S.classifica[mioPosto - 1].patrimonio)}</p>` : ""}
     ${raccontoPartita(mioPosto)}
@@ -3994,7 +3994,7 @@ avvio();
 
 // ------------------------------------------------------------ COME SI GIOCA: 6 slide, prima di giocare e durante
 function datiGuida() { return [
-  { img: "img/laguna.jpg", kick: "1 di 7 · Lo scopo", tit: "Diventa il Re della Laguna", righe: [
+  { img: "img/laguna.jpg", kick: "1 di 7 · Lo scopo", tit: "Vinci ORDO: diventa il più ricco della Laguna", righe: [
     "Partite tutti uguali: <b>1.500.000 €</b> e <b>un terreno a sorte</b>. Scegli una <b>storia</b>: ognuna ha un vantaggio.",
     "Un <b>Ciclo</b> = 4 giorni coi dadi, poi <b>la notte</b>, poi <b>l'Alba</b>: all'Alba incassi tutte le rendite.",
     "Vince chi ha il <b>patrimonio</b> più alto: soldi, terreni, Palazzo, mezzi, azioni. I soldi sporchi valgono solo un quarto.",
@@ -4044,7 +4044,7 @@ function datiGuida() { return [
     "<b>Gazzetta</b>: le notizie di ogni Ciclo. Puoi comprare un articolo, o <b>denunciare</b> un rivale con le prove.",
     "<b>Da scoprire</b>: 22 cose da provare, la prima volta +1 fama. Nella partita guidata <b>Vera</b> ti consiglia.",
     "<b>Grandi Affari</b> (Livello 4, partite lunghe): vanno all'asta la <b>TV della Laguna</b> (sceglie il titolone) e poi la <b>Banca della Laguna</b> (decide il tasso dei prestiti degli altri). Si possono strappare comprando quote.",
-    "Titoli finali: Re della Laguna, La Stella, Mani Pulite, Gran Burattinaio.",
+    "Titoli finali: Primo di ORDO, La Stella, Mani Pulite, Gran Burattinaio.",
   ], tag: ["Banca", "Borsa", "Cripto", "Contratti", "Tasse", "Sindaco", "Leggi", "Gazzetta", "Denunce", "TV", "Da scoprire", "Vera"] },,
   { img: "img/notte-porto.jpg", kick: "7 di 7 · Regole nascoste", tit: "Le cose che è facile non vedere", righe: [
     "<b>Tre dadi</b>: vai avanti della somma. Se escono tre numeri uguali (un <b>tris</b>) tiri ancora.",
