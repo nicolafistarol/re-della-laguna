@@ -3898,12 +3898,17 @@ function finestraContratto() {
 function fine() {
   if (document.querySelector(".velo")) return;
   if (S.classifica && S.classifica[0]) { if (S.classifica[0].nome === (io() || {}).nome) Suono.vittoria(); else Suono.esito(false); }
-  finestra(`<span class="kick" style="color:var(--oro)">Fine della serata</span><h2>La Rivelazione</h2>${S.motivoFine ? `<p class="sub">${esc(S.motivoFine)}</p>` : ""}
+  const podio = S.classifica.slice(0, 3), ioNome = (io() || {}).nome, mioPosto = S.classifica.findIndex((c) => c.nome === ioNome) + 1;
+  finestra(`<div class="fine-corta"><span class="kick" style="color:var(--oro)">Fine della partita</span><h2>${mioPosto === 1 ? "Sei il Re della Laguna!" : esc(podio[0].nome) + " è il Re della Laguna"}</h2>${S.motivoFine ? `<p class="sub">${esc(S.motivoFine)}</p>` : ""}
+    <div class="podio">${[1, 0, 2].filter((i) => podio[i]).map((i) => `<div class="gradino g${i + 1} ${podio[i].nome === ioNome ? "io" : ""}"><span class="med">${["👑", "🥈", "🥉"][i]}</span><b>${esc(podio[i].nome)}</b><span class="pat">${euro(podio[i].patrimonio)}</span><i>${i + 1}°</i></div>`).join("")}</div>
+    ${mioPosto > 3 ? `<p class="fine-mio">Tu sei arrivato <b>${mioPosto}°</b> con ${euro(S.classifica[mioPosto - 1].patrimonio)}</p>` : ""}
+    <details class="alba-tutto"><summary>Vedi tutto</summary>
     <table class="cl"><tr><th>#</th><th>Chi</th><th>Patrimonio</th><th>Fama</th></tr>${S.classifica.map((c, i) => `<tr><td>${i + 1}</td><td>${esc(c.nome)}</td><td>${euro(c.patrimonio)}</td><td>${c.fama}</td></tr>`).join("")}</table>
     <p class="kick" style="color:var(--muted);margin-top:14px">I titoli</p>${S.titoli.map((t) => `<p><b>${esc(t.titolo)}:</b> ${esc(t.a)}</p>`).join("")}
     ${S.resa && S.resa.length ? `<p class="kick" style="color:var(--sporco);margin-top:14px">La Resa dei conti</p>${S.resa.map((r) => `<p><b>${esc(r.nome)}</b>: reato ${esc(r.gravita)}, multa ${euro(r.multa)}${r.sporchi ? `, confiscati ${euro(r.sporchi)} sporchi` : ""}</p>`).join("")}` : S.resaAnnunciata ? `<p class="kick" style="color:var(--muted);margin-top:14px">La Resa dei conti</p><p>La Procura non ha condannato nessuno.</p>` : ""}
     <p class="kick" style="color:var(--muted);margin-top:14px">Le sette</p>${S.rivelazione.length ? S.rivelazione.map((r) => `<p><b style="color:var(--setta)">${esc(r.setta)}</b> — Gran Maestro ${esc(r.gm)}, membri: ${r.membri.map(esc).join(", ")}, tesoro ${euro(r.tesoro)}</p>`).join("") : "<p>Nessuna setta è nata in questa partita.</p>"}
-    <div class="pulsanti"><button class="oro" id="nuova">Nuova partita</button></div>`, (d, c) => d.querySelector("#nuova").onclick = () => { c(); if (LOCALE) { try { localStorage.removeItem("laguna_locale"); } catch (e) { } location.href = location.pathname + "?locale&nuova"; return; } try { localStorage.removeItem("laguna_online"); } catch (e) { } S = null; partita = null; schermataCasa(); });
+    </details>
+    <div class="pulsanti"><button class="oro" id="nuova">Nuova partita</button></div></div>`, (d, c) => d.querySelector("#nuova").onclick = () => { c(); if (LOCALE) { try { localStorage.removeItem("laguna_locale"); } catch (e) { } location.href = location.pathname + "?locale&nuova"; return; } try { localStorage.removeItem("laguna_online"); } catch (e) { } S = null; partita = null; schermataCasa(); });
 }
 
 for (const f of ["laguna", "marina", "mappa", ...Object.values(SCENE).map((x) => x.slice(4, -4))]) { const i = new Image(); i.src = "img/" + f + ".jpg"; }

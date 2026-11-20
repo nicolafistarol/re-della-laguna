@@ -1006,3 +1006,21 @@ button,input,select,textarea{font-family:inherit}
 .tel .app-nome{font-size:12.5px;font-weight:700}
 .tel .app-riga{font-size:11px;color:var(--muted);max-width:86px}
 .tel .app-riga.calda{color:var(--oro);font-weight:700}
+/* fine partita: il podio */
+.fine-corta{text-align:center}
+.fine-corta h2{font-size:34px}
+.podio{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin:18px 0 8px}
+.gradino{flex:1;max-width:170px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 8px 10px;border-radius:14px 14px 6px 6px;background:rgba(255,255,255,.07);border:1px solid var(--bordo);animation:gradino .6s cubic-bezier(.2,.9,.3,1.2) both}
+.gradino.g1{min-height:190px;background:linear-gradient(180deg,rgba(243,197,107,.28),rgba(243,197,107,.06));border-color:rgba(243,197,107,.7);animation-delay:.25s}
+.gradino.g2{min-height:150px}.gradino.g3{min-height:125px;animation-delay:.1s}
+.gradino.io{box-shadow:0 0 0 2px var(--oro),0 0 22px rgba(243,197,107,.45)}
+.gradino .med{font-size:34px;line-height:1}
+.gradino.g1 .med{font-size:48px}
+.gradino b{font-size:17px}
+.gradino .pat{font-size:15px;color:var(--guadagno);font-weight:700;font-variant-numeric:tabular-nums}
+.gradino i{margin-top:auto;font-style:normal;font-family:'DM Serif Display',Georgia,serif;font-size:28px;color:var(--muted)}
+.fine-mio{font-size:16px}
+.fine-corta .pulsanti{justify-content:center}
+.fine-corta .alba-tutto{text-align:left}
+@keyframes gradino{0%{transform:translateY(30px);opacity:0}100%{transform:none;opacity:1}}
+@media(max-width:700px){#avvisi{top:104px!important}.gradino{padding:10px 4px 8px}.gradino b{font-size:15px}.gradino .pat{font-size:13px;white-space:nowrap}.fine-corta h2{font-size:28px}}
