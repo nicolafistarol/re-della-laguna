@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 134;
+  const VERSIONE_REGOLE = 135;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -5695,8 +5695,9 @@
       const t0 = round((st.tesoro || 0) + (st.sepolto || 0)); if (!(t0 > 0)) continue;
       const altri = st.membri.filter((id) => id !== st.gm), qGm = altri.length ? round(t0 / 2) : t0, qM = altri.length ? Math.floor((t0 - qGm) / altri.length) : 0;
       spartito[st.id] = { gm: qGm, membro: qM };
-      const gm = s.players.find((x) => x.id === st.gm); if (gm) gm.sporchi += qGm;
-      for (const id of altri) { const m = s.players.find((x) => x.id === id); if (m) m.sporchi += qM; }
+      // v135: il Tesoro torna pulito (la setta l'ha gia' ripulito): prima tornava sporco e la decima pagata valeva un terzo
+      const gm = s.players.find((x) => x.id === st.gm); if (gm) gm.cash += qGm;
+      for (const id of altri) { const m = s.players.find((x) => x.id === id); if (m) m.cash += qM; }
       st.tesoroFinale = t0; st.tesoro = 0; if (st.sepolto) st.sepolto = 0;
     }
     const cl = s.players.map((p) => ({ id: p.id, nome: p.nome, patrimonio: round(patrimonio(s, p, true)), fama: p.fama, arresti: p.arresti, tracce: round(p.tracce), piani: p.piani, riciclTot: p.riciclTot }))

@@ -279,6 +279,7 @@ function provaBot(o, i, n, L) {
       const pr = i.prove[k]; if (pr.rifiutata) continue;
       const b = o.players.find((x) => x.id === pr.su);
       if (!b || b.fallito || (b.stato || 0) < 1 || silenzio(b.id)) continue;
+      if (b.bot && SPORCHI_BOT.includes(b.strat) && !(o.players.filter((x) => !x.fallito).sort((x, y) => L.patrimonio(o, y, !0) - L.patrimonio(o, x, !0))[0] === b)) continue; // v135: tra sporchi non ci si ricatta, salvo chi e' in testa
       if (o.principianti && !b.bot && o.ciclo < 3) continue;
       if (b.senzaParola != null && o.ciclo <= b.senzaParola) continue;
       const caro = o.lotti.some((l) => l.owner === b.id && (L.affitto(o, l) || 0) >= 3e5);
@@ -350,8 +351,9 @@ function serviziFedinaBot(o, i, n, L) {
     if (!f && fed >= 4) {
       const silenzio = (id) => (o.favori || []).some((x) => x.tipo === "silenzio" && x.stato === "attivo" && x.deve === i.id && x.a === id);
       const ok = rivali.filter((q) => !silenzio(q.id) && !((i.inchiestaBlocco || {})[q.id] > o.ciclo));
-      let b = ok.filter((q) => (q.stato || 0) >= 1).sort((x, y) => (y.stato || 0) - (x.stato || 0))[0];
-      if (!b) { const primo = ok.slice().sort((x, y) => L.patrimonio(o, y, !0) - L.patrimonio(o, x, !0))[0]; if (primo && (primo.tracce || 0) > 20) b = primo; }
+      // v135: l'inchiesta si fa solo su chi e' tra i primi due in classifica (prima: su chiunque fosse sospettato, cioe' sempre sugli sporchi)
+      const testa = ok.slice().sort((x, y) => L.patrimonio(o, y, !0) - L.patrimonio(o, x, !0)).slice(0, 2);
+      let b = testa.filter((q) => (q.stato || 0) >= 1 || (q.tracce || 0) > 20).sort((x, y) => L.patrimonio(o, y, !0) - L.patrimonio(o, x, !0))[0];
       if (b) { const a = una("inchiesta", { tipo: "inchiesta_apri", bersaglio: b.id }); if (a) return a; }
     }
   }
@@ -688,7 +690,7 @@ function grandiBot(o, i, n) {
             if (b && s !== b.luogo) return { tipo: "vai", luogo: b.luogo };
             if (i.sporchi > 6e5 && t.luogoAperto(o, "casino", i) && !l.ric && "casino" !== s) return { tipo: "vai", luogo: "casino" };
             // v134: chi gioca sporco con la testa va dove c'e' un affare buono per lui, invece di girare a caso
-            if (bravo && !l.cerca) {
+            if (bravo && (l.cerca || 0) < (i.stato >= 1 ? 1 : 3)) {
               const ok = (x) => { const O = t.OCCASIONI.find((y) => y.id === x.id); return O && !O.legale && !O.soloSetta && !x.preso && (!x.riservata || x.riservata === i.id) && O.sblocco <= a && x.luogo !== s && c < x.alle - 1 && t.luogoAperto(o, x.luogo, i) && p > (O.costo || 0) + 2e5 && ((i.calore || {})[x.luogo] || 0) < 1 && (i.stato < 1 || (O.gravita === "lieve" && (O.tracce || 0) <= 7)) ? O : null; };
               const voto = (O) => ((O.guadagno ? O.guadagno[1] : 0) - (O.costo || 0)) / ((O.tracce || 0) + 4);
               const best = o.notte.occasioni.map((x) => [x, ok(x)]).filter((x) => x[1]).sort((x, y) => voto(y[1]) - voto(x[1]))[0];
