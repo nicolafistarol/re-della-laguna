@@ -11,7 +11,7 @@
     i._offertaKey = chiave;
     if ((o.proposte || []).some((x) => x.da === i.id && x.stato === "proposta")) return null;
     o._offerteBot = o._offerteBot && o._offerteBot.k === chiave ? o._offerteBot : { k: chiave, a: [] };
-    const cand = o.lotti.filter((l) => l.owner && l.owner !== i.id && l.serie && (l.tipoCasella === "lotto" || l.tipoCasella === "molo") && !l.cantiere && !o._offerteBot.a.includes(l.owner) && (() => { const q = o.players.find((x) => x.id === l.owner); return q && !q.bot; })())
+    const cand = o.lotti.filter((l) => l.owner && l.owner !== i.id && l.serie && (l.tipoCasella === "lotto" || l.tipoCasella === "molo") && !l.cantiere && !o._offerteBot.a.includes(l.owner) && !((o.noOfferte || {})["L" + l.id + ">" + l.owner] > chiave - 30) && !((o.noOfferte || {})["P" + i.id + ">" + l.owner] > chiave - 20) && (() => { const q = o.players.find((x) => x.id === l.owner); return q && !q.bot; })())
       .map((l) => { const altri = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id), miei = altri.filter((x) => x.owner === i.id).length; return { l, chiude: !!(altri.length && miei === altri.length), miei, p: altri.length && miei === altri.length ? 0.9 : miei ? 0.6 : 0.35 }; }) // v114: un'offerta (quasi) ogni giorno
       .sort((a, b) => b.p - a.p);
     const c = cand[0]; if (!c || Math.random() > c.p) return null;
@@ -725,7 +725,7 @@ function grandiBot(o, i, n) {
         p.bot = false; p.strat = null;
         p.cash = Math.max(0, p.cash) + 8_000_000; p.sporchi = (p.sporchi || 0) + 3_000_000; p.debito = 0;
         p.livello = Math.max(p.livello || 0, 3); p.tracce = Math.min(p.tracce || 0, 15); // le Tracce restano, ma non tante da finire subito al Processo
-        (p.messaggi = p.messaggi || []).push({ ciclo: stato.ciclo + 1, testo: "🧪 Modalità test: fino a qui ha giocato il computer al posto tuo (come un Esperto). Ora hai 8 milioni puliti in più, 3 milioni sporchi da riciclare e il Livello " + p.livello + "." });
+        (p.messaggi = p.messaggi || []).push({ ciclo: stato.ciclo + 1, testo: "🧪 Modalità test: fino a qui ha giocato il computer al posto tuo (come un Esperto). Ora hai 8 milioni puliti in più, 3 milioni sporchi da riciclare e il Livello " + p.livello + ": la valigetta ora ha " + (t.postiValigetta ? t.postiValigetta(stato, p) : 6) + " posti (i messaggi di Vera di prima valgono per i livelli di allora)." });
       }
       // v122: i soldi regalati non contano come crescita nella sfida del Ciclo (il tester vinceva con +184%)
       for (const sf of stato.sfide || []) for (const p of persone) { if (sf.a === p.id) sf.pa = Math.round(t.patrimonio(stato, p, true)); if (sf.b === p.id) sf.pb = Math.round(t.patrimonio(stato, p, true)); }
