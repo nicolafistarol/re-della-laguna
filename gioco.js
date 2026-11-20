@@ -51,6 +51,7 @@ function avviso3D() {
 }
 import * as Loc from "./locale.js?v=116";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
+const notizieViste = new Map(); // v116: quando e' comparsa ogni notizia in basso a sinistra
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
 
@@ -885,20 +886,20 @@ function disegna() {
   const turno = S.fase === "giorno" ? L.corrente(S) : null;
   const faseTesto = S.fine ? "Partita finita" : S.fase === "pacchetti" ? "Si sceglie come iniziare" : notte ? `${ico("luna")} Notte · ${L.ORE[S.notte.ora]}` : `${testoCiclo()} · Giorno ${S.giorno + 1} di ${L.N.giorni} · ${turno.id === mioId ? '<span style="color:var(--oro)">Tocca a te</span>' : "Turno di " + esc(turno.nome)}`;
   const segn = ["Nessuno parla di te.", "Voci: si parla di te, in giro.", "Osservato: la polizia ti tiene d'occhio.", "Indagato: la Gazzetta fa il tuo nome.", "Processo: convocazione del Giudice all'Alba."][me.stato || 0];
-  const cron = S.log.filter((r) => !/ tira \d( e \d)+\.$/.test(r.testo) && !(r.chi && r.chi !== mioId && PRIVATI.test(r.testo))).slice(-4);
+  const cron = S.log.filter((r) => !/ tira \d( e \d)+\.$/.test(r.testo) && !(r.chi && r.chi !== mioId && PRIVATI.test(r.testo))).slice(-2);
+  // v116: le notizie restano 7 secondi e poi spariscono da sole (anche se lo schermo si ridisegna); le vecchie stanno nel telefono
+  const oraN = Date.now(); for (const r of cron) { const k = JSON.stringify(r); if (!notizieViste.has(k)) notizieViste.set(k, oraN); }
   $("#radice").innerHTML = `
   <div class="hud-alto">
     <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId && rivaleMio() === p.id ? "rivale" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${statoCollegamento(p) ? `<span class="non-coll"> · ${statoCollegamento(p)}</span>` : puoSostituire(p) ? `<span class="non-coll"> · non risponde</span>` : ""}${notte && p.id === mioId ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · hai deciso" : " · decidi…") : ""}</div><div class="s liv-chip">Liv. ${p.livello ?? 0} · fama ${p.fama ?? 0}</div>${p.id !== mioId && rivaleMio() === p.id ? `<div class="s riv-chip" title="La sfida del Ciclo: tocca per i dettagli">⚔️ rivale · ${sfidaMia().avanti === mioId ? "sei avanti" : "è avanti"}</div>` : ""}${p.id === mioId && (p.fedina || 0) >= 2 ? `<div class="s fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">⚖️ Fedina ${p.fedina}</div>` : ""}</div></div>`).join("")}</div>
     <div class="fase vetro">${faseTesto}</div>
-    <div class="saldo vetro">
-      <div class="riga" style="justify-content:space-between"><span class="kick" style="color:var(--muted)">I tuoi soldi</span><button class="piccolo" id="occhio" style="padding:2px 8px">${saldoNascosto ? "Mostra" : "Nascondi"}</button></div>
-      <div class="serif tot">${saldoNascosto ? "••••••" : euro(me.cash)}</div>
-      ${S.sblocco >= 1 || me.sporchi ? `<div class="ri"><span style="color:var(--sporco)">Sporchi ${saldoNascosto ? "•••" : euro(me.sporchi)}</span><span style="color:var(--oro)">Fama ${Math.round(me.fama)}</span></div>` : `<div class="ri"><span style="color:var(--oro)">Fama ${Math.round(me.fama)}</span></div>`}
-      <div id="scalaPolizia" title="Tocca: come e quando arriva una condanna" style="cursor:pointer;font-size:12px;margin-top:4px;color:${(me.stato || 0) >= 2 ? "#ffb3b3" : "var(--muted)"}">${segn} <span style="letter-spacing:2px">${[1, 2, 3, 4].map((i) => (me.stato || 0) >= i ? "●" : "○").join("")}</span> <u>ⓘ</u></div>
+    <div class="saldo vetro" title="${esc(segn)}">
+      <div class="saldo-su"><span class="serif tot">${saldoNascosto ? "••••••" : euro(me.cash)}</span><button class="occhio" id="occhio" aria-label="${saldoNascosto ? "Mostra i soldi" : "Nascondi i soldi"}" title="${saldoNascosto ? "Mostra i soldi" : "Nascondi i soldi"}">${saldoNascosto ? "🙈" : "👁"}</button></div>
+      <div class="ri">${S.sblocco >= 1 || me.sporchi ? `<span class="sp">Sporchi ${saldoNascosto ? "•••" : euro(me.sporchi)}</span>` : ""}<span class="fa">Fama ${Math.round(me.fama)}</span><span id="scalaPolizia" class="pol ${(me.stato || 0) >= 2 ? "alta" : ""}" title="${esc(segn)} Tocca: come e quando arriva una condanna">🚔 <b>${[1, 2, 3, 4].map((i) => (me.stato || 0) >= i ? "●" : "○").join("")}</b></span></div>
     </div>
   </div>
   ${notte ? scenaNotte(me)
-      : tickerNascosto ? `<button class="vetro piccolo ticker-apri" id="tickerApri">📜 Cronaca</button>` : `<div class="ticker"><button class="ticker-x" id="tickerX" title="Nascondi la cronaca">✕</button>${cron.map((r) => `<div class="${r.chi === mioId ? "mia" : ""}">${esc(r.testo)}</div>`).join("")}</div>`}
+      : tickerNascosto ? `<button class="vetro piccolo ticker-apri" id="tickerApri">📜 Cronaca</button>` : `<div class="ticker">${cron.map((r) => { const resta = 7000 - (oraN - notizieViste.get(JSON.stringify(r))); return resta <= 0 ? "" : `<div class="${r.chi === mioId ? "mia" : ""}" style="animation-delay:${resta}ms">${esc(r.testo)}</div>`; }).join("")}</div>`}
   ${notte ? "" : comandiVista() + legenda()}
   <button class="vetro audio ${Suono.acceso() ? "" : "spento"}" id="audio" title="${Suono.acceso() ? "Spegni musica e suoni" : "Accendi musica e suoni"}" aria-label="${Suono.acceso() ? "Spegni" : "Accendi"} musica e suoni">${icoE(Suono.acceso() ? "suono-si" : "suono-no")}</button>
   ${notte ? "" : `<div class="carta vetro">${(me.stato || 0) >= 3 && !S.fine ? `<div class="fascia-polizia">⚖️ <span><b>${me.stato >= 4 ? "Sei a Processo: all'Alba arriva la sentenza." : "Sei sotto indagine."}</b> Finché dura, il Municipio non ti dà permessi.${me.stato >= 4 ? "" : " Per scendere: un Ciclo intero senza affari sporchi."} <u data-a="polizia">Cosa rischio</u></span></div>` : ""}${animando ? `<div class="sub">…</div>` : cartaGiorno(me)}</div>`}`;
@@ -1015,7 +1016,7 @@ function casellaHtml(l) {
 function posLegenda() { const lg = $(".legenda"), ch = $(".hud-alto .chips"); if (!lg || !ch) return; const b = ch.getBoundingClientRect(); if (b.height) lg.style.top = Math.round(b.bottom + 6) + "px"; }
 window.addEventListener("resize", () => posLegenda());
 function legenda() {
-  return `<div class="legenda vetro"><div class="riga" style="gap:6px"><button class="piccolo" id="legTasto">${ico("mappa")} Legenda</button><button class="piccolo ${soloMiei ? "oro" : ""}" id="mieiTasto">${ico("stella")} Cosa ho</button><button class="piccolo" id="guidaTasto" title="Come si gioca">📖 Guida</button><button class="piccolo" id="nuovaTasto" title="Lascia questa partita e iniziane un'altra">${ico("flag")} Nuova partita</button></div><div class="leg-dentro">
+  return `<div class="legenda vetro ${menuAperto || legendaAperta || soloMiei ? "menu-su" : ""}"><button class="menu-tasto" id="menuTasto" aria-label="Menu" title="Menu: legenda, cosa ho, guida, nuova partita">☰</button><div class="riga menu-v" style="gap:6px"><button class="piccolo" id="legTasto">${ico("mappa")} Legenda</button><button class="piccolo ${soloMiei ? "oro" : ""}" id="mieiTasto">${ico("stella")} Cosa ho</button><button class="piccolo" id="guidaTasto" title="Come si gioca">📖 Guida</button><button class="piccolo" id="nuovaTasto" title="Lascia questa partita e iniziane un'altra">${ico("flag")} Nuova partita</button></div><div class="leg-dentro">
     <div><span class="lg terreno"><em>60k</em></span> Terreno libero: il numero è il prezzo</div>
     <div><span class="lg terreno pres mio" style="--own:var(--oro)"><b>T</b></span> Il tuo terreno: bordo d'oro e stellina</div>
     <div><span class="lg terreno pres" style="--own:#4aa3a2"><b>R</b></span> Terreno di un altro (la sua iniziale)</div>
@@ -1303,7 +1304,7 @@ function comandiVista() {
   return `<div class="comandi-vista vetro"><span class="cv-titolo">Vista</span>${visuali}<button id="z3d" class="${TRE3D ? "" : "attivo"}" title="${TRE3D ? "Torna al tabellone visto dall'alto" : "Prova la vista 3D (pesante)"}">${TRE3D ? "🗺️<small>Tabellone</small>" : "🧊<small>3D</small>"}</button>${TRE3D ? `<button id="zMotore" title="${cubi ? "Torna alla foto della Laguna" : "Il mondo 3D: giralo e guardalo da ogni lato"}">${cubi ? "📷<small>Foto</small>" : "🌍<small>Mondo 3D</small>"}</button>` : ""}<i class="cv-riga"></i><button id="zPiu" aria-label="Avvicina" title="Avvicina">＋</button><button id="zMeno" aria-label="Allontana" title="Allontana">−</button>${cubi ? `<button id="zSx" aria-label="Ruota a sinistra" title="Ruota">⟲</button><button id="zDx" aria-label="Ruota a destra" title="Ruota">⟳</button>` : ""}${TRE3D ? "" : `<button id="zTutto" aria-label="Vista intera" title="Vista intera">⤢</button>`}<button id="zMio" aria-label="Vai alla tua pedina" title="La tua pedina">◎</button></div>`;
 }
 function notteOra() { return S && S.fase === "notte" && S.notte; }
-let legendaAperta = false;
+let legendaAperta = false, menuAperto = false;
 function collegaComandiVista(me) {
   const gt = $("#guidaTasto"); if (gt) gt.onclick = () => apriGuida(0);
   // v110: la barra Legenda/Guida sta sempre sotto l'intestazione (Ciclo · Tocca a te), mai sopra
@@ -1322,6 +1323,8 @@ function collegaComandiVista(me) {
   }
   $("#mondo").classList.toggle("solo-miei", soloMiei);
   posLegenda();
+  { const mb = $("#menuTasto"); if (mb) mb.onclick = () => { menuAperto = !(menuAperto || legendaAperta || soloMiei); if (!menuAperto) { legendaAperta = false; if (soloMiei) { soloMiei = false; disegna(); return; } } $(".legenda").classList.toggle("menu-su", menuAperto); $(".legenda").classList.toggle("aperta", legendaAperta); }; }
+  for (const id of ["#guidaTasto", "#nuovaTasto"]) { const b = $(id); if (b) b.addEventListener("click", () => { menuAperto = false; const lg = $(".legenda"); if (lg && !legendaAperta && !soloMiei) lg.classList.remove("menu-su"); }); }
   const lt = $("#legTasto"); if (lt) { $(".legenda").classList.toggle("aperta", legendaAperta); lt.onclick = () => { legendaAperta = !legendaAperta; $(".legenda").classList.toggle("aperta", legendaAperta); }; }
   $("#zPiu").onclick = () => TRE3D ? Tre.avvicina(0.7) : zoomA(vista.z * 1.35);
   $("#zMeno").onclick = () => TRE3D ? Tre.avvicina(1.4) : zoomA(vista.z / 1.35);
@@ -1906,6 +1909,7 @@ const APPS = [
   { k: "banca", nome: "Banca", ico: ico("banca"), col: "#2f6fe0", lv: 0 },
   { k: "gazzetta", nome: "Gazzetta", ico: ico("gazzetta"), col: "#d9d2c0", lv: 0 },
   { k: "messaggi", nome: "Messaggi", ico: ico("messaggi"), col: "#3fa34d", lv: 0 },
+  { k: "cronaca", nome: "Notizie", ico: ico("notizie"), col: "#334155", lv: 0 },
   { k: "valigetta", nome: "Valigetta", ico: ico("valigetta"), col: "#8a5a2c", lv: 0 },
   { k: "palazzo", nome: "Palazzo", ico: ico("palazzo"), col: "#7a5cff", lv: 0 },
   { k: "lusso", nome: "Lusso", ico: ico("lusso"), col: "#14a3a8", lv: 0 },
@@ -2080,7 +2084,7 @@ function mostraUltimOra() {
 // ------------------------------------------------------------ telefono: home chiara
 // App raggruppate, una riga di stato sotto ogni icona, pallino rosso solo per le cose da fare,
 // "NUOVA" sulle app appena sbloccate, e in alto "Adesso puoi" con 1-3 cose da fare subito.
-const GRUPPI_APP = [["Soldi", ["impero", "conti", "banca", "borsa"]], ["Costruire", ["imprese", "agenzia", "palazzo", "lusso"]], ["Persone", ["messaggi", "rubrica", "contratti", "setta"]], ["Notte", ["valigetta", "sporchi", "prove"]], ["Città", ["gazzetta", "grandi", "municipio", "scoperte"]]];
+const GRUPPI_APP = [["Soldi", ["impero", "conti", "banca", "borsa"]], ["Costruire", ["imprese", "agenzia", "palazzo", "lusso"]], ["Persone", ["messaggi", "cronaca", "rubrica", "contratti", "setta"]], ["Notte", ["valigetta", "sporchi", "prove"]], ["Città", ["gazzetta", "grandi", "municipio", "scoperte"]]];
 const APP_SEMPRE = ["impero", "imprese", "agenzia", "banca", "gazzetta", "messaggi", "valigetta", "palazzo", "lusso", "rubrica", "municipio"];
 function appViste() { try { return new Set(JSON.parse(localStorage.getItem("laguna_appviste_" + partita) || "[]")); } catch (e) { return new Set(); } }
 function segnaAppVista(k) { try { const v = appViste(); v.add(k); localStorage.setItem("laguna_appviste_" + partita, JSON.stringify([...v])); } catch (e) { } }
@@ -2434,6 +2438,8 @@ const CONTENUTO_APP = {
   imprese: appImprese,
   banca: appBanca,
   gazzetta: () => appGazzetta(),
+  // v116: tutte le notizie della partita (sulla mappa ne restano al massimo 2, per pochi secondi)
+  cronaca: () => { const r = S.log.filter((x) => !/ tira \d( e \d)+\.$/.test(x.testo) && !(x.chi && x.chi !== mioId && PRIVATI.test(x.testo))).slice(-60).reverse(); return r.length ? `<div class="cronaca-tel">${r.map((x) => `<div class="${x.chi === mioId ? "mia" : ""}">${esc(x.testo)}</div>`).join("")}</div>` : `<p class="sub">Ancora nessuna notizia.</p>`; },
   messaggi: appMessaggi,
   valigetta: appValigetta,
   palazzo: (me, miTurno) => appPalazzo(me, miTurno),

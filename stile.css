@@ -856,3 +856,53 @@ body.carta-ridotta .carta::before{content:"▲ tocca per aprire";position:absolu
 .ticker-apri{position:fixed;left:14px;bottom:16px;z-index:15}
 @media(max-width:900px){.ticker-apri{display:none}}
 .perl-qui{width:fit-content;max-width:100%;margin:4px 0 2px;padding:6px 10px;border-radius:10px;background:rgba(255,90,70,.16);border:1px solid rgba(255,120,100,.6);color:#ffb3a8;font-weight:700;font-size:14px}
+/* ===== v116 punto 1: schermo piu' pulito ===== */
+/* una sola barra sottile in alto: giocatori, turno, soldi e polizia */
+.hud-alto{top:0;left:0;right:0;height:54px;padding:7px 12px 7px 64px;align-items:center;background:linear-gradient(180deg,rgba(6,10,18,.88),rgba(6,10,18,.7));backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.08);box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.hud-alto .chips{flex-wrap:nowrap;gap:4px;max-width:none;flex:0 1 auto;min-width:0;overflow:hidden}
+.hud-alto .chip{padding:3px 10px 3px 3px;gap:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);box-shadow:none;backdrop-filter:none}
+.hud-alto .chip .pall{width:28px;height:28px;font-size:13px}
+.hud-alto .chip .n{font-size:13px}
+.hud-alto .chip .s{display:none}
+.hud-alto .chip.turno{outline:2px solid var(--oro);background:rgba(243,197,107,.12)}
+.hud-alto .fase{flex:1 1 auto;text-align:center;background:none;border:0;box-shadow:none;backdrop-filter:none;padding:0 8px;font-size:15px;overflow:hidden;text-overflow:ellipsis}
+.hud-alto .saldo{min-width:0;padding:4px 6px 4px 14px;border-radius:12px;display:flex;flex-direction:column;align-items:flex-end;gap:1px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);box-shadow:none;backdrop-filter:none}
+.hud-alto .saldo .saldo-su{display:flex;align-items:center;gap:6px}
+.hud-alto .saldo .tot{font-size:21px;line-height:1}
+.hud-alto .saldo .occhio{width:22px;height:22px;padding:0;border-radius:50%;font-size:12px;line-height:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff}
+.hud-alto .saldo .ri{margin:0;gap:10px;font-size:11.5px;font-weight:700;align-items:center}
+.hud-alto .saldo .sp{color:var(--sporco)}
+.hud-alto .saldo .fa{color:var(--oro)}
+.hud-alto .saldo .pol{cursor:pointer;color:var(--muted);white-space:nowrap}
+.hud-alto .saldo .pol b{letter-spacing:1px;font-weight:700}
+.hud-alto .saldo .pol.alta{color:#ffb3b3}
+/* il menu ☰ con Legenda, Cosa ho, Guida e Nuova partita */
+.legenda{top:8px!important;left:10px;padding:0;background:none;border:0;box-shadow:none;backdrop-filter:none;z-index:21}
+.legenda .menu-tasto{width:40px;height:38px;border-radius:11px;font-size:20px;line-height:1;padding:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#fff;cursor:pointer}
+.legenda .menu-tasto:hover{background:rgba(255,255,255,.14)}
+.legenda .menu-v{display:none}
+.legenda.menu-su{background:rgba(10,16,28,.94);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:6px;box-shadow:0 14px 34px rgba(0,0,0,.5);backdrop-filter:blur(10px)}
+.legenda.menu-su .menu-v{display:flex;flex-direction:column;align-items:stretch;margin-top:6px}
+.legenda.menu-su .menu-v .piccolo{justify-content:flex-start;text-align:left;font-size:14px;padding:9px 12px}
+/* le notizie: al massimo 2, poi svaniscono */
+.ticker{bottom:16px}
+.ticker div{font-size:13px;animation:notiziaVia .6s ease forwards;animation-delay:7s}
+@keyframes notiziaVia{to{opacity:0;transform:translateY(6px);visibility:hidden}}
+@media(max-width:900px){.hud-alto{height:auto;flex-wrap:wrap;padding-left:58px}.hud-alto .fase{order:3;flex-basis:100%}}
+.cronaca-tel{display:flex;flex-direction:column;gap:6px}
+.cronaca-tel div{font-size:14px;line-height:1.35;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+.cronaca-tel div.mia{border-color:rgba(243,197,107,.45)}
+@media(max-width:700px){
+  .hud-alto{height:auto;flex-wrap:wrap;row-gap:6px;padding:6px 8px 6px 56px}
+  .hud-alto .chips{margin-bottom:0!important;flex:1 1 100%;max-width:100%}
+  .hud-alto .fase{order:3;flex:1 1 0;text-align:left;font-size:13px;padding:0;white-space:normal;line-height:1.2;margin-left:-48px}
+  .hud-alto .saldo{order:4;padding:3px 6px 3px 10px}
+  .hud-alto .saldo .tot{font-size:17px}
+  .hud-alto .saldo .ri{font-size:10.5px;gap:7px}
+}
+@media(max-width:700px){
+  .hud-alto{display:grid!important;grid-template-columns:1fr auto;align-items:center;gap:6px 8px;padding:6px 8px!important;height:auto}
+  .hud-alto .chips{grid-column:1 / -1;grid-row:1;margin:0 0 0 48px!important;max-width:calc(100vw - 64px)!important;flex:none}
+  .hud-alto .fase{grid-column:1;grid-row:2;order:0;margin:0!important;flex:none;flex-basis:auto!important;text-align:left;white-space:normal;font-size:13px;padding:0 0 0 4px}
+  .hud-alto .saldo{grid-column:2;grid-row:2;order:0;margin:0!important;width:auto!important;position:static!important}
+}
