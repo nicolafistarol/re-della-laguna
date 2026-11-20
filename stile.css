@@ -410,6 +410,7 @@ button .lic{margin-right:2px}
 .scena .scelta.aperta .t{display:block}
 .scena .scelta.aperta .fai{display:block;font-size:12px;font-weight:800;color:var(--oro)}
 .scena .scelta.aperta{border-color:var(--oro)}
+.scena .scelta.aperta{grid-column:1/-1} /* v125: la scelta aperta (es. il guardiano del Faro) si legge a tutta larghezza */
 .scena .scelte{align-items:end}
 .scena .scelta:not(.aperta){flex-direction:row;align-items:center;gap:10px;padding:12px 14px;flex-wrap:wrap}
 .scena .scelta:not(.aperta) .costo{margin-left:auto;font-size:12px}
@@ -1032,3 +1033,16 @@ body:has(.ultimora:not(.via)) #toasts{top:122px}
 .velo.rosso-su{z-index:95}
 .fin:has(.sch[data-pk]){width:min(980px,96vw)}.fin .sch[data-pk] p,.fin .sch[disabled] p{font-size:15px;line-height:1.35}
 .fin .sch[data-pk],.fin .sch[disabled]{display:flex;flex-direction:column;justify-content:flex-start}
+
+/* ---------- v125: ritocchi leggeri (tutto sotto mezzo secondo, solo CSS, niente effetti continui sotto le finestre) ---------- */
+@keyframes fin-entra{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.velo:not(.laterale) > .fin{animation:fin-entra .22s ease-out both;box-shadow:0 30px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(243,197,107,.55),0 0 0 1px rgba(243,197,107,.22)}
+button.oro{background-image:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,0) 55%);box-shadow:0 2px 0 rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.35)}
+.scena .scelta .ic{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(243,197,107,.35),rgba(243,197,107,.08) 70%);border:1px solid rgba(243,197,107,.45)}
+.scena .scelta .ic svg{width:20px;height:20px}
+.alba-eroe.su b{text-shadow:0 0 18px rgba(120,230,160,.45)}
+.velo.velo-sentenza{background:radial-gradient(ellipse at center,rgba(120,10,20,.45),rgba(20,2,6,.75))}
+@keyframes corona{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.podio .gradino.g1 .med{display:inline-block;animation:corona 2.4s ease-in-out 3}
+@media(max-width:700px){.chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;max-width:100%}.chips::-webkit-scrollbar{display:none}.chips .chip{flex:0 0 auto}}
+@media(prefers-reduced-motion:reduce){.velo > .fin,.podio .gradino.g1 .med{animation:none}}

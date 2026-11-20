@@ -11,11 +11,16 @@
     i._offertaKey = chiave;
     if ((o.proposte || []).some((x) => x.da === i.id && x.stato === "proposta")) return null;
     o._offerteBot = o._offerteBot && o._offerteBot.k === chiave ? o._offerteBot : { k: chiave, a: [] };
-    const cand = o.lotti.filter((l) => l.owner && l.owner !== i.id && l.serie && (l.tipoCasella === "lotto" || l.tipoCasella === "molo") && !l.cantiere && !o._offerteBot.a.includes(l.owner) && !((o.noOfferte || {})["L" + l.id + ">" + l.owner] > chiave - 30) && !((o.noOfferte || {})["P" + i.id + ">" + l.owner] > chiave - 20) && (() => { const q = o.players.find((x) => x.id === l.owner); return q && !q.bot; })())
+    const cand = o.lotti.filter((l) => l.owner && l.owner !== i.id && l.serie && (l.tipoCasella === "lotto" || l.tipoCasella === "molo") && !l.cantiere && !o._offerteBot.a.includes(l.owner) && !((o.noOfferte || {})["L" + l.id + ">" + l.owner] > chiave - 10) && !((o.noOfferte || {})["P" + i.id + ">" + l.owner] > chiave - 20) && (() => { const q = o.players.find((x) => x.id === l.owner); return q && !q.bot; })())
       .map((l) => { const altri = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id), miei = altri.filter((x) => x.owner === i.id).length; return { l, chiude: !!(altri.length && miei === altri.length), miei, p: altri.length && miei === altri.length ? 0.9 : miei ? 0.6 : 0.35 }; }) // v114: un'offerta (quasi) ogni giorno
       .sort((a, b) => b.p - a.p);
     const c = cand[0]; if (!c || Math.random() > c.p) return null;
-    const valore = c.l.prezzo * (1 + 0.6 * (c.l.lvl || 0)), prezzo = Math.round(valore * (c.chiude ? 1.15 + 0.15 * Math.random() : 1.0 + 0.15 * Math.random()) / 10000) * 10000;
+    // v125: il valore vero (con le attivita'); dopo un no si torna solo con almeno +20% o con la cifra che avevi chiesto, e mai oltre il massimo
+    const valore = t.valoreLotto ? t.valoreLotto(c.l) : c.l.prezzo * (1 + 0.6 * (c.l.lvl || 0)), max = t.maxBotLotto ? t.maxBotLotto(o, i.id, c.l) : valore * 1.35;
+    let prezzo = Math.round(valore * (c.chiude ? 1.15 + 0.15 * Math.random() : 1.0 + 0.15 * Math.random()) / 10000) * 10000;
+    const no = (o.prezziNo || {})["L" + c.l.id + ">" + c.l.owner];
+    if (no) { const serve = no.chiesto && no.chiesto <= max ? no.chiesto : Math.ceil(no.p * 1.2 / 10000) * 10000; if (serve > max) return null; prezzo = Math.max(prezzo, serve); }
+    prezzo = Math.min(prezzo, max);
     if (i.cash - prezzo < 3e5) return null;
     o._offerteBot.a.push(c.l.owner);
     return { tipo: "proponi_lotto", a: c.l.owner, lotto: c.l.id, prezzo, compro: !0 };
@@ -116,9 +121,16 @@ function invitoBot(o, i, L) {
   const scelte = o.players.filter((q) => q.id !== i.id && !st.membri.includes(q.id) && !presi.has(q.id) && !q.settaFondata && !(q.sette || []).length && !q.eliminato);
   if (!scelte.length) return null;
   // preferisce chi ha soldi sporchi: e' gia' dei loro
-  const q = scelte.sort((a, b) => (b.sporchi || 0) - (a.sporchi || 0))[0];
-  const regalo = st.tesoro > 3.2e6 ? 5e5 : st.tesoro >= 1e6 ? 2e5 : 0;
-  return { tipo: "invita_setta", setta: st.id, invitato: q.id, offerta: regalo };
+  // v125: dopo un no si aspetta e si offre di piu' (al massimo 3 inviti rifiutati per persona)
+  for (const q of scelte.sort((a, b) => (b.sporchi || 0) - (a.sporchi || 0))) {
+    const r = (o.rifiutiInviti || {})[st.id + ">" + q.id];
+    let regalo = st.tesoro > 3.2e6 ? 5e5 : st.tesoro >= 1e6 ? 2e5 : 0;
+    if (r) regalo = Math.max(regalo, (r.offerta || 0) + 3e5);
+    if (regalo > st.tesoro || (L.N && regalo > L.N.settaOffertaMax)) continue;
+    if (L.perchéNoInvito && L.perchéNoInvito(o, st.id, q, regalo)) continue;
+    return { tipo: "invita_setta", setta: st.id, invitato: q.id, offerta: regalo };
+  }
+  return null;
 }
 
 // Le Grandi Opere: ogni carattere vota a modo suo, e dice perché nella chat della setta

@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 124;
+  const VERSIONE_REGOLE = 125;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -355,7 +355,7 @@
   // v116: i posti di cui stanotte qualcuno ti ha detto quanta polizia c'e' (marinaio, dritta, radio, soffiata): nel menu "Dove vai?" hanno il loro ⚠
   function saputoPericolo(s, p, luoghi) { if (!p.pericoliSaputi || p.pericoliSaputi.c !== s.ciclo) p.pericoliSaputi = { c: s.ciclo, l: [] }; for (const l of [].concat(luoghi)) if (l && !p.pericoliSaputi.l.includes(l)) p.pericoliSaputi.l.push(l); }
   // v123: il racconto della partita (per la schermata finale): i momenti chiave di ognuno e il patrimonio a ogni Alba
-  function momento(s, p, testo, segreto) { if (!p) return; (s.momenti = s.momenti || []).push({ c: s.ciclo + 1, id: p.id, t: testo, segreto: !!segreto }); if (s.momenti.length > 200) s.momenti.shift(); }
+  function momento(s, p, testo, segreto, peso) { if (!p) return; (s.momenti = s.momenti || []).push({ c: s.ciclo + 1, id: p.id, t: testo, segreto: !!segreto, ...(peso ? { v: peso } : {}) }); if (s.momenti.length > 200) s.momenti.shift(); }
   function avvisoCasella(s, p, testo) { p.messaggi.push({ ciclo: s.ciclo + 1, testo, lieve: true }); if (p.messaggi.length > 60) p.messaggi.shift(); }
 
   // ------------------------------------------------------------ nuova partita
@@ -1416,6 +1416,9 @@
     s.noOfferte = s.noOfferte || {};
     s.noOfferte["L" + pr.lotto + ">" + pr.a] = oggi;
     if (pr.da) s.noOfferte["P" + pr.da + ">" + pr.a] = oggi;
+    // v125: il prezzo rifiutato (e la cifra che hai chiesto tu): un computer torna solo con almeno il 20% in piu' o con la tua cifra
+    s.prezziNo = s.prezziNo || {}; const k = "L" + pr.lotto + ">" + pr.a, prima = s.prezziNo[k] || {};
+    s.prezziNo[k] = { p: Math.max(prima.p || 0, pr.prezzo || 0), chiesto: pr.chiesto || prima.chiesto || 0, g: oggi };
     for (const k of Object.keys(s.noOfferte)) if (oggi - s.noOfferte[k] > 40) delete s.noOfferte[k];
   }
   function fineGiorno(s) {
@@ -2125,7 +2128,7 @@
   // v105: il livello sale subito (dopo ogni mossa), un messaggio di Vera per ogni livello raggiunto
   function aggiornaLivelli(s) {
     if (!s || !s.players || s.fase === "lobby" || !s.lotti) return;
-    for (const p of s.players) { if (p.fallito) continue; const prima = p.livello || 0, ora = livelloPersonale(s, p); if (ora > prima) { p.livelloNuovo = ora; for (let k = prima + 1; k <= ora; k++) if (VERA[k]) privato(s, p, VERA[k].replace(/ha \d posti/, "ha " + postiValigetta(s, p) + " posti")); } }
+    for (const p of s.players) { if (p.fallito) continue; const prima = p.livello || 0, ora = livelloPersonale(s, p); if (ora > prima) { p.livelloNuovo = ora; for (let k = prima + 1; k <= ora; k++) if (VERA[k]) { privato(s, p, VERA[k].replace(/ha \d posti/, "ha " + postiValigetta(s, p) + " posti")); const ul = p.messaggi[p.messaggi.length - 1]; if (ul && ul.testo.startsWith("Vera:")) ul.liv = k; } } }
   }
   function iniziaNotte(s) {
     s.fase = "notte"; s.notteFatti = {};
@@ -2694,7 +2697,7 @@
     if (false) sp.push({ k: "serata", titolo: "Apri una serata nel tuo Casinò", testo: "Gli altri ricevono l'invito. Chi viene paga l'ingresso, e il banco sei tu." });
     if (dove === "palazzo" && haPiano(p, "spa") && !(N2.spaFatta && N2.spaFatta[p.id])) sp.push({ k: "spa", titolo: "Una serata nella tua Spa", testo: "Un ospite famoso, fotografi discreti. 50.000 €, +3 fama." });
     if (dove === "palazzo" && haPiano(p, "sala_insonorizzata") && lv >= 1) sp.push({ k: "polizia", titolo: "Un incontro nella sala insonorizzata", testo: "Qui dentro nessuno ascolta. Puoi comprare un poliziotto o il banchiere." });
-    if (dove === "palazzo" && p.sporchi > 0 && p.veicoli.includes("jet")) sp.push({ k: "paradiso", titolo: "Volo nel paradiso fiscale", testo: "Il jet è pronto. All'alba i soldi sporchi saranno puliti, meno la commissione." });
+    if (dove === "palazzo" && p.sporchi > 0 && p.veicoli.includes("jet")) sp.push({ k: "paradiso", titolo: "Volo nel paradiso fiscale", testo: "Il jet è pronto. I soldi sporchi tornano puliti subito, fino a 5 milioni a viaggio (uno per Ciclo): ne perdi il 30%." });
     if (haOggetto(p, "macchina") && dove !== "palazzo") {
       const q = s.players.find((x) => x.id !== p.id && N2.dove[x.id] === dove && !N2.viaggio[x.id] && !s.notteFatti[x.id]);
       if (q) sp.push({ k: "foto", bersaglio: q.id, titolo: "Fotografa " + q.nome, testo: q.nome + " è qui. Se fa qualcosa di strano, avrai una Prova." });
@@ -3876,11 +3879,21 @@
     notizia(s, "Strani simboli compaiono sui muri della Laguna. Qualcuno dice che è nata una nuova setta.", "voce");
   }
   // offerta > 0: regalo dal Tesoro a chi entra · offerta < 0: quota d'ingresso che paga chi entra
+  // v125: dopo un no, la stessa setta aspetta 3 Cicli e deve offrire almeno 300.000 € in piu'; al massimo 3 inviti rifiutati per persona
+  function perchéNoInvito(s, idSetta, q, offerta) {
+    if (q.bot) return ""; // tra computer resta come prima: la regola protegge le persone dagli inviti a raffica
+    const r = (s.rifiutiInviti || {})[idSetta + ">" + q.id], tot = Object.entries(s.rifiutiInviti || {}).filter(([k]) => k.endsWith(">" + q.id)).reduce((a, [, x]) => a + (x.n || 0), 0);
+    if (tot >= 3) return q.nome + " ha già detto di no a 3 inviti: non ne riceve altri.";
+    if (r && s.ciclo - r.ciclo < 3) return q.nome + " ha appena detto di no: aspetta fino al Ciclo " + (r.ciclo + 4) + ".";
+    if (r && (Number(offerta) || 0) < (r.offerta || 0) + 300_000) return "Dopo un no serve un regalo più alto: almeno " + euro((r.offerta || 0) + 300_000) + ".";
+    return "";
+  }
   function invitaSetta(s, p, idSetta, idInvitato, offerta) {
     const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro invita.");
     const q = giocatore(s, idInvitato); if (!q || q.id === p.id) err("Scegli chi invitare.");
     if (st.membri.includes(idInvitato)) err("È già un membro.");
     if (marchiato(s, q)) err(q.nome + " ha venduto una setta: fino al Ciclo " + (q.marchiatoFino + 1) + " nessuna setta lo prende.");
+    { const no = perchéNoInvito(s, idSetta, q, offerta); if (no) err(no); }
     offerta = Math.round(Number(offerta) || 0);
     if (Math.abs(offerta) > N.settaOffertaMax) err("L'offerta può essere al massimo di " + euro(N.settaOffertaMax) + ".");
     if (offerta > st.tesoro) err("Il Tesoro della setta non ha " + euro(offerta) + " da regalare.");
@@ -3894,7 +3907,7 @@
     const inv = s.inviti[i];
     const st = s.sette.find((x) => x.id === idSetta);
     const gm = st ? giocatore(s, st.gm) : null;
-    if (!si || !st) { s.inviti.splice(i, 1); if (gm && st) privato(s, gm, p.nome + " ha rifiutato l'invito nella tua setta." + (motivo ? " " + String(motivo).slice(0, 120) : "")); return; }
+    if (!si || !st) { s.inviti.splice(i, 1); if (st) { s.rifiutiInviti = s.rifiutiInviti || {}; const k = idSetta + ">" + p.id, r = s.rifiutiInviti[k] || { n: 0 }; s.rifiutiInviti[k] = { n: r.n + 1, ciclo: s.ciclo, offerta: Math.max(r.offerta || 0, inv.offerta || 0) }; } if (gm && st) privato(s, gm, p.nome + " ha rifiutato l'invito nella tua setta." + (motivo ? " " + String(motivo).slice(0, 120) : "")); return; }
     const off = inv.offerta || 0;
     if (off > 0 && st.tesoro < off) { s.inviti.splice(i, 1); privato(s, p, "Il Tesoro della setta non ha più i soldi promessi: l'invito non vale più."); privato(s, gm, "L'invito a " + p.nome + " è saltato: nel Tesoro mancano i soldi promessi."); return; }
     if (marchiato(s, p)) err("Hai venduto una setta: fino al Ciclo " + (p.marchiatoFino + 1) + " nessuna setta ti prende.");
@@ -4376,6 +4389,30 @@
     return pr.id;
   }
   function da_(s, id) { return s.players.find((x) => x.id === id); }
+  // v125: quanto paga al massimo un computer per un terreno di un altro: 1,35 volte il valore vero, 1,6 se gli chiude il gruppo
+  function maxBotLotto(s, idBot, l) {
+    const altri = s.lotti.filter((x) => x.serie === l.serie && x.id !== l.id), miei = altri.filter((x) => x.owner === idBot).length;
+    return Math.floor(valoreLotto(l) * (altri.length && miei === altri.length ? 1.6 : 1.35) / 10000) * 10000;
+  }
+  // v125: "Chiedi di più": rispondi a un computer con la tua cifra. Se sta nel suo massimo compra subito, se no dice di no.
+  function controproposta(s, p, idP, cifra) {
+    const pr = (s.proposte || []).find((x) => x.id === idP);
+    if (!pr || pr.a !== p.id || pr.stato !== "proposta") err("Proposta non trovata.");
+    if (!pr.compro) err("Qui puoi solo accettare o rifiutare.");
+    const da = giocatore(s, pr.da), l = lotto(s, pr.lotto);
+    cifra = Math.floor(cifra || 0); if (cifra <= pr.prezzo) err("Chiedi più di " + euro(pr.prezzo) + ", se no accetta e basta.");
+    if (!da.bot) { // con una persona: la tua cifra diventa una nuova proposta (vendi tu a lei)
+      pr.stato = "rifiutata"; pr.chiesto = cifra; pr.motivo = "chiede " + euro(cifra);
+      proponiLotto(s, p, da.id, l.id, cifra, false); return;
+    }
+    const max = maxBotLotto(s, da.id, l);
+    if (cifra <= max && da.cash - cifra >= 3e5 && l.owner === p.id && !l.cantiere) {
+      pr.prezzo = cifra; privato(s, p, da.nome + ": «D'accordo, " + euro(cifra) + ".»");
+      return rispondiProposta(s, p, idP, true);
+    }
+    pr.chiesto = cifra; pr.stato = "rifiutata"; pr.motivo = "troppo per " + da.nome; segnaNoOfferta(s, pr);
+    privato(s, p, da.nome + ": «" + euro(cifra) + " per " + l.nome + "? No, è troppo.»" + (cifra > max * 1.5 ? "" : " Forse, più avanti, torna con un'offerta migliore."));
+  }
   function rispondiProposta(s, p, idP, si, motivo) {
     const pr = (s.proposte || []).find((x) => x.id === idP);
     if (!pr || pr.a !== p.id || pr.stato !== "proposta") err("Proposta non trovata.");
@@ -5222,7 +5259,8 @@
     const multa = round(quota * Math.max(0, patrimonio(s, p, false)));
     const aRischio = propri(s, p).filter((l) => l.tipo && ["copertura", "notte", "rischio"].includes(ATTIVITA[l.tipo].gruppo));
     const tocca = !!pena.attivita && (p.riciclTot > 0 || gravita !== "media");
-    const chiusi = tocca && pena.attivita === "chiusa" ? aRischio : [], sequestrati = tocca && pena.attivita !== "chiusa" ? aRischio.slice() : [];
+    // v125: una condanna fa male ma non chiude la partita: al massimo 3 locali sequestrati (i piu' ricchi), 4 con il terreno piu' prezioso
+    const chiusi = tocca && pena.attivita === "chiusa" ? aRischio : [], sequestrati = tocca && pena.attivita !== "chiusa" ? aRischio.slice().sort((a, b) => valoreLotto(b) - valoreLotto(a)).slice(0, 3) : [];
     let pianiPersi = 0, stanzePerse = [];
     if (tocca && pena.attivita === "confisca+") {
       const prezioso = propri(s, p).filter((l) => !sequestrati.includes(l)).sort((a, b) => valoreLotto(b) - valoreLotto(a))[0];
@@ -5273,6 +5311,7 @@
     paga(s, p, multa, null);
     for (const id of e.chiusi) lotto(s, id).chiuso = 1;
     const nomiSeq = e.sequestrati.map((id) => lotto(s, id).nome);
+    const valoreSeq = e.sequestrati.reduce((t, id) => t + round(valoreLotto(lotto(s, id))), 0); // v125: "In tutto perdi" conta anche i terreni
     for (const id of e.sequestrati) sequestra(s, lotto(s, id), p);
     if (e.pianiPersi) { p.piani -= e.pianiPersi; (p.funzioniPiani || []).splice(-e.pianiPersi); p.stanze = stanzeDi(p).filter((f) => !e.stanzePerse.includes(f)); aggiornaSkyline(s); }
     // partite nuove: se cade il Gran Maestro, la Procura mette le mani sul Tesoro (solo quello sepolto e' al sicuro)
@@ -5288,8 +5327,8 @@
     p.corrotti = {};
     fedinaCondanna(s, p);
     if (gravita === "grave" || gravita === "gravissima") { p.cerchie = []; }
-    momento(s, p, "Condannato (" + gravita + "): multa " + euro(multa) + (confiscati ? ", confiscati " + euro(confiscati) + " sporchi" : "") + (pena.faro ? ", " + pena.faro + " turni al Faro" : ""));
-    p.ultimaSentenza = { gravita, multa, confiscati, faro: pena.faro, blocco: pena.blocco, motivo: motivo || "", ciclo: s.ciclo, chiusi: e.chiusi.length, sequestrati: nomiSeq, piani: e.pianiPersi, contatti: e.contatti, sconti: gf.note.map((x) => x.testo),
+    momento(s, p, "Condannato (" + gravita + "): multa " + euro(multa) + (confiscati ? ", confiscati " + euro(confiscati) + " sporchi" : "") + (pena.faro ? ", " + pena.faro + " turni al Faro" : "") + (valoreSeq ? ", terreni per " + euro(valoreSeq) : ""), false, multa + confiscati + valoreSeq);
+    p.ultimaSentenza = { gravita, multa, confiscati, faro: pena.faro, blocco: pena.blocco, motivo: motivo || "", ciclo: s.ciclo, chiusi: e.chiusi.length, sequestrati: nomiSeq, valoreSeq, piani: e.pianiPersi, contatti: e.contatti, sconti: gf.note.map((x) => x.testo),
       reato, note: gf.note.map((x) => ({ k: x.k, testo: x.testo })), fama: pena.fama, salvi: e.sporchiSalvi, salviDa: e.sporchiSalvi > 0 ? salviDa : [], multaQuota: e.multaQuota, legale,
       chiusiNomi: e.chiusi.map((id) => lotto(s, id).nome), stanzePerse: e.stanzePerse.map((f) => (STANZE[f] || { nome: f }).nome), tesori: e.tesori.map((x) => ({ nome: x.nome, importo: x.importo })),
       cerchiePerse, piste, condanneTot: p.condanne, tracceDopo: p.tracce };
@@ -5312,6 +5351,7 @@
     perquisizioni(s);
     s.retataAnnunciata = false;
     for (const p of s.players) {
+      const cash0 = p.cash, sporchi0 = p.sporchi || 0; // v125: i conti dell'Alba sono la differenza vera dei contanti (puliti) e degli sporchi
       const r = { rendite: 0, tasse: 0, evasa: 0, stipendioSindaco: 0, interessi: 0, corruzione: 0, veicoli: 0, palazzo: 0, decima: 0 };
       // rendite
       let rend = 0;
@@ -5384,6 +5424,7 @@
       p.tracce *= 1 - (p.pulitoCiclo ? N.decayPulito : N.decaySporco);
       if (p.pulitoCiclo) p.ombraCicli = (p.ombraCicli || 0) + 1; else p.ombraCicli = 0;
       p.copUsata = 0;
+      r.netto = round(p.cash - cash0); r.nettoSporchi = round((p.sporchi || 0) - sporchi0);
       riepilogo[p.id] = r;
       aggiornaPiste(s, p, r.rendite);
       r.consiglio = consiglioVera(s, p);
@@ -5955,6 +5996,7 @@
       // ---- scambi di terreni
       case "proponi_lotto": return proponiLotto(s, p, a.a, a.lotto, a.prezzo, a.compro);
       case "rispondi_proposta": return rispondiProposta(s, p, a.id, !!a.si, a.motivo);
+      case "controproposta": return controproposta(s, p, a.id, a.prezzo);
       // ---- costruire, Palazzo, lusso
       case "permesso": return chiediPermesso(s, p, a.lotto, a.timbro === true);
       case "regalo_assessore": return regaloAssessore(s, p, a.lotto);
@@ -6198,7 +6240,7 @@
     // tabellone e giorno
     CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, casella, corrente, haSerie, propri, haAttivita, prezzoAgenzia, destinazioniRapide,
     // soldi e valori
-    euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, SABOTA, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
+    maxBotLotto, perchéNoInvito, euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, SABOTA, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
     // Palazzo
     costoCantiere, guadagnoLivello, puoSalire, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale, tettoColpo,
     costoPiano, costoPiani, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, livelloPalazzo, lustro,
