@@ -52,6 +52,19 @@ function avviso3D() {
 }
 import * as Loc from "./locale.js?v=125";   // ?veloce = senza animazioni (per le prove)
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
+// v127: icone a linea (al posto delle emoji nell'interfaccia): 1.6 px, colore del testo
+const SV = (() => { const g = (d) => `<svg class="sv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`; return {
+  occhio: g('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+  occhioNo: g('<path d="M3 3l18 18"/><path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.9 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'),
+  menu: g('<path d="M4 7h16M4 12h16M4 17h10"/>'),
+  cubo: g('<path d="M12 2.5l8.5 4.8v9.4L12 21.5l-8.5-4.8V7.3z"/><path d="M3.5 7.3L12 12l8.5-4.7M12 12v9.5"/>'),
+  mappa: g('<path d="M9 4L3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>'),
+  libro: g('<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/>'),
+  persone: g('<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.4 3-5.5 6-5.5s5.4 2.1 6 5.5"/><path d="M16 4.8a3.2 3.2 0 0 1 0 6.4M18.5 14.8c1.4.8 2.3 2.4 2.5 5.2"/>'),
+  telefono: g('<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/>'),
+  cronaca: g('<path d="M5 4h11v16H7a2 2 0 0 1-2-2z"/><path d="M16 8h3v10a2 2 0 0 1-2 2"/><path d="M8 8h5M8 12h5M8 16h3"/>'),
+  sirena: g('<path d="M6 18v-5a6 6 0 0 1 12 0v5"/><path d="M4 18h16v3H4z"/><path d="M12 3v2M4.2 6.2l1.4 1.4M19.8 6.2l-1.4 1.4"/>'),
+}; })();
 const notizieViste = new Map(); // v116: quando e' comparsa ogni notizia in basso a sinistra
 const COL_SERIE = { Spezie: "#9b5a2c", Lanterne: "#ff8a3d", Terracotta: "#d9480f", Giungla: "#2b9348", Perla: "#f2a7c3", Diamante: "#e0f7ff", Rame: "#b87333", Sabbia: "#e9c46a", Corallo: "#14b8a6", Neon: "#ff4fa3", Velluto: "#b5179e", Acciaio: "#5c7f99", Vetro: "#2f6fe0", Oro: "#c9a24a", Platino: "#8d99ae", Moli: "#9aa", Salina: "#f4f1de", Mangrovie: "#1b5e3b", Smeraldo: "#10b981", Tramonto: "#f97316", Cobalto: "#1e40af" };
 const SCENE = { Ambra: "img/ambra.jpg", Palma: "img/palma.jpg", Flamingo: "img/flamingo.jpg", Sole: "img/sole.jpg", Corona: "img/corona.jpg" };
@@ -410,13 +423,13 @@ function schermataProvaLocale(seed) {
   const disegna = () => {
     schermoIngresso(`<div class="cartaI vetro" style="width:min(560px,94vw)">
       <span class="kick" style="color:var(--oro)">Prova da solo</span>
-      <span class="logo-ordo" aria-label="ORDO"><i></i><b>ORDO</b><i></i></span>
+      <span class="logo-ordo" aria-label="ORDO"><b>ORDO</b><em>Denaro · Potere · Segreti</em></span>
       <span class="sub">Tu contro Rocco, Greta e Dario (giocatori-computer).</span>
       <div class="campo"><label for="nomeLoc">Come ti chiami?</label><input id="nomeLoc" maxlength="24" placeholder="Scrivi il tuo nome" value="${esc(nomeLocale() === "Tu" ? "" : nomeLocale())}"></div>
       <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px">${sceltaDurataHtml()}
         <label class="check"><input type="checkbox" id="princL" ${principianti ? "checked" : ""}> Partita guidata: Vera ti dà consigli e le cose si scoprono piano piano (consigliata la prima volta)</label>${sceltaTestHtml()}</div>
       <button class="oro grande" id="via">Inizia</button>${tastoGuida()}
-      <a href="${location.pathname}" style="align-self:stretch;text-align:center;padding:12px;border-radius:12px;text-decoration:none;font-weight:800;color:#fff;background:rgba(79,195,247,.18);border:1px solid rgba(79,195,247,.6)">👥 Gioca online con gli amici</a></div>`);
+      <a href="${location.pathname}" class="tasto-link">${SV.persone} Gioca online con gli amici</a></div>`);
     collegaTastoGuida(); if (guidaMaiVista()) apriGuida(0, true);
     $("#princL").onchange = (e) => { principianti = e.target.checked; try { localStorage.setItem("laguna_guidata", principianti ? "1" : "0"); } catch (er) { } };
     collegaDurata(disegna);
@@ -439,7 +452,7 @@ function schermataNome() {
   const cod = codiceDalLink();
   schermoIngresso(`<div class="cartaI vetro">
     <span class="kick" style="color:var(--oro)">${cod ? "Ti hanno invitato a una partita · codice " + esc(cod) : "Benvenuto nella Laguna"}</span>
-    <span class="logo-ordo" aria-label="ORDO"><i></i><b>ORDO</b><i></i></span>
+    <span class="logo-ordo" aria-label="ORDO"><b>ORDO</b><em>Denaro · Potere · Segreti</em></span>
     <div class="campo"><label for="nome">Come ti chiami?</label><input id="nome" maxlength="24" placeholder="Il tuo nome"></div>
     <button class="oro grande" id="entra">Entra</button>
     <span style="font-size:12px;color:var(--muted)">Niente email e niente password: ti ricordiamo su questo computer.</span></div>`);
@@ -457,7 +470,7 @@ function schermataCasa() {
   const disegnaCasa = () => {
     schermoIngresso(`<div class="cartaI vetro" style="width:min(560px,94vw)">
       <span class="kick" style="color:var(--oro)">Ciao ${esc(nomeMio())}</span>
-      <span class="logo-ordo" aria-label="ORDO"><i></i><b>ORDO</b><i></i></span>
+      <span class="logo-ordo" aria-label="ORDO"><b>ORDO</b><em>Denaro · Potere · Segreti</em></span>
       <div class="vetro" style="padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:8px;border:1px solid rgba(79,195,247,.6)">
         <b>Un amico ti ha invitato? Scrivi il codice</b>
         <div class="riga"><input id="codice" placeholder="es. PALMA-4821" style="flex:1;text-transform:uppercase"><button class="oro" id="unisciti">Entra</button></div>
@@ -932,12 +945,12 @@ function disegna() {
     <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId && rivaleMio() === p.id ? "rivale" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${esc(p.nome)}${p.id === mioId ? " (tu)" : ""}</div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${statoCollegamento(p) ? `<span class="non-coll"> · ${statoCollegamento(p)}</span>` : puoSostituire(p) ? `<span class="non-coll"> · non risponde</span>` : ""}${notte && p.id === mioId ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · hai deciso" : " · decidi…") : ""}</div><div class="s liv-chip">Liv. ${p.livello ?? 0} · fama ${p.fama ?? 0}</div>${p.id !== mioId && rivaleMio() === p.id ? `<div class="s riv-chip" title="La sfida del Ciclo: tocca per i dettagli">⚔️ rivale · ${sfidaMia().avanti === mioId ? "sei avanti" : "è avanti"}</div>` : ""}${p.id === mioId && (p.fedina || 0) >= 2 ? `<div class="s fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">⚖️ Fedina ${p.fedina}</div>` : ""}</div></div>`).join("")}</div>
     <div class="fase vetro">${faseTesto}</div>
     <div class="saldo vetro" title="${esc(segn)}">
-      <div class="saldo-su"><span class="serif tot">${saldoNascosto ? "••••••" : euro(me.cash)}</span><button class="occhio" id="occhio" aria-label="${saldoNascosto ? "Mostra i soldi" : "Nascondi i soldi"}" title="${saldoNascosto ? "Mostra i soldi" : "Nascondi i soldi"}">${saldoNascosto ? "🙈" : "👁"}</button></div>
-      <div class="ri">${S.sblocco >= 1 || me.sporchi ? `<span class="sp">Sporchi ${saldoNascosto ? "•••" : euro(me.sporchi)}</span>` : ""}<span class="fa">Fama ${Math.round(me.fama)}</span><span id="scalaPolizia" class="pol ${(me.stato || 0) >= 2 ? "alta" : ""}" title="${esc(segn)} Tocca: come e quando arriva una condanna">🚔 <b>${[1, 2, 3, 4].map((i) => (me.stato || 0) >= i ? "●" : "○").join("")}</b></span></div>
+      <div class="saldo-su"><span class="serif tot">${saldoNascosto ? "••••••" : euro(me.cash)}</span><button class="occhio" id="occhio" aria-label="${saldoNascosto ? "Mostra i soldi" : "Nascondi i soldi"}" title="${saldoNascosto ? "Mostra i soldi" : "Nascondi i soldi"}">${saldoNascosto ? SV.occhioNo : SV.occhio}</button></div>
+      <div class="ri">${S.sblocco >= 1 || me.sporchi ? `<span class="sp">Sporchi ${saldoNascosto ? "•••" : euro(me.sporchi)}</span>` : ""}<span class="fa">Fama ${Math.round(me.fama)}</span><span id="scalaPolizia" class="pol ${(me.stato || 0) >= 2 ? "alta" : ""}" title="${esc(segn)} Tocca: come e quando arriva una condanna">${SV.sirena} <b>${[1, 2, 3, 4].map((i) => (me.stato || 0) >= i ? "●" : "○").join("")}</b></span></div>
     </div>
   </div>
   ${notte ? scenaNotte(me)
-      : tickerNascosto ? `<button class="vetro piccolo ticker-apri" id="tickerApri">📜 Cronaca</button>` : `<div class="ticker">${cron.map((r) => { const resta = 7000 - (oraN - notizieViste.get(JSON.stringify(r))); return resta <= 0 ? "" : `<div class="${r.chi === mioId ? "mia" : ""}" style="animation-delay:${resta}ms">${esc(r.testo)}</div>`; }).join("")}</div>`}
+      : tickerNascosto ? `<button class="vetro piccolo ticker-apri" id="tickerApri">${SV.cronaca} Cronaca</button>` : `<div class="ticker">${cron.map((r) => { const resta = 7000 - (oraN - notizieViste.get(JSON.stringify(r))); return resta <= 0 ? "" : `<div class="${r.chi === mioId ? "mia" : ""}" style="animation-delay:${resta}ms">${esc(r.testo)}</div>`; }).join("")}</div>`}
   ${notte ? "" : comandiVista() + legenda()}
   <button class="vetro audio ${Suono.acceso() ? "" : "spento"}" id="audio" title="${Suono.acceso() ? "Spegni musica e suoni" : "Accendi musica e suoni"}" aria-label="${Suono.acceso() ? "Spegni" : "Accendi"} musica e suoni">${icoE(Suono.acceso() ? "suono-si" : "suono-no")}</button>
   ${notte ? "" : `<div class="carta vetro">${(me.stato || 0) >= 3 && !S.fine ? `<div class="fascia-polizia">⚖️ <span><b>${me.stato >= 4 ? "Sei a Processo: all'Alba arriva la sentenza." : "Sei sotto indagine."}</b> Finché dura, il Municipio non ti dà permessi.${me.stato >= 4 ? "" : " Per scendere: un Ciclo intero senza affari sporchi."} <u data-a="polizia">Cosa rischio</u></span></div>` : ""}${animando ? `<div class="sub">…</div>` : cartaGiorno(me)}</div>`}`;
@@ -1063,7 +1076,7 @@ function casellaHtml0(l) {
 function posLegenda() { const lg = $(".legenda"), ch = $(".hud-alto .chips"); if (!lg || !ch) return; const b = ch.getBoundingClientRect(); if (b.height) lg.style.top = Math.round(b.bottom + 6) + "px"; }
 window.addEventListener("resize", () => posLegenda());
 function legenda() {
-  return `<div class="legenda vetro ${menuAperto || legendaAperta || soloMiei ? "menu-su" : ""}"><button class="menu-tasto" id="menuTasto" aria-label="Menu" title="Menu: legenda, cosa ho, guida, nuova partita">☰</button><div class="riga menu-v" style="gap:6px"><button class="piccolo" id="legTasto">${ico("mappa")} Legenda</button><button class="piccolo ${soloMiei ? "oro" : ""}" id="mieiTasto">${ico("stella")} Cosa ho</button><button class="piccolo" id="guidaTasto" title="Come si gioca">📖 Guida</button><button class="piccolo" id="nuovaTasto" title="Lascia questa partita e iniziane un'altra">${ico("flag")} Nuova partita</button></div><div class="leg-dentro">
+  return `<div class="legenda vetro ${menuAperto || legendaAperta || soloMiei ? "menu-su" : ""}"><button class="menu-tasto" id="menuTasto" aria-label="Menu" title="Menu: legenda, cosa ho, guida, nuova partita">${SV.menu}</button><div class="riga menu-v" style="gap:6px"><button class="piccolo" id="legTasto">${ico("mappa")} Legenda</button><button class="piccolo ${soloMiei ? "oro" : ""}" id="mieiTasto">${ico("stella")} Cosa ho</button><button class="piccolo" id="guidaTasto" title="Come si gioca">📖 Guida</button><button class="piccolo" id="nuovaTasto" title="Lascia questa partita e iniziane un'altra">${ico("flag")} Nuova partita</button></div><div class="leg-dentro">
     <div><span class="lg terreno"><em>60k</em></span> Terreno libero: il numero è il prezzo</div>
     <div><span class="lg terreno pres mio" style="--own:var(--oro)"><b>T</b></span> Il tuo terreno: bordo d'oro e stellina</div>
     <div><span class="lg terreno pres" style="--own:#4aa3a2"><b>R</b></span> Terreno di un altro (la sua iniziale)</div>
@@ -1348,7 +1361,7 @@ function comandiVista() {
   const dio = TRE3D && !!Tre.DIORAMA, cubi = TRE3D && !dio, m = TRE3D ? Tre.modoVista() : "";
   const visuali = dio ? `<button id="vArci" class="${m === "arcipelago" ? "attivo" : ""}" title="Tutta la Laguna: la visuale resta ferma">🏝️<small>Arcipelago</small></button><button id="vSegui" class="${m === "segui" ? "attivo" : ""}" title="Quando tiri i dadi la visuale si avvicina alla tua auto e la accompagna">🚗<small>Segui</small></button>`
     : cubi ? `<button id="vSegui" class="${m === "segui" ? "attivo" : ""}" title="Segui la tua auto da dietro">🚗<small>Segui</small></button><button id="vLibera" class="${m === "libera" ? "attivo" : ""}" title="Gira la visuale come vuoi">🧭<small>Libera</small></button><button id="vAlto" class="${m === "alto" ? "attivo" : ""}" title="Tutta la Laguna vista dall'alto">🗺️<small>Alto</small></button>` : "";
-  return `<div class="comandi-vista vetro"><span class="cv-titolo">Vista</span>${visuali}<button id="z3d" class="${TRE3D ? "" : "attivo"}" title="${TRE3D ? "Torna al tabellone visto dall'alto" : "Prova la vista 3D (pesante)"}">${TRE3D ? "🗺️<small>Tabellone</small>" : "🧊<small>3D</small>"}</button>${TRE3D ? `<button id="zMotore" title="${cubi ? "Torna alla foto della Laguna" : "Il mondo 3D: giralo e guardalo da ogni lato"}">${cubi ? "📷<small>Foto</small>" : "🌍<small>Mondo 3D</small>"}</button>` : ""}<i class="cv-riga"></i><button id="zPiu" aria-label="Avvicina" title="Avvicina">＋</button><button id="zMeno" aria-label="Allontana" title="Allontana">−</button>${cubi ? `<button id="zSx" aria-label="Ruota a sinistra" title="Ruota">⟲</button><button id="zDx" aria-label="Ruota a destra" title="Ruota">⟳</button>` : ""}${TRE3D ? "" : `<button id="zTutto" aria-label="Vista intera" title="Vista intera">⤢</button>`}<button id="zMio" aria-label="Vai alla tua pedina" title="La tua pedina">◎</button></div>`;
+  return `<div class="comandi-vista vetro"><span class="cv-titolo">Vista</span>${visuali}<button id="z3d" class="${TRE3D ? "" : "attivo"}" title="${TRE3D ? "Torna al tabellone visto dall'alto" : "Prova la vista 3D (pesante)"}">${TRE3D ? SV.mappa + "<small>Tabellone</small>" : SV.cubo + "<small>3D</small>"}</button>${TRE3D ? `<button id="zMotore" title="${cubi ? "Torna alla foto della Laguna" : "Il mondo 3D: giralo e guardalo da ogni lato"}">${cubi ? "📷<small>Foto</small>" : "🌍<small>Mondo 3D</small>"}</button>` : ""}<i class="cv-riga"></i><button id="zPiu" aria-label="Avvicina" title="Avvicina">＋</button><button id="zMeno" aria-label="Allontana" title="Allontana">−</button>${cubi ? `<button id="zSx" aria-label="Ruota a sinistra" title="Ruota">⟲</button><button id="zDx" aria-label="Ruota a destra" title="Ruota">⟳</button>` : ""}${TRE3D ? "" : `<button id="zTutto" aria-label="Vista intera" title="Vista intera">⤢</button>`}<button id="zMio" aria-label="Vai alla tua pedina" title="La tua pedina">◎</button></div>`;
 }
 function notteOra() { return S && S.fase === "notte" && S.notte; }
 let legendaAperta = false, menuAperto = false;
@@ -2208,7 +2221,7 @@ function disegnaTelefono(me) {
   const arrivati = (me.messaggi || []).slice(letti()), imp = arrivati.filter(msgImportante).length, norm = arrivati.filter((m) => !m.lieve && !msgImportante(m) && !MSG_LIEVE.test(m.testo)).length;
   const nuovi = imp + norm;
   if (!telAperto) {
-    box.innerHTML = `<button class="tel-tasto vetro" id="apriTel" aria-label="Apri il telefono">📱${imp ? `<span class="badge">${imp}</span>` : norm ? `<span class="badge grigio">${norm}</span>` : ""}</button>`;
+    box.innerHTML = `<button class="tel-tasto vetro" id="apriTel" aria-label="Apri il telefono">${SV.telefono}${imp ? `<span class="badge">${imp}</span>` : norm ? `<span class="badge grigio">${norm}</span>` : ""}</button>`;
     $("#apriTel").onclick = () => { telAperto = true; app = null; disegnaTelefono(me); };
     return;
   }
@@ -4106,7 +4119,7 @@ function apriGuida(da = 0, rapida = false) {
   mostra();
 }
 function guidaMaiVista() { try { return !localStorage.getItem("laguna_guida_vista"); } catch (e) { return false; } }
-function tastoGuida() { return `<button class="bianco" id="apriGuida" style="align-self:stretch">📖 Come si gioca · 3 slide</button>`; }
+function tastoGuida() { return `<button class="bianco" id="apriGuida" style="align-self:stretch">${SV.libro} Come si gioca <span class="dim">· 3 slide</span></button>`; }
 function collegaTastoGuida() { const b = $("#apriGuida"); if (b) b.onclick = () => apriGuida(0, true); }
 
 // ------------------------------------------------------------ APP TV: il primo Grande Affare (Livello 4)

@@ -1,0 +1,81 @@
+/* ORDO — il sistema di stile unico del gioco (caricato DOPO stile.css: qui vincono le regole nuove).
+   Palette: avorio (testo), ottone (solo azione principale e piccole etichette), superfici scure opache, fili da 1 px.
+   Colori di significato: --guadagno --perdita --polizia --rivale --sporchi (definiti in stile.css).
+   Font: DM Serif Display (titoli e cifre grandi), Manrope (tutto il resto).
+   Scala: 12 / 14 / 16 / 20 / 28 / 64 px. Spazi: multipli di 4 px. Raggi: 10 (controlli), 14 (riquadri), 20 (finestre). */
+/* ===== v127: ORDO, premium vero. Regole: poco oro (solo il tasto principale e piccole etichette), superfici scure opache con bordi da 1 px,
+   ombre morbide, grana leggerissima, scala tipografica fissa (12 / 14 / 16 / 20 / 28 / 64), niente riflessi e niente emoji nell'interfaccia ===== */
+:root{--avorio:#ece6da;--avorio-2:rgba(236,230,218,.62);--ottone:#c6a66a;--ottone-2:#d8bc84;--sup:rgba(13,15,20,.88);--sup-2:rgba(255,255,255,.035);--filo:rgba(255,255,255,.085);--filo-2:rgba(255,255,255,.16);--ombra:0 1px 0 rgba(255,255,255,.04) inset,0 30px 70px -24px rgba(0,0,0,.7),0 2px 6px rgba(0,0,0,.25);
+  --grana:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.sv{width:18px;height:18px;flex:0 0 auto;vertical-align:-4px}
+/* pulsanti: piatti, 1 px, stati chiari */
+button{border-radius:10px;border:1px solid var(--filo-2);background:var(--sup-2);color:var(--avorio);font-weight:600;letter-spacing:.005em;transition:background-color .15s,border-color .15s,transform .08s,color .15s}
+button:hover{filter:none;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.24)}
+button:active:not(:disabled){transform:translateY(1px)}
+button.oro{background:var(--ottone);background-image:none;color:#15110a;border:1px solid rgba(0,0,0,.25);box-shadow:inset 0 1px 0 rgba(255,255,255,.22);font-weight:700}
+button.oro:hover{background:var(--ottone-2);border-color:rgba(0,0,0,.25)}
+button.bianco{background:transparent;color:var(--avorio);border:1px solid var(--filo-2);font-weight:600}
+button.bianco:hover{background:rgba(255,255,255,.06)}
+button.grande{font-size:16px;padding:14px 22px;letter-spacing:.01em}
+button .dim{color:var(--avorio-2);font-weight:500}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--ottone);outline-offset:2px}
+input,select,textarea{background:rgba(255,255,255,.03);border:1px solid var(--filo-2);border-radius:10px;color:var(--avorio);padding:12px 14px;transition:border-color .15s,background-color .15s}
+input:hover,select:hover{border-color:rgba(255,255,255,.24)}
+input:focus,select:focus{border-color:var(--ottone);background:rgba(255,255,255,.05);outline:none}
+input::placeholder{color:rgba(236,230,218,.35)}
+/* finestre: superficie opaca, bordo 1 px, niente cornice dorata */
+.velo:not(.laterale) > .fin{box-shadow:var(--ombra);border:1px solid var(--filo)}
+.fin{background:var(--sup);position:relative}
+.fin::before,.ingresso .cartaI::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--grana);opacity:.05;pointer-events:none;mix-blend-mode:overlay}
+/* ---------- schermata iniziale ---------- */
+.ingresso::before{content:"";position:fixed;inset:0;background:radial-gradient(ellipse at 50% 40%,rgba(6,8,12,.35),rgba(6,8,12,.86) 75%);pointer-events:none}
+.ingresso .cartaI{position:relative;background:var(--sup);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid var(--filo);box-shadow:var(--ombra);border-radius:20px;padding:40px 36px 32px;gap:16px}
+.ingresso .cartaI>.kick{color:var(--avorio-2)!important;font-size:12px;letter-spacing:.22em;text-align:center}
+.ingresso .cartaI .sub{text-align:center;color:var(--avorio-2);font-size:14px}
+.ingresso .cartaI .campo label{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--avorio-2);font-weight:600}
+.ingresso .cartaI .vetro{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;border:1px solid var(--filo);border-radius:14px}
+.ingresso .cartaI .check{font-size:14px;color:var(--avorio-2);line-height:1.45}
+.ingresso .cartaI input[type=checkbox]{accent-color:var(--ottone)}
+.tasto-link{display:flex;align-items:center;justify-content:center;gap:8px;align-self:stretch;padding:12px;border-radius:10px;text-decoration:none;font-weight:600;color:var(--avorio-2);border:1px solid transparent;transition:color .15s,border-color .15s}
+.tasto-link:hover{color:var(--avorio);border-color:var(--filo)}
+#apriGuida{display:flex;align-items:center;justify-content:center;gap:8px}
+/* il logo: avorio, lettere spaziate, un filo sotto. Nessun riflesso */
+.logo-ordo{display:flex;flex-direction:column;align-items:center;gap:14px;margin:4px 0 10px;user-select:none}
+.logo-ordo b{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:clamp(52px,10vw,68px);line-height:1;letter-spacing:.42em;margin-right:-.42em;color:var(--avorio);text-shadow:0 1px 0 rgba(0,0,0,.4);animation:ordoEntra .7s ease-out both}
+.logo-ordo em{font-style:normal;font-size:12px;letter-spacing:.32em;margin-right:-.32em;text-transform:uppercase;color:var(--ottone);font-weight:600;padding-top:14px;border-top:1px solid var(--filo-2);min-width:220px;text-align:center}
+@keyframes ordoEntra{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.logo-ordo b{animation:none}}
+@media(max-width:600px){.ingresso .cartaI{padding:32px 22px 24px}}
+/* ---------- schermata di gioco ---------- */
+.hud-alto{background:linear-gradient(180deg,rgba(9,11,15,.92),rgba(9,11,15,.78));border-bottom:1px solid var(--filo);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.hud-alto .vetro,.hud-alto .chip{background:rgba(255,255,255,.03)!important;border:1px solid var(--filo)!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.hud-alto .chip{border-radius:999px;transition:border-color .15s,background-color .15s}
+.hud-alto .chip.tratta:hover{border-color:var(--filo-2)!important;background:rgba(255,255,255,.06)!important}
+.hud-alto .chip.turno{border-color:rgba(198,166,106,.55)!important;background:rgba(198,166,106,.07)!important}
+.hud-alto .chip .n{font-weight:600;color:var(--avorio)}
+.hud-alto .chip .pall{box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}
+.hud-alto .fase{background:none!important;border:0!important;color:var(--avorio);font-weight:600;letter-spacing:.01em}
+.hud-alto .saldo .tot{color:var(--avorio);letter-spacing:.01em}
+.hud-alto .saldo .occhio{background:none;border:0;padding:2px;color:var(--avorio-2)}
+.hud-alto .saldo .occhio:hover{color:var(--avorio)}
+.hud-alto .saldo .occhio .sv{width:16px;height:16px}
+.hud-alto .saldo .ri{font-size:12px;letter-spacing:.02em}
+.hud-alto .saldo .fa{color:var(--avorio-2)}
+.hud-alto .saldo .pol .sv{width:14px;height:14px;vertical-align:-2px}
+.menu-tasto{display:flex;align-items:center;justify-content:center}
+.menu-tasto .sv{width:20px;height:20px}
+/* pannelli della mappa: stessa superficie dei pannelli in alto */
+.carta.vetro,.comandi-vista.vetro,.legenda.vetro,button.vetro.audio,.tel-tasto{background:var(--sup)!important;border:1px solid var(--filo)!important;box-shadow:0 18px 40px -18px rgba(0,0,0,.7)!important}
+.comandi-vista button{border-color:transparent;background:transparent;color:var(--avorio-2)}
+.comandi-vista button:hover{color:var(--avorio);background:rgba(255,255,255,.05)}
+.comandi-vista button.attivo{color:var(--avorio);border-color:var(--filo-2);background:rgba(255,255,255,.04)}
+.comandi-vista .cv-titolo{color:var(--avorio-2)!important;letter-spacing:.18em}
+.ticker div{background:var(--sup)!important;border:1px solid var(--filo)!important;color:var(--avorio)}
+.ticker div.mia{border-color:rgba(198,166,106,.4)!important}
+.ticker-apri{display:inline-flex;align-items:center;gap:6px}
+.tel-tasto{color:var(--avorio)}.tel-tasto .sv{width:26px;height:26px}
+.tel-tasto .badge{background:var(--ottone);color:#15110a;box-shadow:0 0 0 2px #0d0f14}
+.avviso{background:var(--sup)!important;border:1px solid var(--filo)!important;color:var(--avorio);box-shadow:0 18px 40px -18px rgba(0,0,0,.7)!important}
+.carta .dove,.carta .serif{color:var(--avorio)}
+.carta .kick{color:var(--avorio-2)!important;letter-spacing:.2em}
+.ingresso .cartaI select,.ingresso .cartaI input{max-width:100%;min-width:0;box-sizing:border-box}
