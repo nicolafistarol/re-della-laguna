@@ -638,7 +638,9 @@ function grandiBot(o, i, n) {
               p = i.cash + i.sporchi,
               // i furbi si fermano appena la polizia li osserva; lo spavaldo solo quando e' indagato
               // chi e' gia' molto ricco rischia piu' di quanto guadagna stanotte: lo spavaldo no, lui rischia sempre
-              d = ["Legale", "Costruttore", "Investitore"].includes(e) || 0 === a || l.casa || i.stato >= ("Spavaldo" === e ? 2 : 1) || (i.arresti >= 2 && i.stato >= 1) || ("Spavaldo" !== e && t.patrimonio(o, i, !1) > 4e7) || ("Spavaldo" !== e && o.resaAnnunciata),
+              // v134: l'Esperto e il Furbo giocano sporco con la testa: sotto osservazione (stato 1) fanno solo affari piccoli e puliti, si fermano da Indagato
+              bravo = ["Esperto", "Furbo"].includes(e),
+              d = ["Legale", "Costruttore", "Investitore"].includes(e) || 0 === a || (l.casa && (!bravo || i.stato >= 2)) || i.stato >= ("Spavaldo" === e ? 2 : bravo ? 3 : 1) || (bravo && t.rischioControllo && t.rischioControllo(o, i) > [0.3, 0.2, 0.12][i.stato || 0]) || (i.arresti >= 2 && i.stato >= 1) || ("Spavaldo" !== e && t.patrimonio(o, i, !1) > 4e7) || ("Spavaldo" !== e && o.resaAnnunciata),
               f = u.find((o) => o.O.legale && i.cash > 6e5);
             if (f) return { tipo: "occasione", n: f.n, oggetti: [] };
             if (d)
@@ -665,8 +667,10 @@ function grandiBot(o, i, n) {
               if (b) return { tipo: "compra_oggetto", oggetto: b[0] };
             }
             const m = u
-              .filter((o) => !o.O.legale && p > (o.O.costo || 0) + 2e5 && ((i.calore || {})[s] || 0) < ("Spavaldo" === e ? 2 : 1))
-              .sort((o, t) => (t.O.guadagno ? t.O.guadagno[1] : 0) - (o.O.guadagno ? o.O.guadagno[1] : 0))[0];
+              .filter((o) => !o.O.legale && p > (o.O.costo || 0) + 2e5 && ((i.calore || {})[s] || 0) < ("Spavaldo" === e ? 2 : 1) && (!bravo || i.stato < 1 || (o.O.gravita === "lieve" && (o.O.tracce || 0) <= 7)))
+              .sort(bravo
+                ? (o, t) => ((t.O.guadagno ? t.O.guadagno[1] : 0) - (t.O.costo || 0)) / ((t.O.tracce || 0) + 4) - ((o.O.guadagno ? o.O.guadagno[1] : 0) - (o.O.costo || 0)) / ((o.O.tracce || 0) + 4)
+                : (o, t) => (t.O.guadagno ? t.O.guadagno[1] : 0) - (o.O.guadagno ? o.O.guadagno[1] : 0))[0];
             if (m && ("Furbo" !== e || !n.racconto[i.id].slice(-1)[0].includes("sbirri"))) {
               const o = (i.valigetta || [])
                 .map((o) => o.id)
@@ -683,6 +687,13 @@ function grandiBot(o, i, n) {
             const b = o.notte.occasioni.find((o) => o.riservata === i.id && !o.preso && o.alle > c + 1);
             if (b && s !== b.luogo) return { tipo: "vai", luogo: b.luogo };
             if (i.sporchi > 6e5 && t.luogoAperto(o, "casino", i) && !l.ric && "casino" !== s) return { tipo: "vai", luogo: "casino" };
+            // v134: chi gioca sporco con la testa va dove c'e' un affare buono per lui, invece di girare a caso
+            if (bravo && !l.cerca) {
+              const ok = (x) => { const O = t.OCCASIONI.find((y) => y.id === x.id); return O && !O.legale && !O.soloSetta && !x.preso && (!x.riservata || x.riservata === i.id) && O.sblocco <= a && x.luogo !== s && c < x.alle - 1 && t.luogoAperto(o, x.luogo, i) && p > (O.costo || 0) + 2e5 && ((i.calore || {})[x.luogo] || 0) < 1 && (i.stato < 1 || (O.gravita === "lieve" && (O.tracce || 0) <= 7)) ? O : null; };
+              const voto = (O) => ((O.guadagno ? O.guadagno[1] : 0) - (O.costo || 0)) / ((O.tracce || 0) + 4);
+              const best = o.notte.occasioni.map((x) => [x, ok(x)]).filter((x) => x[1]).sort((x, y) => voto(y[1]) - voto(x[1]))[0];
+              if (best) { l.cerca = (l.cerca || 0) + 1; return { tipo: "vai", luogo: best[0].luogo }; }
+            }
             if (!r(i, "maschera") && t.luogoAperto(o, "mercato", i) && !l.visti.includes("mercato") && "mercato" !== s)
               return { tipo: "vai", luogo: "mercato" };
             const z = ["porto", "marina", "bisca", "villa", "club"].filter(

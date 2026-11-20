@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 133;
+  const VERSIONE_REGOLE = 134;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -96,7 +96,8 @@
     permessoBollo: 0.10,   // il permesso e' sicuro ma si paga: 10% del prezzo del terreno (gratis se sei fermo sul Municipio)
     terrenoInizialeMin: 350_000, // ECO-03: terreni iniziali di valore vicino
     // --- notte e affari illegali
-    illegaleLivello: [1.5, 1.7, 1.9, 2.1, 2.3], // v128 (sporco fatto bene rende): prima [1, 1, 1.12, 1.25, 1.4]; v122: prima [1, 1, 1.12, 1.25, 1.4] (le fiches false: 200k -> 800k in un ora); v104: prima [1, 1, 1.3, 1.8, 2.4]; ECO-02; v82: prima [1, 1, 1.5, 2.5, 4], si facevano troppi soldi sporchi
+    tracceAffari: 0.7, // v134: sporco fatto con la testa: un affare lascia il 30% di Tracce in meno
+    illegaleLivello: [1.6, 1.9, 2.2, 2.5, 2.8], // v128 (sporco fatto bene rende): prima [1, 1, 1.12, 1.25, 1.4]; v122: prima [1, 1, 1.12, 1.25, 1.4] (le fiches false: 200k -> 800k in un ora); v104: prima [1, 1, 1.3, 1.8, 2.4]; ECO-02; v82: prima [1, 1, 1.5, 2.5, 4], si facevano troppi soldi sporchi
     dividendoInv: 0.025,
     // --- polizia e pene
     // --- setta
@@ -3385,6 +3386,7 @@
     if (dovePersonaggio(s, "giornalista") === o.luogo) tracce *= 1.25; // la giornalista prende appunti
     if (p.pacchetto === "contrabbandiere") tracce *= 0.7;
     if (s.leggi.includes("polizia_doppia_" + isola)) tracce *= 1.5;
+    tracce *= num(s, "tracceAffari") || 1; // v134: gli affari della notte lasciano meno Tracce (partite nuove)
     tracce *= sitMult(s, "tr", { luogo: o.luogo, occ: O.id }) * strumentiMult(s, p, "tr", usati, { luogo: o.luogo, occ: O.id }) * (guaio ? strumentiMult(s, p, "trGuaio", usati, {}) : 1);
     p.tracce += tracce; segnaTraccia(s, p, tracce, O.nome + " (" + nomeLuogo(o.luogo) + ")");
     if (guadagno > 0) {
@@ -4979,7 +4981,7 @@
       }
     }
   }
-  function effettoInchiesta(n) { return n >= 2 ? { fama: 15, tracce: 25, stato: 1, mia: 6 } : { fama: 6, tracce: 10, stato: 0, mia: 2 }; }
+  function effettoInchiesta(n) { return n >= 2 ? { fama: 15, tracce: 15, stato: 1, mia: 6 } : { fama: 6, tracce: 6, stato: 0, mia: 2 }; } // v134: prima Tracce 25 e 10 (le inchieste dei puliti schiacciavano chi gioca sporco)
   function inchiestaPubblica(s, p) {
     mioTurnoDiGiorno(s, p, "Pubblicare l'inchiesta");
     const f = p.fascicolo;
