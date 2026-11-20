@@ -23,6 +23,11 @@ export function nuova(nome, seed, durata, guidata) {
   });
   giocaBot(stato); salva();
 }
+// v116 modalita' test: come una partita nuova, ma si parte dal Ciclo scelto con soldi e Livello alti
+export function nuovaTest(nome, seed, durata, daCiclo) {
+  nuova(nome, seed, durata, false);
+  B.preparaTest(stato, { ciclo: daCiclo || 6 }); giocaBot(stato); salva();
+}
 // Prova veloce: si salta subito alla prima notte, Rocco apre una serata di poker nel suo grattacielo
 export function nuovaProva(nome) {
   nuova(nome);

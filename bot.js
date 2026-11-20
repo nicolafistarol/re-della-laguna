@@ -710,6 +710,23 @@ function grandiBot(o, i, n) {
       }
       return esito;
     },
+    // v116 modalita' test (?test nell'indirizzo): le persone giocano "in automatico" come un Esperto fino al Ciclo scelto,
+    // poi tornano persone con soldi e Livello alti. Serve al beta tester per provare la parte lunga della partita.
+    preparaTest: function (stato, opz) {
+      const da = Math.max(2, Math.min(12, Number(opz && opz.ciclo) || 6)) - 1; // Ciclo mostrato (6) -> numero interno (5)
+      if ((stato.modoFine || "cicli") === "cicli" && (stato.cicli || 8) < da + 6) stato.cicli = [10, 12, 16, 20].find((c) => c >= da + 6) || 20;
+      const persone = stato.players.filter((p) => !p.bot);
+      for (const p of persone) { p.bot = true; p.strat = "Esperto"; }
+      const r = n.gioca(stato, { finche: (x) => x.ciclo >= da && x.fase === "giorno", max: 60000 });
+      for (const p of persone) {
+        p.bot = false; p.strat = null;
+        p.cash = Math.max(0, p.cash) + 8_000_000; p.sporchi = (p.sporchi || 0) + 3_000_000; p.debito = 0;
+        p.livello = Math.max(p.livello || 0, 3); p.tracce = Math.min(p.tracce || 0, 15); // le Tracce restano, ma non tante da finire subito al Processo
+        (p.messaggi = p.messaggi || []).push({ ciclo: stato.ciclo + 1, testo: "🧪 Modalità test: fino a qui ha giocato il computer al posto tuo (come un Esperto). Ora hai 8 milioni puliti in più, 3 milioni sporchi da riciclare e il Livello " + p.livello + "." });
+      }
+      stato.test = { daCiclo: da + 1 };
+      return r;
+    },
     quantoPaga: (o, idBot, idLotto) => quantoPaga(o, idBot, idLotto),
     STRATEGIE: ["Legale", "Costruttore", "Investitore", "Furbo", "Spavaldo", "Esperto"],
   };

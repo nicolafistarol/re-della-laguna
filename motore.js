@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 115;
+  const VERSIONE_REGOLE = 116;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -352,6 +352,8 @@
   function privato(s, p, testo) { if ((p.messaggi || []).some((m) => m.ciclo === s.ciclo + 1 && m.testo === testo)) return; /* v109: lo stesso messaggio non arriva due volte nello stesso Ciclo */ p.messaggi.push({ ciclo: s.ciclo + 1, testo }); if (p.messaggi.length > 60) p.messaggi.shift(); }
   // un messaggio "lieve": l'avviso di una casella dove non c'e' niente da decidere. L'interfaccia puo' mostrarlo come
   // avviso che sparisce e non contarlo tra i messaggi nuovi (cosi' quelli importanti non si perdono).
+  // v116: i posti di cui stanotte qualcuno ti ha detto quanta polizia c'e' (marinaio, dritta, radio, soffiata): nel menu "Dove vai?" hanno il loro ⚠
+  function saputoPericolo(s, p, luoghi) { if (!p.pericoliSaputi || p.pericoliSaputi.c !== s.ciclo) p.pericoliSaputi = { c: s.ciclo, l: [] }; for (const l of [].concat(luoghi)) if (l && !p.pericoliSaputi.l.includes(l)) p.pericoliSaputi.l.push(l); }
   function avvisoCasella(s, p, testo) { p.messaggi.push({ ciclo: s.ciclo + 1, testo, lieve: true }); if (p.messaggi.length > 60) p.messaggi.shift(); }
 
   // ------------------------------------------------------------ nuova partita
@@ -2292,7 +2294,7 @@
         break;
       }
       case "yacht": {
-        const l = altroLuogo(); const lv = N2.pericolo[l];
+        const l = altroLuogo(); const lv = N2.pericolo[l]; saputoPericolo(s, p, l);
         racconta(s, p, "Un marinaio ti dice che a " + LUOGHI[l].nome + " stanotte " + { tranquillo: "è tutto tranquillo", agitato: "c'è movimento, meglio stare attenti", pericoloso: "è pieno di polizia" }[lv] + ".");
         break;
       }
@@ -2734,7 +2736,7 @@
     const CHI = { club: "Il barista", marina: "Un marinaio sul molo", porto: "Un gruista in pausa", bisca: "Un giocatore che ha appena perso", mercato: "Un venditore ambulante", casino: "Un croupier a fine turno", redazione: "Una stagista della Gazzetta", aeroporto: "Un facchino", villa: "Un giardiniere", faro: "Il vecchio guardiano" }[dove] || "Un tipo";
     if (x < 0.4 && aperti.length && !giaDetto("dritta")) {
       const nuovi = aperti.filter((l) => !p.intornoNotte.luoghi.includes(l)), due = (nuovi.length >= 2 ? nuovi : aperti).sort(() => rng(s) - 0.5).slice(0, 2);
-      p.intornoNotte.luoghi.push(...due); segna("dritta");
+      p.intornoNotte.luoghi.push(...due); segna("dritta"); saputoPericolo(s, p, due);
       racconta(s, p, CHI + " attacca bottone e ti dà una dritta: stanotte " + due.map((l) => LUOGHI[l].nome + " è " + N2.pericolo[l]).join(", ") + ".");
       return;
     }
@@ -2756,7 +2758,7 @@
         return;
       }
     }
-    racconta(s, p, "Non succede niente, ma capisci l'aria che tira: qui stanotte è " + N2.pericolo[dove] + ".");
+    saputoPericolo(s, p, dove); racconta(s, p, "Non succede niente, ma capisci l'aria che tira: qui stanotte è " + N2.pericolo[dove] + ".");
   }
   function aspetta(s, p) {
     oraLibera(s, p);
@@ -2797,6 +2799,7 @@
     if (nero) { const b = s.notte.banco[s.notte.dove[p.id]]; b.splice(b.indexOf(id), 1); }
     if (!O.subito) p.valigetta.push({ id, notti: O.notti || null });
     racconta(s, p, "Compri: " + O.nome + (prezzo !== O.prezzo ? " (" + euro(prezzo) + ")" : "") + "." + (nero ? " Era l'unico: stanotte nessun altro lo trova." : ""));
+    if (O.subitoInfo === "pericoli") saputoPericolo(s, p, Object.keys(LUOGHI).filter((l) => l !== "palazzo" && luogoAperto(s, l, p)));
     if (O.subitoInfo === "pericoli") racconta(s, p, "La radio gracchia: " + Object.keys(LUOGHI).filter((l) => l !== "palazzo" && luogoAperto(s, l, p)).map((l) => LUOGHI[l].nome + " " + s.notte.pericolo[l]).join(", ") + ".");
     if (O.subitoInfo === "rivali") { const altri = s.players.filter((x) => x.id !== p.id && !x.fallito); racconta(s, p, "La cimice parla: " + altri.map((x) => x.nome + " è " + (s.notte.viaggio[x.id] ? "in viaggio" : s.notte.dove[x.id] === "palazzo" ? "a casa" : "a " + LUOGHI[s.notte.dove[x.id]].nome)).join(", ") + ". Il più chiacchierato dalla polizia: " + (altri.slice().sort((a, b) => b.tracce - a.tracce)[0] || { nome: "nessuno" }).nome + "."); }
   }
@@ -2805,7 +2808,7 @@
     qui(s, p, "mercato", "Comprare una soffiata");
     if (!LUOGHI[luogo] || luogo === "palazzo") err("Su quale posto vuoi la soffiata?");
     pagaMisto(s, p, 50_000);
-    const lv = s.notte.pericolo[luogo];
+    const lv = s.notte.pericolo[luogo]; saputoPericolo(s, p, luogo);
     const frase = { tranquillo: "stanotte è tranquillo, puoi stare sereno", agitato: "c'è movimento, meglio stare attenti", pericoloso: "è pieno di sbirri, stanne lontano" }[lv];
     racconta(s, p, "Un informatore ti sussurra che a " + LUOGHI[luogo].nome + " " + frase + ".");
   }
@@ -5431,7 +5434,7 @@
       if (pagata) flusso(s, l, w, pagata, "Sfida del Ciclo", true);
       notizia(s, "Sfida del Ciclo: " + w.nome + " batte " + l.nome + " (" + segno(gw) + " contro " + segno(gl) + ")" + (pagata ? " e incassa " + euro(pagata) : "") + ".", "scandalo");
       privato(s, w, "Hai vinto la sfida del Ciclo contro " + l.nome + ": sei cresciuto di " + segno(gw) + ", lui di " + segno(gl) + ". Incassi " + euro(pagata) + " e +" + famaW + " fama" + (lAvanti ? " (posta piena: all'inizio lui era più ricco di te del " + quanto + ")." : " (mezza posta: all'inizio eri tu più ricco di lui del " + quanto + ")."));
-      privato(s, l, "Hai perso la sfida del Ciclo contro " + w.nome + ": lui è cresciuto di " + segno(gw) + ", tu di " + segno(gl) + ". Gli paghi " + euro(pagata) + " e perdi " + famaL + " fama" + (lAvanti ? " (posta piena: all'inizio eri tu più ricco di lui del " + quanto + ")." : " (mezza posta: all'inizio lui era più ricco di te del " + quanto + ")."));
+      privato(s, l, "Hai perso la sfida del Ciclo contro " + w.nome + ": dall'Alba scorsa il suo patrimonio è cresciuto di " + segno(gw) + ", il tuo di " + segno(gl) + " (vince chi cresce di più in percentuale). " + (lAvanti ? "Partivi avanti del " + quanto + ", quindi rischiavi di più: gli paghi " + euro(pagata) + " (il 6% dei tuoi contanti, almeno 250.000 €) e perdi " + famaL + " fama." : "Partivi dietro del " + quanto + ", quindi rischiavi poco: gli paghi solo " + euro(pagata) + " (il 3% dei tuoi contanti, almeno 100.000 €) e perdi " + famaL + " fama."));
       if (riepilogo[w.id]) riepilogo[w.id].sfida = { contro: l.id, vinta: true, soldi: pagata, mio: Math.round(gw * 100), suo: Math.round(gl * 100), avanti: lAvanti ? "lui" : "tu", quanto };
       if (riepilogo[l.id]) riepilogo[l.id].sfida = { contro: w.id, vinta: false, soldi: -pagata, mio: Math.round(gl * 100), suo: Math.round(gw * 100), avanti: lAvanti ? "tu" : "lui", quanto };
     }
@@ -5462,10 +5465,18 @@
       const a = giocatore(s, sf.a), b = giocatore(s, sf.b);
       const att = sf.motivo === "attrito" && sf.fatti;
       notizia(s, (sf.motivo === "vendetta" ? "Vendetta! " : sf.motivo === "attrito" ? "Ruggine tra i due! " : "") + "Sfida del Ciclo: " + a.nome + " contro " + b.nome + ". Chi cresce di più entro la prossima Alba prende la posta.", "evento");
-      for (const [p, q] of [[a, b], [b, a]]) privato(s, p, (att ? (p.id === sf.a ? "Lo scorso Ciclo " + motivoAttrito(sf.fatti, q.nome, true) + ": adesso è il tuo rivale. " : q.nome + " ce l'ha con te: lo scorso Ciclo " + motivoAttrito(sf.fatti, q.nome, false) + ". ") : "") + (sf.motivo === "vendetta" ? (p.id === sf.a ? "Stanotte " + q.nome + " ha fatto il tuo nome alla polizia" + (sf.luogo && LUOGHI[sf.luogo] ? " (a " + LUOGHI[sf.luogo].nome + ")" : "") + ": te l'ha detto l'informatore. Adesso è il tuo nemico. " : q.nome + " ha saputo che stanotte hai fatto il suo nome alla polizia: vuole vendetta. ") : "") + "Questo Ciclo il tuo rivale è " + q.nome + ": se entro la prossima Alba il tuo patrimonio cresce più del suo (in percentuale, così conta anche chi parte più povero), +5 fama; se parti da dietro gli prendi anche il 6% dei contanti (da 250.000 € a 3 milioni). Se perdi partendo da dietro non paghi niente. Contro di lui la soffiata costa la metà e gli fa più male.");
+      for (const [p, q] of [[a, b], [b, a]]) privato(s, p, (att ? (p.id === sf.a ? "Lo scorso Ciclo " + motivoAttrito(sf.fatti, q.nome, true) + ": adesso è il tuo rivale. " : q.nome + " ce l'ha con te: lo scorso Ciclo " + motivoAttrito(sf.fatti, q.nome, false) + ". ") : "") + (sf.motivo === "vendetta" ? (p.id === sf.a ? "Stanotte " + q.nome + " ha fatto il tuo nome alla polizia" + (sf.luogo && LUOGHI[sf.luogo] ? " (a " + LUOGHI[sf.luogo].nome + ")" : "") + ": te l'ha detto l'informatore. Adesso è il tuo nemico. " : q.nome + " ha saputo che stanotte hai fatto il suo nome alla polizia: vuole vendetta. ") : "") + "Questo Ciclo il tuo rivale è " + q.nome + ". Vince chi entro la prossima Alba fa crescere di più il suo patrimonio, in percentuale (così conta anche chi parte più povero). " + postaSfida(sf, p) + " Contro di lui la soffiata costa la metà e gli fa più male.");
     }
   }
 
+  // v116: la posta spiegata a ciascuno dei due fin dall'inizio (prima diceva "se perdi partendo da dietro non paghi niente", ma dalla v112 si paga il 3%)
+  function postaSfida(sf, p) {
+    const io = p.id === sf.a ? sf.pa : sf.pb, lui = p.id === sf.a ? sf.pb : sf.pa, avanti = io > lui;
+    const quanto = Math.round(Math.abs(io - lui) / Math.max(1, Math.min(io, lui)) * 100);
+    return avanti
+      ? "Parti avanti: sei più ricco di lui del " + quanto + "%. Se vinci gli prendi il 3% dei suoi contanti (almeno 100.000 €) e +5 fama; se perdi gli paghi il 6% dei tuoi (almeno 250.000 €) e perdi 2 fama."
+      : "Parti dietro: lui è più ricco di te del " + quanto + "%. Se vinci gli prendi il 6% dei suoi contanti (almeno 250.000 €) e +7 fama; se perdi gli paghi solo il 3% dei tuoi (almeno 100.000 €) e perdi 1 fama.";
+  }
   // il motivo della ruggine, visto da chi l'ha subita (vittima = true) o da chi l'ha causata
   function motivoAttrito(f, lui, vittima) {
     const r = [], n = (x, uno, tanti) => x.n === 1 ? uno : x.n + " " + tanti;
@@ -6098,6 +6109,7 @@
         // v76: di notte non si sa chi stai aspettando: arriva solo quanti non hanno ancora finito l'ora (te escluso)
         mancano: attivi(s).filter((x) => x.id !== idGiocatore && !(s.notte.pronto && s.notte.pronto[x.id])).length,
         caloreQui: me ? ((me.calore || {})[s.notte.dove[idGiocatore]] || 0) : 0,
+        pericoliSaputi: me && me.pericoliSaputi && me.pericoliSaputi.c === s.ciclo ? Object.fromEntries(me.pericoliSaputi.l.filter((l) => s.notte.pericolo[l]).map((l) => [l, s.notte.pericolo[l]])) : {},
         pericoloQui: me && !s.notte.viaggio[idGiocatore] && s.notte.dove[idGiocatore] !== "palazzo" ? s.notte.pericolo[s.notte.dove[idGiocatore]] : null,
         protezione: me ? (me.corrotti && me.corrotti["agente_" + (LUOGHI[s.notte.dove[idGiocatore]] || {}).isola] ? 0.6 : 1) * (me.corrotti && me.corrotti.commissario ? 0.8 : 1) * (poliziaOccupata(s, me) ? N.occupata : 1) * (dovePersonaggio(s, "commissario") === s.notte.dove[idGiocatore] && !(me.corrotti || {}).commissario ? 1.35 : 1) * sitMult(s, "gu", { luogo: s.notte.dove[idGiocatore] }) : 1,
         ospite: s.notte.ospite ? s.notte.ospite[idGiocatore] || null : null,

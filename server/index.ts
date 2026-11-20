@@ -167,6 +167,8 @@ Deno.serve(async (req) => {
         consigli: body.consigli !== undefined ? !!body.consigli : !!body.principianti,
         durata: durataPulita(body),
       });
+      // v116 modalita' test (solo con ?test nell'indirizzo): si parte da un Ciclo avanzato con soldi e Livello alti
+      if (body.test && typeof B.preparaTest === "function") B.preparaTest(stato, { ciclo: Number(body.daCiclo) || 6 });
       giocaBot(stato);
       const viste = calcolaViste(partita.id, stato, 1);
       await admin.from("partite").update({ stato, in_corso: true, versione: 1 }).eq("id", partita.id);
