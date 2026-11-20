@@ -32,6 +32,7 @@ import(CUBETTI ? "./cubetti.js?v=116" : "./tre.js?v=116").then((m) => { Tre = m;
 setTimeout(() => { if (!Tre && !motivo3D) { motivo3D = "La grafica 3D ci sta mettendo troppo a scaricarsi: appena arriva, parte da sola."; if (S) disegna(); } }, 12000);
 import * as Pano from "./panorama.js?v=111";
 import * as Tab from "./tabellone.js?v=102b";
+import * as Cas from "./caselle.js?v=117";
 // il tabellone 3D e' la vista normale. La foto piatta si sceglie dal selettore "Vista" (chiave nuova: la vecchia scelta laguna_3d="0" non conta piu')
 let TRE3D = false;
 let camminaAttivo = false; // v87: di notte cammini col tuo personaggio nel mondo 3D
@@ -540,7 +541,7 @@ function testoCiclo() {
   return `Ciclo ${S.ciclo + 1} di ${S.cicli || L.N.cicli}`;
 }
 // ------------------------------------------------------------ chi deve agire
-window.__S = () => S; // per le prove automatiche
+window.__S = () => S; window.__disegna = () => disegna(); // per le prove automatiche
 window.__ultimOra = (g) => ultimOra(g);
 function io() { return S.players.find((p) => p.id === mioId); }
 function mioTurno() { return S && S.fase === "giorno" && L.corrente(S).id === mioId; }
@@ -978,14 +979,15 @@ const EMOJI_ATT = { residenze: "🏘️", ristorante: "🍝", hotel: "🏨", bou
 function casellaTab(l, x, y, tit) {
   const own = l.owner ? S.players.find((p) => p.id === l.owner) : null, molo = l.tipoCasella === "molo";
   const serie = own && !molo && L.haSerie && L.haSerie(S, own, l.serie);
-  let cls = "cas terreno t" + (molo ? " molo" : ""), stile = `left:${x}%;top:${y}%;--serie:${COL_SERIE[l.serie] || "#888"};`, dentro, extra = "";
+  let cls = "cas terreno t" + (molo ? " molo" : " ed"), stile = `left:${x}%;top:${y}%;--serie:${COL_SERIE[l.serie] || "#888"};`, dentro, extra = "";
   if (own) {
     cls += " pres" + (own.id === mioId ? " mio" : ""); stile += `--own:${own.colore};`;
-    dentro = molo ? "⚓" : l.cantiere ? "🏗️" : l.tipo ? EMOJI_ATT[l.tipo] || "🏠" : `<small>vuoto</small>`;
+    const cs = COL_SERIE[l.serie] || "#888";
+    dentro = molo ? "⚓" : l.tipo || l.cantiere ? Cas.edificio(l.tipo, l.lvl, cs, own.colore, l.cantiere) : Cas.lottoComprato(cs, own.colore);
     extra += own.id !== mioId ? `<span class="inz">${esc(own.nome[0].toUpperCase())}</span>` : `<span class="inz tu">★</span>`;
     if (serie) extra += `<span class="corona" title="Ha tutto il gruppo ${esc(l.serie)}">👑</span>`;
     if (!molo && l.lvl && !l.cantiere) extra += `<span class="livc">${[1, 2, 3, 4, 5].map((k) => `<u class="${k <= l.lvl ? "on" : ""}"></u>`).join("")}</span>`;
-  } else dentro = molo ? "⚓<em>" + kEuro(l.prezzo) + "</em>" : `<em>${kEuro(l.prezzo)}</em>`;
+  } else dentro = molo ? "⚓<em>" + kEuro(l.prezzo) + "</em>" : Cas.lottoLibero(COL_SERIE[l.serie] || "#888") + `<em class="cartello">${kEuro(l.prezzo)}</em>`;
   return `<div class="${cls}" data-cas="${l.id}" title="${esc(tit)}" style="${stile}"><i>${dentro}</i>${extra}<span class="cn">${esc(l.nome.replace(/ — .*/, ""))}</span></div>`;
 }
 function casellaHtml(l) {

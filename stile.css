@@ -922,3 +922,23 @@ body.carta-ridotta .carta::before{content:"▲ tocca per aprire";position:absolu
 /* finestra aperta: la mappa dietro si sfoca e si scurisce, non si legge niente */
 #mondo{transition:filter .25s ease}
 body:has(.velo:not(.laterale)) #mondo{filter:blur(7px) brightness(.5) saturate(.8)}
+
+/* ===== v117 punto 3: caselle con edifici veri (SVG leggeri), proprieta' col colore del padrone, lotti in vendita ===== */
+#mondo.tab .cas.terreno.ed i{width:88px;height:88px;padding:0;border:0;border-radius:0;background:none!important;box-shadow:none!important;overflow:visible}
+#mondo.tab .cas.terreno.ed i::before{display:none}
+#mondo.tab .cas.terreno.ed .edi{width:88px;height:88px;display:block;filter:drop-shadow(0 4px 3px rgba(0,0,0,.5))}
+#mondo.tab .cas.terreno.ed:hover i{transform:translateY(-4px) scale(1.08);box-shadow:none!important}
+/* il mio colore sotto l'edificio: un disco pieno che si vede anche da lontano */
+#mondo.tab .cas.terreno.ed.pres i::after{content:"";position:absolute;left:50%;bottom:8px;width:84px;height:28px;margin-left:-42px;border-radius:50%;background:var(--own);opacity:.85;z-index:-1;box-shadow:0 0 0 2.5px rgba(10,14,24,.75),0 0 16px var(--own);top:auto;right:auto;font-size:0}
+#mondo.tab .cas.terreno.ed.mio i::after{background:var(--oro);box-shadow:0 0 0 2.5px #1a1206,0 0 20px var(--oro)}
+/* cartello del prezzo sul lotto libero */
+#mondo.tab .cas.terreno.ed em.cartello{position:absolute;left:50%;top:20px;transform:translateX(-50%);padding:2px 7px;border-radius:5px;background:#fffdf3;color:#141a24;border:1.5px solid #6b4b2a;font-size:14px;font-weight:900;line-height:16px;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,.45)}
+#mondo.tab.lontano .cas.terreno.ed i,#mondo.tab.lontano .cas.terreno.ed .edi{width:56px;height:56px}
+#mondo.tab.lontano .cas.terreno.ed.pres i::after{width:62px;margin-left:-31px;height:24px;bottom:2px;opacity:1}
+#mondo.tab.lontano .cas.terreno.ed em.cartello,#mondo.tab.lontano .cas.terreno.ed .inz{display:none}
+#mondo.tab .cas.terreno.ed .livc{bottom:2px}
+#mondo.tab .cas.terreno.ed .inz{top:14px;right:2px}
+#mondo.tab .cas.terreno.ed .corona{top:10px;left:4px}
+#mondo.tab.vicino .cas.terreno.ed i,#mondo.tab.vicino .cas.terreno.ed .edi{width:124px;height:124px}
+#mondo.tab.vicino .cas.terreno.ed.pres i::after{width:104px;margin-left:-52px;height:34px;bottom:10px}
+#mondo.tab.vicino .cas.terreno.ed em.cartello{top:30px;font-size:15px}
