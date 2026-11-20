@@ -166,3 +166,27 @@ button.notte:hover{background:#fff!important}
 .fin .sch:hover{border-color:var(--filo-2)!important;background:rgba(255,255,255,.05)!important}
 .fin .sch p[style*="oro"]{color:var(--avorio)!important;font-weight:500!important}
 .fin .sch h3{color:var(--avorio)}
+
+/* ---------- tappa 5: il telefono ---------- */
+.tel{background:#0a0b0e!important;border:1px solid #23262d!important;box-shadow:0 0 0 6px #050608,0 0 0 7px #1c1f25,0 40px 90px -20px rgba(0,0,0,.85)!important}
+.tel-chiudi{background:var(--avorio)!important;opacity:.45!important;height:5px!important}
+.app{color:var(--avorio)}
+.app .ico{background:linear-gradient(180deg,#1b1e25,#13151a)!important;border:1px solid var(--filo-2);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 6px 14px -6px rgba(0,0,0,.7)!important;border-radius:15px!important;transition:border-color .15s,transform .08s}
+.app:hover .ico{border-color:rgba(255,255,255,.28)}
+.app:active .ico{transform:translateY(1px)}
+.app .ico .lic,.app .ico svg{color:var(--avorio)!important}
+.app .ico .badge,.tel .badge{background:var(--ottone)!important;color:#15110a!important;box-shadow:0 0 0 2px #0a0b0e}
+.app .ico .nuova{background:var(--avorio)!important;color:#121318!important;letter-spacing:.1em}
+.tel .app-nome{font-weight:600!important;color:var(--avorio)}
+.tel .app-riga{color:var(--avorio-2)!important}
+.tel .app-riga.calda{color:var(--ottone)!important}
+.adesso{background:rgba(255,255,255,.025)!important;border:1px solid var(--filo)!important}
+.adesso-r{background:rgba(255,255,255,.04)!important;color:var(--avorio)!important;transition:background-color .15s}
+.adesso-r:hover{background:rgba(255,255,255,.07)!important}
+.adesso-r.forte{background:rgba(198,166,106,.08)!important;box-shadow:inset 2px 0 0 var(--ottone)!important}
+.app-testa{border-bottom:1px solid var(--filo)!important}
+.app-corpo .scheda{background:rgba(255,255,255,.025)!important}
+.tel h4,.tel .kick{color:var(--avorio-2)!important;letter-spacing:.18em}
+.tel .schermo{background:linear-gradient(180deg,#121419,#0b0c10 70%)!important;position:relative}
+.tel .schermo::before{content:"";position:absolute;inset:0;background:var(--grana);opacity:.04;pointer-events:none;mix-blend-mode:overlay}
+.app .ico .nuova{box-shadow:none!important}
