@@ -906,3 +906,19 @@ body.carta-ridotta .carta::before{content:"▲ tocca per aprire";position:absolu
   .hud-alto .fase{grid-column:1;grid-row:2;order:0;margin:0!important;flex:none;flex-basis:auto!important;text-align:left;white-space:normal;font-size:13px;padding:0 0 0 4px}
   .hud-alto .saldo{grid-column:2;grid-row:2;order:0;margin:0!important;width:auto!important;position:static!important}
 }
+/* ===== v117 punto 2: scritte sulla mappa ===== */
+/* i nomi delle caselle non stanno piu' sempre scritti: compaiono uno alla volta, al passaggio del mouse o toccando */
+#mondo.tab #mappa .cas .cn,#mondo.tab.vicino #mappa .cas.terreno .cn{display:none}
+#mondo.tab #mappa .cas:hover{z-index:30}
+#mondo.tab #mappa .cas:hover .cn{display:block!important;position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:8px;font-size:13px;padding:3px 9px;border-radius:8px;background:rgba(8,12,22,.95);border:1px solid rgba(255,255,255,.18);white-space:nowrap;z-index:31;box-shadow:0 6px 14px rgba(0,0,0,.45)}
+/* le pedine: solo il gettone con l'iniziale; il nome compare passandoci sopra */
+#mondo.tab #mappa .ped .nomeped{display:none}
+#mondo.tab #mappa .ped:hover{z-index:32}
+#mondo.tab #mappa .ped:hover .nomeped{display:block}
+/* il nome della casella dove sei: una volta sola, sotto la casella, mai sopra pedine e icone */
+#mondo.tab #mappa .etichetta{transform-origin:0 0;transform:translate(-50%,34px);z-index:6;pointer-events:none;padding:5px 11px;font-size:13px;border-color:rgba(243,197,107,.75)}
+#mondo.tab #mappa .etichetta span{display:none}
+#mondo.tab #mappa:has(.cas:hover) .etichetta{opacity:0}
+/* finestra aperta: la mappa dietro si sfoca e si scurisce, non si legge niente */
+#mondo{transition:filter .25s ease}
+body:has(.velo:not(.laterale)) #mondo{filter:blur(7px) brightness(.5) saturate(.8)}
