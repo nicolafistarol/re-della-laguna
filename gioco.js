@@ -3986,7 +3986,7 @@ function fine() {
   if (S.classifica && S.classifica[0]) { if (S.classifica[0].nome === (io() || {}).nome) Suono.vittoria(); else Suono.esito(false); }
   const podio = S.classifica.slice(0, 3), ioNome = (io() || {}).nome, mioPosto = S.classifica.findIndex((c) => c.nome === ioNome) + 1;
   finestra(`<div class="fine-corta"><span class="kick" style="color:var(--oro)">Fine della partita</span><h2>${mioPosto === 1 ? "Hai vinto ORDO" : esc(podio[0].nome) + " vince ORDO"}</h2>${S.motivoFine ? `<p class="sub">${esc(S.motivoFine)}</p>` : ""}
-    <div class="podio">${[1, 0, 2].filter((i) => podio[i]).map((i) => `<div class="gradino g${i + 1} ${podio[i].nome === ioNome ? "io" : ""}"><span class="med">${["👑", "🥈", "🥉"][i]}</span><b>${esc(podio[i].nome)}</b><span class="pat">${euro(podio[i].patrimonio)}</span><i>${i + 1}°</i></div>`).join("")}</div>
+    <div class="podio">${[1, 0, 2].filter((i) => podio[i]).map((i) => `<div class="gradino g${i + 1} ${podio[i].nome === ioNome ? "io" : ""}"><span class="med">${["I", "II", "III"][i]}</span><b>${esc(podio[i].nome)}</b><span class="pat">${euro(podio[i].patrimonio)}</span><i>${i + 1}°</i></div>`).join("")}</div>
     ${mioPosto > 3 ? `<p class="fine-mio">Tu sei arrivato <b>${mioPosto}°</b> con ${euro(S.classifica[mioPosto - 1].patrimonio)}</p>` : ""}
     ${raccontoPartita(mioPosto)}
     <details class="alba-tutto"><summary>Vedi tutto</summary>

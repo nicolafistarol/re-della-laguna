@@ -190,3 +190,16 @@ button.notte:hover{background:#fff!important}
 .tel .schermo{background:linear-gradient(180deg,#121419,#0b0c10 70%)!important;position:relative}
 .tel .schermo::before{content:"";position:absolute;inset:0;background:var(--grana);opacity:.04;pointer-events:none;mix-blend-mode:overlay}
 .app .ico .nuova{box-shadow:none!important}
+
+/* ---------- tappa 6: il finale ---------- */
+.fine-corta h2{font-size:34px!important;color:var(--avorio)}
+.podio{gap:12px!important;align-items:flex-end}
+.gradino{background:rgba(255,255,255,.025)!important;border:1px solid var(--filo)!important;border-radius:12px 12px 4px 4px!important;box-shadow:none!important}
+.gradino.g1{background:linear-gradient(180deg,rgba(198,166,106,.10),rgba(198,166,106,.02))!important;border-color:rgba(198,166,106,.45)!important;border-top:2px solid var(--ottone)!important}
+.gradino.io{box-shadow:inset 0 0 0 1px var(--avorio)!important}
+.gradino .med{font-family:'DM Serif Display',Georgia,serif;font-size:28px!important;color:var(--avorio-2);letter-spacing:.08em;animation:none!important}
+.gradino.g1 .med{font-size:40px!important;color:var(--ottone)}
+.gradino b{color:var(--avorio);font-weight:600}
+.gradino .pat{font-weight:600!important}
+.gradino i{color:var(--avorio-2)!important;font-size:14px!important;font-family:Manrope,system-ui,sans-serif!important;letter-spacing:.16em;text-transform:uppercase}
+.gradino i{display:none!important}.gradino{padding-bottom:16px!important}
