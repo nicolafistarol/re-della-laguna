@@ -203,3 +203,16 @@ button.notte:hover{background:#fff!important}
 .gradino .pat{font-weight:600!important}
 .gradino i{color:var(--avorio-2)!important;font-size:14px!important;font-family:Manrope,system-ui,sans-serif!important;letter-spacing:.16em;text-transform:uppercase}
 .gradino i{display:none!important}.gradino{padding-bottom:16px!important}
+
+/* v137: Ultim'ora sotto la barra in alto, nello stile ORDO; gli avvisi scendono sotto */
+.ultimora{background:var(--sup)!important;border:1px solid var(--filo-2);border-radius:14px!important;box-shadow:var(--ombra)!important;padding:8px 14px 8px 8px!important}
+.ultimora .uo-t{border-radius:8px!important;font-size:12px!important}
+.ultimora .uo-testo{color:var(--avorio);font-size:16px!important}
+body:has(.ultimora:not(.via)) #avvisi{top:var(--uo-giu,110px)!important}
+body:has(.ultimora:not(.via)) #toasts{top:var(--uo-giu,122px)!important}
+@media(max-width:700px){.ultimora{left:8px!important;right:8px!important;transform:none!important;max-width:none!important;animation:none}.ultimora.via{transform:translateY(-10px)!important}.ultimora .uo-testo{font-size:14px!important}}
+/* v137: fine dell'ultima ora: la foto della notte sfuma subito verso l'Alba */
+.scena.albeggia .scena-foto,.scena.albeggia .scena-nebbia{opacity:.15;transition:opacity .6s ease-out}
+.scena.albeggia .scena-velo{background:radial-gradient(circle at 50% 70%,rgba(70,56,36,.85),rgba(10,9,8,.95))!important;transition:background .6s}
+.scena.albeggia .scena-dentro{opacity:.35;transition:opacity .6s}
+body:has(.scena.albeggia) #panorama{opacity:.15;transition:opacity .6s}
