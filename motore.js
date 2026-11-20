@@ -65,7 +65,7 @@
     prestitoQuota: 0.30, prestitoInt: 0.10, emergenzaInt: 0.25, ipotecaQuota: 0.5,
     ipotecaCicli: 4, ipotecaRiscatto: 1.1, debitoAlba: 0.5, // ipoteca: 4 Cicli per riscattarla pagando il 10% in piu'; debiti: a ogni Alba la Banca si prende meta' dei contanti
     candidatura: 750_000, stipendioSindaco: 750_000,
-    settaPatrimonio: 8_000_000, settaFama: 20, settaSporchi: 8_000_000, settaCosto: 5_000_000, settaTesoroIniziale: 2_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], settaInfluenza: [0, 0, 12, 35, 70], rapido: { traghetto: 50_000, motoscafo: 100_000, elicottero: 300_000, jet: 600_000 }, rapidoOgni: 2, costoBallo: 300_000, decima: 0.15, perqDa: 25, perqK: 160, perqMax: 0.35, perqSequestro: 0.3,
+    tassaSoglie: [1_500_000, 3_000_000], tassaExtra: 0.15, settaPatrimonio: 3_000_000, settaFama: 20, settaSporchi: 200_000, settaCosto: 1_500_000, settaTesoroIniziale: 1_000_000, settaLivelli: [0, 3_000_000, 8_000_000, 20_000_000], settaInfluenza: [0, 0, 12, 35, 70], rapido: { traghetto: 50_000, motoscafo: 100_000, elicottero: 300_000, jet: 600_000 }, rapidoOgni: 2, costoBallo: 300_000, decima: 0.15, perqDa: 25, perqK: 160, perqMax: 0.35, perqSequestro: 0.3,
     fasce: [[6e6, "Benestante"], [12e6, "Ricco"], [20e6, "Milionario"], [30e6, "Magnate"], [Infinity, "Sovrano"]],
     mosse: {
       nascosto: { nome: "Posto nascosto", tracce: 0.60, colto: 0.70, carico: 0.9, costo: 0 },
@@ -96,7 +96,7 @@
     permessoBollo: 0.10,   // il permesso e' sicuro ma si paga: 10% del prezzo del terreno (gratis se sei fermo sul Municipio)
     terrenoInizialeMin: 350_000, // ECO-03: terreni iniziali di valore vicino
     // --- notte e affari illegali
-    illegaleLivello: [1, 1, 1.12, 1.25, 1.4], // v104: prima [1, 1, 1.3, 1.8, 2.4]; ECO-02; v82: prima [1, 1, 1.5, 2.5, 4], si facevano troppi soldi sporchi
+    illegaleLivello: [1, 1, 1, 1, 1.05], // v122: prima [1, 1, 1.12, 1.25, 1.4] (le fiches false: 200k -> 800k in un ora); v104: prima [1, 1, 1.3, 1.8, 2.4]; ECO-02; v82: prima [1, 1, 1.5, 2.5, 4], si facevano troppi soldi sporchi
     dividendoInv: 0.025,
     // --- polizia e pene
     // --- setta
@@ -1582,7 +1582,8 @@
       const q = Math.min(importo, cap);
       p.sporchi -= q; p.cash += round(q * (1 - N.ricCopPerdita)); p.copUsata = (p.copUsata || 0) + q;
       p.tracce += N.ricCopTracce * q / 100_000; p.riciclTot += q;
-      privato(s, p, "Ripuliti " + euro(q) + " con le tue attività di copertura.");
+      privato(s, p, "Ripuliti " + euro(q) + " con le tue attività di copertura" + (q < importo ? " (ne volevi ripulire " + euro(importo) + ", ma i conti dei tuoi locali in questo Ciclo reggono solo " + euro(q) + "; il resto resta sporco)" : "") + ". Ti arrivano " + euro(round(q * (1 - N.ricCopPerdita))) + " puliti: il " + Math.round(N.ricCopPerdita * 100) + "% se lo tiene chi ti copre.");
+      if (q < importo && s.notte) racconta(s, p, "Le coperture reggono solo " + euro(q) + " in questo Ciclo: il resto (" + euro(importo - q) + ") resta sporco.");
     } else if (metodo === "shadow") {
       if (s.leggi.includes("giro_cripto")) err("ShadowCoin è bloccata dalla legge del Sindaco.");
       p.sporchi -= importo; p.cash += round(importo * (1 - N.shadowPerdita));
@@ -2157,7 +2158,7 @@
         const libere = tutte.filter((o) => !giaUsati.has(o.luogo));
         const pool = libere.length ? libere : tutte;
         const o = pool[Math.floor(rng(s) * pool.length)];
-        const alle = 3 + Math.floor(rng(s) * 3);
+        const alle = 4 + Math.floor(rng(s) * 2); // v122: almeno fino alle 02:00, cosi' ci arrivi anche partendo un'ora dopo (prima a volte era impossibile)
         s.notte.occasioni.push({ n: n++, id: o.id, luogo: o.luogo, dalle: 0, alle, preso: null, riservata: p.id });
         const msg = "Chiamata da un numero sconosciuto: \"" + o.testo + " Vieni a " + LUOGHI[o.luogo].nome + " prima delle " + ORE[alle] + ".\"";
         racconta(s, p, msg); privato(s, p, msg);
@@ -2659,6 +2660,8 @@
       if (k === "doganiere" && !p.corrotti.doganiere) sp.push({ k: "doganiere", giro: true, titolo: "Il doganiere è qui, fuori servizio", testo: "Con lui i carichi rischiano la metà. Stanotte puoi parlargli senza andare all'Aeroporto." });
       if (k === "giornalista") sp.push({ k: "articolo", giro: true, titolo: "La giornalista della Gazzetta ti riconosce", testo: "Prende appunti. Gli affari sporchi fatti sotto i suoi occhi lasciano più Tracce. Una busta, però, le fa cambiare idea su chi scrivere." });
     }
+    // v122: al Faro chi non e' in una setta trova il vecchio guardiano, che spiega come fondarne una (prima era solo un "si dice")
+    if (dove === "faro" && !inSetta(p)) sp.push({ k: "setta_nuova", titolo: "Il vecchio guardiano parla delle confraternite", testo: puoFondareSetta(s, p) ? "\"Hai le mani abbastanza sporche. Qui, stanotte, puoi fondare la tua setta: " + euro(N.settaCosto) + " per il patto.\"" : "\"Per fondare una setta servono " + euro(N.settaPatrimonio) + " di patrimonio e un po' di soldi sporchi. Oppure aspetta: chi comanda una setta manda inviti.\"" });
     if (dove === "faro" && s.sette.some((st) => st.gm === p.id)) sp.push({ k: "setta", titolo: "Riunisci la setta", testo: "Tra le onde, i tuoi confratelli aspettano un ordine." });
     if (dove === "faro") for (const id of p.nascondigli || []) { const st = s.sette.find((x) => x.id === id); if (st && st.sepolto > 0) sp.push({ k: "scava", setta: id, titolo: "Scava sotto la scogliera", testo: "Sai dove la setta \"" + st.nome + "\" nasconde il suo tesoro. Metà è tua, ma lasci molte Tracce." }); }
     { const cv = convocazioneDi(s, p); if (cv && cv.st.gm !== p.id && dove !== cv.c.luogo && N2.ora >= cv.c.ora - 1 && giocatore(s, cv.st.gm).veicoli.includes("jet")) sp.push({ k: "jet", setta: cv.st.id, titolo: "Sali sul jet della setta", testo: "Il Gran Maestro manda il suo jet: arrivi subito a " + LUOGHI[cv.c.luogo].nome + " per il rito delle " + ORE[cv.c.ora] + "." }); }
@@ -2719,6 +2722,7 @@
     const da = s.notte.dove[p.id];
     if (da === luogo) err("Sei già qui.");
     const ore = oreViaggio(s, p, da, luogo);
+    if (s.notte.ora + ore >= ORE.length - 1) err("Non ci arrivi prima dell'alba: ci vogliono " + ore + (ore === 1 ? " ora" : " ore") + "."); // v122: prima partivi e arrivavi a notte finita, senza avviso
     s.notte.viaggio[p.id] = { verso: luogo, restano: ore, da };
     if (s.notte.ospite) delete s.notte.ospite[p.id];
     s.notte.chiuso[p.id] = true;
@@ -3833,14 +3837,17 @@
     guadagnaInfluenza(s, st, importo / 1_000_000, "Lavanderia (" + p.nome + ")");
     privato(s, p, "La setta ha ripulito " + euro(importo) + ": a te " + euro(resa) + " puliti, " + euro(importo - resa) + " restano nel Tesoro.");
   }
+  function puoFondareSetta(s, p) { return !p.settaFondata && !(p.sette || []).length && p.sporchi >= N.settaSporchi && p.cash + p.sporchi >= N.settaCosto && patrimonio(s, p, true) >= N.settaPatrimonio; }
   function fondaSetta(s, p, nome, motto) {
     inNotte(s, p);
     if (p.settaFondata) err("Hai già fondato una setta.");
     if ((p.sette || []).length) err("Sei già in una setta: per fondarne una tua devi prima uscire.");
     if (marchiato(s, p)) err("Hai venduto una setta: fino al Ciclo " + (p.marchiatoFino + 1) + " nessuno ti segue in una setta nuova.");
-    if (p.sporchi < N.settaSporchi) err("Per fondare una setta servono almeno " + euro(N.settaSporchi) + " in soldi sporchi.");
+    // v122: prima servivano 8 milioni SPORCHI (nessuno ci arrivava, nemmeno i computer). Ora: un patrimonio di 5 milioni e le mani gia' un po' sporche
+    if (!puoFondareSetta(s, p)) err("Per fondare una setta servono un patrimonio di almeno " + euro(N.settaPatrimonio) + " e almeno " + euro(N.settaSporchi) + " in soldi sporchi.");
     if (!nome) err("Dai un nome alla setta.");
-    p.sporchi -= N.settaCosto; // il patto di sangue: una parte va nel tesoro, il resto nel rito
+    if (p.sporchi + p.cash < N.settaCosto) err("Il patto costa " + euro(N.settaCosto) + ": non li hai.");
+    pagaMisto(s, p, N.settaCosto); // il patto di sangue (prima i soldi sporchi): una parte va nel tesoro, il resto nel rito
     const st = { id: "s" + s.prossimoId++, nome: String(nome).slice(0, 40), motto: String(motto || "").slice(0, 80), gm: p.id, membri: [p.id], tesoro: N.settaTesoroIniziale, operazioni: 0, pngReclutati: 0, influenza: 0, ingressi: {} };
     s.sette.push(st); p.sette.push(st.id); p.settaFondata = st.id;
     privato(s, p, "Hai fondato la setta \"" + st.nome + "\". Sei il Gran Maestro. Invita altri membri.");
@@ -5312,7 +5319,9 @@
       const zona = s.leggi.includes("zona_franca") ? propri(s, p).filter((l) => l.isola === "Sole").reduce((a, l) => a + rendita(s, l), 0) : 0;
       const evasa = rend * clamp(p.evasione || 0, 0, N.evasioneMax);
       if (evasa > 0) { p.sporchi += evasa; p.tracce += 2 * (evasa > 0 ? 1 : 0); p.pulitoCiclo = false; p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "lieve"); }
-      const tassa = Math.max(0, (rend - evasa - zona) * s.tassa);
+      // v122: tassa progressiva (capo Fista/tester: dopo il Ciclo 8 i soldi esplodevano e non contavano piu'): sulle rendite oltre 1,5 M per Alba +15%, oltre 3 M +30%
+      const imp = Math.max(0, rend - evasa - zona), tassaRicchi = gen2(s) ? round(Math.max(0, imp - N.tassaSoglie[0]) * N.tassaExtra + Math.max(0, imp - N.tassaSoglie[1]) * N.tassaExtra) : 0;
+      const tassa = imp * s.tassa + tassaRicchi; if (tassaRicchi) r.tassaRicchi = tassaRicchi;
       // decima della setta
       let decima = 0;
       // partite nuove: la decima si paga solo sulle rendite delle attivita' (non su Palazzo e mezzi), con un tetto per Alba
@@ -5639,7 +5648,7 @@
       quando: (s, p) => propri(s, p).some((l) => l.tipoCasella === "lotto" && l.lvl === 0 && !l.cantiere) && p.cash > 400_000, consiglio: "Hai terreni vuoti: così non rendono quasi niente. Dall'app Imprese chiedi il permesso e apri un'attività. Le rendite arrivano a ogni Alba." },
     { id: "piano", gruppo: "giorno", lv: 0, nome: "Alzare il tuo Palazzo", fatto: (a) => a.tipo === "piano", pubblico: "ha alzato un nuovo piano del suo Palazzo",
       indizio: "Il tuo Palazzo può crescere piano dopo piano.", spiega: "I piani rendono a ogni Alba (uno per mossa, ognuno costa un po' più del precedente). A 6 piani diventa un Attico, a 15 un Grattacielo: si aprono stanze speciali da comprare a parte.",
-      quando: (s, p) => p.cash > costoPiano(p) * 3, consiglio: "Hai soldi fermi. I piani del tuo Palazzo rendono a ogni Alba e si ripagano in poco più di due Cicli. Apri l'app Palazzo: vedi subito quanto costano e quanto rendono." },
+      quando: (s, p) => p.cash > costoPiano(p) * 3, consiglio: "Hai soldi fermi. I piani del tuo Palazzo rendono a ogni Alba e si ripagano in circa tre Cicli (e il Palazzo resta tuo). Apri l'app Palazzo: vedi subito quanto costano e quanto rendono." },
     { id: "veicolo", gruppo: "giorno", lv: 0, nome: "Comprare un mezzo", fatto: (a) => a.tipo === "veicolo", pubblico: "si è comprato un mezzo di lusso",
       indizio: "Yacht, motoscafi, elicotteri: non sono solo per farsi vedere.", spiega: "I mezzi si noleggiano ai turisti e rendono a ogni Alba. Di notte ti portano più veloce.",
       quando: (s, p) => p.cash > 4_000_000 && !p.veicoli.length, consiglio: "Uno yacht non è solo lusso: lo noleggi ai turisti e rende a ogni Alba. Guarda l'app Lusso." },
@@ -5704,8 +5713,8 @@
       indizio: "Un Palazzo con il casinò privato è una calamita.", spiega: "Di notte apri il tuo Casinò privato: gli altri pagano l'ingresso e il banco sei tu.",
       quando: (s, p) => haPiano(p, "casino_privato"), consiglio: "Hai un Casinò privato. Stanotte, dal tuo Palazzo, apri una serata: chi viene paga l'ingresso e il banco sei tu." },
     { id: "fonda_setta", gruppo: "potere", lv: 1, nome: "Fondare una setta", fatto: (a) => a.tipo === "fonda_setta",
-      indizio: "Si dice che i più sporchi si riuniscano al Faro.", spiega: "Con 8 milioni sporchi fondi una setta: meno Tracce, condanne più leggere, affari solo per i membri.",
-      quando: (s, p) => p.sporchi >= N.settaSporchi && !p.settaFondata, consiglio: "Hai abbastanza soldi sporchi per fondare una setta. Stanotte, dall'app Setta. Meno Tracce, condanne più leggere, affari segreti." },
+      indizio: "Si dice che i più sporchi si riuniscano al Faro.", spiega: "Con un patrimonio di 3 milioni e un po' di soldi sporchi fondi una setta (costa 1,5 milioni): meno Tracce, condanne più leggere, affari solo per i membri.",
+      quando: (s, p) => puoFondareSetta(s, p), consiglio: "Puoi fondare una setta: stanotte, dall'app Setta (o andando al Faro). Costa " + euro(N.settaCosto) + ", prima dai soldi sporchi. In cambio: meno Tracce, condanne più leggere, affari segreti, e puoi invitare gli altri." },
     { id: "invita_setta", gruppo: "potere", lv: 1, nome: "Portare qualcuno nella setta", fatto: (a) => a.tipo === "invita_setta",
       indizio: "Una setta con più membri ha più decima e più voti.", spiega: "Più membri = più decima nel Tesoro, riti più forti e più voti sulle Grandi Opere. Il livello sale con l'Influenza. L'invito è senza firma; puoi offrire soldi o chiedere una quota.",
       quando: (s, p) => s.sette.some((st) => st.gm === p.id && st.membri.length < 3), consiglio: "Da solo la setta guadagna poco: ogni membro versa il 15% delle sue rendite nel Tesoro. Invita qualcuno dall'app Setta: puoi anche offrirgli soldi." },
@@ -6133,7 +6142,7 @@
     }
     if (s.riepOra) v.riepOra = { n: s.riepOra.n, ciclo: s.riepOra.ciclo, da: s.riepOra.da, a: s.riepOra.a, mio: s.riepOra.per[idGiocatore] || null };
     { const me = s.players.find((x) => x.id === idGiocatore); if (me) { v.lustro = lustro(s, me); v.livelloPalazzo = livelloPalazzo(me); const su = poliziaOccupata(s, me); v.poliziaSu = su ? su.nome : null; } }
-    { const me = s.players.find((x) => x.id === idGiocatore); v.sblocco = me ? livelloSblocco(s, me) : 3; v.postiValigetta = me ? postiValigetta(s, me) : 6; v.postiUsati = me ? postiUsati(me) : 0; v.situazioniAttive = sitAttive(s).map((S) => ({ id: S.id, t: S.t, spiega: descriviSituazione(S), fino: (s.situazioni.find((x) => x.id === S.id) || {}).fino })); v.sitProssime = (s.sitProssime || []).length; v.soglieLivello = soglieLivello(s); }
+    { const me = s.players.find((x) => x.id === idGiocatore); v.sblocco = me ? livelloSblocco(s, me) : 3; v.puoFondare = me ? puoFondareSetta(s, me) : false; v.postiValigetta = me ? postiValigetta(s, me) : 6; v.postiUsati = me ? postiUsati(me) : 0; v.situazioniAttive = sitAttive(s).map((S) => ({ id: S.id, t: S.t, spiega: descriviSituazione(S), fino: (s.situazioni.find((x) => x.id === S.id) || {}).fino })); v.sitProssime = (s.sitProssime || []).length; v.soglieLivello = soglieLivello(s); }
     // di notte non sai dove sono gli altri: vedi solo chi e' nel tuo stesso posto
     if (v.notte && v.notte.dove && s.notte) {
       const mio = s.notte.dove[idGiocatore], mioViaggio = s.notte.viaggio && s.notte.viaggio[idGiocatore];
@@ -6166,7 +6175,7 @@
     // Grandi Affari e durata della partita
     GRANDI, ORDINE_GRANDI, partitaLunga,
     // notte: luoghi, oggetti, occasioni, scelte
-    ORE, LUOGHI, OGGETTI, OCCASIONI, PERICOLI, P_GUAI, TEMPO_ORA, occasioniVisibili, scelteNotte, oreViaggio, luogoAperto, livelloSblocco, postiValigetta,
+    ORE, LUOGHI, OGGETTI, OCCASIONI, PERICOLI, P_GUAI, TEMPO_ORA, occasioniVisibili, scelteNotte, oreViaggio, luogoAperto, puoFondareSetta, livelloSblocco, postiValigetta,
     personaggiQui, GIRO, rischioContatto, nomeContatto,
     // carte e serate
     punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso),

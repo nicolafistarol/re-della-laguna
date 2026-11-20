@@ -1081,7 +1081,7 @@ function pannelloMiei() {
     ${(() => { const gr = [...new Set(miei.filter((l) => l.serie && l.serie !== "Moli").map((l) => l.serie))]; return gr.length ? `<h5>I tuoi gruppi di vie</h5>${gr.map((s) => `<div class="mieo-g">${statoGruppo(s)}</div>`).join("")}` : ""; })()}
     ${moli.length ? `<h5>Moli</h5>${moli.map((l) => riga(l, "chi ci passa paga il pedaggio")).join("")}` : ""}
     ${!miei.length ? `<p class="sub">Non hai ancora terreni. Fermati su un terreno libero o passa dall'Agenzia.</p>` : ""}
-    <button class="mieo" data-app="palazzo"><span class="mieo-n">${ico("palazzo")} Il tuo Palazzo</span><span class="sub">${me.piani ? me.piani + " piani · " + euro(L.renditaPalazzo(me)) + " a ogni Alba" : "da costruire"}</span></button>
+    <button class="mieo" data-app="palazzo"><span class="mieo-n">${ico("palazzo")} Il tuo Palazzo</span><span class="sub">${me.piani ? me.piani + " piani · " + euro(L.renditaPalazzo(me, S)) + " a ogni Alba" : "da costruire"}</span></button>
   </div>`;
 }
 function aggiorna3D(gruppi) {
@@ -1736,6 +1736,7 @@ function collegaScena(me) {
       <div class="pulsanti"><button id="x">Lascio stare</button><button class="notte" id="ok">Compro</button></div>`, (d, cl) => { d.querySelector("#x").onclick = cl; d.querySelector("#ok").onclick = () => { cl(); agisci({ tipo: "ricettatore", importo: +d.querySelector("#ricImp").value }); }; });
     if (c.k === "articolo") return finestraArticolo(me);
     if (c.k === "setta") return finestraSetta(me);
+    if (c.k === "setta_nuova") return apriApp("setta");
     if (c.k === "rito") return agisci({ tipo: "rito", setta: c.setta });
     if (c.k === "scava") return agisci({ tipo: "scava", setta: c.setta });
     if (c.k === "jet") return agisci({ tipo: "jet_setta", setta: c.setta });
@@ -1835,9 +1836,9 @@ function aperto(me, l) { return L.LUOGHI[l].sblocco <= S.sblocco || !!(L.luogoAp
 function finestraAltrove(me) {
   const N2 = S.notte, dove = N2.dove[mioId], restano = 6 - N2.ora;
   const luoghi = Object.keys(L.LUOGHI).filter((l) => aperto(me, l)); // v114: anche dove sei (con il suo ⚠) e i posti aperti solo per te (il Mercato Nero del Contrabbandiere)
-  const chiamate = new Set((N2.chiamate || []).filter((c) => !c.scaduta).map((x) => x.luogo));
+  const chiamate = new Map((N2.chiamate || []).filter((c) => !c.scaduta).map((x) => [x.luogo, x.alle]));
   finestra(`<span class="kick" style="color:var(--cielo)">Ore ${L.ORE[N2.ora]} · ${restano} ${restano === 1 ? "ora" : "ore"} all'alba</span><h2>Dove vai?</h2>
-    <div class="lista-luoghi">${luoghi.map((l) => { const ore = L.oreViaggio(S, me, dove, l); const gente = 0; /* chi c'e' in un posto lo scopri solo arrivando */ const qui = l === dove; return `<button class="luogo-riga${qui ? " qui" : ""}" data-l="${l}" ${qui || ore > restano ? "disabled" : ""} style="background-image:linear-gradient(90deg,rgba(6,10,24,.92),rgba(6,10,24,.55)),url('${SCENA_NOTTE[l]}')"><span class="ic">${ICO_LUOGO[l]}</span><span style="flex:1;text-align:left"><b>${esc(nomeLuogo(l, true))}</b><br><span class="sub">${l === "palazzo" ? "Casa tua" : esc(L.NOMI_ISOLE[L.LUOGHI[l].isola] || "")}${gente ? " · " + gente + (gente === 1 ? " persona" : " persone") + " ci sono già" : ""}${chiamate.has(l) ? " · appuntamento" : ""}${(me.calore || {})[l] ? ` · <span style="color:${me.calore[l] >= 2 ? "var(--perdita)" : "#f3c56b"}">qui ti conoscono ${"●".repeat(Math.min(3, me.calore[l]))}</span>` : ""}</span></span>${(() => { const v = PERSONAGGI.filter((pg) => pg.dove === l && pg.quando !== "raro"); return v.length ? `<span class="volti-riga" title="${esc(v.map((pg) => pg.nome).join(", "))}">${v.map((pg) => volto(pg)).join("")}</span>` : ""; })()}<span class="ore">${qui ? "sei qui" : ore === 1 ? "1 ora" : "2 ore"}</span></button>`; }).join("")}</div>
+    <div class="lista-luoghi">${luoghi.map((l) => { const ore = L.oreViaggio(S, me, dove, l); const gente = 0; /* chi c'e' in un posto lo scopri solo arrivando */ const qui = l === dove; return `<button class="luogo-riga${qui ? " qui" : ""}" data-l="${l}" ${qui || ore >= restano ? "disabled" : ""} style="background-image:linear-gradient(90deg,rgba(6,10,24,.92),rgba(6,10,24,.55)),url('${SCENA_NOTTE[l]}')"><span class="ic">${ICO_LUOGO[l]}</span><span style="flex:1;text-align:left"><b>${esc(nomeLuogo(l, true))}</b><br><span class="sub">${l === "palazzo" ? "Casa tua" : esc(L.NOMI_ISOLE[L.LUOGHI[l].isola] || "")}${gente ? " · " + gente + (gente === 1 ? " persona" : " persone") + " ci sono già" : ""}${chiamate.has(l) ? (qui || N2.ora + ore < chiamate.get(l) ? " · appuntamento entro le " + L.ORE[chiamate.get(l)] : " · appuntamento: non arrivi in tempo") : ""}${(me.calore || {})[l] ? ` · <span style="color:${me.calore[l] >= 2 ? "var(--perdita)" : "#f3c56b"}">qui ti conoscono ${"●".repeat(Math.min(3, me.calore[l]))}</span>` : ""}</span></span>${(() => { const v = PERSONAGGI.filter((pg) => pg.dove === l && pg.quando !== "raro"); return v.length ? `<span class="volti-riga" title="${esc(v.map((pg) => pg.nome).join(", "))}">${v.map((pg) => volto(pg)).join("")}</span>` : ""; })()}<span class="ore">${qui ? "sei qui" : ore === 1 ? "1 ora" : "2 ore"}</span></button>`; }).join("")}</div>
     ${(N2.serate || []).filter((x) => x.host !== mioId && x.host !== N2.ospite).map((x) => `<button class="luogo-riga" data-serata="${x.host}" style="margin-top:8px;border-color:rgba(243,197,107,.6)"><span class="ic">${ico("casino")}</span><span style="flex:1;text-align:left"><b>Serata al Palazzo di ${esc(x.nome)}</b><br><span class="sub">Casinò privato al piano ${x.piani} · ingresso ${x.ingresso ? euro(x.ingresso) : "gratis"} · ${x.ospiti} ${x.ospiti === 1 ? "ospite" : "ospiti"}</span></span><span class="ore">invito</span></button>`).join("")}
     <div class="pulsanti"><button id="no">Resto qui</button></div>`, (d, c) => {
     d.querySelector("#no").onclick = c;
@@ -1881,7 +1882,7 @@ function finestraRiepilogo(R) {
     <div class="riep">
       <div><span class="sub">Dov'eri</span><b>${esc(m.dove)}</b></div>
       <div><span class="sub">Chi hai visto</span><b>${m.visti.length ? m.visti.map(esc).join(", ") : "Nessuno"}</b></div>
-      <div><span class="sub">Soldi</span><b style="color:${m.soldi > 0 ? "var(--guadagno)" : m.soldi < 0 ? "var(--perdita)" : "inherit"}">${m.soldi ? segno(m.soldi) : "Niente"}</b>${m.sporchi > 0 ? `<span class="sub" style="color:var(--sporco)">di cui sporchi ${euro(m.sporchi)}</span>` : ""}</div>
+      <div><span class="sub">Soldi</span><b style="color:${m.soldi > 0 ? "var(--guadagno)" : m.soldi < 0 ? "var(--perdita)" : "inherit"}">${m.soldi ? segno(m.soldi) : "Niente"}</b>${m.sporchi ? `<span class="sub" style="color:var(--sporco)">sporchi ${segno(m.sporchi)}${m.soldi - m.sporchi ? " · puliti " + segno(m.soldi - m.sporchi) : ""}</span>` : ""}</div>
       <div><span class="sub">Fama</span><b>${m.fama ? (m.fama > 0 ? "+" : "") + m.fama : "Uguale"}</b></div>
       <div class="largo"><span class="sub">Tracce lasciate</span><div class="rischio">${[0, 1, 2].map((i) => `<i style="background:${i < m.rischio ? col[m.rischio] : "rgba(255,255,255,.15)"}"></i>`).join("")}</div><b style="color:${col[m.rischio]}">${RISCHIO[m.rischio]}</b></div>
     </div>
@@ -1928,8 +1929,8 @@ function chiediViaggio(me, luogo) {
   const restano = 6 - S.notte.ora;
   finestra(`<span class="kick" style="color:var(--cielo)">${ICO_LUOGO[luogo]} ${luogo === "palazzo" ? "" : esc(L.NOMI_ISOLE[L.LUOGHI[luogo].isola] || "")}</span><h2>${esc(nomeLuogo(luogo))}</h2>
     <p>Ci vogliono <b>${ore === 1 ? "1 ora" : "2 ore"}</b>${ore === 2 ? ", attraverso i ponti" : ""}. Mancano ${restano} ${restano === 1 ? "ora" : "ore"} all'alba.</p>
-    ${ore > restano ? `<p style="color:#ffb3b3">Non arriveresti prima dell'alba.</p>` : ""}
-    <div class="pulsanti"><button id="no">Resto qui</button><button class="notte" id="si" ${ore > restano ? "disabled" : ""}>Vado</button></div>`,
+    ${ore >= restano ? `<p style="color:#ffb3b3">Non arriveresti prima dell'alba.</p>` : ""}
+    <div class="pulsanti"><button id="no">Resto qui</button><button class="notte" id="si" ${ore >= restano ? "disabled" : ""}>Vado</button></div>`,
     (d, c) => { d.querySelector("#no").onclick = c; d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "vai", luogo }); }; });
 }
 
@@ -1997,7 +1998,7 @@ function segnaChat(nome, n) { try { localStorage.setItem("laguna_chat_" + partit
 function letti() { try { return +(localStorage.getItem("laguna_letti_" + partita) || 0); } catch (e) { return 0; } }
 function segnaLetti(n) { try { localStorage.setItem("laguna_letti_" + partita, String(n)); } catch (e) { } }
 function appVisibile(me, a) {
-  if (a.k === "setta") return S.sette.length > 0 || (S.inviti || []).length > 0 || me.sporchi >= L.N.settaSporchi;
+  if (a.k === "setta") return S.sette.length > 0 || (S.inviti || []).length > 0 || !!S.puoFondare || S.sblocco >= 1; // v122: le sette si trovano (prima l'app compariva solo con 8 M sporchi)
   if (a.k === "sporchi") return S.sblocco >= 1 || me.sporchi > 0;
   return a.lv <= S.sblocco || (a.k === "prove" && (me.prove || []).length);
 }
@@ -2423,7 +2424,7 @@ function appSporchi(me, miTurno) {
         ${["Tranquillo: nessuno parla di te.", "Voci: si parla di te.", "Osservato: la polizia ti tiene d'occhio.", "Indagato: la Gazzetta fa il tuo nome.", "Processo: il Giudice ti condanna per il reato più grave che hai fatto."].map((x, i) => `<div class="liv"><span class="liv-n" style="${(me.stato || 0) === i ? "background:var(--oro);color:#111" : ""}">${i}</span><div class="sub" style="font-size:12px">${x}${(me.stato || 0) === i ? " <b>← tu sei qui</b>" : ""}</div></div>`).join("")}
         <span class="sub" style="margin-top:6px">Le pene:</span>
         ${["lieve", "media", "grave", "gravissima"].map((g) => `<div class="sub" style="font-size:12px">· <b>${NOMI_GRAVITA[g]}</b>: ${esc(testoPena(g))}</div>`).join("")}</div>
-      <div class="scheda"><h4 style="color:var(--setta)">La setta</h4><span class="sub">${sp >= L.N.settaSporchi ? "Hai abbastanza soldi sporchi: puoi fondare una setta, di notte, dall'app Setta." : "Si apre quando hai " + euro(L.N.settaSporchi) + " sporchi. Fondarla costa " + euro(L.N.settaCosto) + " (di cui " + euro(L.N.settaTesoroIniziale) + " diventano il tesoro)."}</span></div>`;
+      <div class="scheda"><h4 style="color:var(--setta)">La setta</h4><span class="sub">${S.puoFondare ? "Puoi fondare una setta: di notte, dall'app Setta o al Faro." : testoRequisitiSetta()}</span></div>`;
 }
 function appScoperte(me, miTurno) {
     const fatte = me.scoperte || {}, tutte = L.SCOPERTE, n = tutte.filter((x) => fatte[x.id] !== undefined).length;
@@ -2436,6 +2437,7 @@ function appScoperte(me, miTurno) {
         return `<div class="liv"><span class="liv-n" style="${ok ? "background:#2e7d4f" : ""}">${ok ? "✓" : aperta ? "?" : x.lv}</span><div><b>${ok ? esc(x.nome) : aperta ? "Da scoprire" : "Livello " + x.lv}</b><div class="sub" style="font-size:12px">${ok ? esc(x.spiega) : aperta ? esc(x.indizio) : "Si apre quando sali al Livello " + x.lv + "."}</div></div></div>`;
       }).join("")}</div>`).join("");
 }
+function testoRequisitiSetta() { return "Per fondare una setta servono un patrimonio di " + euro(L.N.settaPatrimonio) + " e almeno " + euro(L.N.settaSporchi) + " in soldi sporchi; il patto costa " + euro(L.N.settaCosto) + " (prima dagli sporchi). Oppure aspetta un invito: chi comanda una setta lo manda ai giocatori più sporchi."; }
 function appSetta(me, miTurno) {
     const pct = Math.round(L.N.decima * 100);
     return (S.inviti || []).map((x) => `<div class="scheda"><h4>Un invito senza firma</h4>
@@ -2466,7 +2468,7 @@ function appSetta(me, miTurno) {
           <select id="inv_${st.id}">${fuori.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select>
           <div class="riga"><select id="invTipo_${st.id}"><option value="0">Nessun patto</option><option value="1">Gli regalo (dal Tesoro)</option><option value="-1">Gli chiedo una quota</option></select><input type="number" id="invSoldi_${st.id}" placeholder="quanto" min="0" step="100000" style="width:110px"></div>
           <button class="piccolo oro" data-invita="${st.id}">Manda l'invito</button></div>` : `<span class="sub">Tutti i giocatori sono già nella tua setta.</span>`; })() + `<span class="sub">Le operazioni si decidono di notte, al Faro.</span>` : ""}</div>`).join("")
-        : S.fase === "notte" ? `<div class="scheda"><h4>Fonda una setta</h4><span class="sub">Il patto costa ${euro(L.N.settaCosto)} in soldi sporchi: ${euro(L.N.settaTesoroIniziale)} diventano il tesoro della setta, il resto se ne va nel rito.</span><span class="sub" style="display:block;margin-top:6px"><b>Cosa ti dà:</b><br>· i tuoi affari sporchi lasciano il 30% di Tracce in meno<br>· gli avvocati della setta: ogni condanna scende di un gradino<br>· il Faro sempre aperto, con occasioni enormi solo per i membri<br>· al Gran Maestro, ogni Ciclo, il 5% del tesoro in contanti sporchi</span><input id="sNome" placeholder="Nome"><input id="sMotto" placeholder="Motto"><button class="piccolo oro" data-a2="fonda">Fonda</button></div>` : `<p class="sub">Le sette si fondano di notte.</p>`);
+        : S.fase === "notte" ? `<div class="scheda"><h4>Fonda una setta</h4><span class="sub">Il patto costa ${euro(L.N.settaCosto)} in soldi sporchi: ${euro(L.N.settaTesoroIniziale)} diventano il tesoro della setta, il resto se ne va nel rito.</span><span class="sub" style="display:block;margin-top:6px"><b>Cosa ti dà:</b><br>· i tuoi affari sporchi lasciano il 30% di Tracce in meno<br>· gli avvocati della setta: ogni condanna scende di un gradino<br>· il Faro sempre aperto, con occasioni enormi solo per i membri<br>· al Gran Maestro, ogni Ciclo, il 5% del tesoro in contanti sporchi</span>${S.puoFondare ? `<input id="sNome" placeholder="Nome"><input id="sMotto" placeholder="Motto"><button class="piccolo oro" data-a2="fonda">Fonda</button>` : `<span class="sub" style="display:block;margin-top:6px"><b>${testoRequisitiSetta()}</b></span>`}</div>` : `<div class="scheda"><h4>Fonda una setta</h4><span class="sub">Le sette si fondano di notte (dall'app o al Faro). ${S.puoFondare ? "Tu hai già quello che serve." : testoRequisitiSetta()}</span></div>`);
 }
 const CONTENUTO_APP = {
   impero: (me) => impero(me),
@@ -2820,7 +2822,7 @@ const SBLOCCHI = [
   ["Livello 0 · si parte", "Dadi, terreni, permessi e cantieri. Di notte: il tuo Palazzo, il Club Neon e la Marina. Valigetta da 2 posti."],
   ["Livello 1 · patrimonio 2,5 milioni", "Mercato Nero, Bisca, Porto e Casinò Reale. Soldi sporchi e app Soldi sporchi, occasioni illegali, Prove. Valigetta da 4 posti (5 per il Contrabbandiere)."],
   ["Livello 2 · patrimonio 7 milioni", "Borsa, Cripto, Contratti, evasione delle tasse. Di notte anche la Redazione."],
-  ["Livello 3 · patrimonio 15 milioni", "La Villa sulla scogliera e il Faro. Valigetta da 6 posti (7 per il Contrabbandiere). (La setta si apre a parte: servono 8 milioni sporchi.)"],
+  ["Livello 3 · patrimonio 15 milioni", "La Villa sulla scogliera e il Faro. Valigetta da 6 posti (7 per il Contrabbandiere). (La setta si fonda a parte: patrimonio di 3 milioni e un po' di soldi sporchi.)"],
   ["Livello 4 · patrimonio 40 milioni (solo partite lunghe)", "I Grandi Affari: all'asta prima la TV della Laguna (sceglie il titolone), poi la Banca della Laguna (tasso dei prestiti, blocco dei conti). Si strappano comprando quote."],
 ];
 const PAROLE = [
@@ -3224,7 +3226,7 @@ function tavoloColpo(me) {
     </div>
     ${C.venduto ? `<p style="color:#ff8a8a;font-size:13px;margin:4px 0">⚠️ ${esc(C.venduto)}</p>` : ""}
     ${ultimo ? `<p class="sub" style="font-size:12px">Il segnale dice il vero 3 volte su 4. Fidati, o no.</p>` : ""}
-    <div class="colpo-opz">${C.opzioni.map((o, i) => `<button class="ogg" data-i="${i}" style="text-align:left;color:#fff" ${o.costo && me.cash + me.sporchi < o.costo ? "disabled" : ""}><div><b>${esc(o.l)}${o.costo ? " · " + euro(o.costo) : ""}</b><div class="sub" style="font-size:12px">${esc(o.d)}${o.gu ? " Rischio " + (o.gu < 1 ? "−" : "+") + Math.round(Math.abs(o.gu - 1) * 100) + "%" : ""}${o.ga && o.ga !== 1 ? ", bottino " + (o.ga < 1 ? "−" : "+") + Math.round(Math.abs(o.ga - 1) * 100) + "%" : ""}${o.gu ? "." : ""}</div></div></button>`).join("")}</div>
+    <div class="colpo-opz">${C.opzioni.map((o, i) => `<button class="ogg" data-i="${i}" style="text-align:left;color:#fff" ${o.costo && me.cash + me.sporchi < o.costo ? "disabled" : ""}><div><b>${esc(o.l)}${o.costo ? " · " + euro(o.costo) : ""}</b><div class="sub" style="font-size:12px">${esc(o.d)}${o.gu ? " Rischio di guai dal " + C.rischio + "% al " + Math.min(95, Math.round(C.rischio * o.gu)) + "%" : ""}${o.ga && o.ga !== 1 ? ", bottino " + (o.ga < 1 ? "−" : "+") + Math.round(Math.abs(o.ga - 1) * 100) + "%" : ""}${o.gu ? "." : ""}</div></div></button>`).join("")}</div>
     <div class="colpo-tempo"><i></i></div>
     <p class="sub" style="font-size:12px" id="colpoSec"></p>
   </div>`;
@@ -3820,7 +3822,7 @@ function finestraPalazzo() { apriApp("palazzo"); }
 function appPalazzo(me, miTurno) {
   const F = L.FASCE_PALAZZO, n = me.piani, fi = n ? L.fasciaPalazzo(n) : -1;
   const cond = L.condizioniPalazzo(S, me), possono = miTurno && !me.azioneGiornoFatta;
-  const rendNow = L.renditaPalazzo(me);
+  const rendNow = L.renditaPalazzo(me, S);
   // 1. in cima: quanto e' alto e quanto rende
   const testa = `<div class="scheda pal-testa"><div class="riga" style="align-items:flex-end"><span class="serif" style="font-size:34px;line-height:1">${n}</span><span style="flex:1">${n === 1 ? "piano" : "piani"}${n ? ` · <b style="color:${COL_FASCE[fi]}">${F[fi].nome}</b>` : ""}</span><span style="text-align:right"><b style="color:var(--pulito)">+ ${euro(rendNow)}</b><br><span class="sub">a ogni Alba</span></span></div>
     <div class="sub" style="margin-top:6px">${ico("palazzo")} <b>Piani</b> = l'altezza: ogni piano ti dà un affitto a ogni Alba. ${ico("chiave")} <b>Stanze</b> = poteri speciali, si comprano a parte quando il Palazzo è abbastanza alto.</div></div>`;
@@ -3833,12 +3835,12 @@ function appPalazzo(me, miTurno) {
   const prossima = F.find((f) => f.da > Math.max(n, 1));
   const opz = (() => {
     if (n >= 60) return `<span class="sub">Hai raggiunto i 60 piani.</span>`;
-    const costo = L.costoPiano(me) + (n === 0 && !cond.permesso ? 300_000 : 0), piu = L.renditaPiani(n + 1) - L.renditaPiani(n);
+    const costo = L.costoPiano(me) + (n === 0 && !cond.permesso ? 300_000 : 0), piu = L.renditaPiani(n + 1, S) - L.renditaPiani(n, S);
     const no = !cond.ok ? "mancano le attività" : me.cash < costo ? "ti mancano " + euro(costo - me.cash) : "";
     const uno = `<button class="pal-opz ${no ? "" : "oro"}" data-piani="1" ${possono && !no ? "" : "disabled"}><b>Piano ${n + 1}</b><span class="pal-conto"><span>Costa <b>${euro(costo)}</b>${n === 0 && !cond.permesso ? " (con il permesso)" : ""}</span><span>Rende <b>+ ${euro(piu)}</b> a ogni Alba</span><span class="sub">si ripaga ${cicliRipaga(costo, piu)}${no ? ` · <span class="pal-no">${no}</span>` : ""}</span></span></button>`;
     // Cantiere grande: dall'Attico in su, 2 o 3 piani in una mossa, pagando un sovrapprezzo
     const grande = [2, 3].filter((q) => n + q <= 60).map((q) => {
-      const c = L.costoPiani(me, q), r = L.renditaPiani(n + q) - L.renditaPiani(n), extra = c - Array.from({ length: q }, (_, k) => L.costoPiani({ ...me, piani: n + k }, 1)).reduce((a, b) => a + b, 0);
+      const c = L.costoPiani(me, q), r = L.renditaPiani(n + q, S) - L.renditaPiani(n, S), extra = c - Array.from({ length: q }, (_, k) => L.costoPiani({ ...me, piani: n + k }, 1)).reduce((a, b) => a + b, 0);
       const nq = n < 6 ? "dall'Attico (6 piani)" : me.cash < c ? "ti mancano " + euro(c - me.cash) : "";
       return `<button class="pal-opz" data-piani="${q}" ${possono && !nq ? "" : "disabled"}><b>Cantiere grande: +${q} piani</b><span class="pal-conto"><span>Costa <b>${euro(c)}</b> <span class="sub">(${euro(extra)} di sovrapprezzo)</span></span><span>Rende <b>+ ${euro(r)}</b> a ogni Alba</span>${nq ? `<span class="sub"><span class="pal-no">${nq}</span></span>` : ""}</span></button>`;
     }).join("");
@@ -3964,7 +3966,7 @@ function datiGuida() { return [
     "<b>Le piste</b>: ti scoprono sempre per un motivo. Stesso posto troppe volte, soldi che non tornano, complici nei guai, prove dei rivali.",
     "Scala: Voci → Osservato → Indagato → Processo. Poi multe, sequestri o il <b>Faro</b> (la prigione).",
     "Poliziotti e banchieri <b>si comprano</b>. Se la polizia indaga su un altro, tu rischi meno.",
-    "<b>Setta</b>: si apre con 8 M sporchi, fondarla costa 5 M. Inviti gli altri con un patto e puoi cacciarli.",
+    "<b>Setta</b>: la fondi con un patrimonio di 3 M e un po' di sporchi (costa 1,5 M), di notte dall'app o al Faro. Inviti gli altri con un patto e puoi cacciarli.",
   ], tag: ["Soldi sporchi", "Ripulire", "Piste", "Indagine", "Faro", "Corruzione", "Setta"] },
   { img: "img/corona.jpg", kick: "6 di 7 · Potere e affari", tit: "Tutto il resto", righe: [
     "<b>Banca</b>: prestiti e ipoteche. <b>Borsa e cripto</b> (Livello 2): salgono e scendono a ogni Alba.",

@@ -77,7 +77,7 @@
   // I Grandi Affari (Livello 4): aste, quote, poteri. Al massimo una mossa per giorno.
   // ---------------------------------------------------------------- sette
 // Ogni carattere ha il suo prezzo per entrare in una setta: lo Spavaldo entra gratis, il Legale quasi mai.
-const PREZZO_SETTA = { Spavaldo: 0, Furbo: 2e5, Esperto: 4e5, Investitore: 8e5, Costruttore: 8e5, Legale: 2e6 };
+const PREZZO_SETTA = { Spavaldo: 0, Furbo: 1e5, Esperto: 2e5, Investitore: 8e5, Costruttore: 8e5, Legale: 2e6 };
 const NOMI_SETTA = [["La Mano Nera", "Nessuno vede, tutti pagano."], ["I Figli della Nebbia", "Dalla laguna veniamo."], ["Ordine del Tridente", "Tre punte, un solo padrone."], ["Loggia del Corallo", "Il mare custodisce."], ["La Lanterna Spenta", "Al buio si fanno gli affari."]];
 function rispostaInvito(o, i, n, a) {
   const tondo = (v) => (Math.ceil(v / 5e4) * 5e4).toLocaleString("it-IT") + " €";
@@ -117,7 +117,7 @@ function invitoBot(o, i, L) {
   if (!scelte.length) return null;
   // preferisce chi ha soldi sporchi: e' gia' dei loro
   const q = scelte.sort((a, b) => (b.sporchi || 0) - (a.sporchi || 0))[0];
-  const regalo = st.tesoro > 3.2e6 ? 5e5 : st.tesoro >= 2e6 ? 2e5 : 0;
+  const regalo = st.tesoro > 3.2e6 ? 5e5 : st.tesoro >= 1e6 ? 2e5 : 0;
   return { tipo: "invita_setta", setta: st.id, invitato: q.id, offerta: regalo };
 }
 
@@ -179,9 +179,10 @@ function convocazioneBot(o, i, L, s) {
   return null;
 }
 function settaNotteBot(o, i, e, L, s) {
-  if (!i.settaFondata && !(i.sette || []).length && ["Spavaldo", "Furbo", "Esperto"].includes(e) && i.sporchi >= L.N.settaSporchi && o.ciclo >= 2 && i._fondaCiclo !== o.ciclo) {
+  if (!i.settaFondata && !(i.sette || []).length && ["Spavaldo", "Furbo", "Esperto", "Investitore"].includes(e) && L.puoFondareSetta(o, i) && o.ciclo >= 1 && i._fondaCiclo !== o.ciclo) {
     i._fondaCiclo = o.ciclo;
-    if (Math.random() < 0.6) { const usati = (o.sette || []).map((x) => x.nome); const nm = NOMI_SETTA.find((x) => !usati.includes(x[0])) || ["La Setta di " + i.nome, ""]; return { tipo: "fonda_setta", nome: nm[0], motto: nm[1] }; }
+    // v122: le sette devono nascere davvero (il tester non ne ha mai vista una): la prima quasi sempre, le altre piu' di rado
+    if (Math.random() < ((o.sette || []).length ? 0.35 : 0.9)) { const usati = (o.sette || []).map((x) => x.nome); const nm = NOMI_SETTA.find((x) => !usati.includes(x[0])) || ["La Setta di " + i.nome, ""]; return { tipo: "fonda_setta", nome: nm[0], motto: nm[1] }; }
   }
   const st = (o.sette || []).find((x) => x.gm === i.id);
   if (st && i._recCiclo !== o.ciclo) {
@@ -715,15 +716,19 @@ function grandiBot(o, i, n) {
     preparaTest: function (stato, opz) {
       const da = Math.max(2, Math.min(12, Number(opz && opz.ciclo) || 6)) - 1; // Ciclo mostrato (6) -> numero interno (5)
       if ((stato.modoFine || "cicli") === "cicli" && (stato.cicli || 8) < da + 6) stato.cicli = [10, 12, 16, 20].find((c) => c >= da + 6) || 20;
-      const persone = stato.players.filter((p) => !p.bot);
-      for (const p of persone) { p.bot = true; p.strat = "Esperto"; }
+      const ids = stato.players.filter((p) => !p.bot).map((p) => p.id);
+      for (const p of stato.players) if (ids.includes(p.id)) { p.bot = true; p.strat = "Esperto"; }
       const r = n.gioca(stato, { finche: (x) => x.ciclo >= da && x.fase === "giorno", max: 60000 });
+      // v122: si rileggono i giocatori (applicaSicura, quando rifiuta una mossa, rimette lo stato com'era con oggetti nuovi)
+      const persone = stato.players.filter((p) => ids.includes(p.id));
       for (const p of persone) {
         p.bot = false; p.strat = null;
         p.cash = Math.max(0, p.cash) + 8_000_000; p.sporchi = (p.sporchi || 0) + 3_000_000; p.debito = 0;
         p.livello = Math.max(p.livello || 0, 3); p.tracce = Math.min(p.tracce || 0, 15); // le Tracce restano, ma non tante da finire subito al Processo
         (p.messaggi = p.messaggi || []).push({ ciclo: stato.ciclo + 1, testo: "🧪 Modalità test: fino a qui ha giocato il computer al posto tuo (come un Esperto). Ora hai 8 milioni puliti in più, 3 milioni sporchi da riciclare e il Livello " + p.livello + "." });
       }
+      // v122: i soldi regalati non contano come crescita nella sfida del Ciclo (il tester vinceva con +184%)
+      for (const sf of stato.sfide || []) for (const p of persone) { if (sf.a === p.id) sf.pa = Math.round(t.patrimonio(stato, p, true)); if (sf.b === p.id) sf.pb = Math.round(t.patrimonio(stato, p, true)); }
       stato.test = { daCiclo: da + 1 };
       return r;
     },
