@@ -541,7 +541,7 @@ function testoCiclo() {
   return `Ciclo ${S.ciclo + 1} di ${S.cicli || L.N.cicli}`;
 }
 // ------------------------------------------------------------ chi deve agire
-window.__S = () => S; window.__disegna = () => disegna(); // per le prove automatiche
+window.__S = () => S; window.__disegna = () => disegna(); window.__alba = () => finestraAlba(S.players.find((p) => p.id === mioId)); // per le prove automatiche
 window.__ultimOra = (g) => ultimOra(g);
 function io() { return S.players.find((p) => p.id === mioId); }
 function mioTurno() { return S && S.fase === "giorno" && L.corrente(S).id === mioId; }
@@ -3461,11 +3461,10 @@ function finestraAlba(me) {
   const gazAlba = S.gazzetta.filter((g) => g.ciclo === S.ultimaAlba.ciclo || g.ciclo === S.ultimaAlba.ciclo + 1);
   const mie = gazAlba.filter((g) => g.testo.includes(me.nome));
   const condannato = me.ultimaSentenza && me.ultimaSentenza.ciclo + 1 === S.ultimaAlba.ciclo; // v111
-  finestra(`<span class="kick" style="color:var(--oro)">${ico("sole")} L'Alba · Ciclo ${S.ultimaAlba.ciclo}</span><h2>Com'è andata stanotte</h2>
-    <div class="alba-numeri">
-      <div><span>Rendite del mattino</span><b style="color:${netto >= 0 ? "var(--pulito)" : "var(--sporco)"}">${netto >= 0 ? "+ " : "− "}${euro(Math.abs(netto))}</b><i>dopo tasse e spese</i></div>
-      ${condannato ? `<div><span>Polizia</span><b style="color:var(--sporco)">Condannato</b><i>sentenza ${esc(me.ultimaSentenza.gravita)} · multa ${euro(me.ultimaSentenza.multa)}</i></div>` : `<div><span>Polizia</span><b style="color:${(me.stato || 0) >= 3 ? "var(--sporco)" : (me.stato || 0) >= 1 ? "#f3c56b" : "var(--pulito)"}">${esc(L.STATI[me.stato || 0] || "")}</b><i>${guai ? guai + (guai === 1 ? " guaio" : " guai") + " stanotte" : "nessun guaio stanotte"}</i></div>`}
-    </div>
+  finestra(`<div class="alba-corta"><span class="kick" style="color:var(--oro)">${ico("sole")} L'Alba · Ciclo ${S.ultimaAlba.ciclo}</span><h2 style="display:none">L'Alba</h2>
+    <div class="alba-eroe ${netto >= 0 ? "su" : "giu"}"><span>${netto >= 0 ? "Stanotte hai guadagnato" : "Stanotte hai perso"}</span><b>${netto >= 0 ? "+ " : "− "}${euro(Math.abs(netto))}</b><i>rendite del mattino, dopo tasse e spese</i></div>
+    <div class="alba-tre">${condannato ? `<div class="ab giu"><span>🚔 Polizia</span><b>Condannato</b><i>${esc(me.ultimaSentenza.gravita)} · multa ${euro(me.ultimaSentenza.multa)}</i></div>` : `<div class="ab ${(me.stato || 0) >= 3 ? "giu" : (me.stato || 0) >= 1 ? "att" : "su"}"><span>🚔 Polizia</span><b>${esc(L.STATI[me.stato || 0] || "")}</b><i>${guai ? guai + (guai === 1 ? " guaio" : " guai") + " stanotte" : "nessun guaio stanotte"}</i></div>`}${r.sfida ? `<div class="ab ${r.sfida.vinta ? "su" : "giu"}"><span>⚔️ Sfida</span><b>${r.sfida.vinta ? "Vinta" : "Persa"}</b><i>contro ${esc(nomeDi(r.sfida.contro))} · <span style="white-space:nowrap">${r.sfida.vinta ? "+" : "−"} ${euro(Math.abs(r.sfida.soldi))}</span></i></div>` : sfidaMia() ? `<div class="ab att"><span>⚔️ Sfida</span><b>Nuova</b><i>tu contro ${esc(nomeDi(rivaleMio()))}</i></div>` : `<div class="ab"><span>⚔️ Sfida</span><b>Nessuna</b><i>stanotte niente rivali</i></div>`}${(() => { const f = importanti.find((x) => tipoRiga(x.t) === "male") || importanti.find((x) => tipoRiga(x.t) === "bene") || importanti[0]; if (!f) return `<div class="ab"><span>🌙 Fatto della notte</span><b>Tranquilla</b><i>niente di importante</i></div>`; const k = tipoRiga(f.t); const t = f.t.length > 70 ? f.t.slice(0, 68).replace(/\s+\S*$/, "") + "…" : f.t; return `<div class="ab ${k === "male" ? "giu" : k === "bene" ? "su" : ""}"><span>🌙 Fatto della notte</span><i class="lungo">${esc(t)}</i></div>`; })()}</div>
+    <details class="alba-tutto"><summary>Vedi tutto</summary>
     ${r.sfida ? `<div class="sfida-esito ${r.sfida.vinta ? "su" : "giu"}"><b>⚔️ ${r.sfida.vinta ? "Hai vinto la sfida" : "Hai perso la sfida"} contro ${esc(nomeDi(r.sfida.contro))}</b><span>Tu ${r.sfida.mio >= 0 ? "+" : ""}${r.sfida.mio}% · lui ${r.sfida.suo >= 0 ? "+" : ""}${r.sfida.suo}% · ${r.sfida.vinta ? "incassi " : "paghi "}${euro(Math.abs(r.sfida.soldi))}${r.sfida.quanto ? ` · all'inizio ${r.sfida.avanti === "lui" ? "lui era più ricco" : "eri più ricco tu"} del ${r.sfida.quanto} (${r.sfida.avanti === (r.sfida.vinta ? "lui" : "tu") ? "posta piena" : "mezza posta"})` : ""}${r.sfida.vinta ? "" : " · vince chi cresce di più in percentuale dall'Alba scorsa"}</span></div>` : ""}
     ${sfidaMia() ? `<div class="sfida-nuova">Nuova sfida: <b>tu contro ${esc(nomeDi(rivaleMio()))}</b>${sfidaMia().motivo === "vendetta" ? " (vendetta)" : ""}. Chi cresce di più entro la prossima Alba prende la posta.</div>` : ""}
     <p class="kick" style="color:var(--muted);margin-top:14px">I fatti della notte</p>
@@ -3479,7 +3478,8 @@ function finestraAlba(me) {
     ${r.consiglio ? `<div class="scheda" style="margin-top:12px;border:1px solid rgba(255,95,162,.4)"><b style="color:#ff5fa2">Vera ti suggerisce</b><p style="margin:4px 0 0">${esc(r.consiglio.testo)}</p></div>` : ""}
     ${mie.length ? `<p class="kick" style="color:var(--muted);margin-top:14px">La Gazzetta parla di te</p>${mie.slice(0, 3).map((g) => `<p class="sub" style="margin:4px 0;color:var(--testo,#e5e7eb)">📰 ${esc(g.testo)}</p>`).join("")}` : ""}
     <details class="alba-det"><summary>La Gazzetta di stamattina (${gazAlba.length} notizie)</summary>${primaPagina(S.ultimaAlba.ciclo, true)}</details>
-    <div class="pulsanti"><button class="oro" id="ok">Inizia il giorno</button></div>`, (d, c) => d.querySelector("#ok").onclick = () => { c(); setTimeout(mandaAlbaVista, 300); });
+    </details>
+    <div class="pulsanti"><button class="oro" id="ok">Inizia il giorno</button></div></div>`, (d, c) => d.querySelector("#ok").onclick = () => { c(); setTimeout(mandaAlbaVista, 300); });
 }
 // v98: la sfida del Ciclo (la rivalita' tra giocatori)
 function sfidaMia() { return (S.sfide || []).find((x) => x.a === mioId || x.b === mioId) || null; }

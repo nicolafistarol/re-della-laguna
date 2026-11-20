@@ -942,3 +942,32 @@ body:has(.velo:not(.laterale)) #mondo{filter:blur(7px) brightness(.5) saturate(.
 #mondo.tab.vicino .cas.terreno.ed i,#mondo.tab.vicino .cas.terreno.ed .edi{width:124px;height:124px}
 #mondo.tab.vicino .cas.terreno.ed.pres i::after{width:104px;margin-left:-52px;height:34px;bottom:10px}
 #mondo.tab.vicino .cas.terreno.ed em.cartello{top:30px;font-size:15px}
+
+/* ===== v118 punto 4: finestre corte e leggibili ===== */
+.alba-eroe{margin:10px 0 12px;padding:16px 14px;border-radius:16px;text-align:center;background:rgba(95,211,141,.10);border:1px solid rgba(95,211,141,.35)}
+.alba-eroe.giu{background:rgba(255,107,107,.10);border-color:rgba(255,107,107,.4)}
+.alba-eroe span{display:block;font-size:16px;color:var(--muted)}
+.alba-eroe b{display:block;font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:48px;line-height:1.1;color:var(--pulito);font-variant-numeric:tabular-nums}
+.alba-eroe.giu b{color:#ff9d9d}
+.alba-eroe i{display:block;font-style:normal;font-size:15px;color:var(--muted)}
+.alba-tre{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.alba-tre .ab{display:flex;flex-direction:column;gap:3px;padding:12px 10px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid var(--bordo);text-align:left;min-width:0}
+.alba-tre .ab span{font-size:15px;color:var(--muted)}
+.alba-tre .ab b{font-size:21px;line-height:1.15}
+.alba-tre .ab i{font-style:normal;font-size:15px;color:var(--ink);opacity:.85;line-height:1.3}
+.alba-tre .ab i.lungo{opacity:1}
+.alba-tre .ab.su{border-color:rgba(95,211,141,.5)}.alba-tre .ab.su b{color:var(--pulito)}
+.alba-tre .ab.giu{border-color:rgba(255,107,107,.55);background:rgba(255,107,107,.08)}.alba-tre .ab.giu b{color:#ff9d9d}
+.alba-tre .ab.att{border-color:rgba(243,197,107,.55)}.alba-tre .ab.att b{color:var(--oro)}
+.alba-tutto{margin-top:12px}
+.alba-tutto>summary{cursor:pointer;list-style:none;text-align:center;font-weight:800;font-size:15px;color:var(--oro);padding:8px;border-radius:10px;background:rgba(243,197,107,.08)}
+.alba-tutto>summary::-webkit-details-marker{display:none}
+.alba-tutto[open]>summary{margin-bottom:8px}
+.alba-corta .pulsanti{justify-content:center}
+.alba-corta .pulsanti .oro{min-width:220px;font-size:17px}
+@media(max-width:600px){.alba-tre{grid-template-columns:1fr}.alba-tre .ab{flex-direction:row;flex-wrap:wrap;align-items:baseline;column-gap:8px;padding:9px 12px}.alba-tre .ab i{flex-basis:100%}.alba-eroe b{font-size:40px}}
+/* testo delle finestre mai sotto i 15 px, e niente rosso/rosa piccolo sullo scuro */
+.fin p,.fin li,.fin .sub,.fin td,.fin summary,.fin .storia{font-size:15px}
+.fin [style*="font-size:11px"],.fin [style*="font-size:12px"],.fin [style*="font-size:13px"],.fin [style*="font-size: 12px"],.fin [style*="font-size: 13px"]{font-size:15px!important}
+.fin .sub[style*="--sporco"],.fin span[style*="--sporco"],.fin .sub[style*="#ff"],.fin i[style*="--sporco"]{color:#ffb0b0!important;font-weight:700}
+.fin [style*="color:#ff5fa2"],.fin [style*="--rosa"]{color:#ff9cc8!important}
