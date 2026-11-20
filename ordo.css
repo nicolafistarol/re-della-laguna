@@ -79,3 +79,23 @@ input::placeholder{color:rgba(236,230,218,.35)}
 .carta .dove,.carta .serif{color:var(--avorio)}
 .carta .kick{color:var(--avorio-2)!important;letter-spacing:.2em}
 .ingresso .cartaI select,.ingresso .cartaI input{max-width:100%;min-width:0;box-sizing:border-box}
+
+/* ---------- tappa 2: tabellone ---------- */
+.cas.spec i,.lg.spec{background:#0f1218!important;border:1.5px solid rgba(236,230,218,.72)!important;box-shadow:0 0 0 3px rgba(9,11,15,.45),0 6px 14px -4px rgba(0,0,0,.7)!important}
+.cas.spec i .lic,.lg.spec .lic{color:var(--avorio)!important}
+.cas.ang i,.lg.ang{background:#13110c!important;border:1.5px solid var(--ottone)!important;box-shadow:0 0 0 3px rgba(9,11,15,.45),0 6px 14px -4px rgba(0,0,0,.7)!important}
+.cas.ang i .lic,.lg.ang .lic{color:var(--ottone)!important}
+.cas:hover i{transition:transform .15s}
+.isola-nome{color:var(--avorio)!important;letter-spacing:.04em;text-shadow:0 1px 2px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)!important}
+.etichetta,#mondo.tab .cas.terreno .cn,#mondo.tab .cas .cn{background:var(--sup)!important;border:1px solid var(--filo)!important;color:var(--avorio);box-shadow:0 10px 24px -10px rgba(0,0,0,.7)!important;border-radius:8px!important}
+#mondo.tab .cas.terreno.ed em.cartello{background:var(--avorio)!important;color:#14110b!important;border:1px solid rgba(0,0,0,.45)!important;border-radius:4px!important;font-weight:700!important;letter-spacing:.01em;box-shadow:0 3px 6px -2px rgba(0,0,0,.6)!important}
+#mondo.tab .cas .inz{border:1.5px solid #0d0f14!important;box-shadow:0 2px 4px rgba(0,0,0,.5)!important;font-weight:700!important}
+#mondo.tab .cas .inz.tu{background:var(--ottone)!important;color:#15110a!important}
+#mondo.tab .cas.terreno.ed.mio i::after{background:var(--ottone)!important;box-shadow:0 0 0 2px #0d0f14,0 0 12px rgba(198,166,106,.5)!important}
+#mondo.tab .cas.terreno.ed.pres i::after{box-shadow:0 0 0 2px rgba(9,11,15,.8)!important}
+#mondo.tab .cas .livc{background:var(--sup)!important;border:1px solid var(--filo)}
+.cas.nuovo::after{border-color:var(--avorio)!important;border-width:1.5px!important}
+.dadi-scena .chi{color:var(--avorio-2)!important;letter-spacing:.22em}
+.dadi-scena .totale{color:var(--avorio)!important;text-shadow:0 2px 12px rgba(0,0,0,.6)!important}
+.passaggio b{letter-spacing:.06em}
+#mondo.tab .cas.terreno.molo i{background:var(--avorio)!important;box-shadow:0 0 0 1px rgba(0,0,0,.5),0 6px 12px -4px rgba(0,0,0,.6)!important;border-radius:8px!important}
