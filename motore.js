@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 114;
+  const VERSIONE_REGOLE = 115;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -334,8 +334,17 @@
   function notizia(s, testo, tipo) { s.gazzetta.push({ ciclo: s.ciclo + 1, testo, tipo: tipo || "notizia" }); if (s.gazzetta.length > 120) s.gazzetta.shift(); }
   // Ogni passaggio di soldi viene scritto qui con il motivo.
   // pubblico = lo vedono tutti (affitti, aste, stipendi...); privato = solo chi paga e chi riceve.
+  // v114: gli attriti veri tra due giocatori in questo Ciclo (affitti pagati, sabotaggi, proposte rifiutate, aste perse):
+  // all'Alba la sfida del Ciclo nasce da qui, con il motivo scritto, invece che solo dalla classifica
+  function attrito(s, chi, contro, punti, cosa, importo) {
+    if (!chi || !contro || chi.id === contro.id) return;
+    s.attriti = s.attriti && s.attriti.ciclo === s.ciclo ? s.attriti : { ciclo: s.ciclo, c: {} };
+    const k = chi.id + ">" + contro.id, x = s.attriti.c[k] = s.attriti.c[k] || { p: 0, fatti: {} };
+    x.p += punti; const f = x.fatti[cosa] = x.fatti[cosa] || { n: 0, soldi: 0 }; f.n++; f.soldi += importo || 0;
+  }
   function flusso(s, da, a, importo, motivo, pubblico) {
     importo = round(importo); if (!importo) return;
+    if (da && a && /^(Affitto|Pedaggio)/.test(motivo || "")) attrito(s, da, a, importo / 100_000, "affitto", importo);
     s.flussi = s.flussi || [];
     s.flussi.push({ n: (s.nFlussi = (s.nFlussi || 0) + 1), c: s.ciclo + 1, g: s.giorno + 1, da: da ? da.id : null, a: a ? a.id : null, importo, motivo, pubblico: !!pubblico });
     if (s.flussi.length > 160) s.flussi.shift();
@@ -539,6 +548,16 @@
     { id: "sciopero", fam: "citta", t: "Sciopero dei vaporetti: la città è bloccata.", o: [{ t: "Noleggi barche private per i clienti", costo: 50_000, alba: [70_000, 110_000] }, { t: "Offri un passaggio gratis a tutti", costo: 30_000, fama: 4 }] },
     { id: "asta_beneficenza", fam: "citta", t: "Asta di beneficenza al Casinò: in palio una cena col Sindaco.", o: [{ t: "Offri 100.000 €", costo: 100_000, fama: 5, p: 0.8, falli: { cash: 100_000, fama: 0 } }, { t: "Fai vincere un amico e ti fai invitare", costo: 30_000, fama: 2 }] },
     { id: "acqua_alta", fam: "citta", t: "Arriva l'acqua alta: i negozi del centro chiedono sacchi e pompe.", o: [{ t: "Li fornisci a prezzo di costo", costo: 25_000, fama: 3 }, { t: "Li vendi al triplo", cash: [50_000, 90_000], fama: -3 }] },
+    // v114: bivi nuovi, con forme diverse (non solo "soldi sporchi o fama")
+    { id: "recensione", fam: "tua", req: "attivita", t: "Un critico famoso prenota un tavolo nel tuo locale «{L}», in incognito. Il personale l'ha riconosciuto.", o: [{ t: "Gli offri la cena e il vino migliore", costo: 15_000, fama: 3 }, { t: "Lo tratti come tutti", p: 0.5, fama: 3, falli: { fama: -3 } }] },
+    { id: "assicurazione", fam: "tua", req: "attivita", t: "Un perito ti propone di gonfiare i danni dell'ultimo temporale nel locale «{L}».", o: [{ t: "Firmi la pratica gonfiata", liv: 1, sporchi: [80_000, 140_000], tracce: 6 }, { t: "Fai la polizza giusta e dormi tranquillo", costo: 20_000, tracce: -3 }] },
+    { id: "debito_altro", fam: "altro", req: "altrui", t: "Il gestore di {R} qui a «{C}» ha un debito con uno strozzino e cerca qualcuno che lo compri.", o: [{ t: "Compri il debito", costo: 60_000, alba: [90_000, 130_000], riv: { alba: -40_000 } }, { t: "Avvisi {R} prima che sia tardi", fama: 1, riv: { fama: 1 }, tracce: -2 }] },
+    { id: "autista", fam: "rivale", req: "rivale", t: "L'autista di {R} ti offre gli orari del suo capo per tutta la settimana.", o: [{ t: "Li compri", costo: 40_000, p: 0.7, riv: { alba: -120_000 }, falli: { fama: -2 } }, { t: "Lo riporti da {R} e ti fai bello", fama: 2, riv: { fama: -1 } }] },
+    { id: "quadro", fam: "rivale", req: "rivale", t: "All'asta della Galleria {R} vuole a tutti i costi un quadro. Sei in sala anche tu.", o: [{ t: "Rilanci per fargli dispetto", costo: 90_000, fama: 3, riv: { fama: -2 } }, { t: "Lo lasci vincere e gli vendi la cornice antica", cash: [25_000, 45_000] }] },
+    { id: "turisti", fam: "strada", t: "Una famiglia di turisti si è persa e non parla italiano.", o: [{ t: "Li accompagni all'hotel", fama: 2 }, { t: "Li porti in taxi... facendo il giro lungo", cash: [15_000, 30_000], fama: -1 }] },
+    { id: "cassa_mare", fam: "strada", t: "Un pescatore ha tirato su una cassa sigillata. Te la vende senza aprirla.", o: [{ t: "La compri e la apri", costo: 30_000, p: 0.5, sporchi: [80_000, 160_000], falli: { tracce: 4 } }, { t: "La porti alla Guardia Costiera", fama: 2, tracce: -2 }] },
+    { id: "biblioteca", fam: "citta", t: "La vecchia biblioteca della Laguna sta per chiudere.", o: [{ t: "Paghi il restauro", costo: 60_000, fama: 5, tracce: -2 }, { t: "Proponi di farci appartamenti di lusso", alba: [80_000, 150_000], fama: -4 }] },
+    { id: "blackout_bivio", fam: "citta", t: "Blackout in mezza città: servono generatori.", o: [{ t: "Li noleggi a chi paga di più", cash: [40_000, 80_000], fama: -1 }, { t: "Ne regali due all'ospedale", costo: 20_000, fama: 4 }] },
     { id: "film", fam: "citta", t: "Una produzione di Hollywood cerca location nella Laguna.", o: [{ t: "Offri le tue proprietà", alba: [60_000, 140_000], fama: 2, p: 0.7 }, { t: "Fai da guida al regista", fama: 3, cash: [10_000, 20_000] }] },
     { id: "elezioni_voci", fam: "citta", t: "In città gira un sondaggio: la gente vuole sapere chi sei.", o: [{ t: "Compri pagine di pubblicità", costo: 70_000, fama: 5 }, { t: "Resti nell'ombra", tracce: -4 }] },
   ];
@@ -554,11 +573,12 @@
   function generaBivio(s, p) {
     const pos = bivioPossibili(s, p); if (!pos.length) return null;
     // prima le famiglie piu' legate alla situazione: altrui > rivale > tua > strada/citta'
-    const peso = (x) => ({ altro: 3, rivale: 2, tua: 2, strada: 1, citta: 1 }[x.b.fam]);
+    // v114: mai la stessa famiglia due volte di fila, e pesi piu' simili (prima tornavano sempre il giornalista e il personale rubato)
+    const peso = (x) => (x.b.fam === p.ultimaFamBivio ? 0.15 : 1) * ({ altro: 2, rivale: 1.5, tua: 1.5, strada: 1.5, citta: 1.5 }[x.b.fam]);
     let tot = pos.reduce((a, x) => a + peso(x), 0), r = rng(s) * tot, scelto = pos[0];
     for (const x of pos) { r -= peso(x); if (r <= 0) { scelto = x; break; } }
     const { b, altro, lotto } = scelto, sost = (t) => t.replace(/\{R\}/g, altro ? altro.nome : "").replace(/\{C\}/g, lotto ? lotto.nome : "").replace(/\{L\}/g, lotto ? lotto.nome + (ATTIVITA[lotto.tipo] ? " (" + ATTIVITA[lotto.tipo].nome + ")" : "") : "");
-    s.biviUsati = (s.biviUsati || []).concat([b.id + ":" + p.id]);
+    s.biviUsati = (s.biviUsati || []).concat([b.id + ":" + p.id]); p.ultimaFamBivio = b.fam;
     const liv = livelloSblocco(s, p);
     return { id: b.id, fam: b.fam, altro: altro ? altro.id : null, testo: sost(b.t), ciclo: s.ciclo, giorno: s.giorno,
       o: b.o.map((o) => ({ ...o, t: sost(o.t), chiuso: o.liv && liv < o.liv ? "serve il Livello " + o.liv : "" })).map((o) => ({ ...o, spiega: spiegaBivio(o, altro) })) };
@@ -1387,6 +1407,14 @@
   function fineGiorno(s) {
     // controllo della polizia: un tiro per giocatore alla fine di ogni Giorno
     for (const p of s.players) tiroIndagine(s, p);
+    // v114: le proposte sui terreni valgono il giorno in cui arrivano e quello dopo; poi scadono (prima restavano nel telefono per sempre)
+    { const oggi = s.ciclo * 10 + (s.giorno || 0);
+      for (const pr of (s.proposte || []).filter((x) => x.stato === "proposta" && (x.g !== undefined ? x.g : (x.ciclo || 0) * 10) < oggi)) {
+        pr.stato = "scaduta"; pr.motivo = "nessuna risposta in tempo";
+        const da = s.players.find((x) => x.id === pr.da), a = s.players.find((x) => x.id === pr.a), l = s.lotti.find((x) => x.id === pr.lotto);
+        if (a && !a.bot && da && l) privato(s, a, "È scaduta la proposta di " + da.nome + " per " + l.nome + ": non hai risposto in tempo.");
+      }
+      if (s.proposte && s.proposte.length > 60) s.proposte = s.proposte.filter((x) => x.stato === "proposta").concat(s.proposte.filter((x) => x.stato !== "proposta").slice(-40)); }
     s.giorno += 1;
     if (s.giorno >= N.giorni) {
       s.giorno = 0;
@@ -2956,6 +2984,7 @@
       p.tracce = (p.tracce || 0) + SABOTA.tracce; p.fama = Math.max(0, p.fama - SABOTA.fama); p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "lieve");
       racconta(s, p, "I tuoi teppisti arrivano a " + l.nome + ", ma c'è una pattuglia. Li prendono, e parlano: fanno il tuo nome.");
       privato(s, q, "Stanotte la polizia ha fermato due teppisti davanti a " + l.nome + ". Li aveva mandati " + p.nome + ".");
+      attrito(s, q, p, 6, "sabotaggio");
       notizia(s, "Fermati due teppisti davanti a " + l.nome + ": lavoravano per " + p.nome + ".", "scandalo");
       return;
     }
@@ -2963,6 +2992,7 @@
     const sa = rng(s) < SABOTA.nome;
     racconta(s, p, "I teppisti fanno il lavoro: " + l.nome + " di " + q.nome + " resta con le vetrine rotte. All'Alba non incassa niente.");
     privato(s, q, "Stanotte qualcuno ha sfasciato " + l.nome + ": all'Alba resta chiuso e non incassa." + (sa ? " Un testimone giura che dietro c'è " + p.nome + "." : " Nessuno ha visto chi è stato."));
+    if (sa) attrito(s, q, p, 6, "sabotaggio");
     notizia(s, "Vandali a " + l.nome + ": il locale di " + q.nome + " resta chiuso per un giorno.", "scandalo");
   }
   // i computer piu' cattivi a volte mandano i teppisti dal loro rivale (o da chi e' primo)
@@ -4305,7 +4335,7 @@
     if (compro) { if (l.owner !== a.id) err("Quel terreno non è suo."); if (p.cash < prezzo) err("Non hai abbastanza soldi puliti per offrire " + euro(prezzo) + "."); }
     else { if (l.owner !== p.id) err("Quel terreno non è tuo."); if (l.cantiere) err("C'è un cantiere aperto: aspetta l'Alba."); }
     s.proposte = (s.proposte || []).filter((x) => !(x.da === p.id && x.lotto === idLotto && x.stato === "proposta"));
-    const pr = { id: "q" + s.prossimoId++, da: p.id, a: a.id, lotto: idLotto, prezzo, compro: !!compro, stato: "proposta", ciclo: s.ciclo };
+    const pr = { id: "q" + s.prossimoId++, da: p.id, a: a.id, lotto: idLotto, prezzo, compro: !!compro, stato: "proposta", ciclo: s.ciclo, g: s.ciclo * 10 + (s.giorno || 0) };
     if (l.ipoteca) pr.ipoteca = infoIpoteca(s, l); // chi compra un terreno ipotecato lo vede PRIMA di dire si'
     s.proposte.push(pr);
     privato(s, a, p.nome + (compro ? " vuole comprare il tuo " + l.nome + " per " : " ti offre il suo " + l.nome + " per ") + euro(prezzo) + "." + (l.ipoteca && !compro ? " ATTENZIONE: è IPOTECATO. Se lo compri l'ipoteca passa a te: rende la metà finché non paghi " + euro(pr.ipoteca.riscatto) + " alla Banca, e se non la paghi entro 4 Cicli dall'acquisto la Banca se lo prende." : "") + " Rispondi dalla finestra o dall'app Contratti.");
@@ -4313,11 +4343,12 @@
     log(s, p.nome + " fa una proposta a " + a.nome + " per " + l.nome + ".", p.id);
     return pr.id;
   }
+  function da_(s, id) { return s.players.find((x) => x.id === id); }
   function rispondiProposta(s, p, idP, si, motivo) {
     const pr = (s.proposte || []).find((x) => x.id === idP);
     if (!pr || pr.a !== p.id || pr.stato !== "proposta") err("Proposta non trovata.");
     const da = giocatore(s, pr.da), l = lotto(s, pr.lotto);
-    if (!si) { pr.stato = "rifiutata"; pr.motivo = motivo ? String(motivo).slice(0, 160) : null; privato(s, da, p.nome + " ha rifiutato la tua proposta per " + l.nome + "." + (pr.motivo ? " " + pr.motivo : "")); log(s, p.nome + " rifiuta la proposta di " + da.nome + " per " + l.nome + ".", p.id); return; }
+    if (!si) { attrito(s, da_(s, pr.da), p, 2, "rifiuto"); pr.stato = "rifiutata"; pr.motivo = motivo ? String(motivo).slice(0, 160) : null; privato(s, da, p.nome + " ha rifiutato la tua proposta per " + l.nome + "." + (pr.motivo ? " " + pr.motivo : "")); log(s, p.nome + " rifiuta la proposta di " + da.nome + " per " + l.nome + ".", p.id); return; }
     const compratore = pr.compro ? da : p, venditore = pr.compro ? p : da;
     // la proposta non vale piu': scade e lo si dice a tutti e due. Non e' un errore, cosi' la scadenza resta salvata.
     const scade = (perche) => { pr.stato = "scaduta"; pr.motivo = perche; privato(s, p, "La proposta per " + l.nome + " non vale più: " + perche); privato(s, da, "La tua proposta per " + l.nome + " non vale più: " + perche); };
@@ -5044,8 +5075,8 @@
     }
     for (const l of Object.keys(stanotte)) {
       const c = p.calore[l];
-      if (c === 1) privato(s, p, "Vera: \"" + nomeLuogo(l) + ": qualcuno ha notato la tua faccia. Se ci torni stanotte, ti riconoscono più facilmente.\"");
-      else if (c === 2) privato(s, p, "Vera: \"" + nomeLuogo(l) + ": c'è una macchina civetta che ieri non c'era. Tornarci adesso è un rischio vero.\"");
+      if (c === 1) privato(s, p, "Vera: \"" + nomeLuogo(l) + ": hai fatto un affare sporco qui, niente di grave. Se ci lavori anche la prossima notte arriva una macchina civetta (più rischio); se stai lontano una notte, si dimenticano di te.\""); // v114: spiegato, non spaventa
+      else if (c === 2) privato(s, p, "Vera: \"" + nomeLuogo(l) + ": c'è una macchina civetta che ieri non c'era (due notti di fila qui). Tornarci adesso è un rischio vero: stai lontano una notte e si calma.\"");
       else if (c >= 3) privato(s, p, "Vera: \"" + nomeLuogo(l) + ": ormai ti conoscono tutti. Tornarci è come firmare.\"");
     }
     p.luoghiNotte = {};
@@ -5409,6 +5440,13 @@
     // v112: mai la stessa coppia per piu' di 2 Cicli di fila (nemmeno per vendetta)
     const kc = (x, y) => [x, y].sort().join("|"), ult = s.sfideStoria || [], vietata = (x, y) => ult.length >= 2 && ult[0].includes(kc(x, y)) && ult[1].includes(kc(x, y));
     for (const d of s.denunceUltime || []) if (!vietata(d.su, d.da)) { coppia(d.su, d.da, "vendetta"); const u = nuove[nuove.length - 1]; if (u && u.a === d.su && u.b === d.da) u.luogo = d.luogo; }
+    // v114: poi gli attriti veri del Ciclo (chi ti ha fatto pagare affitti, chi ti ha sabotato, chi ti ha rifiutato un affare)
+    { const A = s.attriti && s.attriti.ciclo === s.ciclo ? s.attriti.c : {}, coppie = {};
+      for (const [k, x] of Object.entries(A)) { const [chi, contro] = k.split(">"), kk = kc(chi, contro); const c = coppie[kk] = coppie[kk] || { p: 0, top: null }; c.p += x.p; if (!c.top || x.p > c.top.x.p) c.top = { chi, contro, x }; }
+      for (const c of Object.values(coppie).filter((c) => c.p >= 1.5).sort((a, b) => b.p - a.p)) {
+        const { chi, contro, x } = c.top; if (vietata(chi, contro) || (ult.length && ult[0].includes(kc(chi, contro)))) continue;
+        coppia(chi, contro, "attrito"); const u = nuove[nuove.length - 1]; if (u && u.a === chi && u.b === contro) u.fatti = x.fatti;
+      } }
     const ord = vive.filter((p) => liberi.has(p.id)).sort((x, y) => patrimonio(s, y, true) - patrimonio(s, x, true));
     // v114: per la classifica mai lo stesso rivale due Cicli di fila; se proprio non si puo', al massimo due
     const appena = (x, y) => ult.length >= 1 && ult[0].includes(kc(x, y));
@@ -5422,11 +5460,20 @@
     s.denunceUltime = [];
     for (const sf of s.sfide) {
       const a = giocatore(s, sf.a), b = giocatore(s, sf.b);
-      notizia(s, (sf.motivo === "vendetta" ? "Vendetta! " : "") + "Sfida del Ciclo: " + a.nome + " contro " + b.nome + ". Chi cresce di più entro la prossima Alba prende la posta.", "evento");
-      for (const [p, q] of [[a, b], [b, a]]) privato(s, p, (sf.motivo === "vendetta" ? (p.id === sf.a ? "Stanotte " + q.nome + " ha fatto il tuo nome alla polizia" + (sf.luogo && LUOGHI[sf.luogo] ? " (a " + LUOGHI[sf.luogo].nome + ")" : "") + ": te l'ha detto l'informatore. Adesso è il tuo nemico. " : q.nome + " ha saputo che stanotte hai fatto il suo nome alla polizia: vuole vendetta. ") : "") + "Questo Ciclo il tuo rivale è " + q.nome + ": se entro la prossima Alba il tuo patrimonio cresce più del suo (in percentuale, così conta anche chi parte più povero), +5 fama; se parti da dietro gli prendi anche il 6% dei contanti (da 250.000 € a 3 milioni). Se perdi partendo da dietro non paghi niente. Contro di lui la soffiata costa la metà e gli fa più male.");
+      const att = sf.motivo === "attrito" && sf.fatti;
+      notizia(s, (sf.motivo === "vendetta" ? "Vendetta! " : sf.motivo === "attrito" ? "Ruggine tra i due! " : "") + "Sfida del Ciclo: " + a.nome + " contro " + b.nome + ". Chi cresce di più entro la prossima Alba prende la posta.", "evento");
+      for (const [p, q] of [[a, b], [b, a]]) privato(s, p, (att ? (p.id === sf.a ? "Lo scorso Ciclo " + motivoAttrito(sf.fatti, q.nome, true) + ": adesso è il tuo rivale. " : q.nome + " ce l'ha con te: lo scorso Ciclo " + motivoAttrito(sf.fatti, q.nome, false) + ". ") : "") + (sf.motivo === "vendetta" ? (p.id === sf.a ? "Stanotte " + q.nome + " ha fatto il tuo nome alla polizia" + (sf.luogo && LUOGHI[sf.luogo] ? " (a " + LUOGHI[sf.luogo].nome + ")" : "") + ": te l'ha detto l'informatore. Adesso è il tuo nemico. " : q.nome + " ha saputo che stanotte hai fatto il suo nome alla polizia: vuole vendetta. ") : "") + "Questo Ciclo il tuo rivale è " + q.nome + ": se entro la prossima Alba il tuo patrimonio cresce più del suo (in percentuale, così conta anche chi parte più povero), +5 fama; se parti da dietro gli prendi anche il 6% dei contanti (da 250.000 € a 3 milioni). Se perdi partendo da dietro non paghi niente. Contro di lui la soffiata costa la metà e gli fa più male.");
     }
   }
 
+  // il motivo della ruggine, visto da chi l'ha subita (vittima = true) o da chi l'ha causata
+  function motivoAttrito(f, lui, vittima) {
+    const r = [], n = (x, uno, tanti) => x.n === 1 ? uno : x.n + " " + tanti;
+    if (f.sabotaggio) r.push(vittima ? lui + " ti ha mandato i teppisti" : "hai mandato i teppisti a " + lui);
+    if (f.affitto) r.push(vittima ? "hai pagato a " + lui + " " + n(f.affitto, "un affitto", "affitti") + " (" + euro(f.affitto.soldi) + ")" : lui + " ti ha pagato " + n(f.affitto, "un affitto", "affitti") + " (" + euro(f.affitto.soldi) + ")");
+    if (f.rifiuto) r.push(vittima ? lui + " ha rifiutato " + n(f.rifiuto, "il tuo affare", "tuoi affari") : "hai rifiutato " + n(f.rifiuto, "il suo affare", "suoi affari"));
+    return r.join(" e ");
+  }
   // quando si vota la prossima volta (numero del Ciclo, come si legge a schermo): si vota all'Alba dei Cicli pari
   function prossimeElezioni(s) { return s.ciclo + 1 + ((s.ciclo + 1) % 2); }
   // le leggi in vigore adesso, pronte da mostrare: [{ id, nome, descr, isola, finoA: Ciclo delle prossime elezioni }]

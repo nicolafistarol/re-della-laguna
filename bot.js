@@ -12,7 +12,7 @@
     if ((o.proposte || []).some((x) => x.da === i.id && x.stato === "proposta")) return null;
     o._offerteBot = o._offerteBot && o._offerteBot.k === chiave ? o._offerteBot : { k: chiave, a: [] };
     const cand = o.lotti.filter((l) => l.owner && l.owner !== i.id && l.serie && (l.tipoCasella === "lotto" || l.tipoCasella === "molo") && !l.cantiere && !o._offerteBot.a.includes(l.owner) && (() => { const q = o.players.find((x) => x.id === l.owner); return q && !q.bot; })())
-      .map((l) => { const altri = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id), miei = altri.filter((x) => x.owner === i.id).length; return { l, chiude: !!(altri.length && miei === altri.length), miei, p: altri.length && miei === altri.length ? 0.7 : miei ? 0.4 : 0.12 }; })
+      .map((l) => { const altri = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id), miei = altri.filter((x) => x.owner === i.id).length; return { l, chiude: !!(altri.length && miei === altri.length), miei, p: altri.length && miei === altri.length ? 0.9 : miei ? 0.6 : 0.35 }; }) // v114: un'offerta (quasi) ogni giorno
       .sort((a, b) => b.p - a.p);
     const c = cand[0]; if (!c || Math.random() > c.p) return null;
     const valore = c.l.prezzo * (1 + 0.6 * (c.l.lvl || 0)), prezzo = Math.round(valore * (c.chiude ? 1.15 + 0.15 * Math.random() : 1.0 + 0.15 * Math.random()) / 10000) * 10000;
