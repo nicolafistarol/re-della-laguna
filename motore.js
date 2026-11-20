@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 136;
+  const VERSIONE_REGOLE = 138;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -591,17 +591,24 @@
     return { id: b.id, fam: b.fam, altro: altro ? altro.id : null, testo: sost(b.t), ciclo: s.ciclo, giorno: s.giorno,
       o: b.o.map((o) => ({ ...o, t: sost(o.t), chiuso: o.liv && liv < o.liv ? "serve il Livello " + o.liv : "" })).map((o) => ({ ...o, spiega: spiegaBivio(o, altro) })) };
   }
+  // v138: ogni strada detta per esteso: chi paga, chi incassa, quando e per quante volte (il capo non capiva "assumi il socio")
   function spiegaBivio(o, altro) {
-    const pz = [], e = (x) => euro(x);
-    if (o.costo) pz.push("costa " + e(o.costo));
-    if (o.cash && o.cash[1]) pz.push("+" + (o.cash[0] === o.cash[1] ? e(o.cash[0]) : e(o.cash[0]) + "–" + e(o.cash[1])) + " subito");
-    if (o.alba) pz.push("+" + e(o.alba[0]) + "–" + e(o.alba[1]) + " all'Alba");
-    if (o.sporchi) pz.push("+" + e(o.sporchi[0]) + "–" + e(o.sporchi[1]) + " sporchi");
+    const pz = [], e = (x) => euro(x), rg = (r) => r[0] === r[1] ? e(r[0]) : e(r[0]) + "–" + e(r[1]);
+    const segno = (x) => (x >= 0 ? "+" : "−") + e(Math.abs(x));
+    if (o.costo) pz.push("paghi subito " + e(o.costo));
+    if (o.cash && o.cash[1]) pz.push("incassi subito " + rg(o.cash));
+    if (o.alba) pz.push("alla prossima Alba incassi " + rg(o.alba) + " (una volta sola)");
+    if (o.costo && (o.alba || (o.cash && o.cash[1]))) { const g = o.alba || o.cash, lo = g[0] - o.costo, hi = g[1] - o.costo; pz.push((o.p && o.p < 1 ? "se riesce, " : "") + "guadagno netto " + (lo === hi ? segno(lo) : "da " + segno(lo) + " a " + segno(hi))); }
+    if (o.sporchi) pz.push("ricevi " + rg(o.sporchi) + " sporchi (da ripulire)");
     if (o.fama) pz.push((o.fama > 0 ? "+" : "−") + Math.abs(o.fama) + " fama");
-    if (o.tracce) pz.push(o.tracce > 0 ? "+" + o.tracce + " Tracce" : "−" + Math.abs(o.tracce) + " Tracce");
-    if (o.riv && altro) { const r = []; if (o.riv.fama) r.push((o.riv.fama > 0 ? "+" : "−") + Math.abs(o.riv.fama) + " fama"); if (o.riv.alba) r.push("−" + e(-o.riv.alba) + " all'Alba"); pz.push(altro.nome + ": " + r.join(", ")); }
-    if (o.p && o.p < 1) { pz.push("riesce " + Math.round(o.p * 100) + " volte su 100"); if (o.falli) { const f = []; if (o.falli.cash) f.push(o.falli.cash > 0 ? "ti ridanno " + e(o.falli.cash) : "−" + e(Math.abs(o.falli.cash))); if (o.falli.fama) f.push((o.falli.fama > 0 ? "+" : "−") + Math.abs(o.falli.fama) + " fama"); if (o.falli.tracce) f.push("+" + o.falli.tracce + " Tracce"); if (f.length) pz.push("se va male: " + f.join(", ")); } }
-    return pz.length ? pz.join(" · ") : "nessun effetto";
+    if (o.tracce) pz.push(o.tracce > 0 ? "+" + o.tracce + " Tracce (la polizia ti guarda di più)" : "−" + Math.abs(o.tracce) + " Tracce (ti guardano meno)");
+    if (o.riv && altro) { const r = []; if (o.riv.alba) r.push(o.riv.alba < 0 ? "incassa " + e(-o.riv.alba) + " in meno alla prossima Alba" : "incassa " + e(o.riv.alba) + " in più"); if (o.riv.fama) r.push((o.riv.fama > 0 ? "+" : "−") + Math.abs(o.riv.fama) + " fama"); pz.push(altro.nome + " " + r.join(" e ")); }
+    if (o.p && o.p < 1) {
+      pz.push("riesce " + Math.round(o.p * 100) + " volte su 100");
+      const f = []; if (o.costo && !(o.falli && o.falli.cash >= o.costo)) f.push("perdi quello che hai pagato"); if (o.falli) { if (o.falli.cash) f.push(o.falli.cash > 0 ? "ti ridanno " + e(o.falli.cash) : "perdi altri " + e(Math.abs(o.falli.cash))); if (o.falli.fama) f.push((o.falli.fama > 0 ? "+" : "−") + Math.abs(o.falli.fama) + " fama"); if (o.falli.tracce) f.push("+" + o.falli.tracce + " Tracce"); }
+      pz.push("se va male: " + (f.length ? f.join(", ") : "non succede niente"));
+    }
+    return pz.length ? pz.join(" · ") : "non cambia niente";
   }
   function sceltaBivio(s, p, i) {
     const B = p.bivio; if (!B) err("Non c'è nessun bivio da scegliere.");
@@ -1330,7 +1337,7 @@
   function rossoEmergenza(s, p, daAlba) {
     if (!p.rosso) return;
     p.emergenza = true;
-    privato(s, p, (daAlba ? "All'Alba il buco di " + euro(p.rosso.resto) + " non era coperto: " : "") + "prestito d'emergenza della Banca Centrale, al " + Math.round(N.emergenzaInt * 100) + "% finché non restituisci tutto il debito.");
+    privato(s, p, (daAlba ? "All'Alba il buco di " + euro(p.rosso.resto) + " non era coperto: " : "") + "prestito d'emergenza della Banca Centrale. Da ora tutto il tuo debito (" + euro(p.debito) + ") cresce del " + Math.round(N.emergenzaInt * 100) + "% a ogni Alba, e a ogni Alba la Banca si prende metà dei tuoi contanti per ripagarlo. Restituiscilo prima dall'app Banca: quando torna a zero l'emergenza finisce.");
     notizia(s, "Voci di corridoio: " + p.nome + " ha chiesto un prestito d'emergenza alla Banca Centrale.", "voce");
     p.rosso = null;
   }
