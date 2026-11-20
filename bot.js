@@ -735,9 +735,11 @@ function grandiBot(o, i, n) {
       const persone = stato.players.filter((p) => ids.includes(p.id));
       for (const p of persone) {
         p.bot = false; p.strat = null;
+        // v126: una condanna presa mentre giocava il computer non si apre come sentenza nuova alla prima apertura
+        if (p.ultimaSentenza) { p.sentenzaPrimaDelTest = p.ultimaSentenza; delete p.ultimaSentenza; }
         p.cash = Math.max(0, p.cash) + 8_000_000; p.sporchi = (p.sporchi || 0) + 3_000_000; p.debito = 0;
         p.livello = Math.max(p.livello || 0, 3); p.tracce = Math.min(p.tracce || 0, 15); // le Tracce restano, ma non tante da finire subito al Processo
-        (p.messaggi = p.messaggi || []).push({ ciclo: stato.ciclo + 1, testo: "🧪 Modalità test: fino a qui ha giocato il computer al posto tuo (come un Esperto). Ora hai 8 milioni puliti in più, 3 milioni sporchi da riciclare e il Livello " + p.livello + ": la valigetta ora ha " + (t.postiValigetta ? t.postiValigetta(stato, p) : 6) + " posti (i messaggi di Vera di prima valgono per i livelli di allora)." });
+        (p.messaggi = p.messaggi || []).push({ ciclo: stato.ciclo + 1, testo: "🧪 Modalità test: fino a qui ha giocato il computer al posto tuo (come un Esperto). Ora hai 8 milioni puliti in più, 3 milioni sporchi da riciclare e il Livello " + p.livello + ": la valigetta ora ha " + (t.postiValigetta ? t.postiValigetta(stato, p) : 6) + " posti (i messaggi di Vera di prima valgono per i livelli di allora)." + (p.condanne ? " Mentre giocava il computer sei stato condannato " + (p.condanne === 1 ? "una volta" : p.condanne + " volte") + ": la prossima condanna sarà più dura." : "") });
       }
       // v122: i soldi regalati non contano come crescita nella sfida del Ciclo (il tester vinceva con +184%)
       for (const sf of stato.sfide || []) for (const p of persone) { if (sf.a === p.id) sf.pa = Math.round(t.patrimonio(stato, p, true)); if (sf.b === p.id) sf.pb = Math.round(t.patrimonio(stato, p, true)); }

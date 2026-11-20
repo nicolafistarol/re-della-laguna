@@ -1046,3 +1046,7 @@ button.oro{background-image:linear-gradient(180deg,rgba(255,255,255,.28),rgba(25
 .podio .gradino.g1 .med{display:inline-block;animation:corona 2.4s ease-in-out 3}
 @media(max-width:700px){.chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;max-width:100%}.chips::-webkit-scrollbar{display:none}.chips .chip{flex:0 0 auto}}
 @media(prefers-reduced-motion:reduce){.velo > .fin,.podio .gradino.g1 .med{animation:none}}
+/* v126: sopra la sentenza non passa niente (ultim'ora, cifre, monete, avvisi) e dietro non si vede la notte */
+.velo.velo-sentenza{z-index:9500;background:radial-gradient(ellipse at center,rgba(70,6,14,.93),rgba(10,1,4,.97))}
+body:has(.velo-sentenza) .ultimora,body:has(.velo-sentenza) #toasts,body:has(.velo-sentenza) .delta,body:has(.velo-sentenza) .moneta,body:has(.velo-sentenza) .flusso-etichetta{display:none!important}
+body:has(.velo:not(.laterale)) .moneta,body:has(.velo:not(.laterale)) .flusso-etichetta{display:none!important}

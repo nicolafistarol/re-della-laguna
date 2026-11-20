@@ -694,7 +694,7 @@ async function eseguiCodaDentro() {
     S = v;
     S.players.forEach((p) => disp[p.id] = copiaPos(p));
     const me = io();
-    if (faseP && faseP !== "notte" && S.fase === "notte") { Suono.notte(); passaggio("notte"); } else if (faseP === "notte" && S.fase !== "notte") { Suono.alba(); passaggio("alba"); }
+    if (faseP && faseP !== "notte" && S.fase === "notte") { Suono.notte(); passaggio("notte"); } else if (faseP === "notte" && S.fase !== "notte") { Suono.alba(); passaggio("alba"); document.querySelectorAll(".avviso.solo-notte").forEach((x) => x.click()); }
     if (me && (me.stato || 0) > statoP) Suono.polizia();
     // v125: sotto una finestra aperta non volano cifre, monete o avvisi
     if (me && me.cash !== cashPrima && cashPrima && !saldoNascosto && !finestraAperta()) mostraDelta(me.cash - cashPrima);
@@ -707,6 +707,8 @@ async function eseguiCodaDentro() {
     // il risultato di un'asta lo vedono tutti, grande, e resta finché non premi Ok
     // v123: prima la sentenza, poi le aste (il tester vedeva sparire le sue proprieta' all'asta prima di sapere della condanna)
     if (righe.some((r) => /^Asta/.test(r.testo))) { const us = sentenzaNuova(io()); if (us) { disegna(); finestraSentenza(io(), us); for (let k = 0; k < 600 && document.querySelector(".velo"); k++) await pausa(500); } }
+    // v126: le aste aspettano che la sentenza sia chiusa (prima si aprivano sopra)
+    for (let k = 0; k < 1200 && document.querySelector(".velo-sentenza"); k++) await pausa(250);
     for (const r of righe) if (/^Asta/.test(r.testo)) await annuncioAsta(r.testo);
   }
 }
@@ -815,11 +817,18 @@ function finestraProposta(pr) {
     <div class="pulsanti"><button id="no">Rifiuto</button><button class="oro" id="si">Accetto</button></div>`, (d, c) => {
     d.querySelector("#no").onclick = () => { c(); agisci({ tipo: "rispondi_proposta", id: pr.id, si: false }); };
     d.querySelector("#si").onclick = () => { c(); agisci({ tipo: "rispondi_proposta", id: pr.id, si: true }); };
-    const ch = d.querySelector("#chiedi"); if (ch) ch.onclick = () => { const v = Math.floor(+d.querySelector("#cifra").value || 0); if (v <= pr.prezzo) { toast("Chiedi più di " + euro(pr.prezzo) + "."); return; } c(); agisci({ tipo: "controproposta", id: pr.id, prezzo: v }); };
+    const ch = d.querySelector("#chiedi"); if (ch) ch.onclick = () => { const v = Math.floor(+d.querySelector("#cifra").value || 0); if (v <= pr.prezzo) { toast("Chiedi più di " + euro(pr.prezzo) + "."); return; } c(); agisci({ tipo: "controproposta", id: pr.id, prezzo: v }).then(async () => {
+      // v126: la risposta del computer si vede subito sullo schermo (prima finiva solo nei messaggi)
+      let x = null; for (let k = 0; k < 20; k++) { x = (S.proposte || []).find((q) => q.id === pr.id); if (x && x.stato !== "proposta") break; await pausa(200); }
+      if (!x || x.stato === "proposta") return;
+      const si = x.stato === "accettata";
+      finestra(`<span class="kick" style="color:var(--oro)">${ico("handshake")} ${esc(da.nome)} risponde</span><h2>${si ? "Affare fatto!" : "No, è troppo"}</h2><p style="font-size:17px">${si ? `Compra ${esc(l.nome)} per <b style="color:var(--pulito)">${euro(x.prezzo)}</b>. I soldi sono già tuoi.` : `«${euro(v)} per ${esc(l.nome)}? Troppo.» Il terreno resta tuo. ${da.bot ? "Se tornerà, offrirà almeno il 20% in più o la tua cifra." : ""}`}</p><div class="pulsanti"><button class="oro" id="ok">Ok</button></div>`, (d2, c2) => { d2.querySelector("#ok").onclick = c2; });
+    }); };
   });
 }
-function annuncioAsta(testo) {
+async function annuncioAsta(testo) {
   if (VELOCE) return;
+  for (let k = 0; k < 1200 && document.querySelector(".velo-sentenza"); k++) await pausa(250); // v126
   return new Promise((ok) => {
     const vinta = testo.includes(" " + (io() || {}).nome + " vince") || testo.startsWith("Asta: " + (io() || {}).nome + " vince");
     Suono.asta(); if (vinta) setTimeout(() => Suono.esito(true), 400);
@@ -1873,18 +1882,19 @@ function finestraAltrove(me) {
 }
 // v109: gli avvisi fanno la coda. Uno alla volta, e solo quando non c'e' una finestra aperta (Alba, asta, sentenza...)
 const codaAvvisi = []; let avvisoAttivo = false, avvisoAttende = false;
-function avviso(html, ms) {
+function avviso(html, ms, soloNotte) {
   if (codaAvvisi.some((x) => x[0] === html)) return;
-  codaAvvisi.push([html, ms]); while (codaAvvisi.length > 6) codaAvvisi.shift();
+  codaAvvisi.push([html, ms, soloNotte]); while (codaAvvisi.length > 6) codaAvvisi.shift();
   pompaAvvisi();
 }
 function pompaAvvisi() {
   if (avvisoAttivo || avvisoAttende || !codaAvvisi.length) return;
   if (document.querySelector(".velo, #guida") || (typeof ultimOraAttiva !== "undefined" && ultimOraAttiva)) { avvisoAttende = true; setTimeout(() => { avvisoAttende = false; pompaAvvisi(); }, 700); return; }
-  const [html, ms] = codaAvvisi.shift();
+  const [html, ms, soloNotte] = codaAvvisi.shift();
+  if (soloNotte && !(S && S.fase === "notte")) { pompaAvvisi(); return; } // v126: il riquadro dell'ultima ora non resta di giorno
   let box = $("#avvisi"); if (!box) { box = document.createElement("div"); box.id = "avvisi"; document.body.appendChild(box); }
   avvisoAttivo = true;
-  const d = document.createElement("div"); d.className = "avviso vetro"; d.innerHTML = html;
+  const d = document.createElement("div"); d.className = "avviso vetro" + (soloNotte ? " solo-notte" : ""); d.innerHTML = html;
   const fine = () => { if (!d.isConnected) return; d.classList.add("via"); setTimeout(() => { d.remove(); avvisoAttivo = false; pompaAvvisi(); }, VELOCE ? 50 : 450); };
   d.onclick = fine; box.appendChild(d);
   setTimeout(fine, VELOCE ? 300 : ms || 6500);
@@ -1895,7 +1905,7 @@ function avvisoRiepilogo(R) {
   if (m.fama) pezzi.push(`fama ${m.fama > 0 ? "+" : ""}${m.fama}`);
   if (m.rischio) pezzi.push(`<span style="color:${["", "#f3c56b", "#ff9a5c", "var(--perdita)"][m.rischio]}">${["", "poche Tracce", "parecchie Tracce", "molte Tracce"][m.rischio]}</span>`);
   if (m.visti.length) pezzi.push("hai visto " + m.visti.map(esc).join(", "));
-  avviso(`<span class="kick" style="color:var(--cielo)">${esc(R.da)} → ${esc(R.a)}</span><div>${pezzi.join(" · ")}</div>`, 7000);
+  avviso(`<span class="kick" style="color:var(--cielo)">${esc(R.da)} → ${esc(R.a)}</span><div>${pezzi.join(" · ")}</div>`, 7000, true);
 }
 function finestraRiepilogo(R) {
   const m = R.mio;
@@ -3529,13 +3539,14 @@ function finestraAlba(me) {
   // v125: il numero grande e' la differenza vera dei contanti puliti; gli sporchi hanno la loro riga
   const netto = r.netto != null ? r.netto : (r.rendite || 0) - (r.tasse || 0) - (r.decima || 0) + (r.stipendioSindaco || 0) + (r.banchiereSetta || 0) - (r.debitoPagato || 0);
   const nettoSp = r.nettoSporchi || 0;
+  const altriAlba = r.altri || [], nettoTot = r.nettoTot != null ? r.nettoTot : netto; // v126: anche bivi, eventi e sabotaggi
   const guai = importanti.filter((x) => tipoRiga(x.t) === "male").length;
   const ICO_R = { bene: ["✓", "var(--pulito)"], male: ["!", "var(--sporco)"], fatto: ["•", "var(--cielo)"] };
   const gazAlba = S.gazzetta.filter((g) => g.ciclo === S.ultimaAlba.ciclo || g.ciclo === S.ultimaAlba.ciclo + 1);
   const mie = gazAlba.filter((g) => g.testo.includes(me.nome));
   const condannato = me.ultimaSentenza && me.ultimaSentenza.ciclo + 1 === S.ultimaAlba.ciclo; // v111
   finestra(`<div class="alba-corta"><span class="kick" style="color:var(--oro)">${ico("sole")} L'Alba · Ciclo ${S.ultimaAlba.ciclo}</span><h2 style="display:none">L'Alba</h2>
-    <div class="alba-eroe ${netto >= 0 ? "su" : "giu"}"><span>Le rendite di stamattina</span><b>${netto >= 0 ? "+ " : "− "}${euro(Math.abs(netto))}</b><i>contanti puliti, dopo tasse e spese${nettoSp ? ` · soldi sporchi ${nettoSp > 0 ? "+ " : "− "}${euro(Math.abs(nettoSp))}` : ""}</i></div>
+    <div class="alba-eroe ${nettoTot >= 0 ? "su" : "giu"}"><span>Stamattina in cassa</span><b>${nettoTot >= 0 ? "+ " : "− "}${euro(Math.abs(nettoTot))}</b><i>contanti puliti, dopo tasse e spese${altriAlba.length ? ` · rendite ${netto >= 0 ? "+ " : "− "}${euro(Math.abs(netto))}, altro ${nettoTot - netto >= 0 ? "+ " : "− "}${euro(Math.abs(nettoTot - netto))}` : ""}${nettoSp ? ` · soldi sporchi ${nettoSp > 0 ? "+ " : "− "}${euro(Math.abs(nettoSp))}` : ""}</i></div>
     <div class="alba-tre">${condannato ? `<div class="ab giu"><span>Polizia</span><b>Condannato</b><i>${esc(me.ultimaSentenza.gravita)} · multa ${euro(me.ultimaSentenza.multa)}</i></div>` : `<div class="ab ${(me.stato || 0) >= 3 ? "giu" : (me.stato || 0) >= 1 ? "att" : "su"}"><span>Polizia</span><b>${esc(L.STATI[me.stato || 0] || "")}</b><i>${guai ? guai + (guai === 1 ? " guaio" : " guai") + " stanotte" : "nessun guaio stanotte"}</i></div>`}${r.sfida ? `<div class="ab ${r.sfida.vinta ? "su" : "giu"}"><span>Sfida</span><b>${r.sfida.vinta ? "Vinta" : "Persa"}</b><i>contro ${esc(nomeDi(r.sfida.contro))} · <span style="white-space:nowrap">${!r.sfida.soldi ? "niente da pagare" : (r.sfida.vinta ? "+" : "−") + " " + euro(Math.abs(r.sfida.soldi))}</span></i></div>` : sfidaMia() ? `<div class="ab att"><span>Sfida</span><b>Nuova</b><i>tu contro ${esc(nomeDi(rivaleMio()))}</i></div>` : `<div class="ab"><span>Sfida</span><b>Nessuna</b><i>stanotte niente rivali</i></div>`}${(() => { const f = importanti.find((x) => tipoRiga(x.t) === "male") || importanti.find((x) => tipoRiga(x.t) === "bene") || importanti[0]; if (!f) return `<div class="ab"><span>Fatto della notte</span><b>Tranquilla</b><i>niente di importante</i></div>`; const k = tipoRiga(f.t); const t = f.t.length > 70 ? f.t.slice(0, 68).replace(/\s+\S*$/, "") + "…" : f.t; return `<div class="ab ${k === "male" ? "giu" : k === "bene" ? "su" : ""}"><span>Fatto della notte</span><i class="lungo">${esc(t)}</i></div>`; })()}</div>
     <details class="alba-tutto"><summary>Vedi tutto</summary>
     ${r.sfida ? `<div class="sfida-esito ${r.sfida.vinta ? "su" : "giu"}"><b>⚔️ ${r.sfida.vinta ? "Hai vinto la sfida" : "Hai perso la sfida"} contro ${esc(nomeDi(r.sfida.contro))}</b><span>Tu ${r.sfida.mio >= 0 ? "+" : ""}${r.sfida.mio}% · lui ${r.sfida.suo >= 0 ? "+" : ""}${r.sfida.suo}%${r.sfida.mio === r.sfida.suo ? " (deciso per un soffio)" : ""} · ${!r.sfida.soldi ? "niente da pagare" : (r.sfida.vinta ? "incassi " : "paghi ") + euro(Math.abs(r.sfida.soldi))}${r.sfida.quanto ? ` · all'inizio ${r.sfida.avanti === "lui" ? "lui era più ricco" : "eri più ricco tu"} del ${r.sfida.quanto} (${r.sfida.avanti === (r.sfida.vinta ? "lui" : "tu") ? "posta piena" : "mezza posta"})` : ""}${r.sfida.vinta ? "" : " · vince chi cresce di più in percentuale dall'Alba scorsa"}</span></div>` : ""}
@@ -3543,7 +3554,7 @@ function finestraAlba(me) {
     <p class="kick" style="color:var(--muted);margin-top:14px">I fatti della notte</p>
     <div class="alba-fatti">${importanti.length ? importanti.map((x) => { const k = tipoRiga(x.t), [ic, col] = ICO_R[k]; return `<div class="alba-fatto ${k}"><span class="af-ico" style="background:${col}">${ic}</span><div><b>${esc(x.o)}</b> ${esc(x.t)}</div></div>`; }).join("") : `<p class="sub">Una notte tranquilla: niente di importante.</p>`}</div>
     ${racc.length > importanti.length ? `<details class="alba-det"><summary>Tutto il racconto della notte (${racc.length} momenti)</summary>${racc.map((x) => `<p class="storia" style="margin:4px 0"><b style="color:var(--cielo);font-style:normal">${esc(x.o)}</b> ${esc(x.t)}</p>`).join("")}</details>` : ""}
-    <details class="alba-det"><summary>Le rendite di stamattina: ${netto >= 0 ? "+ " : "− "}${euro(Math.abs(netto))}</summary>
+    <details class="alba-det"><summary>I conti di stamattina: ${nettoTot >= 0 ? "+ " : "− "}${euro(Math.abs(nettoTot))}</summary>
       ${(r.dettaglio || []).length ? `<table class="cl">${r.dettaglio.map((x) => `<tr><td>${esc(x.nome)} <span class="sub">${esc(x.cosa)}</span></td><td style="color:${x.importo ? "var(--pulito)" : "var(--muted)"};font-weight:700;white-space:nowrap">${x.importo ? "+ " + euro(x.importo) : "—"}</td></tr>`).join("")}</table>` : ""}
       <table class="cl"><tr><td><b>Totale rendite</b></td><td style="color:var(--pulito);font-weight:800;white-space:nowrap">+ ${euro(r.rendite || 0)}</td></tr>
       <tr><td>Tasse</td><td style="color:var(--sporco);font-weight:800;white-space:nowrap">− ${euro((r.tasse || 0) - (r.tassaRicchi || 0))}</td></tr>
@@ -3555,7 +3566,9 @@ function finestraAlba(me) {
       ${r.banchiereSetta ? `<tr><td>Ripuliti dal Banchiere della setta <span class="sub">(da sporchi a puliti)</span></td><td style="color:var(--pulito);white-space:nowrap">+ ${euro(r.banchiereSetta)}</td></tr>` : ""}
       ${r.debitoPagato ? `<tr><td>Rata del debito</td><td style="white-space:nowrap">− ${euro(r.debitoPagato)}</td></tr>` : ""}
       ${r.netto != null && Math.abs(netto - ((r.rendite || 0) - (r.tasse || 0) - (r.evasa || 0) - (r.decima || 0) + (r.stipendioSindaco || 0) + (r.dividendo || 0) + (r.banchiereSetta || 0) - (r.debitoPagato || 0))) > 1 ? `<tr><td>Mance ai tuoi contatti e altro</td><td style="white-space:nowrap">${euro(netto - ((r.rendite || 0) - (r.tasse || 0) - (r.evasa || 0) - (r.decima || 0) + (r.stipendioSindaco || 0) + (r.dividendo || 0) + (r.banchiereSetta || 0) - (r.debitoPagato || 0)))}</td></tr>` : ""}
-      <tr><td><b>Contanti puliti</b></td><td style="font-weight:800;white-space:nowrap">${netto >= 0 ? "+ " : "− "}${euro(Math.abs(netto))}</td></tr>
+      <tr><td><b>Dalle rendite</b></td><td style="font-weight:800;white-space:nowrap">${netto >= 0 ? "+ " : "− "}${euro(Math.abs(netto))}</td></tr>
+      ${altriAlba.length ? `<tr><td colspan="2" class="sub" style="padding-top:8px"><b>Altro stamattina</b></td></tr>${altriAlba.map((x) => `<tr><td>${esc(x.cosa)}</td><td style="white-space:nowrap;color:${x.importo >= 0 ? "var(--pulito)" : "var(--sporco)"}">${x.importo >= 0 ? "+ " : "− "}${euro(Math.abs(x.importo))}</td></tr>`).join("")}` : ""}
+      <tr><td><b>In cassa, in tutto</b> <span class="sub">(sfida e condanna a parte)</span></td><td style="font-weight:800;white-space:nowrap">${nettoTot >= 0 ? "+ " : "− "}${euro(Math.abs(nettoTot))}</td></tr>
       ${nettoSp ? `<tr><td><b>Soldi sporchi</b> <span class="sub">${[r.tesoroSetta ? "dal Tesoro della setta + " + euro(r.tesoroSetta) : "", r.evasa ? "tasse evase + " + euro(r.evasa) : "", r.banchiereSetta ? "ripuliti − " + euro(r.banchiereSetta) : "", r.corruzione ? "mance ai contatti" : ""].filter(Boolean).join(" · ")}</span></td><td style="font-weight:800;white-space:nowrap;color:var(--sporco)">${nettoSp > 0 ? "+ " : "− "}${euro(Math.abs(nettoSp))}</td></tr>` : ""}
       ${r.interessi ? `<tr><td colspan="2" class="sub">Il debito cresce di ${euro(r.interessi)} di interessi${r.debitoResta ? " (ne resta " + euro(r.debitoResta) + ")" : ""}.</td></tr>` : ""}</table>
     </details>
@@ -3865,13 +3878,15 @@ function cicliRipaga(costo, rend) { if (!rend) return "—"; const c = costo / r
 function finestraPalazzo() { apriApp("palazzo"); }
 // v125: quanto resta davvero di una rendita dopo le tasse dell'Alba (anche la tassa sui ricchi), partendo dalle rendite che hai gia'
 function nettoTasse(tot) { const t = S.tassa || 0, s1 = 1_500_000, s2 = 3_000_000, x = Math.max(0, tot); return x - x * t - ((S.gen || 1) >= 2 ? Math.max(0, x - s1) * 0.15 + Math.max(0, x - s2) * 0.15 : 0); }
-function nettoInPiu(lordo, base) { const ua = S.ultimaAlba && (S.ultimaAlba.riepilogo || {})[mioId]; const b = base != null ? base : Math.max(0, ((ua && ua.rendite) || 0)); return Math.round(nettoTasse(b + lordo) - nettoTasse(b)); }
+// v126: con le entrate dimezzate (condanna) o in cella al Faro il Palazzo rende meno: la cifra netta lo dice
+function fattoreRendite(me) { me = me || io() || {}; return (me.faro > 0 ? 0.7 : 1) * (me.blocco > 0 ? 0.5 : 1); }
+function nettoInPiu(lordo, base) { lordo = lordo * fattoreRendite(); const ua = S.ultimaAlba && (S.ultimaAlba.riepilogo || {})[mioId]; const b = base != null ? base : Math.max(0, ((ua && ua.rendite) || 0)); return Math.round(nettoTasse(b + lordo) - nettoTasse(b)); }
 function appPalazzo(me, miTurno) {
   const F = L.FASCE_PALAZZO, n = me.piani, fi = n ? L.fasciaPalazzo(n) : -1;
   const cond = L.condizioniPalazzo(S, me), possono = miTurno && !me.azioneGiornoFatta;
   const rendNow = L.renditaPalazzo(me, S);
   // 1. in cima: quanto e' alto e quanto rende
-  const testa = `<div class="scheda pal-testa"><div class="riga" style="align-items:flex-end"><span class="serif" style="font-size:34px;line-height:1">${n}</span><span style="flex:1">${n === 1 ? "piano" : "piani"}${n ? ` · <b style="color:${COL_FASCE[fi]}">${F[fi].nome}</b>` : ""}</span><span style="text-align:right"><b style="color:var(--pulito)">+ ${euro(nettoInPiu(rendNow, Math.max(0, (((S.ultimaAlba && (S.ultimaAlba.riepilogo || {})[mioId]) || {}).rendite || rendNow) - rendNow)))}</b><br><span class="sub">a ogni Alba, dopo le tasse<br>(${euro(rendNow)} lordi)</span></span></div>
+  const testa = `<div class="scheda pal-testa"><div class="riga" style="align-items:flex-end"><span class="serif" style="font-size:34px;line-height:1">${n}</span><span style="flex:1">${n === 1 ? "piano" : "piani"}${n ? ` · <b style="color:${COL_FASCE[fi]}">${F[fi].nome}</b>` : ""}</span><span style="text-align:right"><b style="color:var(--pulito)">+ ${euro(nettoInPiu(rendNow, Math.max(0, (((S.ultimaAlba && (S.ultimaAlba.riepilogo || {})[mioId]) || {}).rendite || rendNow) - rendNow)))}</b><br><span class="sub">a ogni Alba, dopo le tasse<br>(${euro(rendNow)} lordi${fattoreRendite(me) < 1 ? `; ora ${me.blocco > 0 ? "entrate dimezzate dalla condanna" : ""}${me.blocco > 0 && me.faro > 0 ? " e " : ""}${me.faro > 0 ? "sei in cella al Faro (−30%)" : ""}` : ""})</span></span></div>
     <div class="sub" style="margin-top:6px">${ico("palazzo")} <b>Piani</b> = l'altezza: ogni piano ti dà un affitto a ogni Alba. ${ico("chiave")} <b>Stanze</b> = poteri speciali, si comprano a parte quando il Palazzo è abbastanza alto.</div></div>`;
   // 2. per iniziare: cosa manca
   const inizia = n ? "" : `<div class="scheda" style="border-color:var(--oro)"><h4 style="color:var(--oro)">Per iniziare il Palazzo ti serve</h4>
