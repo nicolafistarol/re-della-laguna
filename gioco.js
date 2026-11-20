@@ -960,7 +960,7 @@ function casellaTab(l, x, y, tit) {
   if (own) {
     cls += " pres" + (own.id === mioId ? " mio" : ""); stile += `--own:${own.colore};`;
     dentro = molo ? "⚓" : l.cantiere ? "🏗️" : l.tipo ? EMOJI_ATT[l.tipo] || "🏠" : `<small>vuoto</small>`;
-    if (own.id !== mioId) extra += `<span class="inz">${esc(own.nome[0].toUpperCase())}</span>`;
+    extra += own.id !== mioId ? `<span class="inz">${esc(own.nome[0].toUpperCase())}</span>` : `<span class="inz tu">★</span>`;
     if (serie) extra += `<span class="corona" title="Ha tutto il gruppo ${esc(l.serie)}">👑</span>`;
     if (!molo && l.lvl && !l.cantiere) extra += `<span class="livc">${[1, 2, 3, 4, 5].map((k) => `<u class="${k <= l.lvl ? "on" : ""}"></u>`).join("")}</span>`;
   } else dentro = molo ? "⚓<em>" + kEuro(l.prezzo) + "</em>" : `<em>${kEuro(l.prezzo)}</em>`;
@@ -1146,7 +1146,7 @@ function disegnaCamera(m) {
   m = m || $("#mappa"); if (!m) return;
   m.style.transform = `translate3d(calc(-50% + ${camera.x.toFixed(2)}px), calc(-50% + ${camera.y.toFixed(2)}px), 0) scale(${camera.z.toFixed(4)})`;
   // le caselle si ridimensionano solo quando lo zoom cambia davvero (ricalcolarle a ogni fotogramma rallenta)
-  if (Math.abs(camera.z - camera.zMostrata) / camera.z > 0.004) { camera.zMostrata = camera.z; m.style.setProperty("--z", camera.z.toFixed(4)); $("#mondo").classList.toggle("vicino", camera.z >= 1.6); }
+  if (Math.abs(camera.z - camera.zMostrata) / camera.z > 0.004) { camera.zMostrata = camera.z; m.style.setProperty("--z", camera.z.toFixed(4)); const mo = $("#mondo"); mo.classList.toggle("vicino", camera.z >= 1.6); mo.classList.toggle("lontano", camera.z < 1.05); }
 }
 function passoCamera(t) {
   camera.raf = 0;
@@ -1164,7 +1164,7 @@ function passoCamera(t) {
   camera.z *= Math.pow(vista.z / camera.z, k); // lo zoom si avvicina in proporzione: da lontano e da vicino ha la stessa velocita'
   const fermo = !camera.inerzia && Math.abs(vista.x - camera.x) < 0.3 && Math.abs(vista.y - camera.y) < 0.3 && Math.abs(vista.z / camera.z - 1) < 0.0008;
   if (fermo) { camera.x = vista.x; camera.y = vista.y; camera.z = vista.z; camera.zMostrata = 0; }
-  disegnaCamera(m);
+  disegnaCamera(m); $("#mondo").classList.toggle("muove", !fermo); // durante il movimento la mappa e' un'immagine sola (fluida), da ferma torna nitida
   if (!fermo) camera.raf = requestAnimationFrame(passoCamera);
 }
 function clampVista(w, h) {
@@ -1192,7 +1192,8 @@ function zoomA(z, cx = innerWidth / 2, cy = innerHeight / 2) {
 function centraSu(px, py) {
   const m = $("#mappa"); const w = m.offsetWidth, h = m.offsetHeight;
   if (vista.z < 1.8) vista.z = 2;
-  vista.x = -(px / 100 - 0.5) * w * vista.z; vista.y = -(py / 100 - 0.5) * h * vista.z; applicaVista();
+  const L = TAB ? areaLibera() : null, ox = L ? (L.left + L.right) / 2 - innerWidth / 2 : 0, oy = L ? (L.top + L.bottom) / 2 - innerHeight / 2 : 0; // v108c: al centro dello spazio libero, non sotto i pannelli
+  vista.x = ox - (px / 100 - 0.5) * w * vista.z; vista.y = oy - (py / 100 - 0.5) * h * vista.z; applicaVista();
 }
 // v105b: la visuale segue la tua pedina: se sta per uscire dallo spazio libero tra i pannelli, la mappa scorre (senza cambiare zoom)
 function tieniInVista(px, py, sempre) {

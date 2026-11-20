@@ -809,6 +809,33 @@ body.cammino #mondo { z-index:17 }
 /* v102b: vista intera del tabellone, le caselle rimpiccioliscono un po' con la mappa per non accavallarsi */
 #mondo.tab #mappa .cas,#mondo.tab #mappa .ped,#mondo.tab #mappa .luogo,#mondo.tab #mappa .torre,#mondo.tab .isola-nome{scale:calc(1 / max(var(--z), .8))}
 /* v108b: la telecamera si muove a ogni fotogramma da JavaScript: niente transizione CSS sulla trasformazione (dava scatti e ritardi) */
-#mappa{transition:filter 1s;will-change:transform;backface-visibility:hidden}
+#mappa{transition:filter 1s}
+#mondo.muove #mappa{will-change:transform}
 #mondo:not(.tre) #mappa{cursor:grab}
 #mondo.trascino #mappa{cursor:grabbing}
+/* ===== v108c: nuovo aspetto del tabellone (caselle come carte da gioco, proprietari a colpo d'occhio, dettagli che compaiono avvicinando) ===== */
+#mondo.tab .cas.terreno i{width:50px;height:44px;border-radius:10px;border:0;border-top:0;background:linear-gradient(180deg,var(--serie) 0 11px,rgba(255,255,255,.55) 11px 12px,#fffdf7 12px,#f1ebdf 100%);box-shadow:0 0 0 1.5px rgba(10,14,24,.75),inset 0 1px 0 rgba(255,255,255,.9),0 6px 14px -2px rgba(0,0,0,.55),0 2px 3px rgba(0,0,0,.35);padding-top:11px;transition:transform .18s cubic-bezier(.2,.8,.3,1.4),box-shadow .18s;overflow:visible}
+#mondo.tab .cas.terreno i::before{content:"";position:absolute;left:0;right:0;top:0;height:11px;border-radius:10px 10px 0 0;background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0) 70%);pointer-events:none}
+#mondo.tab .cas.terreno em{font-size:13.5px;font-weight:900;color:#141a24;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+#mondo.tab .cas.terreno:hover i{transform:translateY(-4px) scale(1.06);box-shadow:0 0 0 2px #fff,0 12px 22px -4px rgba(0,0,0,.6)}
+#mondo.tab .cas.terreno.pres i{background:linear-gradient(180deg,var(--serie) 0 11px,rgba(255,255,255,.55) 11px 12px,color-mix(in srgb,var(--own) 18%,#fffdf7) 12px,color-mix(in srgb,var(--own) 34%,#f1ebdf) 100%);box-shadow:0 0 0 2.5px var(--own),0 0 0 4px rgba(10,14,24,.7),0 0 18px color-mix(in srgb,var(--own) 70%,transparent),0 6px 14px -2px rgba(0,0,0,.55)}
+#mondo.tab .cas.terreno.mio i{box-shadow:0 0 0 2.5px var(--oro),0 0 0 4px rgba(26,18,6,.85),0 0 20px color-mix(in srgb,var(--oro) 75%,transparent),0 6px 14px -2px rgba(0,0,0,.55)}
+#mondo.tab .cas .inz{top:-10px;right:-10px;width:21px;height:21px;font-size:11.5px;box-shadow:0 2px 6px rgba(0,0,0,.55)}
+#mondo.tab .cas .inz.tu{background:var(--oro);color:#1a1206;text-shadow:none;font-size:12px}
+#mondo.tab .cas .livc{bottom:-7px;gap:2px;padding:2px 4px;border-radius:6px;background:rgba(10,14,24,.85)}
+#mondo.tab .cas.terreno .cn{margin-top:9px;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:7px;background:rgba(8,12,22,.86);backdrop-filter:blur(2px);letter-spacing:.01em}
+/* da lontano: niente nomi e scritte piccole, solo il colore del gruppo, il prezzo e il proprietario */
+#mondo.tab.lontano .cas .cn,#mondo.tab.lontano .luogo .nl,#mondo.tab.lontano .cas .livc{display:none!important}
+#mondo.tab.lontano .cas.terreno i{width:42px;height:36px;padding-top:10px;background:linear-gradient(180deg,var(--serie) 0 10px,#fffdf7 10px,#efe8db 100%)}
+#mondo.tab.lontano .cas.terreno.pres i{background:linear-gradient(180deg,var(--serie) 0 10px,color-mix(in srgb,var(--own) 30%,#fffdf7) 10px,color-mix(in srgb,var(--own) 45%,#efe8db) 100%)}
+#mondo.tab.lontano .cas.terreno em{font-size:12px}
+/* le pedine: gettone lucido con ombra a terra, la tua respira in oro */
+#mondo.tab .ped{border:3px solid #fff;outline:0;box-shadow:0 0 0 2px rgba(8,12,22,.8),inset 0 -4px 8px rgba(0,0,0,.28),inset 0 3px 6px rgba(255,255,255,.45),0 10px 16px -4px rgba(0,0,0,.6);transition:left .2s cubic-bezier(.3,.7,.3,1),top .2s cubic-bezier(.3,.7,.3,1)}
+#mondo.tab .ped.io{border-color:var(--oro);box-shadow:0 0 0 2px rgba(26,18,6,.9),0 0 0 6px color-mix(in srgb,var(--oro) 35%,transparent),inset 0 -4px 8px rgba(0,0,0,.28),inset 0 3px 6px rgba(255,255,255,.45),0 12px 18px -4px rgba(0,0,0,.6)}
+#mondo.tab .ped .nomeped{background:rgba(8,12,22,.9);font-size:11.5px;padding:2px 7px}
+#mondo.tab .isola-nome{font-size:32px;letter-spacing:.04em;text-shadow:0 2px 4px rgba(0,0,0,.9),0 0 26px rgba(0,30,60,.8)}
+/* la pedina sta sopra la casella come uno spillo, cosi' la casella sotto resta leggibile */
+#mondo.tab #mappa .ped{translate:0 calc(-36px / max(var(--z), .8))}
+#mondo.tab #mappa .ped::after{content:"";position:absolute;top:100%;left:50%;margin:1px 0 0 -6px;border:6px solid transparent;border-top-color:#fff;filter:drop-shadow(0 2px 1px rgba(0,0,0,.5))}
+#mondo.tab #mappa .ped.io::after{border-top-color:var(--oro)}
+#mondo.tab #mappa .ped .nomeped{top:auto;bottom:100%;margin:0 0 4px}
