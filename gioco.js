@@ -974,7 +974,7 @@ function disegnaMappa(me, notte) {
     const qui = dove === l && !N2.viaggio[mioId];
     const ore = !qui && libero ? L.oreViaggio(S, me, dove, l) : null;
     return `<button class="luogo ${qui ? "qui" : ""} ${chiamate.has(l) ? "chiamata" : ""}" data-luogo="${l}" style="left:${x}%;top:${y}%" ${!libero || qui ? "disabled" : ""} aria-label="${esc(nomeLuogo(l))}">
-      <span class="pin">${ICO_LUOGO[l]}</span>${(() => { const v = PERSONAGGI.filter((pg) => pg.dove === l && pg.quando !== "raro" && (pg.lv <= S.sblocco || L.luogoAperto(S, l, me))); return v.length ? `<span class="volti">${v.map((pg) => volto(pg)).join("")}</span>` : ""; })()}<span class="nome">${l === "palazzo" ? "Il tuo Palazzo" : esc(L.LUOGHI[l].nome)}${(me.calore || {})[l] ? ` <span title="Qui ti conoscono" style="color:${me.calore[l] >= 2 ? "#ff5c5c" : "#f3c56b"}">${"●".repeat(Math.min(3, me.calore[l]))}</span>` : ""}</span>${ore ? `<span class="ore">${ore === 1 ? "1 ora" : "2 ore"}</span>` : qui ? `<span class="ore">sei qui</span>` : ""}</button>`;
+      <span class="pin">${ICO_LUOGO[l]}</span>${(() => { const v = PERSONAGGI.filter((pg) => pg.dove === l && pg.quando !== "raro" && (pg.lv <= S.sblocco || L.luogoAperto(S, l, me))); return v.length ? `<span class="volti">${v.map((pg) => volto(pg)).join("")}</span>` : ""; })()}<span class="nome">${l === "palazzo" ? "Il tuo Palazzo" : esc(L.LUOGHI[l].nome)}${(me.calore || {})[l] ? ` <span title="Qui ti conoscono" style="color:${me.calore[l] >= 2 ? "var(--perdita)" : "#f3c56b"}">${"●".repeat(Math.min(3, me.calore[l]))}</span>` : ""}</span>${ore ? `<span class="ore">${ore === 1 ? "1 ora" : "2 ore"}</span>` : qui ? `<span class="ore">sei qui</span>` : ""}</button>`;
   }).join("");
   const conta = {};
   // di notte vedi solo te stesso, e chi e' nel tuo stesso posto (gli altri li scopri arrivando)
@@ -1074,10 +1074,10 @@ function pannelloMiei() {
   const att = miei.filter((l) => l.tipo && !l.cantiere), cant = miei.filter((l) => l.cantiere), vuoti = miei.filter((l) => l.tipoCasella === "lotto" && !l.tipo && !l.cantiere), moli = miei.filter((l) => l.tipoCasella === "molo");
   const rendTot = att.reduce((a, l) => a + L.rendita(S, l), 0);
   return `<div class="miei-pannello">
-    <div class="miei-cifre"><div><b>${miei.length}</b>terreni</div><div><b>${att.length}</b>attività</div><div><b style="color:${vuoti.length ? "#ff9a9a" : "inherit"}">${vuoti.length}</b>vuoti</div><div><b>${me.piani}</b>piani</div></div>
+    <div class="miei-cifre"><div><b>${miei.length}</b>terreni</div><div><b>${att.length}</b>attività</div><div><b style="color:${vuoti.length ? "var(--perdita)" : "inherit"}">${vuoti.length}</b>vuoti</div><div><b>${me.piani}</b>piani</div></div>
     ${att.length ? `<h5>Attività aperte · rendono ${euro(rendTot)} a ogni Alba</h5>${att.map((l) => riga(l, esc(L.ATTIVITA[l.tipo].nome) + " · livello " + l.lvl + " · " + euro(L.rendita(S, l)))).join("")}` : ""}
     ${cant.length ? `<h5>Cantieri (aprono all'Alba)</h5>${cant.map((l) => riga(l, esc(L.ATTIVITA[l.cantiere.tipo].nome) + " · livello " + l.cantiere.lvl)).join("")}` : ""}
-    ${vuoti.length ? `<h5 style="color:#ff9a9a">Vuoti: rendono quasi niente</h5>${vuoti.map((l) => riga(l, "apri un'attività", "#ff9a9a")).join("")}` : ""}
+    ${vuoti.length ? `<h5 style="color:#ff9a9a">Vuoti: rendono quasi niente</h5>${vuoti.map((l) => riga(l, "apri un'attività", "var(--perdita)")).join("")}` : ""}
     ${(() => { const gr = [...new Set(miei.filter((l) => l.serie && l.serie !== "Moli").map((l) => l.serie))]; return gr.length ? `<h5>I tuoi gruppi di vie</h5>${gr.map((s) => `<div class="mieo-g">${statoGruppo(s)}</div>`).join("")}` : ""; })()}
     ${moli.length ? `<h5>Moli</h5>${moli.map((l) => riga(l, "chi ci passa paga il pedaggio")).join("")}` : ""}
     ${!miei.length ? `<p class="sub">Non hai ancora terreni. Fermati su un terreno libero o passa dall'Agenzia.</p>` : ""}
@@ -1698,8 +1698,8 @@ const inizioScena = {};
 // dopo ogni azione della notte: cosa hai guadagnato o perso, quante Tracce hai lasciato, se la polizia ti guarda
 function riquadroEsito(me) {
   const e = me.ultimoEsito; if (!e || e.ciclo !== S.ciclo || e.ora !== S.notte.ora) return "";
-  const soldi = (x, sp) => x ? `<span style="color:${x > 0 ? (sp ? "#ff9a9a" : "var(--pulito)") : "#ffb3b3"}">${x > 0 ? "+" : "−"} ${euro(Math.abs(x))}${sp ? " sporchi" : ""}</span>` : "";
-  const TR = ["nessuna traccia", "poche Tracce", "parecchie Tracce", "molte Tracce"], COL = ["var(--pulito)", "#ffd27a", "#ffab5e", "#ff6b6b"];
+  const soldi = (x, sp) => x ? `<span style="color:${x > 0 ? (sp ? "var(--perdita)" : "var(--pulito)") : "#ffb3b3"}">${x > 0 ? "+" : "−"} ${euro(Math.abs(x))}${sp ? " sporchi" : ""}</span>` : "";
+  const TR = ["nessuna traccia", "poche Tracce", "parecchie Tracce", "molte Tracce"], COL = ["var(--pulito)", "#ffd27a", "#ffab5e", "var(--perdita)"];
   const STATI = ["", "Voci: si parla di te", "Osservato: la polizia ti tiene d'occhio", "Indagato: la Gazzetta fa il tuo nome", "Processo all'Alba"];
   return `<div class="esito-notte"><b>Com'è andata</b><div class="esito-cifre">${soldi(e.dc) || ""}${e.dc && e.ds ? " · " : ""}${soldi(e.ds, true)}${e.df ? `${e.dc || e.ds ? " · " : ""}<span style="color:${e.df > 0 ? "var(--oro)" : "#ffb3b3"}">${e.df > 0 ? "+" : "−"}${Math.abs(e.df)} fama</span>` : ""}${!e.dc && !e.ds && !e.df ? "<span>nessun soldo mosso</span>" : ""}</div>
     <div><span class="pallino" style="background:${COL[e.tr]}"></span> ${e.tr ? "Hai lasciato" : "Non hai lasciato"} <b>${e.tr ? TR[e.tr] : "tracce"}</b>${e.dtr > 0 ? ` (+${e.dtr})` : ""}${e.tr >= 2 ? ": all'Alba la polizia tira i dadi, più Tracce hai più rischi." : "."}</div>${e.sale ? `<div style="color:#ffb3b3">⚠️ ${STATI[e.sale]}.</div>` : ""}</div>`;
@@ -1837,7 +1837,7 @@ function finestraAltrove(me) {
   const luoghi = Object.keys(L.LUOGHI).filter((l) => aperto(me, l)); // v114: anche dove sei (con il suo ⚠) e i posti aperti solo per te (il Mercato Nero del Contrabbandiere)
   const chiamate = new Set((N2.chiamate || []).filter((c) => !c.scaduta).map((x) => x.luogo));
   finestra(`<span class="kick" style="color:var(--cielo)">Ore ${L.ORE[N2.ora]} · ${restano} ${restano === 1 ? "ora" : "ore"} all'alba</span><h2>Dove vai?</h2>
-    <div class="lista-luoghi">${luoghi.map((l) => { const ore = L.oreViaggio(S, me, dove, l); const gente = 0; /* chi c'e' in un posto lo scopri solo arrivando */ const qui = l === dove; return `<button class="luogo-riga${qui ? " qui" : ""}" data-l="${l}" ${qui || ore > restano ? "disabled" : ""} style="background-image:linear-gradient(90deg,rgba(6,10,24,.92),rgba(6,10,24,.55)),url('${SCENA_NOTTE[l]}')"><span class="ic">${ICO_LUOGO[l]}</span><span style="flex:1;text-align:left"><b>${esc(nomeLuogo(l, true))}</b><br><span class="sub">${l === "palazzo" ? "Casa tua" : esc(L.NOMI_ISOLE[L.LUOGHI[l].isola] || "")}${gente ? " · " + gente + (gente === 1 ? " persona" : " persone") + " ci sono già" : ""}${chiamate.has(l) ? " · appuntamento" : ""}${(me.calore || {})[l] ? ` · <span style="color:${me.calore[l] >= 2 ? "#ff5c5c" : "#f3c56b"}">qui ti conoscono ${"●".repeat(Math.min(3, me.calore[l]))}</span>` : ""}</span></span>${(() => { const v = PERSONAGGI.filter((pg) => pg.dove === l && pg.quando !== "raro"); return v.length ? `<span class="volti-riga" title="${esc(v.map((pg) => pg.nome).join(", "))}">${v.map((pg) => volto(pg)).join("")}</span>` : ""; })()}<span class="ore">${qui ? "sei qui" : ore === 1 ? "1 ora" : "2 ore"}</span></button>`; }).join("")}</div>
+    <div class="lista-luoghi">${luoghi.map((l) => { const ore = L.oreViaggio(S, me, dove, l); const gente = 0; /* chi c'e' in un posto lo scopri solo arrivando */ const qui = l === dove; return `<button class="luogo-riga${qui ? " qui" : ""}" data-l="${l}" ${qui || ore > restano ? "disabled" : ""} style="background-image:linear-gradient(90deg,rgba(6,10,24,.92),rgba(6,10,24,.55)),url('${SCENA_NOTTE[l]}')"><span class="ic">${ICO_LUOGO[l]}</span><span style="flex:1;text-align:left"><b>${esc(nomeLuogo(l, true))}</b><br><span class="sub">${l === "palazzo" ? "Casa tua" : esc(L.NOMI_ISOLE[L.LUOGHI[l].isola] || "")}${gente ? " · " + gente + (gente === 1 ? " persona" : " persone") + " ci sono già" : ""}${chiamate.has(l) ? " · appuntamento" : ""}${(me.calore || {})[l] ? ` · <span style="color:${me.calore[l] >= 2 ? "var(--perdita)" : "#f3c56b"}">qui ti conoscono ${"●".repeat(Math.min(3, me.calore[l]))}</span>` : ""}</span></span>${(() => { const v = PERSONAGGI.filter((pg) => pg.dove === l && pg.quando !== "raro"); return v.length ? `<span class="volti-riga" title="${esc(v.map((pg) => pg.nome).join(", "))}">${v.map((pg) => volto(pg)).join("")}</span>` : ""; })()}<span class="ore">${qui ? "sei qui" : ore === 1 ? "1 ora" : "2 ore"}</span></button>`; }).join("")}</div>
     ${(N2.serate || []).filter((x) => x.host !== mioId && x.host !== N2.ospite).map((x) => `<button class="luogo-riga" data-serata="${x.host}" style="margin-top:8px;border-color:rgba(243,197,107,.6)"><span class="ic">${ico("casino")}</span><span style="flex:1;text-align:left"><b>Serata al Palazzo di ${esc(x.nome)}</b><br><span class="sub">Casinò privato al piano ${x.piani} · ingresso ${x.ingresso ? euro(x.ingresso) : "gratis"} · ${x.ospiti} ${x.ospiti === 1 ? "ospite" : "ospiti"}</span></span><span class="ore">invito</span></button>`).join("")}
     <div class="pulsanti"><button id="no">Resto qui</button></div>`, (d, c) => {
     d.querySelector("#no").onclick = c;
@@ -1866,22 +1866,22 @@ function pompaAvvisi() {
 }
 function avvisoRiepilogo(R) {
   const m = R.mio, pezzi = [];
-  if (m.soldi) pezzi.push(`<b style="color:${m.soldi > 0 ? "#7bd88f" : "#ff9a9a"}">${m.soldi > 0 ? "+" : "−"}${euro(Math.abs(m.soldi))}</b>${m.sporchi > 0 ? ' <span style="color:var(--sporco)">sporchi</span>' : ""}`);
+  if (m.soldi) pezzi.push(`<b style="color:${m.soldi > 0 ? "var(--guadagno)" : "var(--perdita)"}">${m.soldi > 0 ? "+" : "−"}${euro(Math.abs(m.soldi))}</b>${m.sporchi > 0 ? ' <span style="color:var(--sporco)">sporchi</span>' : ""}`);
   if (m.fama) pezzi.push(`fama ${m.fama > 0 ? "+" : ""}${m.fama}`);
-  if (m.rischio) pezzi.push(`<span style="color:${["", "#f3c56b", "#ff9a5c", "#ff5c5c"][m.rischio]}">${["", "poche Tracce", "parecchie Tracce", "molte Tracce"][m.rischio]}</span>`);
+  if (m.rischio) pezzi.push(`<span style="color:${["", "#f3c56b", "#ff9a5c", "var(--perdita)"][m.rischio]}">${["", "poche Tracce", "parecchie Tracce", "molte Tracce"][m.rischio]}</span>`);
   if (m.visti.length) pezzi.push("hai visto " + m.visti.map(esc).join(", "));
   avviso(`<span class="kick" style="color:var(--cielo)">${esc(R.da)} → ${esc(R.a)}</span><div>${pezzi.join(" · ")}</div>`, 7000);
 }
 function finestraRiepilogo(R) {
   const m = R.mio;
   const RISCHIO = ["Nessuna traccia", "Poche Tracce", "Parecchie Tracce", "Molte Tracce"]; // v114: le stesse parole del riquadro "com'e' andata"
-  const col = ["#7bd88f", "#f3c56b", "#ff9a5c", "#ff5c5c"];
+  const col = ["var(--guadagno)", "#f3c56b", "#ff9a5c", "var(--perdita)"];
   const segno = (x) => (x > 0 ? "+" : x < 0 ? "−" : "") + euro(Math.abs(x));
   finestra(`<span class="kick" style="color:var(--cielo)">${ico("luna")} Dalle ${esc(R.da)} alle ${esc(R.a)}</span><h2>Com'è andata quest'ora</h2>
     <div class="riep">
       <div><span class="sub">Dov'eri</span><b>${esc(m.dove)}</b></div>
       <div><span class="sub">Chi hai visto</span><b>${m.visti.length ? m.visti.map(esc).join(", ") : "Nessuno"}</b></div>
-      <div><span class="sub">Soldi</span><b style="color:${m.soldi > 0 ? "#7bd88f" : m.soldi < 0 ? "#ff9a9a" : "inherit"}">${m.soldi ? segno(m.soldi) : "Niente"}</b>${m.sporchi > 0 ? `<span class="sub" style="color:var(--sporco)">di cui sporchi ${euro(m.sporchi)}</span>` : ""}</div>
+      <div><span class="sub">Soldi</span><b style="color:${m.soldi > 0 ? "var(--guadagno)" : m.soldi < 0 ? "var(--perdita)" : "inherit"}">${m.soldi ? segno(m.soldi) : "Niente"}</b>${m.sporchi > 0 ? `<span class="sub" style="color:var(--sporco)">di cui sporchi ${euro(m.sporchi)}</span>` : ""}</div>
       <div><span class="sub">Fama</span><b>${m.fama ? (m.fama > 0 ? "+" : "") + m.fama : "Uguale"}</b></div>
       <div class="largo"><span class="sub">Tracce lasciate</span><div class="rischio">${[0, 1, 2].map((i) => `<i style="background:${i < m.rischio ? col[m.rischio] : "rgba(255,255,255,.15)"}"></i>`).join("")}</div><b style="color:${col[m.rischio]}">${RISCHIO[m.rischio]}</b></div>
     </div>
@@ -2236,7 +2236,7 @@ function riepilogoGiro() {
   if (!fl.length) return "";
   const entra = fl.filter((f) => f.a === mioId).reduce((a, f) => a + f.importo, 0), esce = fl.filter((f) => f.da === mioId).reduce((a, f) => a + f.importo, 0);
   const pezzi = [];
-  if (entra) pezzi.push(`<span style="color:#7bd88f">+${euro(entra)}</span>`);
+  if (entra) pezzi.push(`<span style="color:var(--guadagno)">+${euro(entra)}</span>`);
   if (esce) pezzi.push(`<span style="color:#ff9a9a">−${euro(esce)}</span>`);
   return `<div class="riepilogo-giro"><span class="kick" style="color:var(--muted)">Mentre aspettavi</span><div>${pezzi.join(" · ")} <span class="sub">(dettagli nell'app Banca)</span></div></div>`;
 }
@@ -2288,7 +2288,7 @@ function appImprese(me, miTurno) {
 function appBanca(me, miTurno) {
     const altri = S.players.filter((x) => x.id !== mioId);
     const mov = (S.flussi || []).filter((f) => f.da === mioId || f.a === mioId).slice(-8).reverse();
-    return `${mov.length ? `<div class="scheda"><h4>Ultimi movimenti</h4>${mov.map((f) => `<div style="font-size:13px;display:flex;justify-content:space-between;gap:8px"><span>${esc(f.motivo)} <span class="sub">${f.a === mioId ? (f.da ? "da " + esc(nomeDi(f.da)) : "dalla Banca") : (f.a ? "a " + esc(nomeDi(f.a)) : "alla Banca")}</span></span><b style="color:${f.a === mioId ? "#7bd88f" : "#ff9a9a"}">${f.a === mioId ? "+" : "−"}${euro(f.importo)}</b></div>`).join("")}</div>` : ""}<div class="scheda"><span class="kick" style="color:var(--muted)">Conto</span><span class="serif" style="font-size:28px;color:var(--pulito)">${euro(me.cash)}</span>${me.sporchi ? `<span style="color:var(--sporco)">In contanti sporchi: ${euro(me.sporchi)}</span>` : ""}</div>
+    return `${mov.length ? `<div class="scheda"><h4>Ultimi movimenti</h4>${mov.map((f) => `<div style="font-size:13px;display:flex;justify-content:space-between;gap:8px"><span>${esc(f.motivo)} <span class="sub">${f.a === mioId ? (f.da ? "da " + esc(nomeDi(f.da)) : "dalla Banca") : (f.a ? "a " + esc(nomeDi(f.a)) : "alla Banca")}</span></span><b style="color:${f.a === mioId ? "var(--guadagno)" : "var(--perdita)"}">${f.a === mioId ? "+" : "−"}${euro(f.importo)}</b></div>`).join("")}</div>` : ""}<div class="scheda"><span class="kick" style="color:var(--muted)">Conto</span><span class="serif" style="font-size:28px;color:var(--pulito)">${euro(me.cash)}</span>${me.sporchi ? `<span style="color:var(--sporco)">In contanti sporchi: ${euro(me.sporchi)}</span>` : ""}</div>
       <div class="scheda"><h4>Debito: ${euro(me.debito)}</h4><span class="sub">Interesse a ogni Alba: ${me.pacchetto === "ereditiera" ? "0%" : Math.round(L.tassoPrestiti(S, me) * 100) + "%"}${(() => { const gb = (S.grandi || {}).banca; const c = gb && gb.capo && S.players.find((p) => p.id === gb.capo); return c && c.id !== mioId ? " (lo decide " + esc(c.nome) + ", che comanda la Banca della Laguna)" : ""; })()}.${me.contoBloccato === S.ciclo ? ` <b style="color:#ff9a9a">Conto bloccato: niente prestiti fino all'Alba.</b>` : ""}</span>${me.debito ? `<button class="piccolo" data-a2="restituisci">Restituisci tutto</button>` : ""}${miTurno && !me.azioneGiornoFatta ? `<button class="piccolo" data-a2="prestito">Chiedi un prestito</button>` : `<span class="sub">I prestiti si chiedono durante il tuo turno.</span>`}</div>
       <div class="scheda"><h4>Fai un regalo</h4><div class="riga"><select id="regA">${altri.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select><input id="regImp" type="number" placeholder="quanto" style="width:110px"></div>${S.sblocco >= 1 ? `<label class="check"><input type="checkbox" id="regSp"> in contanti sporchi</label>` : ""}<button class="piccolo" data-a2="regala">Dai</button></div>
       ${S.sblocco >= 2 ? `<div class="scheda"><h4>Tasse</h4><span class="sub">Puoi nascondere una parte delle rendite al fisco. Non paghi le tasse su quella parte: diventa contante in nero, che di notte spendi subito (Mercato Nero, occasioni, "regali") senza ripulirlo. Ma lascia Tracce, e la Finanza guarda i più ricchi.</span><select id="evasione">${[0, 0.1, 0.2, 0.3].map((q) => `<option value="${q}" ${Math.abs(q - (me.evasione || 0)) < 0.01 ? "selected" : ""}>${q ? "Nascondi il " + q * 100 + "%" : "Pago tutto"}</option>`).join("")}</select></div>` : ""}`;
@@ -2311,7 +2311,7 @@ function appMessaggi(me, miTurno) {
 function appValigetta(me, miTurno) {
     const v = me.valigetta || [], posti = S.postiValigetta, usati = S.postiUsati ?? v.length;
     return `<p class="sub">${usati} posti usati su ${posti}. Gli oggetti si comprano di notte, nei posti giusti. Al Mercato Nero, al Porto e al Casinò ogni notte ci sono 3 strumenti diversi: chi arriva prima li prende. Quelli grossi occupano 2 posti.</p>` +
-      v.map((o) => { const O = OGG(o.id); return `<div class="ogg"><span class="ic">${ICO_OGG[o.id] || ""}</span><div><b>${esc(O.nome)}${O.posti > 1 ? ` <span class="tag">${O.posti} posti</span>` : ""}</b><div class="sub" style="font-size:12px">${esc(O.descr)}${o.notti ? " Ancora " + o.notti + (o.notti === 1 ? " notte." : " notti.") : ""}${(O.salva || []).length || ["motoscafo", "furgone"].includes(o.id) ? ` <b style="color:${(me.trucchi || {})[o.id] >= 2 ? "#ff9a9a" : "var(--pulito)"}">Funziona circa ${Math.round(100 - Math.min(55, 15 + 10 * ((me.trucchi || {})[o.id] || 0)))}% delle volte.</b>` : ""}</div></div></div>`; }).join("") +
+      v.map((o) => { const O = OGG(o.id); return `<div class="ogg"><span class="ic">${ICO_OGG[o.id] || ""}</span><div><b>${esc(O.nome)}${O.posti > 1 ? ` <span class="tag">${O.posti} posti</span>` : ""}</b><div class="sub" style="font-size:12px">${esc(O.descr)}${o.notti ? " Ancora " + o.notti + (o.notti === 1 ? " notte." : " notti.") : ""}${(O.salva || []).length || ["motoscafo", "furgone"].includes(o.id) ? ` <b style="color:${(me.trucchi || {})[o.id] >= 2 ? "var(--perdita)" : "var(--pulito)"}">Funziona circa ${Math.round(100 - Math.min(55, 15 + 10 * ((me.trucchi || {})[o.id] || 0)))}% delle volte.</b>` : ""}</div></div></div>`; }).join("") +
       `<p class="sub" style="margin-top:8px">Ogni volta che un oggetto ti salva, la polizia impara il trucco: la volta dopo funziona di meno. Col passare dei Cicli se ne dimentica.</p>` +
       Array.from({ length: Math.max(0, posti - usati) }, () => `<div class="ogg vuoto"><span class="ic">·</span><span class="sub">Posto libero</span></div>`).join("");
 }
@@ -2840,7 +2840,7 @@ function appConti(me) {
     const c = (me.conti || {})[ciclo]; if (!c) return `<div class="scheda"><h4>${titolo}</h4><span class="sub">Nessun movimento.</span></div>`;
     const righe = Object.entries(c).filter(([, v]) => v[0] || v[1]).sort((a, b) => Math.abs(b[1][0] + b[1][1]) - Math.abs(a[1][0] + a[1][1]));
     const tot = righe.reduce((a, [, v]) => [a[0] + v[0], a[1] + v[1]], [0, 0]);
-    const cifra = (x, sp) => x ? `<span style="color:${x > 0 ? (sp ? "#ff9a9a" : "var(--pulito)") : "#ffb3b3"};white-space:nowrap">${x > 0 ? "+" : "−"} ${euro(Math.abs(x))}${sp ? " sp." : ""}</span>` : "";
+    const cifra = (x, sp) => x ? `<span style="color:${x > 0 ? (sp ? "var(--perdita)" : "var(--pulito)") : "#ffb3b3"};white-space:nowrap">${x > 0 ? "+" : "−"} ${euro(Math.abs(x))}${sp ? " sp." : ""}</span>` : "";
     return `<div class="scheda"><h4>${titolo}</h4><table class="conti">${righe.map(([m, v]) => `<tr><td>${esc(m)}</td><td>${cifra(v[0])}${v[0] && v[1] ? "<br>" : ""}${cifra(v[1], true)}</td></tr>`).join("")}
       <tr class="tot"><td><b>Totale</b></td><td><b>${cifra(tot[0]) || "0 €"}</b>${tot[1] ? "<br>" + cifra(tot[1], true) : ""}</td></tr></table></div>`;
   };
@@ -3130,7 +3130,7 @@ function creaTavolo(me) {
   document.body.appendChild(d);
   RL = { el: d, ruota: null, bet: null, attesa: false, kLancio: 0, timer: null };
   const box = d.querySelector("#rlRuota");
-  (modRuota || (modRuota = import("./roulette3d.js?v=97"))).then((M) => {
+  (modRuota || (modRuota = import("./roulette3d.js?v=120"))).then((M) => {
     if (!RL || RL.el !== d) return;
     box.innerHTML = "";
     try { RL.ruota = M.creaRuota(box, { suono: Suono }); const U = S.notte && S.notte.rouletteUltima; if (U) RL.ruota.metti(U.n); }
@@ -3209,7 +3209,7 @@ function tavoloColpo(me) {
   if (document.querySelector(".velo")) document.querySelectorAll(".velo").forEach((x) => x.remove());
   chiaveColpo = chiave; clearInterval(timerColpo);
   const ultimo = C.passo >= C.passi - 1;
-  const col = C.rischio >= 50 ? "#ff5c5c" : C.rischio >= 25 ? "#f3c56b" : "#7bd88f";
+  const col = C.rischio >= 50 ? "var(--perdita)" : C.rischio >= 25 ? "#f3c56b" : "var(--guadagno)";
   const battito = Math.max(0.35, 1.2 - C.rischio / 70);
   const d = document.createElement("div"); d.className = "velo colpo";
   d.innerHTML = `<div class="fin vetro colpo-fin${ultimo ? (C.segnale ? " allarme" : " calmo") : ""}" style="--battito:${battito}s">
@@ -3238,7 +3238,7 @@ function tavoloColpo(me) {
   const tic = () => {
     const resta = (C.tempo || 20) - (oraServer() - C.quando) / 1000;
     barra.style.width = Math.max(0, resta / (C.tempo || 20) * 100) + "%";
-    barra.style.background = resta < 6 ? "#ff5c5c" : "var(--oro)";
+    barra.style.background = resta < 6 ? "var(--perdita)" : "var(--oro)";
     sec.textContent = resta > 0 ? "Hai " + Math.ceil(resta) + " secondi. Se esiti, " + (ultimo ? "resti impietrito e tiri dritto." : "fai la cosa prudente ma il rischio sale.") : "Esiti…";
     if (resta <= 0) manda(0, true);
   };
@@ -3521,7 +3521,7 @@ function rivaleMio() { const sf = sfidaMia(); return sf ? (sf.a === mioId ? sf.b
 function finestraSfida() {
   const sf = sfidaMia(); if (!sf) return;
   const riv = S.players.find((x) => x.id === rivaleMio()), avanti = sf.avanti === mioId;
-  finestra(`<span class="kick" style="color:#ff6b6b">⚔️ La sfida del Ciclo</span><h2>Tu contro ${esc(riv.nome)}</h2>
+  finestra(`<span class="kick" style="color:var(--rivale)">⚔️ La sfida del Ciclo</span><h2>Tu contro ${esc(riv.nome)}</h2>
     ${sf.motivo === "vendetta" ? `<p class="avviso-rischio">È una vendetta: stanotte uno dei due ha fatto il nome dell'altro alla polizia.</p>` : `<p class="sub">Siete vicini in classifica: la Laguna vi mette uno contro l'altro.</p>`}
     <div class="sfida-stato ${avanti ? "su" : "giu"}">${avanti ? "Adesso sei avanti tu" : "Adesso è avanti " + esc(riv.nome)}</div>
     <ul style="text-align:left;padding-left:18px;margin:8px 0">
@@ -3556,7 +3556,7 @@ function testoPena(g) {
   pezzi.push("−" + P.fama + " fama");
   return pezzi.join(", ");
 }
-const COLORE_POLIZIA = { tranquillo: "#7bd88f", agitato: "#f3c56b", pericoloso: "#ff5c5c" };
+const COLORE_POLIZIA = { tranquillo: "var(--guadagno)", agitato: "#f3c56b", pericoloso: "var(--perdita)" };
 function boxRischio(me, o) {
   const N2 = S.notte, lv = N2.pericoloQui, i = ["tranquillo", "agitato", "pericoloso"].indexOf(lv);
   const prob = i >= 0 ? Math.round(Math.min(0.95, L.P_GUAI[i] * (N2.protezione || 1) * (1 + L.N.pistaLuogoNotte * (N2.caloreQui || 0))) * 100) : null;

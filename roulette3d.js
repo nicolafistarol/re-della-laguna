@@ -31,7 +31,7 @@ function texturaNumeri() {
     g.fillStyle = "rgba(0,0,0,.35)"; g.fill();
     const am = i * SETT, rr = (R_NUM_EST + R_NUM_INT) / 2 * k;
     g.save(); g.translate(cx + rr * Math.cos(am), cx - rr * Math.sin(am)); g.rotate(Math.PI / 2 - am);
-    g.fillStyle = "#f6ecd2"; g.font = "bold 40px Georgia, serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(n), 0, 2); g.restore();
+    g.fillStyle = "#f6ecd2"; g.font = "800 40px Manrope, system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(n), 0, 2); g.restore();
   }
   // filetti d'oro tra numeri e tasche
   g.strokeStyle = "#d9b45a"; g.lineWidth = 4;
