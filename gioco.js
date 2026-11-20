@@ -15,7 +15,7 @@ const MODO_TEST = /[?&]test\b/.test(location.search);
 let testOn = MODO_TEST, testDa = 6;
 function sceltaTestHtml() {
   if (!MODO_TEST) return "";
-  return `<label class="check" style="border:1px dashed var(--oro);border-radius:10px;padding:8px"><input type="checkbox" id="testOn" ${testOn ? "checked" : ""}> 🧪 Modalità test: parti dal Ciclo <select id="testDa">${[4, 6, 8, 10].map((c) => `<option ${c === testDa ? "selected" : ""}>${c}</option>`).join("")}</select> con 8 milioni puliti e 3 sporchi in più e il Livello 3 (fino a lì gioca il computer al posto tuo)</label>`;
+  return `<label class="check" style="border:1px dashed var(--oro);border-radius:10px;padding:8px"><input type="checkbox" id="testOn" ${testOn ? "checked" : ""}> 🧪 Modalità test: parti dal Ciclo <select id="testDa">${[4, 6, 8].map((c) => `<option ${c === testDa ? "selected" : ""}>${c}</option>`).join("")}</select> con 8 milioni puliti e 3 sporchi in più e il Livello 3 (fino a lì gioca il computer al posto tuo)</label>`;
 }
 function collegaTest() {
   if (!MODO_TEST) return;
