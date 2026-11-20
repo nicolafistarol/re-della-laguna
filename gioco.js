@@ -204,6 +204,7 @@ const Suono = (() => {
       suonaBrano();
     },
     // dadi: colpetti sul tavolo che rallentano, poi si fermano
+    conta(su) { if (!ok()) return; const t = adesso(); for (let i = 0; i < 6; i++) nota(su ? 1320 + i * 110 : 880 - i * 70, t + i * 0.075, 0.06, 0.045, "triangle", false); },
     dado() { if (!ok()) return; const t = adesso(); let x = 0; for (let i = 0; i < 9; i++) { x += 0.05 + i * 0.012; rumore(t + x + Math.random() * 0.02, 0.06, 0.55 - i * 0.045, 1800 + Math.random() * 1800); nota(190 + Math.random() * 60, t + x, 0.05, 0.05 - i * 0.004, "triangle", false); } },
     // un passo sul tabellone: un "tic" morbido, solo per le tue mosse (quelle degli altri non fanno rumore)
     passo(mio) { if (!ok() || !mio) return; nota(1320, adesso(), 0.06, 0.035, "sine", false, 880); },
@@ -678,7 +679,7 @@ async function eseguiCodaDentro() {
     S = v;
     S.players.forEach((p) => disp[p.id] = copiaPos(p));
     const me = io();
-    if (faseP && faseP !== "notte" && S.fase === "notte") Suono.notte(); else if (faseP === "notte" && S.fase !== "notte") Suono.alba();
+    if (faseP && faseP !== "notte" && S.fase === "notte") { Suono.notte(); passaggio("notte"); } else if (faseP === "notte" && S.fase !== "notte") { Suono.alba(); passaggio("alba"); }
     if (me && (me.stato || 0) > statoP) Suono.polizia();
     if (me && me.cash !== cashPrima && cashPrima && !saldoNascosto) mostraDelta(me.cash - cashPrima);
     for (const r of righe) avvisoPerMe(r);
@@ -801,6 +802,31 @@ function annuncioAsta(testo) {
     finestra(`<span class="kick" style="color:var(--rosa)">${ico("handshake")} Risultato dell'asta</span><h2 style="color:${vinta ? "var(--pulito)" : "inherit"}">${vinta ? "Hai vinto l'asta!" : "Asta chiusa"}</h2><p style="font-size:17px">${esc(testo.replace(/^Asta:? ?/, ""))}</p><div class="pulsanti"><button class="oro" id="ok">Ok</button></div>`, (d, c) => { d.querySelector("#ok").onclick = () => { c(); ok(); }; });
   });
 }
+// v119 punto 5: il passaggio giorno -> notte -> Alba: un velo colorato che sale e scende in meno di un secondo, senza fermare il gioco
+function passaggio(k) {
+  if (VELOCE) return;
+  const el = document.createElement("div"); el.className = "passaggio " + k;
+  el.innerHTML = `<b>${k === "notte" ? "Cala la notte" : "L'Alba"}</b>`;
+  document.body.appendChild(el); setTimeout(() => el.remove(), 1000);
+}
+// v119: i soldi in alto contano fino al nuovo valore, con un tintinnio leggero
+let cassaMostrata = null, cassaAnim = 0;
+function contaSoldi(me) {
+  const el = document.querySelector(".saldo-su .tot"); if (!el || saldoNascosto) { cassaMostrata = me.cash; return; }
+  const da = cassaMostrata, a = me.cash;
+  if (da == null || da === a || VELOCE) { cassaMostrata = a; return; }
+  el.textContent = euro(Math.round(da)); el.classList.remove("conta-su", "conta-giu"); void el.offsetWidth; el.classList.add(a > da ? "conta-su" : "conta-giu");
+  if (Math.abs(a - da) >= 1000) Suono.conta(a > da);
+  const t0 = performance.now(), dur = 700, mio = ++cassaAnim;
+  const passo = (t) => {
+    if (mio !== cassaAnim) return;
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    cassaMostrata = da + (a - da) * e;
+    const x = document.querySelector(".saldo-su .tot"); if (x) x.textContent = euro(Math.round(cassaMostrata));
+    if (k < 1) requestAnimationFrame(passo); else { cassaMostrata = a; if (x) x.textContent = euro(a); }
+  };
+  requestAnimationFrame(passo);
+}
 function mostraDelta(d) {
   document.querySelectorAll(".delta").forEach((x) => x.remove());
   const el = document.createElement("div"); el.className = "delta"; el.textContent = (d > 0 ? "+ " : "− ") + euro(Math.abs(d));
@@ -904,6 +930,7 @@ function disegna() {
   ${notte ? "" : comandiVista() + legenda()}
   <button class="vetro audio ${Suono.acceso() ? "" : "spento"}" id="audio" title="${Suono.acceso() ? "Spegni musica e suoni" : "Accendi musica e suoni"}" aria-label="${Suono.acceso() ? "Spegni" : "Accendi"} musica e suoni">${icoE(Suono.acceso() ? "suono-si" : "suono-no")}</button>
   ${notte ? "" : `<div class="carta vetro">${(me.stato || 0) >= 3 && !S.fine ? `<div class="fascia-polizia">⚖️ <span><b>${me.stato >= 4 ? "Sei a Processo: all'Alba arriva la sentenza." : "Sei sotto indagine."}</b> Finché dura, il Municipio non ti dà permessi.${me.stato >= 4 ? "" : " Per scendere: un Ciclo intero senza affari sporchi."} <u data-a="polizia">Cosa rischio</u></span></div>` : ""}${animando ? `<div class="sub">…</div>` : cartaGiorno(me)}</div>`}`;
+  contaSoldi(me);
   $("#occhio").onclick = () => { saldoNascosto = !saldoNascosto; disegna(); };
   { const x = $("#tickerX"), a = $("#tickerApri"); const metti = (v) => { tickerNascosto = v; try { localStorage.setItem("laguna_ticker", v ? "1" : ""); } catch (e) { } disegna(); }; if (x) x.onclick = () => metti(true); if (a) a.onclick = () => metti(false); }
   document.querySelectorAll(".chip.tratta").forEach((c) => c.onclick = () => finestraTratta(me, c.dataset.gioc));
@@ -990,7 +1017,14 @@ function casellaTab(l, x, y, tit) {
   } else dentro = molo ? "⚓<em>" + kEuro(l.prezzo) + "</em>" : Cas.lottoLibero(COL_SERIE[l.serie] || "#888") + `<em class="cartello">${kEuro(l.prezzo)}</em>`;
   return `<div class="${cls}" data-cas="${l.id}" title="${esc(tit)}" style="${stile}"><i>${dentro}</i>${extra}<span class="cn">${esc(l.nome.replace(/ — .*/, ""))}</span></div>`;
 }
+const casVista = new Map(); // v119: com'era ogni casella all'ultimo disegno (per far "saltare" quella appena comprata o costruita)
 function casellaHtml(l) {
+  const k = `${l.owner || ""}|${l.tipo || ""}|${l.lvl || 0}|${l.cantiere ? 1 : 0}`, prima = casVista.get(l.id);
+  casVista.set(l.id, k);
+  const h = casellaHtml0(l);
+  return prima !== undefined && prima !== k && !VELOCE ? h.replace('class="cas', 'class="cas nuovo') : h;
+}
+function casellaHtml0(l) {
   const [x, y] = puntoMappa({ pos: l.idx });
   const own = l.owner ? S.players.find((p) => p.id === l.owner) : null;
   const tit = `${l.nome}${l.isola ? " · " + L.NOMI_ISOLE[l.isola] : ""}${own ? " · di " + own.nome + (l.tipo ? " (" + L.ATTIVITA[l.tipo].nome + ", livello " + l.lvl + ")" : "") + (l.cantiere ? " · cantiere in corso" : "") : l.prezzo ? " · libero, " + euro(l.prezzo) : ""}`;
