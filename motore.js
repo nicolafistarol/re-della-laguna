@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 116;
+  const VERSIONE_REGOLE = 123;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -898,7 +898,7 @@
     const pd = s.pending;
     if (!pd || pd.tipo !== "gala" || pd.giocatore !== p.id) err("Non sei al Gala.");
     dono = Math.max(0, Math.floor(dono || 0));
-    if (dono > p.cash) err("Non hai abbastanza soldi puliti.");
+    if (dono > 0 && dono > p.cash) err("Non hai abbastanza soldi puliti."); // v123: chi e' in rosso puo' sempre dire di no (prima restava bloccato)
     p.cash -= dono; s.pending = null;
     const f = Math.floor(dono / 100_000);
     p.fama += Math.min(15, f);
@@ -908,7 +908,7 @@
     const pd = s.pending;
     if (!pd || pd.tipo !== "casino_reale" || pd.giocatore !== p.id) err("Non sei al Casinò Reale.");
     puntata = Math.max(0, Math.floor(puntata || 0));
-    if (puntata > p.cash) err("Non hai abbastanza soldi puliti.");
+    if (puntata > 0 && puntata > p.cash) err("Non hai abbastanza soldi puliti.");
     s.pending = null;
     if (!puntata) return;
     if (rng(s) < 0.47) { p.cash += puntata; log(s, p.nome + " vince " + euro(puntata) + " al Casinò Reale.", p.id); }
