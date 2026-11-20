@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 109;
+  const VERSIONE_REGOLE = 110;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -499,6 +499,121 @@
     if (!vivi.length) { s.attesaAlba = null; return false; }
     return true;
   }
+  // ---------------------------------------------------------------- v110: il bivio del giorno
+  // Dal Ciclo 2, dopo i dadi, 1 volta su 2: una scelta legata alla casella, a un rivale o alla citta'.
+  // 2 strade, costi e guadagni scritti, niente timer. Non blocca il turno: se finisci il turno senza scegliere, salta.
+  // Effetti: costo, cash [a,b], alba [a,b] (incasso all'Alba), sporchi [a,b], fama, tracce, p (riuscita), falli {cash, fama, tracce}, riv {fama, alba}
+  const BIVI = [
+    // 1) la tua attivita'
+    { id: "cuoco", fam: "tua", req: "attivita", t: "Il gestore del tuo locale «{L}» chiede soldi per rinnovare la sala.", o: [{ t: "Paghi il rinnovo", costo: 60_000, alba: [110_000, 150_000] }, { t: "Gli dici di arrangiarsi", fama: -1, cash: [10_000, 20_000] }] },
+    { id: "ispettore", fam: "tua", req: "attivita", t: "Un ispettore sanitario si presenta al tuo locale «{L}».", o: [{ t: "Gli offri una busta", costo: 30_000, tracce: 3, fama: 1 }, { t: "Lo lasci controllare", p: 0.6, fama: 2, falli: { cash: -90_000, fama: -2 } }] },
+    { id: "influencer", fam: "tua", req: "attivita", t: "Un'influencer vuole girare un video nel tuo locale «{L}».", o: [{ t: "La ospiti gratis", costo: 20_000, fama: 3 }, { t: "Le chiedi di pagare", cash: [40_000, 70_000], fama: -1 }] },
+    { id: "chef", fam: "tua", req: "attivita", t: "Un concorrente vuole rubarti il personale migliore del locale «{L}».", o: [{ t: "Alzi gli stipendi", costo: 50_000, alba: [70_000, 90_000] }, { t: "Lo minacci", p: 0.7, tracce: 4, falli: { fama: -3, tracce: 4 } }] },
+    { id: "evento", fam: "tua", req: "attivita", t: "Un'agenzia ti propone un evento privato nel locale «{L}».", o: [{ t: "Accetti, chiudi al pubblico", alba: [80_000, 160_000], fama: -1 }, { t: "Rifiuti, resta aperto a tutti", fama: 2 }] },
+    { id: "fornitore", fam: "tua", req: "attivita", t: "Un fornitore ti offre merce a metà prezzo per «{L}». Non chiede fattura.", o: [{ t: "Compri in nero", costo: 40_000, alba: [90_000, 120_000], tracce: 5 }, { t: "Resti col tuo fornitore", fama: 1 }] },
+    // 2) il terreno di un altro (sei sulla sua casella)
+    { id: "inquilini", fam: "altro", req: "altrui", t: "Gli inquilini di {R} qui a «{C}» si lamentano dell'affitto.", o: [{ t: "Li aizzi contro di lui", costo: 50_000, p: 0.65, riv: { alba: -150_000, fama: -2 }, tracce: 2 }, { t: "Offri a {R} di mediare", fama: 2, cash: [20_000, 40_000] }] },
+    { id: "gestore", fam: "altro", req: "altrui", t: "Il gestore del locale di {R} ti dice che vuole cambiare padrone.", o: [{ t: "Paghi per i suoi segreti", costo: 70_000, p: 0.7, riv: { fama: -3 }, fama: 1 }, { t: "Avvisi {R}: ti deve un favore", fama: 2, riv: { fama: 1 } }] },
+    { id: "cliente", fam: "altro", req: "altrui", t: "Un cliente di {R} ti chiede un posto migliore dove spendere.", o: [{ t: "Lo porti nei tuoi locali", p: 0.75, alba: [60_000, 100_000], riv: { alba: -50_000 } }, { t: "Gli vendi una dritta", cash: [20_000, 40_000] }] },
+    { id: "vetrina", fam: "altro", req: "altrui", t: "Qualcuno ha rotto la vetrina di {R} a «{C}».", o: [{ t: "Ti fai fotografare mentre aiuti", fama: 3, costo: 15_000 }, { t: "Fai girare la voce che è stato un regolamento di conti", p: 0.7, riv: { fama: -3 }, tracce: 2 }] },
+    { id: "permesso", fam: "altro", req: "altrui", t: "In Comune c'è una pratica di {R} per «{C}» ferma sulla scrivania sbagliata.", o: [{ t: "Paghi perché resti ferma", costo: 80_000, p: 0.6, riv: { alba: -200_000 }, tracce: 4 }, { t: "La sblocchi tu, da amico", costo: 20_000, fama: 3, riv: { fama: 1 } }] },
+    // 3) il rivale della sfida
+    { id: "intervista", fam: "rivale", req: "rivale", t: "Un giornalista vuole scrivere di {R}, il tuo rivale.", o: [{ t: "Gli dai materiale contro", costo: 60_000, p: 0.7, riv: { fama: -4 }, fama: -1 }, { t: "Ti fai intervistare al posto suo", costo: 30_000, fama: 3 }] },
+    { id: "socio", fam: "rivale", req: "rivale", t: "Un socio di {R} vorrebbe lavorare per te.", o: [{ t: "Lo assumi", costo: 100_000, alba: [140_000, 200_000], riv: { alba: -100_000 } }, { t: "Lo rimandi da {R}", fama: 2 }] },
+    { id: "cena", fam: "rivale", req: "rivale", t: "{R} ti invita a cena per «parlare da persone serie».", o: [{ t: "Ci vai e lo ascolti", fama: 1, cash: [30_000, 80_000] }, { t: "Gli fai sapere che non hai tempo", fama: 2, riv: { fama: -1 } }] },
+    { id: "foto", fam: "rivale", req: "rivale", t: "Un fotografo ha una foto imbarazzante di {R}.", o: [{ t: "La compri e la pubblichi", costo: 90_000, riv: { fama: -5 }, tracce: 2 }, { t: "La compri e la tieni da parte", costo: 90_000, alba: [120_000, 180_000], p: 0.6 }] },
+    { id: "banca", fam: "rivale", req: "rivale", t: "Il direttore di banca di {R} ti fa capire che i conti del tuo rivale non vanno bene.", o: [{ t: "Spargi la voce", p: 0.6, riv: { fama: -3, alba: -100_000 }, tracce: 3 }, { t: "Te lo tieni per te e investi", costo: 50_000, alba: [80_000, 110_000] }] },
+    // 4) la strada
+    { id: "portafoglio", fam: "strada", t: "Per strada trovi un portafoglio pieno di contanti.", o: [{ t: "Lo riporti al proprietario", fama: 3 }, { t: "Lo tieni", cash: [20_000, 60_000], tracce: 1 }] },
+    { id: "auto", fam: "strada", t: "Un'auto di lusso con le chiavi inserite, il motore acceso, nessuno intorno.", o: [{ t: "Chiami la polizia", fama: 2 }, { t: "La porti al Ricettatore", liv: 1, sporchi: [80_000, 140_000], tracce: 6, p: 0.8, falli: { tracce: 8, fama: -3 } }] },
+    { id: "mendicante", fam: "strada", t: "Un vecchio pescatore ti chiede aiuto: ha perso la barca nella tempesta.", o: [{ t: "Gliene compri una", costo: 40_000, fama: 4 }, { t: "Tiri dritto", fama: -1 }] },
+    { id: "scommessa", fam: "strada", t: "Al bar dell'angolo si scommette sulla regata di domani.", o: [{ t: "Punti 50.000 € sul favorito", costo: 50_000, p: 0.55, cash: [90_000, 100_000] }, { t: "Punti 20.000 € sull'outsider", costo: 20_000, p: 0.25, cash: [100_000, 140_000] }] },
+    { id: "dritta", fam: "strada", t: "Un tassista dice di sapere dove la polizia farà i controlli stanotte.", o: [{ t: "Paghi la dritta", costo: 25_000, p: 0.7, tracce: -6 }, { t: "Lo ignori e risparmi", cash: [0, 0] }] },
+    { id: "rissa", fam: "strada", t: "Davanti a te scoppia una rissa tra due ubriachi.", o: [{ t: "Li separi", p: 0.7, fama: 3, falli: { cash: -30_000, fama: -1 } }, { t: "Filmi tutto e vendi il video", cash: [15_000, 35_000], fama: -1 }] },
+    { id: "strada_cantiere", fam: "strada", t: "Un capocantiere ti offre cemento avanzato da un'opera pubblica.", o: [{ t: "Lo compri sottobanco", costo: 30_000, alba: [60_000, 90_000], tracce: 4 }, { t: "Lo denunci al Comune", fama: 3 }] },
+    // 5) la citta'
+    { id: "sagra", fam: "citta", t: "Il Comune cerca uno sponsor per la Festa del Redentore.", o: [{ t: "Sponsorizzi tutto", costo: 120_000, fama: 6 }, { t: "Metti solo il tuo nome sui manifesti", costo: 40_000, fama: 2 }] },
+    { id: "ospedale", fam: "citta", t: "L'ospedale della Laguna raccoglie fondi per una sala nuova.", o: [{ t: "Doni 80.000 €", costo: 80_000, fama: 5, tracce: -3 }, { t: "Doni 10.000 € con molto rumore", costo: 10_000, fama: 2 }] },
+    { id: "sciopero", fam: "citta", t: "Sciopero dei vaporetti: la città è bloccata.", o: [{ t: "Noleggi barche private per i clienti", costo: 50_000, alba: [70_000, 110_000] }, { t: "Offri un passaggio gratis a tutti", costo: 30_000, fama: 4 }] },
+    { id: "asta_beneficenza", fam: "citta", t: "Asta di beneficenza al Casinò: in palio una cena col Sindaco.", o: [{ t: "Offri 100.000 €", costo: 100_000, fama: 5, p: 0.8, falli: { cash: 100_000, fama: 0 } }, { t: "Fai vincere un amico e ti fai invitare", costo: 30_000, fama: 2 }] },
+    { id: "acqua_alta", fam: "citta", t: "Arriva l'acqua alta: i negozi del centro chiedono sacchi e pompe.", o: [{ t: "Li fornisci a prezzo di costo", costo: 25_000, fama: 3 }, { t: "Li vendi al triplo", cash: [50_000, 90_000], fama: -3 }] },
+    { id: "film", fam: "citta", t: "Una produzione di Hollywood cerca location nella Laguna.", o: [{ t: "Offri le tue proprietà", alba: [60_000, 140_000], fama: 2, p: 0.7 }, { t: "Fai da guida al regista", fama: 3, cash: [10_000, 20_000] }] },
+    { id: "elezioni_voci", fam: "citta", t: "In città gira un sondaggio: la gente vuole sapere chi sei.", o: [{ t: "Compri pagine di pubblicità", costo: 70_000, fama: 5 }, { t: "Resti nell'ombra", tracce: -4 }] },
+  ];
+  function bivioPossibili(s, p) {
+    const usati = s.biviUsati || [];
+    const qui = s.lotti.find((l) => l.idx === p.pos && l.owner);
+    const altrui = qui && qui.owner !== p.id ? s.players.find((q) => q.id === qui.owner) : null;
+    const rv = rivaleDi(s, p), rivale = rv ? s.players.find((q) => q.id === rv) : null;
+    const mie = propri(s, p).filter((l) => l.tipo && l.lvl > 0);
+    return BIVI.filter((b) => !usati.includes(b.id + ":" + p.id) && (!b.req || (b.req === "attivita" ? mie.length : b.req === "altrui" ? altrui : rivale)))
+      .map((b) => ({ b, altro: b.req === "altrui" ? altrui : b.req === "rivale" ? rivale : null, lotto: b.req === "attivita" ? mie[Math.floor(rng(s) * mie.length)] : b.req === "altrui" ? qui : null }));
+  }
+  function generaBivio(s, p) {
+    const pos = bivioPossibili(s, p); if (!pos.length) return null;
+    // prima le famiglie piu' legate alla situazione: altrui > rivale > tua > strada/citta'
+    const peso = (x) => ({ altro: 3, rivale: 2, tua: 2, strada: 1, citta: 1 }[x.b.fam]);
+    let tot = pos.reduce((a, x) => a + peso(x), 0), r = rng(s) * tot, scelto = pos[0];
+    for (const x of pos) { r -= peso(x); if (r <= 0) { scelto = x; break; } }
+    const { b, altro, lotto } = scelto, sost = (t) => t.replace(/\{R\}/g, altro ? altro.nome : "").replace(/\{C\}/g, lotto ? lotto.nome : "").replace(/\{L\}/g, lotto ? lotto.nome + (ATTIVITA[lotto.tipo] ? " (" + ATTIVITA[lotto.tipo].nome + ")" : "") : "");
+    s.biviUsati = (s.biviUsati || []).concat([b.id + ":" + p.id]);
+    const liv = livelloSblocco(s, p);
+    return { id: b.id, fam: b.fam, altro: altro ? altro.id : null, testo: sost(b.t), ciclo: s.ciclo, giorno: s.giorno,
+      o: b.o.map((o) => ({ ...o, t: sost(o.t), chiuso: o.liv && liv < o.liv ? "serve il Livello " + o.liv : "" })).map((o) => ({ ...o, spiega: spiegaBivio(o, altro) })) };
+  }
+  function spiegaBivio(o, altro) {
+    const pz = [], e = (x) => euro(x);
+    if (o.costo) pz.push("costa " + e(o.costo));
+    if (o.cash && o.cash[1]) pz.push("+" + (o.cash[0] === o.cash[1] ? e(o.cash[0]) : e(o.cash[0]) + "–" + e(o.cash[1])) + " subito");
+    if (o.alba) pz.push("+" + e(o.alba[0]) + "–" + e(o.alba[1]) + " all'Alba");
+    if (o.sporchi) pz.push("+" + e(o.sporchi[0]) + "–" + e(o.sporchi[1]) + " sporchi");
+    if (o.fama) pz.push((o.fama > 0 ? "+" : "−") + Math.abs(o.fama) + " fama");
+    if (o.tracce) pz.push(o.tracce > 0 ? "+" + o.tracce + " Tracce" : "−" + Math.abs(o.tracce) + " Tracce");
+    if (o.riv && altro) { const r = []; if (o.riv.fama) r.push((o.riv.fama > 0 ? "+" : "−") + Math.abs(o.riv.fama) + " fama"); if (o.riv.alba) r.push("−" + e(-o.riv.alba) + " all'Alba"); pz.push(altro.nome + ": " + r.join(", ")); }
+    if (o.p && o.p < 1) { pz.push("riesce " + Math.round(o.p * 100) + " volte su 100"); if (o.falli) { const f = []; if (o.falli.cash) f.push(o.falli.cash > 0 ? "ti ridanno " + e(o.falli.cash) : "−" + e(Math.abs(o.falli.cash))); if (o.falli.fama) f.push((o.falli.fama > 0 ? "+" : "−") + Math.abs(o.falli.fama) + " fama"); if (o.falli.tracce) f.push("+" + o.falli.tracce + " Tracce"); if (f.length) pz.push("se va male: " + f.join(", ")); } }
+    return pz.length ? pz.join(" · ") : "nessun effetto";
+  }
+  function sceltaBivio(s, p, i) {
+    const B = p.bivio; if (!B) err("Non c'è nessun bivio da scegliere.");
+    if (i === -1) { delete p.bivio; return; }
+    const o = B.o[i]; if (!o) err("Scelta non valida.");
+    if (o.chiuso) err("Questa strada: " + o.chiuso + ".");
+    if (o.costo && p.cash < o.costo) err("Ti servono " + euro(o.costo) + " di soldi puliti.");
+    delete p.bivio;
+    const tra = (r) => round(r[0] + rng(s) * (r[1] - r[0]));
+    if (o.costo) { p.cash -= o.costo; flusso(s, p, null, o.costo, "Bivio: " + o.t, false); }
+    const riesce = !o.p || rng(s) < o.p, fatti = [];
+    const altro = B.altro ? s.players.find((q) => q.id === B.altro) : null;
+    if (riesce) {
+      if (o.cash && o.cash[1]) { const x = tra(o.cash); p.cash += x; fatti.push("+" + euro(x)); }
+      if (o.sporchi) { const x = tra(o.sporchi); p.sporchi = (p.sporchi || 0) + x; fatti.push("+" + euro(x) + " sporchi"); }
+      if (o.alba) { const x = tra(o.alba); p.bivioAlba = (p.bivioAlba || 0) + x; fatti.push("+" + euro(x) + " all'Alba"); }
+      if (o.fama) { p.fama = Math.max(0, p.fama + o.fama); fatti.push((o.fama > 0 ? "+" : "−") + Math.abs(o.fama) + " fama"); }
+      if (o.tracce) { p.tracce = Math.max(0, (p.tracce || 0) + o.tracce); fatti.push(o.tracce > 0 ? "+" + o.tracce + " Tracce" : "−" + Math.abs(o.tracce) + " Tracce"); }
+      if (o.riv && altro) {
+        if (o.riv.fama) altro.fama = Math.max(0, altro.fama + o.riv.fama);
+        if (o.riv.alba) altro.bivioAlba = (altro.bivioAlba || 0) + o.riv.alba;
+        privato(s, altro, o.riv.fama > 0 ? p.nome + " ti ha dato una mano: +" + o.riv.fama + " fama." : "Qualcuno ti rema contro: " + (o.riv.fama ? "−" + Math.abs(o.riv.fama) + " fama" : "") + (o.riv.alba ? (o.riv.fama ? ", " : "") + "all'Alba incasserai " + euro(-o.riv.alba) + " in meno" : "") + ".");
+      }
+    } else {
+      const f = o.falli || {};
+      if (f.cash) { if (f.cash > 0) { p.cash += f.cash; fatti.push("ti ridanno " + euro(f.cash)); } else { const x = Math.min(Math.max(0, p.cash), -f.cash); p.cash -= x; fatti.push("−" + euro(x)); } }
+      if (f.fama) { p.fama = Math.max(0, p.fama + f.fama); fatti.push((f.fama > 0 ? "+" : "−") + Math.abs(f.fama) + " fama"); }
+      if (f.tracce) { p.tracce = (p.tracce || 0) + f.tracce; fatti.push("+" + f.tracce + " Tracce"); }
+      if (!fatti.length) fatti.push("niente di fatto");
+    }
+    const esito = (riesce ? "Fatto: " : "Va male: ") + fatti.join(", ") + ".";
+    p.ultimoBivio = { ciclo: s.ciclo, giorno: s.giorno, testo: B.testo, scelta: o.t, esito, riesce };
+    log(s, p.nome + " · " + o.t.toLowerCase().replace(/\{.*?\}/g, "") + (riesce ? "" : " (va male)") + ".", p.id);
+    if (!p.bot) privato(s, p, "Il bivio: «" + o.t + "». " + esito);
+  }
+  function biviAlba(s) {
+    for (const p of s.players) if (p.bivioAlba) {
+      const x = round(p.bivioAlba); p.bivioAlba = 0;
+      if (x > 0) { p.cash += x; privato(s, p, "All'Alba incassi " + euro(x) + " dalle scelte dei bivi."); }
+      else { const t = Math.min(Math.max(0, p.cash), -x); p.cash -= t; if (t) privato(s, p, "All'Alba incassi " + euro(t) + " in meno: qualcuno ti ha remato contro."); }
+    }
+  }
   function tira(s, p) {
     if (p.bot && albaInAttesa(s)) err("Il computer aspetta che tutti abbiano visto l'Alba.");
     if (s.fase !== "giorno") err("Si tirano i dadi solo di giorno.");
@@ -513,7 +628,11 @@
     log(s, p.nome + " tira " + d.join(" e ") + ".", p.id);
     muovi(s, p, n);
     if (tris && p.doppi < 1 && !p.faro) { p.doppi += 1; log(s, p.nome + " fa tris: tira ancora!", p.id); }
-    else p.haTirato = true;
+    else {
+      p.haTirato = true;
+      // v110: il bivio del giorno, dal Ciclo 2, 1 volta su 2
+      if (s.ciclo >= 1 && !p.faro && s.fase === "giorno" && rng(s) < 0.5) { const B = generaBivio(s, p); if (B) p.bivio = B; }
+    }
   }
 
   // Viaggio rapido (v76): una volta ogni 2 Cicli, al posto dei dadi, secondo i tuoi mezzi. Si paga il carburante
@@ -634,7 +753,7 @@
   const CARTE = [
     ["Un turista ti lascia una mancia enorme.", (s, p) => { p.cash += 150_000; return "+" + euro(150_000) + "."; }],
     ["Vinci un premio come imprenditore dell'anno: +5 fama.", (s, p) => { p.fama += 5; }],
-    ["Paghi la manutenzione delle tue proprietà: 30.000 € per ogni attività.", (s, p) => { const n = propri(s, p).filter((l) => l.lvl > 0).length; paga(s, p, 30_000 * n, null); return n ? "Hai " + n + " attività: paghi " + euro(30_000 * n) + "." : "Non hai attività aperte: non paghi niente."; }],
+    ["Paghi la manutenzione delle tue proprietà: 30.000 € per ogni attività (al massimo il 10% dei tuoi contanti, e non più di 120.000 €).", (s, p) => { const n = propri(s, p).filter((l) => l.lvl > 0).length; paga(s, p, Math.min(30_000 * n, 120_000, Math.max(10_000, round(p.cash * 0.1))), null); /* v110: tetto: 10% dei contanti, max 120.000 */ return n ? "Hai " + n + " attività: paghi " + euro(30_000 * n) + "." : "Non hai attività aperte: non paghi niente."; }],
     ["Un'intervista in TV ti rende simpatico: +3 fama.", (s, p) => { p.fama += 3; }],
     ["Multa per divieto di sosta dello yacht: 50.000 €.", (s, p) => { paga(s, p, 50_000, null); }],
     ["Un vecchio debito ti viene restituito: +250.000 €.", (s, p) => { p.cash += 250_000; }],
@@ -649,8 +768,17 @@
     ["Uno scandalo minore ti tocca di striscio: -3 fama.", (s, p) => { p.fama = Math.max(0, p.fama - 3); }],
     ["Dividendo straordinario: +10% sulle tue azioni.", (s, p) => { let ha = false; for (const a of AZIENDE) if (p.azioni[a]) { p.azioni[a] *= 1.1; ha = true; } return ha ? "Le tue azioni valgono il 10% in più." : "Non hai azioni: stavolta niente."; }],
   ];
+  // v110: una carta che non ti riguarda non esce (niente multa dello yacht senza yacht, niente dividendo senza azioni)
+  function cartaPerTe(s, p, testo) {
+    if (/manutenzione/.test(testo)) return propri(s, p).some((l) => l.lvl > 0);
+    if (/yacht/.test(testo)) return (p.veicoli || []).some((v) => /yacht|motoscafo/.test(v));
+    if (/Dividendo/.test(testo)) return AZIENDE.some((a) => p.azioni[a]);
+    if (/Controllo fiscale/.test(testo)) return (p.evasione || 0) > 0 || rng(s) < 0.3;
+    return true;
+  }
   function cartaGazzetta(s, p) {
-    const i = Math.floor(rng(s) * CARTE.length);
+    const adatte = CARTE.map((c, k) => k).filter((k) => cartaPerTe(s, p, CARTE[k][0]));
+    const i = adatte.length ? adatte[Math.floor(rng(s) * adatte.length)] : Math.floor(rng(s) * CARTE.length);
     const [testo, f] = CARTE[i];
     const prima = p.cash;
     const esito = f(s, p) || "";
@@ -1234,6 +1362,7 @@
     if (s.pending) err("Prima finisci la scelta in corso.");
     if (p.rosso && !p.bot) err("Prima copri il buco di " + euro(p.rosso.resto) + ": vendi, ipoteca, prestito o prestito d'emergenza.");
     p.scontoCarico = p.scontoCarico || false;
+    if (p.bivio) delete p.bivio; // v110: il bivio non scelto salta
     prossimoTurno(s);
   }
   function prossimoTurno(s) {
@@ -5056,6 +5185,7 @@
     const lussoAltri = {}; for (const p of s.players) lussoAltri[p.id] = p.lussoCiclo || 0; // per la pubblicita' della TV
     esitoEsposto(s); // prima che aggiornaPiste() svuoti luoghiNotte
     chiudiCantieri(s);
+    biviAlba(s); // v110
     perquisizioni(s);
     s.retataAnnunciata = false;
     for (const p of s.players) {
@@ -5201,13 +5331,16 @@
       // conta la crescita in percentuale: cosi' anche il piu' povero dei due puo' vincere
       const ga = (patrimonio(s, a, true) - sf.pa) / Math.max(1, sf.pa), gb = (patrimonio(s, b, true) - sf.pb) / Math.max(1, sf.pb);
       const [w, l, gw, gl] = ga >= gb ? [a, b, ga, gb] : [b, a, gb, ga];
-      const pagata = round(Math.min(Math.max(0, l.cash), clamp(l.cash * SFIDA.quota, SFIDA.min, SFIDA.max)));
-      l.cash -= pagata; w.cash += pagata; w.fama += SFIDA.fama; l.fama = Math.max(0, l.fama - SFIDA.famaPerde);
+      // v110: chi era indietro e perde non paga (e perde solo 1 fama); chi vince partendo da dietro prende la posta e +2 fama in piu'
+      const pw0 = w === a ? sf.pa : sf.pb, pl0 = l === a ? sf.pa : sf.pb, lAvanti = pl0 > pw0;
+      const pagata = lAvanti ? round(Math.min(Math.max(0, l.cash), clamp(l.cash * SFIDA.quota, SFIDA.min, SFIDA.max))) : 0;
+      const famaW = SFIDA.fama + (lAvanti ? 2 : 0), famaL = lAvanti ? SFIDA.famaPerde : 1;
+      l.cash -= pagata; w.cash += pagata; w.fama += famaW; l.fama = Math.max(0, l.fama - famaL);
       w.sfideVinte = (w.sfideVinte || 0) + 1; l.sfidePerse = (l.sfidePerse || 0) + 1;
       if (pagata) flusso(s, l, w, pagata, "Sfida del Ciclo", true);
-      notizia(s, "Sfida del Ciclo: " + w.nome + " batte " + l.nome + " (" + segno(gw) + " contro " + segno(gl) + ") e incassa " + euro(pagata) + ".", "scandalo");
-      privato(s, w, "Hai vinto la sfida del Ciclo contro " + l.nome + ": sei cresciuto di " + segno(gw) + ", lui di " + segno(gl) + ". Incassi " + euro(pagata) + " e +" + SFIDA.fama + " fama.");
-      privato(s, l, "Hai perso la sfida del Ciclo contro " + w.nome + ": lui è cresciuto di " + segno(gw) + ", tu di " + segno(gl) + ". Gli paghi " + euro(pagata) + " e perdi " + SFIDA.famaPerde + " fama.");
+      notizia(s, "Sfida del Ciclo: " + w.nome + " batte " + l.nome + " (" + segno(gw) + " contro " + segno(gl) + ")" + (pagata ? " e incassa " + euro(pagata) : "") + ".", "scandalo");
+      privato(s, w, "Hai vinto la sfida del Ciclo contro " + l.nome + ": sei cresciuto di " + segno(gw) + ", lui di " + segno(gl) + (pagata ? ". Incassi " + euro(pagata) + " e +" + famaW + " fama (partivi da dietro)." : ". Partivi avanti: niente soldi, ma +" + famaW + " fama."));
+      privato(s, l, "Hai perso la sfida del Ciclo contro " + w.nome + ": lui è cresciuto di " + segno(gw) + ", tu di " + segno(gl) + (pagata ? ". Eri avanti: gli paghi " + euro(pagata) + " e perdi " + famaL + " fama." : ". Partivi da dietro: non paghi niente, perdi solo " + famaL + " fama."));
       if (riepilogo[w.id]) riepilogo[w.id].sfida = { contro: l.id, vinta: true, soldi: pagata, mio: Math.round(gw * 100), suo: Math.round(gl * 100) };
       if (riepilogo[l.id]) riepilogo[l.id].sfida = { contro: w.id, vinta: false, soldi: -pagata, mio: Math.round(gl * 100), suo: Math.round(gw * 100) };
     }
@@ -5221,7 +5354,7 @@
     for (const sf of s.sfide) {
       const a = giocatore(s, sf.a), b = giocatore(s, sf.b);
       notizia(s, (sf.motivo === "vendetta" ? "Vendetta! " : "") + "Sfida del Ciclo: " + a.nome + " contro " + b.nome + ". Chi cresce di più entro la prossima Alba prende la posta.", "evento");
-      for (const [p, q] of [[a, b], [b, a]]) privato(s, p, (sf.motivo === "vendetta" ? (p.id === sf.a ? q.nome + " ti ha venduto alla polizia: adesso è il tuo nemico. " : q.nome + " sa che hai fatto il suo nome: vuole vendetta. ") : "") + "Questo Ciclo il tuo rivale è " + q.nome + ": se entro la prossima Alba il tuo patrimonio cresce più del suo (in percentuale, così conta anche chi parte più povero), gli prendi il 6% dei contanti (da 250.000 € a 3 milioni) e +5 fama. Contro di lui la soffiata costa la metà e gli fa più male.");
+      for (const [p, q] of [[a, b], [b, a]]) privato(s, p, (sf.motivo === "vendetta" ? (p.id === sf.a ? q.nome + " ti ha venduto alla polizia: adesso è il tuo nemico. " : q.nome + " sa che hai fatto il suo nome: vuole vendetta. ") : "") + "Questo Ciclo il tuo rivale è " + q.nome + ": se entro la prossima Alba il tuo patrimonio cresce più del suo (in percentuale, così conta anche chi parte più povero), +5 fama; se parti da dietro gli prendi anche il 6% dei contanti (da 250.000 € a 3 milioni). Se perdi partendo da dietro non paghi niente. Contro di lui la soffiata costa la metà e gli fa più male.");
     }
   }
 
@@ -5604,7 +5737,7 @@
     const N0 = s.fase === "notte" && s.notte, ora0 = N0 ? N0.ora : -1, eraChiuso = N0 ? !!N0.chiuso[idGiocatore] : true;
     const len0 = N0 ? (N0.racconto[idGiocatore] || []).length : 0;
     const primaConti = s.players.map((p) => [p.cash || 0, p.sporchi || 0]), ciclo0 = s.ciclo;
-    const pA = s.players.find((x) => x.id === idGiocatore), tr0 = pA ? pA.tracce || 0 : 0, st0 = pA ? pA.stato || 0 : 0;
+    const pA = s.players.find((x) => x.id === idGiocatore), tr0 = pA ? pA.tracce || 0 : 0, st0 = pA ? pA.stato || 0 : 0, fa0 = pA ? pA.fama || 0 : 0;
     const r = applica0(s, idGiocatore, a);
     controllaNumeri(s, a);
     try { aggiornaLivelli(s); } catch (e) { /* mai bloccare una mossa per il livello */ }
@@ -5613,7 +5746,8 @@
     // di notte, dopo ogni azione: il riquadro "com'e' andata" (soldi, Tracce lasciate, polizia)
     if (N0 && pA && s.ciclo === ciclo0 && !["pronto", "avanti", "aspetta", "vai", "msg_setta", "preferenze"].includes(a.tipo)) {
       const i = s.players.indexOf(pA), dc = Math.round(pA.cash - primaConti[i][0]), ds = Math.round(pA.sporchi - primaConti[i][1]), dtr = (pA.tracce || 0) - tr0;
-      if (dc || ds || dtr > 0.5 || pA.stato > st0) pA.ultimoEsito = { ciclo: s.ciclo, ora: ora0, tipo: a.tipo, dc, ds, tr: dtr <= 0.5 ? 0 : dtr < 5 ? 1 : dtr < 12 ? 2 : 3, sale: (pA.stato || 0) > st0 ? pA.stato : 0 };
+      const df = Math.round((pA.fama || 0) - fa0);
+      if (dc || ds || df || dtr > 0.5 || pA.stato > st0) pA.ultimoEsito = { ciclo: s.ciclo, ora: ora0, tipo: a.tipo, dc, ds, df, dtr: Math.round(dtr), tr: dtr <= 0.5 ? 0 : dtr < 5 ? 1 : dtr < 12 ? 2 : 3, sale: (pA.stato || 0) > st0 ? pA.stato : 0 };
     }
     if (a && a.tipo && !(a.tipo === "compra" && !a.si)) { const p = s.players.find((x) => x.id === idGiocatore); if (p) primaVolta(s, p, a); }
     if (N0 && s.notte === N0 && N0.ora === ora0 && !eraChiuso && N0.chiuso[idGiocatore] && N0.daScelta[idGiocatore] === undefined) N0.daScelta[idGiocatore] = len0;
@@ -5661,6 +5795,7 @@
       // ---- costruire, Palazzo, lusso
       case "permesso": return chiediPermesso(s, p, a.lotto, a.timbro === true);
       case "regalo_assessore": return regaloAssessore(s, p, a.lotto);
+      case "bivio": return sceltaBivio(s, p, a.i);
       case "costruisci": return costruisci(s, p, a.lotto, a.attivita);
       case "licenza": return chiediLicenza(s, p);
       case "busta_licenza": return bustaLicenza(s, p);

@@ -840,3 +840,9 @@ body.cammino #mondo { z-index:17 }
 #mondo.tab #mappa .ped::after{content:"";position:absolute;top:100%;left:50%;margin:1px 0 0 -6px;border:6px solid transparent;border-top-color:#fff;filter:drop-shadow(0 2px 1px rgba(0,0,0,.5))}
 #mondo.tab #mappa .ped.io::after{border-top-color:var(--oro)}
 #mondo.tab #mappa .ped .nomeped{top:auto;bottom:100%;margin:0 0 4px}
+/* v110: toccando la mappa la carta in basso si riduce (resta il tasto principale) */
+body.carta-ridotta .carta{padding:8px 12px;gap:6px;opacity:.94}
+body.carta-ridotta .carta > *:not(:last-child){display:none}
+body.carta-ridotta .carta .sub,body.carta-ridotta .carta .kick{display:none}
+body.carta-ridotta .carta .dove{font-size:18px}
+body.carta-ridotta .carta::before{content:"▲ tocca per aprire";position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:11px;color:#fff;background:rgba(0,0,0,.55);padding:2px 10px;border-radius:10px;white-space:nowrap}

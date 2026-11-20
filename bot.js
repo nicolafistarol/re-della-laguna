@@ -2,6 +2,20 @@
   "use strict";
   const t = o.Laguna || ("undefined" != typeof require ? require("./motore.js") : null);
   // quanto paga al massimo un computer per un tuo terreno (lo usa anche la finestra "Vendi un terreno" per dire subito il prezzo giusto)
+  // v110: i computer fanno offerte alle persone per i terreni che servono ai loro gruppi (al massimo una al giorno ciascuno)
+  function offertaBot(o, i) {
+    const chiave = o.ciclo * 10 + o.giorno;
+    if (i._offertaKey === chiave || o.fase !== "giorno") return null;
+    i._offertaKey = chiave;
+    if ((o.proposte || []).some((x) => x.da === i.id && x.stato === "proposta")) return null;
+    const cand = o.lotti.filter((l) => l.owner && l.owner !== i.id && l.serie && (l.tipoCasella === "lotto" || l.tipoCasella === "molo") && !l.cantiere && (() => { const q = o.players.find((x) => x.id === l.owner); return q && !q.bot && !q.fallito; })())
+      .map((l) => { const altri = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id), miei = altri.filter((x) => x.owner === i.id).length; return { l, chiude: altri.length && miei === altri.length, miei }; })
+      .filter((c) => c.miei > 0).sort((a, b) => b.chiude - a.chiude || b.miei - a.miei);
+    const c = cand[0]; if (!c || Math.random() > (c.chiude ? 0.6 : 0.2)) return null;
+    const valore = c.l.prezzo * (1 + 0.6 * (c.l.lvl || 0)), prezzo = Math.round(valore * (1.1 + 0.4 * Math.random()) / 10000) * 10000;
+    if (i.cash - prezzo < 3e5) return null;
+    return { tipo: "proponi_lotto", a: c.l.owner, lotto: c.l.id, prezzo, compro: !0 };
+  }
   // v106: quanto conta un terreno per i gruppi: 2 = chiude un gruppo (mio) o lo toglie a un rivale che ne ha gia' tutti gli altri, 1 = ne ho gia' uno, 0 = niente
   function interesseGruppo(o, i, l) {
     if (!l || !l.serie) return 0;
@@ -393,6 +407,14 @@ function grandiBot(o, i, n) {
   const n = {
     prossima: function (o, i) {
       if (i.rosso && !o.fine) return { tipo: "rosso_emergenza" }; // v109: un computer al posto di una persona in rosso
+      if (i.bivio && i.bivio.o && !o.fine) { // v110: il bivio del giorno, il computer pesa soldi, fama e Tracce secondo il carattere
+        const st = i.strat || "Legale", pf = st === "Legale" ? 25e3 : 15e3, pt = st === "Legale" ? 20e3 : st === "Spietato" || st === "Criminale" ? 4e3 : 10e3;
+        const med = (r) => (r ? (r[0] + r[1]) / 2 : 0);
+        const val = (x) => { if (x.chiuso || (x.costo || 0) > i.cash - 2e5) return -1e12; const p = x.p || 1, rv = x.riv ? -(x.riv.alba || 0) * 0.5 - (x.riv.fama || 0) * 8e3 : 0;
+          return p * (med(x.cash) + med(x.alba) + 0.6 * med(x.sporchi) + (x.fama || 0) * pf - (x.tracce || 0) * pt + rv) - (x.costo || 0) + (1 - p) * ((x.falli && x.falli.cash) || 0); };
+        const v = i.bivio.o.map(val), k = v[0] >= v[1] ? 0 : 1;
+        return { tipo: "bivio", i: v[k] > -1e11 ? k : -1 };
+      }
       const n = i.strat || "Legale";
       if (o.fase === "notte" && o.notte && o.notte.colpi && o.notte.colpi[i.id]) return { tipo: "colpo", i: 0 }; // v83: un colpo lasciato a meta' (giocatore assente): la scelta prudente
       // Sette e mezzo: ogni carattere ha il suo coraggio
@@ -549,6 +571,7 @@ function grandiBot(o, i, n) {
           })(o, i, n);
           if (a) return a;
         }
+        { const of = offertaBot(o, i); if (of) return of; }
         return "Investitore" === n && i.cash > 15e5 && !i._investito
           ? ((i._investito = !0), { tipo: "investi", cosa: "borsa", nome: "SoleTech", importo: Math.round(0.6 * (i.cash - 8e5)) })
           : i.debito > 0 && i.cash > i.debito + 5e5
