@@ -216,3 +216,34 @@ body:has(.ultimora:not(.via)) #toasts{top:var(--uo-giu,122px)!important}
 .scena.albeggia .scena-velo{background:radial-gradient(circle at 50% 70%,rgba(70,56,36,.85),rgba(10,9,8,.95))!important;transition:background .6s}
 .scena.albeggia .scena-dentro{opacity:.35;transition:opacity .6s}
 body:has(.scena.albeggia) #panorama{opacity:.15;transition:opacity .6s}
+/* v140: «Proponi un patto» a passi, terreni per gruppo, frase riassuntiva */
+.velo.patto .fin{max-width:720px}
+.pt-passo{display:flex;align-items:center;gap:8px;margin:18px 0 8px;font-size:14px;font-weight:600;color:var(--avorio)}
+.pt-passo b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1px solid var(--ottone);color:var(--ottone);font-size:12px}
+.pt-passo .dim{font-weight:400;color:var(--avorio-2)}
+.pt-chi{display:flex;flex-wrap:wrap;gap:8px}
+.pt-chi button{display:flex;align-items:center;gap:8px;padding:8px 14px 8px 8px;border-radius:999px;border:1px solid var(--filo-2);background:var(--sup-2);color:var(--avorio)}
+.pt-chi button i{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;font-style:normal;font-size:12px;font-weight:700;color:#fff}
+.pt-chi button.su{border-color:var(--ottone);background:rgba(198,166,106,.14)}
+.pt-soldi{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
+.pt-soldi>span{min-width:84px;font-size:14px;color:var(--avorio-2)}
+.pt-soldi input{width:140px;min-width:0}
+.pt-fra{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--avorio-2)}
+.segm{display:inline-flex;flex-wrap:wrap;border:1px solid var(--filo-2);border-radius:10px;overflow:hidden}
+.segm button{border:0;border-radius:0;background:transparent;color:var(--avorio-2);padding:8px 12px;font-size:14px}
+.segm button+button{border-left:1px solid var(--filo-2)}
+.segm button.su{background:rgba(198,166,106,.18);color:var(--avorio)}
+.pt-due{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+.pt-lt h5{margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--avorio-2);font-weight:600}
+.pt-lt{max-height:280px;overflow:auto;padding-right:4px}
+.pt-gr{margin-bottom:8px}.pt-grn{margin-bottom:4px}
+.pt-l{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;margin-bottom:4px;padding:8px 10px 8px 12px;border-radius:10px;border:1px solid var(--filo);border-left:4px solid var(--serie,#888);background:var(--sup-2);color:var(--avorio)}
+.pt-l.su{border-color:var(--ottone);border-left-color:var(--serie,#888);background:rgba(198,166,106,.14)}
+.pt-l.pt-nessuno{flex-direction:row;width:auto;border-left-width:1px;display:inline-flex}
+.pt-ln{font-size:14px;font-weight:600}.pt-lv{font-size:12px;color:var(--avorio-2)}
+.pt-cmp{font-size:12px;font-weight:600;padding:2px 6px;border-radius:6px;margin-top:2px}
+.pt-cmp.buono{background:rgba(92,184,120,.18);color:#8fdca6}.pt-cmp.occhio{background:rgba(230,120,90,.18);color:#f0a48c}
+.pt-riassunto{margin-top:16px;padding:12px 14px;border:1px solid var(--filo-2);border-left:3px solid var(--ottone);border-radius:10px;background:var(--sup-2)}
+.pt-riassunto p{margin:4px 0 0;font-size:15px;line-height:1.45}
+.velo.patto #ok:disabled{opacity:.45}
+@media(max-width:640px){.pt-due{grid-template-columns:1fr}.pt-soldi>span{min-width:100%}.segm{width:100%}.segm button{flex:1}}
