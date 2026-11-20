@@ -1497,7 +1497,7 @@ const PANORAMI = {
       { x: 0.37, y: 0.22, testo: "Sali sulla lanterna", icona: "stella", fa: "punto:lanterna" },
       { x: 0.65, y: 0.70, testo: "La barca", icona: "mappa", fa: "altrove" },
     ] },
-    lanterna: { img: "img/360/faro-lanterna.jpg", lv: 1, punti: [
+    lanterna: { img: "img/360/faro-lanterna.jpg?v=2", lv: 1, punti: [
       { x: 0.16, y: 0.47, testo: "Guarda chi arriva dal mare", icona: "faro", fa: "scelta:fissa" },
       { x: 0.50, y: 0.47, testo: "La grande lente", icona: "setta", fa: "scelta:setta" },
       { x: 0.50, y: 0.88, testo: "Scendi", icona: "faro", fa: "punto:scogliera" },
