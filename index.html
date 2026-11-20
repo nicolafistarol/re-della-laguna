@@ -6,8 +6,17 @@
 <title>ORDO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="stile.css?v=135">
-<link rel="stylesheet" href="ordo.css?v=132">
+<script>
+// v136: un solo numero di versione per tutta la pagina. Con &nc=... nell'indirizzo (lo mette "Aggiorna") ogni file si riscarica per forza.
+window.ORDO_V = 136;
+(function () {
+  var q = new URLSearchParams(location.search), voluta = +q.get("v") || 0, nc = q.get("nc");
+  // la pagina arrivata e' piu' vecchia di quella chiesta (cache del browser o del server): si ricarica una volta con un indirizzo nuovo
+  try { if (voluta > window.ORDO_V && sessionStorage.getItem("ordo_rientro") !== String(voluta)) { sessionStorage.setItem("ordo_rientro", String(voluta)); q.set("nc", Date.now().toString(36)); location.replace(location.pathname + "?" + q.toString()); } } catch (e) {}
+  window.ORDO_SUF = "?v=" + window.ORDO_V + (nc ? "&nc=" + encodeURIComponent(nc) : "");
+  document.write('<link rel="stylesheet" href="stile.css' + window.ORDO_SUF + '"><link rel="stylesheet" href="ordo.css' + window.ORDO_SUF + '">');
+})();
+</script>
 </head>
 <body>
 <div id="sfondo"></div>
@@ -15,8 +24,6 @@
 <div id="radice"></div>
 <div id="telefonoBox"></div>
 <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.min.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
-<script src="motore.js?v=135"></script>
-<script src="bot.js?v=135"></script>
-<script type="module" src="gioco.js?v=135"></script>
+<script>document.write('<script src="motore.js' + ORDO_SUF + '"><\/script><script src="bot.js' + ORDO_SUF + '"><\/script><script type="module" src="gioco.js' + ORDO_SUF + '"><\/script>');</script>
 </body>
 </html>

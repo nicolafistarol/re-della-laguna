@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 135;
+  const VERSIONE_REGOLE = 136;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -87,7 +87,7 @@
   const N_GEN2 = {
     // --- economia e Palazzo
     pianoRend: 0.34,       // v95: capo Fista "girano soldi troppo facilmente": il Palazzo rendeva quanto tutti i terreni insieme (sim: 121 M a testa in 16 Cicli). Prima 0,62
-    R: 0.62,               // v95: le attivita' rendono un terzo in meno (prima 0,95): i soldi sono scarsi, ogni spesa e' una scelta
+    R: 0.55,               // v136: prima 0,62 (il tester: le attivita' si ripagavano in un Ciclo). v95: le attivita' rendono un terzo in meno (prima 0,95): i soldi sono scarsi, ogni spesa e' una scelta
     pianoRendGrow: 1.04,   // ECO-01: la rendita dei piani cresce meno del loro costo. Il rapporto diceva 1,05: provato insieme agli altri ritocchi dava 800 M a 20 Cicli, con 1,04 circa 600 M
     borsaMu: 0.18,         // ECO-05: con 0,36 l'Investitore vinceva 7 partite su 10; con 0,24 ancora 4 su 10 (sim 18/11 sera); 0,18 = come le partite vecchie
     // --- giorno: terreni, affitti, permessi
@@ -97,7 +97,8 @@
     terrenoInizialeMin: 350_000, // ECO-03: terreni iniziali di valore vicino
     // --- notte e affari illegali
     tracceAffari: 0.7, // v134: sporco fatto con la testa: un affare lascia il 30% di Tracce in meno
-    illegaleLivello: [1.6, 1.9, 2.2, 2.5, 2.8], // v128 (sporco fatto bene rende): prima [1, 1, 1.12, 1.25, 1.4]; v122: prima [1, 1, 1.12, 1.25, 1.4] (le fiches false: 200k -> 800k in un ora); v104: prima [1, 1, 1.3, 1.8, 2.4]; ECO-02; v82: prima [1, 1, 1.5, 2.5, 4], si facevano troppi soldi sporchi
+    illegaleLivello: [1.3, 1.45, 1.6, 1.75, 1.9], // v136: il tester tornava sempre con 600.000 da 100.000; prima [1.6..2.8]
+    // v128 (sporco fatto bene rende): prima [1, 1, 1.12, 1.25, 1.4]; v122: prima [1, 1, 1.12, 1.25, 1.4] (le fiches false: 200k -> 800k in un ora); v104: prima [1, 1, 1.3, 1.8, 2.4]; ECO-02; v82: prima [1, 1, 1.5, 2.5, 4], si facevano troppi soldi sporchi
     dividendoInv: 0.025,
     // --- polizia e pene
     // --- setta
@@ -292,7 +293,7 @@
     const t = ATTIVITA[l.tipo];
     let r = num(s, "R") * t.r * N.rendLvl[l.lvl] * l.prezzo * vmult(s, l.isola) * sitMult(s, "re", { isola: l.isola, tipo: l.tipo });
     if (gen2(s) && lussoFama(t)) r *= num(s, "lussoRend");
-    if (gen2(s)) r = Math.min(r, 0.35 * valoreLotto(l) * sitMult(s, "re", { isola: l.isola, tipo: l.tipo })); // v104: un'attivita' rende al massimo il 35% di quanto vale a Ciclo
+    if (gen2(s)) r = Math.min(r, 0.25 * valoreLotto(l) * sitMult(s, "re", { isola: l.isola, tipo: l.tipo })); // v104: un'attivita' rende al massimo il 35% di quanto vale a Ciclo
     if (l.ipoteca) r *= 0.5;
     return round(r);
   }
@@ -350,7 +351,9 @@
     s.flussi.push({ n: (s.nFlussi = (s.nFlussi || 0) + 1), c: s.ciclo + 1, g: s.giorno + 1, da: da ? da.id : null, a: a ? a.id : null, importo, motivo, pubblico: !!pubblico });
     if (s.flussi.length > 160) s.flussi.shift();
   }
-  function privato(s, p, testo) { if ((p.messaggi || []).some((m) => m.ciclo === s.ciclo + 1 && m.testo === testo)) return; /* v109: lo stesso messaggio non arriva due volte nello stesso Ciclo */ p.messaggi.push({ ciclo: s.ciclo + 1, testo }); if (p.messaggi.length > 60) p.messaggi.shift(); }
+  function privato(s, p, testo) { if ((p.messaggi || []).some((m) => m.ciclo === s.ciclo + 1 && m.testo === testo)) return; /* v109: lo stesso messaggio non arriva due volte nello stesso Ciclo */ p.messaggi.push({ ciclo: s.ciclo + 1, testo, ...(MSG_LIEVI.test(testo) ? { lieve: true } : {}) }); if (p.messaggi.length > 60) p.messaggi.shift(); }
+  // v136: notizie di contorno: restano nel telefono ma non contano tra i messaggi nuovi (il tester ne aveva 24 non letti al Ciclo 4)
+  const MSG_LIEVI = /^(Voci di piazza|Esposto a vuoto|Vera: «Sei pulito|Vera: «\d+ Cicli puliti|Fascicolo su .*(niente di nuovo|non c'è niente))/;
   // un messaggio "lieve": l'avviso di una casella dove non c'e' niente da decidere. L'interfaccia puo' mostrarlo come
   // avviso che sparisce e non contarlo tra i messaggi nuovi (cosi' quelli importanti non si perdono).
   // v116: i posti di cui stanotte qualcuno ti ha detto quanta polizia c'e' (marinaio, dritta, radio, soffiata): nel menu "Dove vai?" hanno il loro ⚠
@@ -629,6 +632,7 @@
       if (f.tracce) { p.tracce = (p.tracce || 0) + f.tracce; fatti.push("+" + f.tracce + " Tracce"); }
       if (!fatti.length) fatti.push("niente di fatto");
     }
+    if (!fatti.length) fatti.push(o.riv && altro ? (o.riv.fama > 0 ? "hai dato una mano a " : "hai remato contro ") + altro.nome : o.costo ? "pagati " + euro(o.costo) : "fatto quello che dovevi"); // v136: mai piu' "Fatto: ."
     const esito = (riesce ? "Fatto: " : "Va male: ") + fatti.join(", ") + ".";
     p.ultimoBivio = { ciclo: s.ciclo, giorno: s.giorno, testo: B.testo, scelta: o.t, esito, riesce };
     // v124: le scelte dei bivi non vanno piu' nella cronaca di tutti (il tester leggeva tre volte "lo compri sottobanco" e pensava che il bivio del cemento si ripetesse)
@@ -810,8 +814,13 @@
     return true;
   }
   function cartaGazzetta(s, p) {
-    const adatte = CARTE.map((c, k) => k).filter((k) => cartaPerTe(s, p, CARTE[k][0]));
+    // v136: una carta non torna finche' non sono uscite tutte (il tester vedeva lo stesso evento 2 volte)
+    s.carteUscite = s.carteUscite || [];
+    if (s.carteUscite.length >= CARTE.length - 3) s.carteUscite = [];
+    let adatte = CARTE.map((c, k) => k).filter((k) => cartaPerTe(s, p, CARTE[k][0]) && !s.carteUscite.includes(k));
+    if (!adatte.length) adatte = CARTE.map((c, k) => k).filter((k) => !s.carteUscite.includes(k));
     const i = adatte.length ? adatte[Math.floor(rng(s) * adatte.length)] : Math.floor(rng(s) * CARTE.length);
+    s.carteUscite.push(i);
     const [testo, f] = CARTE[i];
     const prima = p.cash;
     const esito = f(s, p) || "";
@@ -3055,7 +3064,7 @@
       d.fatto = true; const da = giocatore(s, d.da);
       if (guaio) { da.prove.push({ su: p.id, ciclo: s.ciclo + 1, cosa: "la soffiata su " + nomeAffare }); privato(s, da, "La tua soffiata ha colpito: la polizia ha sorpreso " + p.nome + " durante «" + nomeAffare + "». E tu hai una Prova contro di lui."); }
       else privato(s, da, p.nome + " era davvero a " + LUOGHI[luogo].nome + ", ma è riuscito a scamparla.");
-      racconta(s, p, "Qualcuno aveva fatto il tuo nome: la polizia ti aspettava qui.");
+      racconta(s, p, guaio ? "Qualcuno aveva fatto il tuo nome: la polizia ti aspettava qui." : "Qualcuno aveva fatto il tuo nome e la polizia ti aspettava qui, ma sei riuscito a non farti prendere."); // v136
     }
   }
   // la probabilita' di un guaio in un'occasione (senza toccare lo stato)
@@ -3272,7 +3281,9 @@
     s.notte.colpi[p.id] = { n: o.n, oggetti, passo: 0, gu: 1, ga: 1, tr: 1, quando: adesso(), storia: [] };
     racconta(s, p, O.nome + ": accetti." + (oggetti.length ? " Porti con te: " + oggetti.map((x) => oggettoDef(x).nome.toLowerCase()).join(", ") + "." : "") + " Adesso tocca a te giocartela.");
   }
-  function tettoColpo(O) { return 4 * Math.max(O.costo || 0, 150_000); }
+  function tettoColpo(O) { return 3 * Math.max(O.costo || 0, 100_000); } // v136: prima 4 x (almeno 150.000): con 80.000 tornavi con 600.000
+  // v136: la forbice che il giocatore legge prima di accettare. Il guadagno vero non la supera mai.
+  function guadagnoMostrato(s, p, O) { if (!O.guadagno) return [0, 0]; const k = (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p); return O.guadagno.map((x) => round(Math.min(tettoColpo(O), x * k))); }
   // la parte del colpo che il giocatore puo' vedere (mai il guaio gia' deciso)
   function colpoVisibile(s, p) {
     const C = s.notte && s.notte.colpi && s.notte.colpi[p.id]; if (!C) return null;
@@ -3349,7 +3360,7 @@
     const guaio = cx ? cx.guaio : O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
     let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p) : 0;
     guadagno *= sitMult(s, "ga", { luogo: o.luogo, occ: O.id }) * strumentiMult(s, p, "ga", usati, { luogo: o.luogo, occ: O.id }) * (cx ? cx.ga : 1);
-    guadagno = Math.min(guadagno, tettoColpo(O)); // v104: un affare rende al massimo 4 volte la puntata
+    guadagno = Math.min(guadagno, tettoColpo(O), Math.round(guadagnoMostrato(s, p, O)[1] * (cx ? cx.ga : 1))); // v104, v136: mai piu' del massimo scritto (al massimo 3 volte la puntata)
     tracce += guadagno / 250_000; // v104: piu' soldi sporchi muovi, piu' tracce lasci (1 milione = +4)
     if (denunciatoQui(s, p, o.luogo)) esitoDenuncia(s, p, o.luogo, guaio, O.nome);
     if (guaio) {
@@ -5349,7 +5360,8 @@
     const riepilogo = {};
     // v126: tutti i movimenti di cassa dell'Alba finiscono nel numero grande (bivi, eventi, sabotaggi...); fuori restano solo sfida e condanna, che hanno la loro scheda
     const cashA = {}, fuori = {}; for (const p of s.players) { cashA[p.id] = p.cash; fuori[p.id] = 0; } s._altroAlba = {};
-    const misuraFuori = (f) => { const pr = Object.fromEntries(s.players.map((p) => [p.id, p.cash])); f(); for (const p of s.players) fuori[p.id] += p.cash - (pr[p.id] || 0); };
+    const fuoriK = { condanna: {}, sfida: {} };
+    const misuraFuori = (f, k) => { const pr = Object.fromEntries(s.players.map((p) => [p.id, p.cash])); f(); for (const p of s.players) { const d = p.cash - (pr[p.id] || 0); fuori[p.id] += d; if (k) fuoriK[k][p.id] = (fuoriK[k][p.id] || 0) + d; } };
     const lussoAltri = {}; for (const p of s.players) lussoAltri[p.id] = p.lussoCiclo || 0; // per la pubblicita' della TV
     esitoEsposto(s); // prima che aggiornaPiste() svuoti luoghiNotte
     chiudiCantieri(s);
@@ -5441,7 +5453,7 @@
     misuraFuori(() => { for (const p of s.players) if (p.stato >= 4) {
       if (!p.peggiorReato) { annullaRicatti(s, p); p.stato = 1; p.tracce *= 0.5; privato(s, p, "Il Giudice archivia: non ci sono reati provati."); notizia(s, "Archiviata l'indagine su " + p.nome + ".", "voce"); }
       else condanna(s, p, p.peggiorReato, "processo");
-    } });
+    } }, "condanna");
     // borsa e cripto (la Gazzetta mostra di quanto sono salite o scese)
     s.borsaIeri = { ...s.borsa }; s.criptoIeri = { ...s.cripto };
     for (const a of AZIENDE) {
@@ -5476,12 +5488,12 @@
     // elezioni ogni 2 cicli
     if (s.ciclo % 2 === 1) elezioni(s);
     albaGrandi(s, riepilogo, lussoAltri);
-    misuraFuori(() => albaSfide(s, riepilogo));
+    misuraFuori(() => albaSfide(s, riepilogo), "sfida");
     for (const p of s.players) { const r = riepilogo[p.id]; if (!r) continue;
       const altri = (s._altroAlba[p.id] || []).filter((x) => x.importo), tot = round(p.cash - cashA[p.id] - fuori[p.id]);
       const resto = tot - (r.netto || 0) - altri.reduce((a, x) => a + x.importo, 0);
       if (Math.abs(resto) >= 1) altri.push({ cosa: "Altre voci della mattina", importo: round(resto) });
-      r.altri = altri; r.nettoTot = tot; }
+      r.altri = altri; r.nettoTot = tot; r.cassaSfida = round(fuoriK.sfida[p.id] || 0); r.cassaCondanna = round(fuoriK.condanna[p.id] || 0); r.cassaVera = round(p.cash - cashA[p.id]); }
     delete s._altroAlba;
     s.ultimaAlba = { ciclo: s.ciclo + 1, riepilogo };
     (s.storiaPat = s.storiaPat || []).push({ c: s.ciclo + 1, v: Object.fromEntries(s.players.map((q) => [q.id, round(patrimonio(s, q, true))])) });
@@ -6144,6 +6156,8 @@
     delete v.denunceUltime; // chi ha fatto il nome di chi resta segreto
     // la sfida del Ciclo: si vede chi sfida chi e chi e' in vantaggio adesso, mai i patrimoni esatti degli altri
     v.sfide = (s.sfide || []).map((sf) => { const a = s.players.find((x) => x.id === sf.a), b = s.players.find((x) => x.id === sf.b); const ga = a ? (patrimonio(s, a, true) - sf.pa) / Math.max(1, sf.pa) : 0, gb = b ? (patrimonio(s, b, true) - sf.pb) / Math.max(1, sf.pb) : 0; return { a: sf.a, b: sf.b, motivo: sf.motivo, avanti: ga >= gb ? sf.a : sf.b, ciclo: sf.ciclo }; });
+    // v136: la classifica durante la partita: solo il posto di ognuno, mai le cifre degli altri
+    v.posti = Object.fromEntries(s.players.filter((x) => !x.fallito).sort((a, b) => patrimonio(s, b, true) - patrimonio(s, a, true)).map((x, i) => [x.id, i + 1]));
     // v123: il racconto della partita: i tuoi momenti sempre; quelli degli altri solo se pubblici; i patrimoni degli altri solo a partita finita
     v.momenti = (s.momenti || []).filter((m) => m.id === idGiocatore || (!m.segreto && !/Va in rosso|sotto zero/.test(m.t)) || s.fine);
     v.storiaPat = (s.storiaPat || []).map((x) => ({ c: x.c, v: s.fine ? x.v : { [idGiocatore]: x.v[idGiocatore] } }));
@@ -6265,7 +6279,7 @@
     // carte e serate
     punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso),
     // polizia e pene
-    descriviPena, PREMIO_SOCIO, ROSSI, GIRI_ORA, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, tacche, TETTO_SCONTI, MULTA_CONDANNA,
+    descriviPena, PREMIO_SOCIO, ROSSI, GIRI_ORA, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, guadagnoMostrato, tacche, TETTO_SCONTI, MULTA_CONDANNA,
     rischioResa, rischioPerquisizione, rischioRicicla, bonusSetta, quotaRicicla, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     // setta
     livelloSetta, influenzaDi, OPERE, costoOpera,
