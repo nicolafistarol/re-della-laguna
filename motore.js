@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 113;
+  const VERSIONE_REGOLE = 114;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -135,14 +135,14 @@
 
   // Le classi: tutti partono con gli stessi soldi e un terreno a sorte; ogni classe ha un vantaggio suo.
   const PACCHETTI = [
-    { id: "commerciante", nome: "Il Commerciante", perk: "Tutti i tuoi affitti rendono il 25% in più. Di notte: il carico in saldo alla Marina.", extra: {} },
-    { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 15% in meno. Il permesso del Palazzo è gratis. Di notte: il geometra del Comune al Club.", extra: {} },
-    { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo (4%; nelle partite nuove 2,5%). Di notte: la soffiata di Borsa al Club.", extra: {} },
-    { id: "playboy", nome: "Il Playboy", perk: "+2 fama ogni Alba. Parti con il motoscafo (Viaggio rapido tra i Moli) e gli amici dello yacht. Di notte: la festa sullo yacht.", extra: { veicolo: "motoscafo" } },
-    { id: "contrabbandiere", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta. Il Mercato Nero ti apre dal Ciclo 2 e ogni notte hai la tua cassa al molo.", extra: {} },
-    { id: "politico", nome: "Il Politico", perk: "Parti con fama 20. Candidarti a Sindaco costa metà e la licenza del casinò è più facile (3 volte su 4 al primo colpo). Di notte: la cena col consigliere.", extra: { fama: 20 } },
-    { id: "ereditiera", nome: "L'Ereditiera", perk: "La banca ti presta il doppio e senza interessi. Di notte: il ballo della contessa.", extra: {} },
-    { id: "speculatore", nome: "Lo Speculatore", perk: "Ogni Alba le tue cripto crescono del 5% in più. Di notte: il wallet del marinaio alla Marina.", extra: {} },
+    { id: "commerciante", nome: "Il Commerciante", perk: "Tutti i tuoi affitti rendono il 25% in più. Di notte, un affare tutto tuo a turno: il carico in saldo alla Marina, la fiera del lusso, le borse taroccate.", extra: {} },
+    { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 15% in meno. Il permesso del Palazzo è gratis. Di notte, un affare tutto tuo a turno: il geometra del Comune al Club, la cena con l'ingegnere, il cemento della chiatta.", extra: {} },
+    { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo (4%; nelle partite nuove 2,5%). Di notte, un affare tutto tuo a turno: la soffiata di Borsa al Club, il tavolo dei banchieri, il broker sul molo.", extra: {} },
+    { id: "playboy", nome: "Il Playboy", perk: "+2 fama ogni Alba. Parti con il motoscafo (Viaggio rapido tra i Moli) e gli amici dello yacht. Di notte, un affare tutto tuo a turno: la festa sullo yacht, l'asta dei vini, la modella e il fotografo.", extra: { veicolo: "motoscafo" } },
+    { id: "contrabbandiere", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta. Il Mercato Nero ti apre dal Ciclo 2. Di notte, un affare tutto tuo a turno: la cassa al molo, lo scafo veloce, il pacco al bancone.", extra: {} },
+    { id: "politico", nome: "Il Politico", perk: "Parti con fama 20. Candidarti a Sindaco costa metà e la licenza del casinò è più facile (3 volte su 4 al primo colpo). Di notte, un affare tutto tuo a turno: la cena col consigliere, il favore all'impresario, il comizio sul molo.", extra: { fama: 20 } },
+    { id: "ereditiera", nome: "L'Ereditiera", perk: "La banca ti presta il doppio e senza interessi. Di notte, un affare tutto tuo a turno: il ballo della contessa, il gala di beneficenza, i gioielli della nonna.", extra: {} },
+    { id: "speculatore", nome: "Lo Speculatore", perk: "Ogni Alba le tue cripto crescono del 5% in più. Di notte, un affare tutto tuo a turno: il wallet del marinaio alla Marina, i computer nella stiva, il collezionista di NFT.", extra: {} },
   ];
 
 
@@ -2077,7 +2077,7 @@
   // v105: il livello sale subito (dopo ogni mossa), un messaggio di Vera per ogni livello raggiunto
   function aggiornaLivelli(s) {
     if (!s || !s.players || s.fase === "lobby" || !s.lotti) return;
-    for (const p of s.players) { if (p.fallito) continue; const prima = p.livello || 0, ora = livelloPersonale(s, p); if (ora > prima) { p.livelloNuovo = ora; for (let k = prima + 1; k <= ora; k++) if (VERA[k]) privato(s, p, VERA[k]); } }
+    for (const p of s.players) { if (p.fallito) continue; const prima = p.livello || 0, ora = livelloPersonale(s, p); if (ora > prima) { p.livelloNuovo = ora; for (let k = prima + 1; k <= ora; k++) if (VERA[k]) privato(s, p, VERA[k].replace(/ha \d posti/, "ha " + postiValigetta(s, p) + " posti")); } }
   }
   function iniziaNotte(s) {
     s.fase = "notte"; s.notteFatti = {};
@@ -2117,7 +2117,7 @@
       s.notte.dove[p.id] = "palazzo";
       if (p.faro > 0) { s.notteFatti[p.id] = true; racconta(s, p, "Passi la notte al Faro, in cella. Fuori la Laguna si muove senza di te."); continue; }
       racconta(s, p, "Esci dal tuo palazzo. La Laguna è accesa.");
-      { const tutte = OCCASIONI.filter((o) => o.storia && o.storia === p.pacchetto && luogoAperto(s, o.luogo, p)), st = tutte.length ? tutte[s.ciclo % tutte.length] : null; if (st) /* v113: 3 affari per storia, a rotazione */ s.notte.occasioni.push({ n: n++, id: st.id, luogo: st.luogo, dalle: 0, alle: 6, preso: null, riservata: p.id }); }
+      { const tutte = OCCASIONI.filter((o) => o.storia && o.storia === p.pacchetto && luogoAperto(s, o.luogo, p)), st = tutte.length ? tutte[tutte.length - 1 - (s.ciclo % tutte.length)] : null; /* v114: si parte dall'affare scritto nella storia */ if (st) /* v113: 3 affari per storia, a rotazione */ s.notte.occasioni.push({ n: n++, id: st.id, luogo: st.luogo, dalle: 0, alle: 6, preso: null, riservata: p.id }); }
       // una chiamata, a volte
       if (livelloSblocco(s, p) >= 1 && rng(s) < 0.45) {
         const lvp = livelloSblocco(s, p);
@@ -2787,9 +2787,9 @@
     if (!o || !occasioniVisibili(s, p).includes(o)) err("Questa occasione non c'è più.");
     const O = OCCASIONI.find((x) => x.id === o.id);
     oggetti = [...new Set(oggetti || [])].filter((id) => haOggetto(p, id));
-    if (O.costo > 0) pagaMisto(s, p, O.costo);
+    if (O.costo > 0) { const sp0 = p.sporchi; pagaMisto(s, p, O.costo); const ds = sp0 - p.sporchi; racconta(s, p, "Metti sul piatto " + euro(O.costo) + (ds >= O.costo ? " sporchi" : ds > 0 ? " (" + euro(ds) + " sporchi e " + euro(O.costo - ds) + " puliti)" : " puliti") + "."); }
     o.preso = p.id;
-    s.notte.fatto[p.id] = { n, oggetti };
+    s.notte.fatto[p.id] = { n, oggetti, costo: O.costo || 0 };
     if (!O.legale) { p.luoghiNotte = p.luoghiNotte || {}; p.luoghiNotte[o.luogo] = true; p.abitudini = p.abitudini || {}; p.abitudini[o.luogo] = (p.abitudini[o.luogo] || 0) + 1; }
     if (aScelte && !O.legale && O.guadagno && COLPI[O.id]) return iniziaColpo(s, p, o, O, oggetti);
     s.notte.chiuso[p.id] = true;
@@ -2889,6 +2889,14 @@
     if (s.fase !== "notte" || !s.notte) return;
     for (const p of attivi(s)) if (s.notte.viaggio[p.id]) s.notte.chiuso[p.id] = true;
     if (!attivi(s).every((p) => s.notte.pronto[p.id])) return;
+    // v114: sono tutti pronti: le proposte ancora senza risposta (a chi ha gia' premuto Avanti) si chiudono subito con un no,
+    // invece di tenere ferma l'ora per 30 secondi (sembrava che il gioco si fosse bloccato)
+    for (const pr of (s.notte.proposte || []).filter((x) => x.stato === "attesa" && s.notte.pronto[x.a])) {
+      const q = s.players.find((x) => x.id === pr.a), da = s.players.find((x) => x.id === pr.da);
+      pr.stato = "no"; if (pr.importo && da) restituisci_(da, pr); // come un "no" (senza richiamare controllaOra da dentro)
+      if (da) racconta(s, da, (q ? q.nome : "L'altro") + " era già andato avanti: niente da fare." + (pr.importo ? " Ti riprendi i soldi." : ""));
+      if (q && da && !q.bot) privato(s, q, da.nome + " voleva vederti, ma eri già andato avanti: la proposta è scaduta.");
+    }
     if (proposteAperte(s).length) return; // NOT-01: si aspetta la risposta (o la fine del tempo: tempoScaduto)
     risolviOra(s);
   }
@@ -2921,7 +2929,7 @@
   function fattoDenuncia(s, p, q, luogo) {
     s.notte.denunce = s.notte.denunce || [];
     s.notte.denunce.push({ da: p.id, su: q.id, luogo });
-    if (rng(s) < N_DENUNCIA.tradisce) { privato(s, q, "Un informatore ti chiama di nascosto: «" + p.nome + " ha fatto il tuo nome alla polizia. Stanotte ti aspettano a " + LUOGHI[luogo].nome + ".»"); q.aspettano = { luogo, ciclo: s.ciclo, chi: p.nome }; } // v112: si vede anche sulla mappa
+    if (rng(s) < N_DENUNCIA.tradisce) { privato(s, q, "Un informatore ti chiama di nascosto: «" + p.nome + " ha fatto il tuo nome alla polizia. Stanotte ti aspettano a " + LUOGHI[luogo].nome + ".»"); q.aspettano = { luogo, ciclo: s.ciclo, chi: p.nome }; s.notte.denunce[s.notte.denunce.length - 1].saputo = true; } // v112: si vede anche sulla mappa
   }
   // ------------------------------------------------------------ v100: il sabotaggio (rivalita' diretta)
   const SABOTA = { quota: 0.12, min: 150_000, preso: 0.25, tracce: 15, fama: 3, rivale: 0.75, nome: 0.5 };
@@ -3319,7 +3327,8 @@
     p.tracce += tracce; segnaTraccia(s, p, tracce, O.nome + " (" + nomeLuogo(o.luogo) + ")");
     if (guadagno > 0) {
       p.sporchi += round(guadagno); // il guadagno e' tutto quello che torna indietro (il costo era gia' stato pagato)
-      racconta(s, p, "Torni con " + euro(guadagno) + " in contanti sporchi.");
+      const messo = f.costo || 0, netto = round(guadagno) - messo;
+      racconta(s, p, "Torni con " + euro(guadagno) + " in contanti sporchi." + (messo ? " Ci avevi messo " + euro(messo) + ": " + (netto >= 0 ? "guadagno vero " + euro(netto) : "ci perdi " + euro(-netto)) + "." : ""));
     }
     if (p.offertaBoss && o.luogo === "porto") { p.sporchi += round(guadagno); p.tracce += tracce; p.offertaBoss = false; racconta(s, p, "Il boss straniero mantiene la parola: il carico vale il doppio."); }
   }
@@ -3391,7 +3400,7 @@
       per[p.id] = {
         dove: N2.viaggio[p.id] ? "in viaggio" : nomeLuogo(d), visti,
         soldi: round(p.cash + p.sporchi + posteInSospeso(N2, p) - b.soldi), sporchi: round(p.sporchi - b.sporchi), fama: Math.round(p.fama - b.fama),
-        rischio: dt <= 0.5 ? 0 : dt < 8 ? 1 : dt < 16 ? 2 : 3,
+        rischio: dt <= 0.5 ? 0 : dt < 5 ? 1 : dt < 12 ? 2 : 3, // v114: le stesse soglie del riquadro "com'e' andata"
         righe: (N2.racconto[p.id] || []).slice(N2.inizioRacc[p.id] || 0, fineRacc[p.id]),
         aCasa: !!s.notteFatti[p.id],
       };
@@ -3413,7 +3422,7 @@
       p.valigetta = (p.valigetta || []).map((o) => o.notti ? { ...o, notti: o.notti - 1 } : o).filter((o) => o.notti === null || o.notti === undefined || o.notti > 0);
       s.notteFatti[p.id] = true;
     }
-    s.denunceUltime = (s.notte.denunce || []).map((d) => ({ da: d.da, su: d.su })); // v98: per le vendette dell'Alba
+    s.denunceUltime = (s.notte.denunce || []).filter((d) => d.saputo).map((d) => ({ da: d.da, su: d.su, luogo: d.luogo })); // v114: vendetta solo se lo hai saputo davvero (l'informatore ti ha chiamato) // v98: per le vendette dell'Alba
     s.notte = null;
     alba(s);
   }
@@ -5382,6 +5391,7 @@
       const [w, l, gw, gl] = ga >= gb ? [a, b, ga, gb] : [b, a, gb, ga];
       // v110: chi era indietro e perde non paga (e perde solo 1 fama); chi vince partendo da dietro prende la posta e +2 fama in piu'
       const pw0 = w === a ? sf.pa : sf.pb, pl0 = l === a ? sf.pa : sf.pb, lAvanti = pl0 > pw0;
+      const quanto = Math.round(Math.abs(pl0 - pw0) / Math.max(1, Math.min(pl0, pw0)) * 100) + "%"; // v114: di quanto partiva avanti (in percentuale: i patrimoni degli altri restano segreti)
       // v112: chi vince prende sempre qualcosa: il 6% (min 250.000 €) se l'altro partiva avanti, il 3% (min 100.000 €) se partiva dietro
       const pagata = round(Math.min(Math.max(0, l.cash), lAvanti ? clamp(l.cash * SFIDA.quota, SFIDA.min, SFIDA.max) : clamp(l.cash * SFIDA.quota / 2, 100_000, SFIDA.max / 2)));
       const famaW = SFIDA.fama + (lAvanti ? 2 : 0), famaL = lAvanti ? SFIDA.famaPerde : 1;
@@ -5389,20 +5399,22 @@
       w.sfideVinte = (w.sfideVinte || 0) + 1; l.sfidePerse = (l.sfidePerse || 0) + 1;
       if (pagata) flusso(s, l, w, pagata, "Sfida del Ciclo", true);
       notizia(s, "Sfida del Ciclo: " + w.nome + " batte " + l.nome + " (" + segno(gw) + " contro " + segno(gl) + ")" + (pagata ? " e incassa " + euro(pagata) : "") + ".", "scandalo");
-      privato(s, w, "Hai vinto la sfida del Ciclo contro " + l.nome + ": sei cresciuto di " + segno(gw) + ", lui di " + segno(gl) + ". Incassi " + euro(pagata) + " e +" + famaW + " fama" + (lAvanti ? " (lui partiva avanti: posta piena)." : " (partivi avanti tu: mezza posta)."));
-      privato(s, l, "Hai perso la sfida del Ciclo contro " + w.nome + ": lui è cresciuto di " + segno(gw) + ", tu di " + segno(gl) + ". Gli paghi " + euro(pagata) + " e perdi " + famaL + " fama" + (lAvanti ? " (eri avanti: posta piena)." : " (partivi da dietro: mezza posta)."));
-      if (riepilogo[w.id]) riepilogo[w.id].sfida = { contro: l.id, vinta: true, soldi: pagata, mio: Math.round(gw * 100), suo: Math.round(gl * 100) };
-      if (riepilogo[l.id]) riepilogo[l.id].sfida = { contro: w.id, vinta: false, soldi: -pagata, mio: Math.round(gl * 100), suo: Math.round(gw * 100) };
+      privato(s, w, "Hai vinto la sfida del Ciclo contro " + l.nome + ": sei cresciuto di " + segno(gw) + ", lui di " + segno(gl) + ". Incassi " + euro(pagata) + " e +" + famaW + " fama" + (lAvanti ? " (posta piena: all'inizio lui era più ricco di te del " + quanto + ")." : " (mezza posta: all'inizio eri tu più ricco di lui del " + quanto + ")."));
+      privato(s, l, "Hai perso la sfida del Ciclo contro " + w.nome + ": lui è cresciuto di " + segno(gw) + ", tu di " + segno(gl) + ". Gli paghi " + euro(pagata) + " e perdi " + famaL + " fama" + (lAvanti ? " (posta piena: all'inizio eri tu più ricco di lui del " + quanto + ")." : " (mezza posta: all'inizio lui era più ricco di te del " + quanto + ")."));
+      if (riepilogo[w.id]) riepilogo[w.id].sfida = { contro: l.id, vinta: true, soldi: pagata, mio: Math.round(gw * 100), suo: Math.round(gl * 100), avanti: lAvanti ? "lui" : "tu", quanto };
+      if (riepilogo[l.id]) riepilogo[l.id].sfida = { contro: w.id, vinta: false, soldi: -pagata, mio: Math.round(gl * 100), suo: Math.round(gw * 100), avanti: lAvanti ? "tu" : "lui", quanto };
     }
     const vive = s.players.filter((p) => !p.uscito), liberi = new Set(vive.map((p) => p.id)), nuove = [];
     const coppia = (x, y, motivo) => { if (!liberi.has(x) || !liberi.has(y) || x === y) return; liberi.delete(x); liberi.delete(y); nuove.push({ a: x, b: y, motivo }); };
     // v112: mai la stessa coppia per piu' di 2 Cicli di fila (nemmeno per vendetta)
     const kc = (x, y) => [x, y].sort().join("|"), ult = s.sfideStoria || [], vietata = (x, y) => ult.length >= 2 && ult[0].includes(kc(x, y)) && ult[1].includes(kc(x, y));
-    for (const d of s.denunceUltime || []) if (!vietata(d.su, d.da)) coppia(d.su, d.da, "vendetta");
+    for (const d of s.denunceUltime || []) if (!vietata(d.su, d.da)) { coppia(d.su, d.da, "vendetta"); const u = nuove[nuove.length - 1]; if (u && u.a === d.su && u.b === d.da) u.luogo = d.luogo; }
     const ord = vive.filter((p) => liberi.has(p.id)).sort((x, y) => patrimonio(s, y, true) - patrimonio(s, x, true));
-    for (let i = 0; i < ord.length; i++) {
+    // v114: per la classifica mai lo stesso rivale due Cicli di fila; se proprio non si puo', al massimo due
+    const appena = (x, y) => ult.length >= 1 && ult[0].includes(kc(x, y));
+    for (const vieta of [(x, y) => vietata(x, y) || appena(x, y), vietata]) for (let i = 0; i < ord.length; i++) {
       if (!liberi.has(ord[i].id)) continue;
-      const j = ord.findIndex((q, k) => k > i && liberi.has(q.id) && !vietata(ord[i].id, q.id));
+      const j = ord.findIndex((q, k) => k > i && liberi.has(q.id) && !vieta(ord[i].id, q.id));
       if (j > 0) coppia(ord[i].id, ord[j].id, "classifica");
     }
     s.sfideStoria = [nuove.map((sf) => kc(sf.a, sf.b))].concat(ult).slice(0, 2);
@@ -5411,7 +5423,7 @@
     for (const sf of s.sfide) {
       const a = giocatore(s, sf.a), b = giocatore(s, sf.b);
       notizia(s, (sf.motivo === "vendetta" ? "Vendetta! " : "") + "Sfida del Ciclo: " + a.nome + " contro " + b.nome + ". Chi cresce di più entro la prossima Alba prende la posta.", "evento");
-      for (const [p, q] of [[a, b], [b, a]]) privato(s, p, (sf.motivo === "vendetta" ? (p.id === sf.a ? q.nome + " ti ha venduto alla polizia: adesso è il tuo nemico. " : q.nome + " sa che hai fatto il suo nome: vuole vendetta. ") : "") + "Questo Ciclo il tuo rivale è " + q.nome + ": se entro la prossima Alba il tuo patrimonio cresce più del suo (in percentuale, così conta anche chi parte più povero), +5 fama; se parti da dietro gli prendi anche il 6% dei contanti (da 250.000 € a 3 milioni). Se perdi partendo da dietro non paghi niente. Contro di lui la soffiata costa la metà e gli fa più male.");
+      for (const [p, q] of [[a, b], [b, a]]) privato(s, p, (sf.motivo === "vendetta" ? (p.id === sf.a ? "Stanotte " + q.nome + " ha fatto il tuo nome alla polizia" + (sf.luogo && LUOGHI[sf.luogo] ? " (a " + LUOGHI[sf.luogo].nome + ")" : "") + ": te l'ha detto l'informatore. Adesso è il tuo nemico. " : q.nome + " ha saputo che stanotte hai fatto il suo nome alla polizia: vuole vendetta. ") : "") + "Questo Ciclo il tuo rivale è " + q.nome + ": se entro la prossima Alba il tuo patrimonio cresce più del suo (in percentuale, così conta anche chi parte più povero), +5 fama; se parti da dietro gli prendi anche il 6% dei contanti (da 250.000 € a 3 milioni). Se perdi partendo da dietro non paghi niente. Contro di lui la soffiata costa la metà e gli fa più male.");
     }
   }
 

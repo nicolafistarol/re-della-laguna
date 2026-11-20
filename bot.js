@@ -604,8 +604,9 @@ function grandiBot(o, i, n) {
             { const LL = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null); const cv = convocazioneBot(o, i, LL, s); if (cv) return cv; }
             // se una persona vera e' nello stesso posto, a volte il bot si fa avanti
             if (s !== "palazzo" && !l.proposto && !n.chiuso[i.id] && !n.viaggio[i.id]) {
-              const umano = o.players.find((x) => !x.bot && x.id !== i.id && !o.notteFatti[x.id] && x.faro === 0 && !n.viaggio[x.id] && n.dove[x.id] === s);
-              if (umano && Math.random() < 0.35) { l.proposto = !0; return ["Spavaldo", "Furbo", "Esperto"].includes(e) && i.cash + i.sporchi > 1e6 ? { tipo: "incontro", a: umano.id, cosa: "sfida", importo: 1e5 } : { tipo: "incontro", a: umano.id, cosa: "drink" }; }
+              // v114: non a chi ha gia' premuto Avanti (teneva ferma l'ora) e una volta sola a notte per computer (prima il drink tornava ogni ora)
+              const umano = o.players.find((x) => !x.bot && x.id !== i.id && !o.notteFatti[x.id] && x.faro === 0 && !n.viaggio[x.id] && n.dove[x.id] === s && !n.pronto[x.id] && !n.chiuso[x.id]);
+              if (umano && i._propNotte !== o.ciclo && Math.random() < 0.35) { l.proposto = !0; i._propNotte = o.ciclo; return ["Spavaldo", "Furbo", "Esperto"].includes(e) && i.cash + i.sporchi > 1e6 ? { tipo: "incontro", a: umano.id, cosa: "sfida", importo: 1e5 } : { tipo: "incontro", a: umano.id, cosa: "drink" }; }
             }
             // le serate nei casino' privati degli altri
             const osp = n.ospite && n.ospite[i.id];

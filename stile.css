@@ -309,6 +309,7 @@ button .lic{margin-right:2px}
 .luogo-riga .ic svg{width:26px;height:26px}
 .luogo-riga .ore{font-weight:800;color:var(--cielo)}
 .luogo-riga:disabled{opacity:.4;cursor:default}
+.luogo-riga.qui:disabled{opacity:.85;border-style:dashed}
 .riep{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
 .riep>div{background:rgba(255,255,255,.06);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:3px}
 .riep .largo{grid-column:1/-1}
@@ -854,3 +855,4 @@ body.carta-ridotta .carta::before{content:"▲ tocca per aprire";position:absolu
 .ticker .ticker-x{pointer-events:auto;align-self:flex-start;padding:2px 9px;font-size:12px;border-radius:10px;background:rgba(0,0,0,.45);color:#fff;border:1px solid rgba(255,255,255,.2)}
 .ticker-apri{position:fixed;left:14px;bottom:16px;z-index:15}
 @media(max-width:900px){.ticker-apri{display:none}}
+.perl-qui{width:fit-content;max-width:100%;margin:4px 0 2px;padding:6px 10px;border-radius:10px;background:rgba(255,90,70,.16);border:1px solid rgba(255,120,100,.6);color:#ffb3a8;font-weight:700;font-size:14px}
