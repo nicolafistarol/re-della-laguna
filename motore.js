@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 110;
+  const VERSIONE_REGOLE = 111;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -382,7 +382,8 @@
     // ordine dei turni con i dadi
     s.ordine = s.players.map((_, i) => i).sort(() => rng(s) - 0.5);
     // scelta dei pacchetti: al contrario dell'ordine di gioco
-    s.sceltaPacchetti = [...s.ordine].reverse();
+    // v111: le persone scelgono la storia per prime, poi i computer tra quelle che restano
+    { const g = [...s.ordine].reverse(); s.sceltaPacchetti = g.filter((i) => !s.players[i].bot).concat(g.filter((i) => s.players[i].bot)); }
     s.pacchettiDisponibili = PACCHETTI.slice(0, gen2(s) ? PACCHETTI.length : Math.max(6, s.players.length)).map((p) => p.id); // partite nuove: sempre tutte e 8 le storie
     log(s, "Partita creata. Ordine dei turni: " + s.ordine.map((i) => s.players[i].nome).join(", ") + ".");
     return s;
@@ -406,6 +407,7 @@
     if (pk.id === "playboy") p.cerchie = ["yacht"];
     p.pacchetto = pk.id;
     s.pacchettiDisponibili = s.pacchettiDisponibili.filter((x) => x !== idPacchetto);
+    s.pacchettiPresi = Object.assign({}, s.pacchettiPresi, { [idPacchetto]: p.id });
     s.sceltaPacchetti.shift();
     log(s, p.nome + " sceglie il pacchetto " + pk.nome + ".", p.id);
     if (s.sceltaPacchetti.length === 0) {
@@ -705,7 +707,7 @@
       if (c.owner == null) { s.pending = { tipo: "compra", lotto: c.id, giocatore: p.id }; return; }
       if (c.owner === p.id) return;
       const owner = giocatore(s, c.owner);
-      if (passoLibero(s, p, owner.id)) { log(s, p.nome + " passa gratis da " + c.nome + ": Passo libero di " + owner.nome + "."); return; }
+      if (passoLibero(s, p, owner.id)) { log(s, p.nome + " passa gratis da " + c.nome + ": Passo libero di " + owner.nome + "."); if (!owner.bot) privato(s, owner, p.nome + " si ferma su «" + c.nome + "» e non ti paga l'affitto: è il Passo libero che gli devi."); return; }
       let dovuto;
       if (c.tipoCasella === "molo") dovuto = N.moloFee[moliDi(s, owner).length];
       else dovuto = affitto(s, c);
@@ -3410,7 +3412,7 @@
   }
   function motivoRinvio(s, p) {
     if (!gen2(s)) return null;
-    if ((p.stato || 0) >= 3) return { k: "indagine", testo: "Sei " + STATI[Math.min(4, p.stato)] + ": finché c'è l'indagine il Municipio tiene ferme le tue pratiche." };
+    if ((p.stato || 0) >= 3) return { k: "indagine", testo: (p.stato >= 4 ? "Sei a Processo" : "Sei sotto indagine") + ": finché c'è l'indagine il Municipio tiene ferme le tue pratiche." };
     return null;
   }
   // cosa succede se chiedi il permesso adesso: { bollo, sicuro, rinvio: null | { k, testo }, gratisPerche }
@@ -4395,6 +4397,7 @@
       if (s.fase !== "giorno") err("Il Passo libero si usa di giorno.");
       f.stato = "attivo"; f.uso = { turni: 4 };
       notizia(s, deve.nome + " apre le porte a " + p.nome + ": Passo libero per 4 turni.", "affari");
+      privato(s, deve, p.nome + " usa il Passo libero che gli devi: per i suoi prossimi 4 turni non ti paga affitti né pedaggi sui tuoi terreni.");
       return;
     }
     if (f.tipo === "silenzio") {
@@ -5043,7 +5046,9 @@
     if (p.faro > 0) return;
     const rc = rischioControllo(s, p), ps = rc.piste, tr = rc.tr, pUp = rc.su;
     const vecchio = p.stato;
-    if (tr > 0 && rng(s) < pUp) p.stato = Math.min(4, p.stato + 1);
+    // v111: niente corse verso il Processo. Dai Voci in su si sale al massimo di 1 gradino per Ciclo, sotto di 2
+    const sal = p.saliteCiclo && p.saliteCiclo.c === s.ciclo ? p.saliteCiclo.n : 0, maxSal = p.stato >= 1 ? 1 : 2;
+    if (tr > 0 && sal < maxSal && rng(s) < pUp) { p.stato = Math.min(4, p.stato + 1); p.saliteCiclo = { c: s.ciclo, n: sal + 1 }; }
     else if (p.pulitoCiclo && p.stato > 0 && rng(s) < N.scendi) p.stato -= 1;
     if (p.stato !== vecchio) {
       const segnali = ["Ti senti più tranquillo: nessuno parla di te.", "Un personaggio ti dice: \"Si parla di te, in giro.\"", "Vedi spesso un'auto della polizia vicino ai tuoi locali.", "La Gazzetta fa il tuo nome. I tuoi conti sono sotto controllo.", "Ricevi una convocazione del Giudice per l'Alba."];

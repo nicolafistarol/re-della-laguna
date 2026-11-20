@@ -846,3 +846,5 @@ body.carta-ridotta .carta > *:not(:last-child){display:none}
 body.carta-ridotta .carta .sub,body.carta-ridotta .carta .kick{display:none}
 body.carta-ridotta .carta .dove{font-size:18px}
 body.carta-ridotta .carta::before{content:"▲ tocca per aprire";position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:11px;color:#fff;background:rgba(0,0,0,.55);padding:2px 10px;border-radius:10px;white-space:nowrap}
+.fascia-polizia{display:flex;gap:8px;align-items:flex-start;background:rgba(200,40,50,.22);border:1px solid rgba(255,110,110,.5);border-radius:12px;padding:8px 10px;font-size:13px;line-height:1.35}
+.fascia-polizia u{cursor:pointer;color:#ffd2d2}

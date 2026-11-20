@@ -10,6 +10,8 @@ let verso = 1;
 let box = null, renderer = null, scena = null, camera = null, sfera = null, url = null;
 const ARCO = 200, RAGGIO = 50, ALTEZZA = RAGGIO * THREE.MathUtils.degToRad(ARCO) / 2;
 let yaw = 0, pitch = 0, fov = 70, trascina = null, ultimoTocco = 0, punti = [], suPunto = null, attivo = false;
+// v111: si disegna solo quando cambia qualcosa; su computer senza scheda grafica (o lenti) niente rotazione automatica
+let sporco = true, lento = false, tempi = [], tPrima = 0;
 const caricatore = new THREE.TextureLoader();
 const cache = new Map();
 
@@ -20,7 +22,8 @@ function crea() {
   document.body.appendChild(box);
   const canvas = box.querySelector("canvas");
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  try { const gl = renderer.getContext(), ext = gl.getExtension("WEBGL_debug_renderer_info"), r = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ""; if (/swiftshader|llvmpipe|software|basic render|mesa offscreen/i.test(r)) lento = true; } catch (e) { }
+  renderer.setPixelRatio(lento ? 1 : Math.min(window.devicePixelRatio, 1.5));
   scena = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(fov, 1, 0.1, 100);
   const th = THREE.MathUtils.degToRad(ARCO);
@@ -34,12 +37,12 @@ function crea() {
     const k = fov / box.clientHeight;
     yaw = trascina.yaw - (x - trascina.x) * k;
     pitch = trascina.pitch + (y - trascina.y) * k;
-    limita();
+    limita(); sporco = true;
   };
   canvas.addEventListener("pointerdown", (e) => { canvas.setPointerCapture(e.pointerId); giu(e.clientX, e.clientY); });
   canvas.addEventListener("pointermove", (e) => muovi(e.clientX, e.clientY));
   canvas.addEventListener("pointerup", () => { trascina = null; ultimoTocco = Date.now(); });
-  canvas.addEventListener("wheel", (e) => { fov = Math.max(45, Math.min(80, fov + e.deltaY * 0.03)); limita(); e.preventDefault(); }, { passive: false });
+  canvas.addEventListener("wheel", (e) => { fov = Math.max(45, Math.min(80, fov + e.deltaY * 0.03)); limita(); sporco = true; e.preventDefault(); }, { passive: false });
   window.addEventListener("resize", misura);
   misura();
   requestAnimationFrame(gira);
@@ -57,7 +60,7 @@ function limita() {
 function misura() {
   if (!renderer) return;
   const w = window.innerWidth, h = window.innerHeight;
-  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); sporco = true;
 }
 function direzione(y, p) {
   const ry = THREE.MathUtils.degToRad(y), rp = THREE.MathUtils.degToRad(p);
@@ -67,7 +70,15 @@ function gira() {
   requestAnimationFrame(gira);
   if (!attivo) return;
   // se nessuno tocca, la vista gira pianissimo da sola
-  if (!trascina && Date.now() - ultimoTocco > 6000 && !suPunto) { yaw += verso * 0.03; const y0 = yaw; limita(); if (yaw !== y0) verso = -verso; }
+  const ora = performance.now();
+  if (!trascina && !lento && Date.now() - ultimoTocco > 6000 && !suPunto && !document.hidden) {
+    yaw += verso * 0.03; const y0 = yaw; limita(); if (yaw !== y0) verso = -verso; sporco = true;
+    // se i fotogrammi arrivano lenti (computer senza scheda grafica) la rotazione si ferma per sempre
+    if (tPrima) { tempi.push(ora - tPrima); if (tempi.length > 40) tempi.shift(); if (tempi.length >= 20 && tempi.reduce((a, b) => a + b, 0) / tempi.length > 34) lento = true; }
+  }
+  tPrima = ora;
+  if (!sporco) return;
+  sporco = false;
   camera.fov = fov; camera.updateProjectionMatrix();
   camera.lookAt(direzione(yaw, pitch));
   renderer.render(scena, camera);
@@ -85,13 +96,13 @@ function gira() {
 // mostra un panorama; i punti sono [{ yaw, pitch, testo, icona, classe, azione }]
 export function mostra(nuovoUrl, nuoviPunti, opz = {}) {
   if (!box) crea();
-  attivo = true; box.style.display = "block";
+  attivo = true; box.style.display = "block"; sporco = true; tPrima = 0;
   if (nuovoUrl !== url) {
     url = nuovoUrl;
     if (opz.yaw !== undefined) yaw = opz.yaw;
     pitch = 0; fov = 70; limita();
     const t = cache.get(url);
-    const usa = (tex) => { if (url !== nuovoUrl) return; tex.colorSpace = THREE.SRGBColorSpace; sfera.material.dispose(); sfera.material = new THREE.MeshBasicMaterial({ map: tex }); box.classList.add("pronto"); };
+    const usa = (tex) => { if (url !== nuovoUrl) return; tex.colorSpace = THREE.SRGBColorSpace; sfera.material.dispose(); sfera.material = new THREE.MeshBasicMaterial({ map: tex }); box.classList.add("pronto"); sporco = true; };
     box.classList.remove("pronto");
     if (t) usa(t); else caricatore.load(url, (tex) => { cache.set(nuovoUrl, tex); usa(tex); });
   }
@@ -102,12 +113,12 @@ export function mostra(nuovoUrl, nuoviPunti, opz = {}) {
     el.className = "pano-punto " + (p.classe || "");
     el.innerHTML = `<span class="anello">${p.icona || ""}</span><span class="etich">${p.testo}</span>`;
     el.onclick = (e) => { e.stopPropagation(); p.azione && p.azione(); };
-    el.onmouseenter = () => (suPunto = p); el.onmouseleave = () => (suPunto = null);
+    el.onmouseenter = () => (suPunto = p); el.onmouseleave = () => { suPunto = null; };
     strato.appendChild(el);
     return { ...p, el };
   });
 }
 export function nascondi() { attivo = false; url = null; punti = []; if (box) { box.style.display = "none"; box.querySelector(".pano-punti").innerHTML = ""; } }
-export function guarda(y) { yaw = y; limita(); ultimoTocco = Date.now(); }
+export function guarda(y) { yaw = y; limita(); ultimoTocco = Date.now(); sporco = true; }
 // da una posizione sulla foto (0..1 in orizzontale e verticale) ai gradi del punto
 export function daFoto(x, y) { return { yaw: (x - 0.5) * ARCO, pitch: THREE.MathUtils.radToDeg(Math.atan((0.5 - y) * ALTEZZA / RAGGIO)) }; }
