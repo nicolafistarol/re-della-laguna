@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 112;
+  const VERSIONE_REGOLE = 113;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -507,32 +507,32 @@
   // Effetti: costo, cash [a,b], alba [a,b] (incasso all'Alba), sporchi [a,b], fama, tracce, p (riuscita), falli {cash, fama, tracce}, riv {fama, alba}
   const BIVI = [
     // 1) la tua attivita'
-    { id: "cuoco", fam: "tua", req: "attivita", t: "Il gestore del tuo locale «{L}» chiede soldi per rinnovare la sala.", o: [{ t: "Paghi il rinnovo", costo: 60_000, alba: [110_000, 150_000] }, { t: "Gli dici di arrangiarsi", fama: -1, cash: [10_000, 20_000] }] },
+    { id: "cuoco", fam: "tua", req: "attivita", t: "Il gestore del tuo locale «{L}» chiede soldi per rinnovare la sala.", o: [{ t: "Paghi il rinnovo", costo: 60_000, alba: [80_000, 110_000] }, { t: "Gli dici di arrangiarsi e intaschi la differenza", fama: -1, cash: [40_000, 70_000] }] },
     { id: "ispettore", fam: "tua", req: "attivita", t: "Un ispettore sanitario si presenta al tuo locale «{L}».", o: [{ t: "Gli offri una busta", costo: 30_000, tracce: 3, fama: 1 }, { t: "Lo lasci controllare", p: 0.6, fama: 2, falli: { cash: -90_000, fama: -2 } }] },
     { id: "influencer", fam: "tua", req: "attivita", t: "Un'influencer vuole girare un video nel tuo locale «{L}».", o: [{ t: "La ospiti gratis", costo: 20_000, fama: 3 }, { t: "Le chiedi di pagare", cash: [40_000, 70_000], fama: -1 }] },
-    { id: "chef", fam: "tua", req: "attivita", t: "Un concorrente vuole rubarti il personale migliore del locale «{L}».", o: [{ t: "Alzi gli stipendi", costo: 50_000, alba: [70_000, 90_000] }, { t: "Lo minacci", p: 0.7, tracce: 4, falli: { fama: -3, tracce: 4 } }] },
-    { id: "evento", fam: "tua", req: "attivita", t: "Un'agenzia ti propone un evento privato nel locale «{L}».", o: [{ t: "Accetti, chiudi al pubblico", alba: [80_000, 160_000], fama: -1 }, { t: "Rifiuti, resta aperto a tutti", fama: 2 }] },
+    { id: "chef", fam: "tua", req: "attivita", t: "Un concorrente vuole rubarti il personale migliore del locale «{L}».", o: [{ t: "Alzi gli stipendi", costo: 50_000, alba: [70_000, 90_000] }, { t: "Lasci andare i migliori e assumi gente nuova", cash: [20_000, 40_000] }] },
+    { id: "evento", fam: "tua", req: "attivita", t: "Un'agenzia ti propone un evento privato nel locale «{L}».", o: [{ t: "Accetti, chiudi al pubblico", alba: [50_000, 90_000], fama: -1 }, { t: "Rifiuti, resta aperto a tutti", fama: 2 }] },
     { id: "fornitore", fam: "tua", req: "attivita", t: "Un fornitore ti offre merce a metà prezzo per «{L}». Non chiede fattura.", o: [{ t: "Compri in nero", costo: 40_000, alba: [90_000, 120_000], tracce: 5 }, { t: "Resti col tuo fornitore", fama: 1 }] },
     // 2) il terreno di un altro (sei sulla sua casella)
-    { id: "inquilini", fam: "altro", req: "altrui", t: "Gli inquilini di {R} qui a «{C}» si lamentano dell'affitto.", o: [{ t: "Li aizzi contro di lui", costo: 50_000, p: 0.65, riv: { alba: -150_000, fama: -2 }, tracce: 2 }, { t: "Offri a {R} di mediare", fama: 2, cash: [20_000, 40_000] }] },
-    { id: "gestore", fam: "altro", req: "altrui", t: "Il gestore del locale di {R} ti dice che vuole cambiare padrone.", o: [{ t: "Paghi per i suoi segreti", costo: 70_000, p: 0.7, riv: { fama: -3 }, fama: 1 }, { t: "Avvisi {R}: ti deve un favore", fama: 2, riv: { fama: 1 } }] },
-    { id: "cliente", fam: "altro", req: "altrui", t: "Un cliente di {R} ti chiede un posto migliore dove spendere.", o: [{ t: "Lo porti nei tuoi locali", p: 0.75, alba: [60_000, 100_000], riv: { alba: -50_000 } }, { t: "Gli vendi una dritta", cash: [20_000, 40_000] }] },
-    { id: "vetrina", fam: "altro", req: "altrui", t: "Qualcuno ha rotto la vetrina di {R} a «{C}».", o: [{ t: "Ti fai fotografare mentre aiuti", fama: 3, costo: 15_000 }, { t: "Fai girare la voce che è stato un regolamento di conti", p: 0.7, riv: { fama: -3 }, tracce: 2 }] },
-    { id: "permesso", fam: "altro", req: "altrui", t: "In Comune c'è una pratica di {R} per «{C}» ferma sulla scrivania sbagliata.", o: [{ t: "Paghi perché resti ferma", costo: 80_000, p: 0.6, riv: { alba: -200_000 }, tracce: 4 }, { t: "La sblocchi tu, da amico", costo: 20_000, fama: 3, riv: { fama: 1 } }] },
+    { id: "inquilini", fam: "altro", req: "altrui", t: "Gli inquilini di {R} qui a «{C}» si lamentano dell'affitto.", o: [{ t: "Li aizzi contro di lui", costo: 30_000, p: 0.65, riv: { alba: -150_000, fama: -2 }, tracce: 2 }, { t: "Offri a {R} di mediare", fama: 1, cash: [10_000, 20_000] }] },
+    { id: "gestore", fam: "altro", req: "altrui", t: "Il gestore del locale di {R} ti dice che vuole cambiare padrone.", o: [{ t: "Paghi per i suoi segreti", costo: 30_000, p: 0.75, riv: { fama: -4 }, fama: 1 }, { t: "Avvisi {R}: ti deve un favore", fama: 1, riv: { fama: 1 } }] },
+    { id: "cliente", fam: "altro", req: "altrui", t: "Un cliente di {R} ti chiede un posto migliore dove spendere.", o: [{ t: "Lo porti nei tuoi locali", p: 0.75, alba: [40_000, 70_000], riv: { alba: -50_000 } }, { t: "Gli vendi una dritta", cash: [30_000, 60_000] }] },
+    { id: "vetrina", fam: "altro", req: "altrui", t: "Qualcuno ha rotto la vetrina di {R} a «{C}».", o: [{ t: "Ti fai fotografare mentre aiuti", fama: 3, costo: 25_000 }, { t: "Fai girare la voce che è stato un regolamento di conti", p: 0.75, riv: { fama: -4 } }] },
+    { id: "permesso", fam: "altro", req: "altrui", t: "In Comune c'è una pratica di {R} per «{C}» ferma sulla scrivania sbagliata.", o: [{ t: "Paghi perché resti ferma", costo: 50_000, p: 0.65, riv: { alba: -250_000 }, tracce: 3 }, { t: "La sblocchi tu, da amico", costo: 30_000, fama: 2, riv: { fama: 1 } }] },
     // 3) il rivale della sfida
-    { id: "intervista", fam: "rivale", req: "rivale", t: "Un giornalista vuole scrivere di {R}, il tuo rivale.", o: [{ t: "Gli dai materiale contro", costo: 60_000, p: 0.7, riv: { fama: -4 }, fama: -1 }, { t: "Ti fai intervistare al posto suo", costo: 30_000, fama: 3 }] },
-    { id: "socio", fam: "rivale", req: "rivale", t: "Un socio di {R} vorrebbe lavorare per te.", o: [{ t: "Lo assumi", costo: 100_000, alba: [140_000, 200_000], riv: { alba: -100_000 } }, { t: "Lo rimandi da {R}", fama: 2 }] },
+    { id: "intervista", fam: "rivale", req: "rivale", t: "Un giornalista vuole scrivere di {R}, il tuo rivale.", o: [{ t: "Gli dai materiale contro", costo: 30_000, p: 0.75, riv: { fama: -5 } }, { t: "Ti fai intervistare al posto suo", costo: 40_000, fama: 2 }] },
+    { id: "socio", fam: "rivale", req: "rivale", t: "Un socio di {R} vorrebbe lavorare per te.", o: [{ t: "Lo assumi", costo: 120_000, alba: [120_000, 170_000], riv: { alba: -60_000 } }, { t: "Lo rimandi da {R}, con una buona parola", fama: 2, cash: [10_000, 30_000] }] },
     { id: "cena", fam: "rivale", req: "rivale", t: "{R} ti invita a cena per «parlare da persone serie».", o: [{ t: "Ci vai e lo ascolti", fama: 1, cash: [30_000, 80_000] }, { t: "Gli fai sapere che non hai tempo", fama: 2, riv: { fama: -1 } }] },
-    { id: "foto", fam: "rivale", req: "rivale", t: "Un fotografo ha una foto imbarazzante di {R}.", o: [{ t: "La compri e la pubblichi", costo: 90_000, riv: { fama: -5 }, tracce: 2 }, { t: "La compri e la tieni da parte", costo: 90_000, alba: [120_000, 180_000], p: 0.6 }] },
+    { id: "foto", fam: "rivale", req: "rivale", t: "Un fotografo ha una foto imbarazzante di {R}.", o: [{ t: "La compri e la pubblichi", costo: 50_000, riv: { fama: -6 }, tracce: 1 }, { t: "La compri e la tieni da parte", costo: 60_000, alba: [100_000, 140_000], p: 0.6 }] },
     { id: "banca", fam: "rivale", req: "rivale", t: "Il direttore di banca di {R} ti fa capire che i conti del tuo rivale non vanno bene.", o: [{ t: "Spargi la voce", p: 0.6, riv: { fama: -3, alba: -100_000 }, tracce: 3 }, { t: "Te lo tieni per te e investi", costo: 50_000, alba: [80_000, 110_000] }] },
     // 4) la strada
     { id: "portafoglio", fam: "strada", t: "Per strada trovi un portafoglio pieno di contanti.", o: [{ t: "Lo riporti al proprietario", fama: 3 }, { t: "Lo tieni", cash: [20_000, 60_000], tracce: 1 }] },
-    { id: "auto", fam: "strada", t: "Un'auto di lusso con le chiavi inserite, il motore acceso, nessuno intorno.", o: [{ t: "Chiami la polizia", fama: 2 }, { t: "La porti al Ricettatore", liv: 1, sporchi: [80_000, 140_000], tracce: 6, p: 0.8, falli: { tracce: 8, fama: -3 } }] },
-    { id: "mendicante", fam: "strada", t: "Un vecchio pescatore ti chiede aiuto: ha perso la barca nella tempesta.", o: [{ t: "Gliene compri una", costo: 40_000, fama: 4 }, { t: "Tiri dritto", fama: -1 }] },
+    { id: "auto", fam: "strada", t: "Un'auto di lusso con le chiavi inserite, il motore acceso, nessuno intorno.", o: [{ t: "Chiami la polizia", fama: 1 }, { t: "La porti al Ricettatore", liv: 1, sporchi: [120_000, 180_000], tracce: 4, p: 0.8, falli: { tracce: 5, fama: -2 } }] },
+    { id: "mendicante", fam: "strada", t: "Un vecchio pescatore ti chiede aiuto: ha perso la barca nella tempesta.", o: [{ t: "Gliene compri una", costo: 40_000, fama: 4 }, { t: "Gli dai un passaggio e un consiglio", fama: 1 }] },
     { id: "scommessa", fam: "strada", t: "Al bar dell'angolo si scommette sulla regata di domani.", o: [{ t: "Punti 50.000 € sul favorito", costo: 50_000, p: 0.55, cash: [90_000, 100_000] }, { t: "Punti 20.000 € sull'outsider", costo: 20_000, p: 0.25, cash: [100_000, 140_000] }] },
     { id: "dritta", fam: "strada", t: "Un tassista dice di sapere dove la polizia farà i controlli stanotte.", o: [{ t: "Paghi la dritta", costo: 25_000, p: 0.7, tracce: -6 }, { t: "Lo ignori e risparmi", cash: [0, 0] }] },
     { id: "rissa", fam: "strada", t: "Davanti a te scoppia una rissa tra due ubriachi.", o: [{ t: "Li separi", p: 0.7, fama: 3, falli: { cash: -30_000, fama: -1 } }, { t: "Filmi tutto e vendi il video", cash: [15_000, 35_000], fama: -1 }] },
-    { id: "strada_cantiere", fam: "strada", t: "Un capocantiere ti offre cemento avanzato da un'opera pubblica.", o: [{ t: "Lo compri sottobanco", costo: 30_000, alba: [60_000, 90_000], tracce: 4 }, { t: "Lo denunci al Comune", fama: 3 }] },
+    { id: "strada_cantiere", fam: "strada", t: "Un capocantiere ti offre cemento avanzato da un'opera pubblica.", o: [{ t: "Lo compri sottobanco", costo: 30_000, alba: [60_000, 90_000], tracce: 2 }, { t: "Lo denunci al Comune", fama: 2 }] },
     // 5) la citta'
     { id: "sagra", fam: "citta", t: "Il Comune cerca uno sponsor per la Festa del Redentore.", o: [{ t: "Sponsorizzi tutto", costo: 120_000, fama: 6 }, { t: "Metti solo il tuo nome sui manifesti", costo: 40_000, fama: 2 }] },
     { id: "ospedale", fam: "citta", t: "L'ospedale della Laguna raccoglie fondi per una sala nuova.", o: [{ t: "Doni 80.000 €", costo: 80_000, fama: 5, tracce: -3 }, { t: "Doni 10.000 € con molto rumore", costo: 10_000, fama: 2 }] },
@@ -633,7 +633,12 @@
     else {
       p.haTirato = true;
       // v110: il bivio del giorno, dal Ciclo 2, 1 volta su 2
-      if (s.ciclo >= 1 && !p.faro && s.fase === "giorno" && rng(s) < 0.5) { const B = generaBivio(s, p); if (B) p.bivio = B; }
+      if (s.ciclo >= 1 && !p.faro && s.fase === "giorno") {
+        // v113: esattamente 2 bivi a Ciclo per giocatore, in 2 giorni diversi (la probabilita' sale se ne mancano)
+        const bc = p.biviCiclo && p.biviCiclo.c === s.ciclo ? p.biviCiclo : (p.biviCiclo = { c: s.ciclo, n: 0, g: -1 });
+        const restano = N.giorni - s.giorno, mancano = 2 - bc.n;
+        if (mancano > 0 && bc.g !== s.giorno && rng(s) < mancano / restano) { const B = generaBivio(s, p); if (B) { p.bivio = B; bc.n += 1; bc.g = s.giorno; } }
+      }
     }
   }
 
@@ -1942,6 +1947,35 @@
     // v108: il biglietto "Al Faro, a mezzanotte" (Livello 3) porta davvero a qualcosa: un incontro che c'e' solo alle 00:00
     { id: "mezzanotte", luogo: "faro", sblocco: 3, mezzanotte: true, nome: "L'uomo del biglietto", testo: "A mezzanotte, sotto la lanterna, ti aspetta l'uomo che ha scritto il biglietto. Ha una sacca di diamanti grezzi che a Palma nessuno osa comprare: chi li prende stanotte li rivende domani a un gioielliere di Corona.", costo: 800000, guadagno: [1760000, 2800000], pericoli: ["guardia", "intercettazione"], tracce: 14, gravita: "grave" },
     // v109: l'affare della tua storia, una volta a notte e gia' dal Livello 0 (solo per te: storia = id del pacchetto)
+    // v113: piu' affari per ogni posto, a rotazione
+    { id: "brindisi", luogo: "club", sblocco: 0, legale: true, nome: "Il brindisi dell'armatore", testo: "Un armatore festeggia un contratto: chi offre il giro di champagne si siede al suo tavolo.", costo: 30_000, fama: 3, pericoli: [] },
+    { id: "regata", luogo: "marina", sblocco: 0, legale: true, nome: "La regata di mezzanotte", testo: "Si corre tra le boe illuminate. Sponsorizzi una barca: se vince, il tuo nome è su tutte le foto.", costo: 60_000, fama: 4, pericoli: [] },
+    { id: "scommesse", luogo: "club", sblocco: 1, nome: "Il banco delle scommesse", testo: "Nel retro del Club si scommette sulle partite di domani. Il banco cerca soci per una notte.", costo: 100000, guadagno: [210000, 340000], pericoli: ["testimone"], tracce: 5, gravita: "lieve" },
+    { id: "gasolio", luogo: "marina", sblocco: 1, nome: "Il gasolio agricolo", testo: "Un peschereccio vende gasolio agricolo da rivendere ai motoscafi come normale. Nessuna fattura.", costo: 120000, guadagno: [260000, 400000], pericoli: ["guardia"], tracce: 5, gravita: "lieve" },
+    { id: "sigarette", luogo: "porto", sblocco: 1, nome: "Le sigarette senza bollo", testo: "Un container di sigarette senza bollo aspetta un compratore prima del cambio turno.", costo: 180000, guadagno: [400000, 620000], pericoli: ["pattuglia", "cani"], tracce: 7, gravita: "media" },
+    { id: "poker_turisti", luogo: "bisca", sblocco: 1, nome: "Il poker coi turisti", testo: "Tre turisti ricchi vogliono giocare forte. Il mazziere è dei tuoi: basta finanziare il tavolo.", costo: 100000, guadagno: [220000, 350000], pericoli: ["rissa", "testimone"], tracce: 5, gravita: "lieve" },
+    { id: "debito_conte", luogo: "bisca", sblocco: 2, nome: "Il debito del conte", testo: "Un conte ha perso troppo e firma cambiali su tutto. Chi le compra stanotte le incassa con gli interessi.", costo: 250000, guadagno: [550000, 880000], pericoli: ["testimone", "intercettazione"], tracce: 8, gravita: "media" },
+    { id: "telefoni", luogo: "mercato", sblocco: 1, nome: "I telefoni caduti dal camion", testo: "Una scatola di telefoni nuovi, ancora sigillati. Si rivendono in un'ora ai banchi del mattino.", costo: 120000, guadagno: [260000, 420000], pericoli: ["retata"], tracce: 5, gravita: "lieve" },
+    { id: "documenti_mercato", luogo: "mercato", sblocco: 2, nome: "I passaporti in bianco", testo: "Un timbrista vende passaporti in bianco. Chi scappa dalla Laguna li paga a peso d'oro.", costo: 300000, guadagno: [660000, 1000000], pericoli: ["retata", "intercettazione"], tracce: 9, gravita: "media" },
+    { id: "fiches_false", luogo: "casino", sblocco: 1, nome: "Le fiches false", testo: "Un tecnico ha copiato le fiches del Casinò Reale. Vanno cambiate alla cassa prima che se ne accorgano.", costo: 200000, guadagno: [440000, 700000], pericoli: ["telecamere", "testimone"], tracce: 7, gravita: "media" },
+    { id: "scoop", luogo: "redazione", sblocco: 2, legale: true, nome: "Lo scoop comprato", testo: "Un giornalista ha un'intervista esclusiva. Se paghi tu il servizio, in prima pagina ci sei tu.", costo: 150_000, fama: 7, pericoli: [] },
+    // v113: tre affari per ogni storia, a rotazione (uno a notte)
+    { id: "st_pacco", storia: "contrabbandiere", luogo: "club", sblocco: 0, nome: "Il pacco al bancone", testo: "Il barista tiene un pacco per un cliente che non è venuto. Lo porti tu dall'altra parte della Laguna prima dell'alba.", costo: 80000, guadagno: [150000, 260000], pericoli: ["testimone"], rischioMin: 0.2, tracce: 3, gravita: "lieve" },
+    { id: "st_scafo", storia: "contrabbandiere", luogo: "marina", sblocco: 0, nome: "Lo scafo veloce", testo: "Uno scafo veloce rientra a luci spente. Chi lo aspetta sul molo si prende una parte del carico.", costo: 150000, guadagno: [260000, 420000], pericoli: ["guardia"], rischioMin: 0.25, tracce: 5, gravita: "lieve" },
+    { id: "st_modella", storia: "playboy", luogo: "club", sblocco: 0, legale: true, nome: "La modella e il fotografo", testo: "Una modella famosa è al Club e i fotografi sono fuori. Se esci con lei, domani sei su tutte le riviste.", costo: 50000, fama: 5, pericoli: [] },
+    { id: "st_vini", storia: "playboy", luogo: "club", sblocco: 0, legale: true, nome: "L'asta dei vini", testo: "Un'asta privata di vini rari: chi si aggiudica la bottiglia più cara lo sa tutta la Laguna.", costo: 70000, fama: 6, pericoli: [] },
+    { id: "st_cemento", storia: "costruttore", luogo: "marina", sblocco: 0, nome: "Il cemento della chiatta", testo: "Una chiatta di cemento per un'opera pubblica può 'perdere' qualche sacco. Tu sai a chi rivenderlo.", costo: 120000, guadagno: [200000, 330000], pericoli: ["guardia"], rischioMin: 0.2, tracce: 4, gravita: "lieve" },
+    { id: "st_ingegnere", storia: "costruttore", luogo: "club", sblocco: 0, legale: true, nome: "La cena con l'ingegnere", testo: "L'ingegnere capo del Comune cena da solo. Se offri tu, ti racconta quali zone diventeranno edificabili.", costo: 60000, fama: 5, pericoli: [] },
+    { id: "st_borse", storia: "commerciante", luogo: "club", sblocco: 0, nome: "Le borse taroccate", testo: "Un fornitore ha cento borse identiche a quelle di lusso. Le vendi ai turisti del Club come vere.", costo: 100000, guadagno: [170000, 280000], pericoli: ["testimone"], rischioMin: 0.15, tracce: 3, gravita: "lieve" },
+    { id: "st_fiera", storia: "commerciante", luogo: "marina", sblocco: 0, legale: true, nome: "La fiera del lusso", testo: "Sul molo c'è la fiera del lusso. Uno stand in prima fila costa, ma tutti i compratori passano da lì.", costo: 40000, fama: 4, pericoli: [] },
+    { id: "st_broker", storia: "investitore", luogo: "marina", sblocco: 0, nome: "Il broker sul molo", testo: "Un broker in fuga vende le sue posizioni a metà prezzo, in contanti, prima di salire sul suo yacht.", costo: 150000, guadagno: [240000, 380000], pericoli: ["intercettazione"], rischioMin: 0.2, tracce: 4, gravita: "lieve" },
+    { id: "st_banchieri", storia: "investitore", luogo: "club", sblocco: 0, legale: true, nome: "Il tavolo dei banchieri", testo: "Tre banchieri giocano a carte al Club. Se perdi con eleganza, domani ti rispondono al telefono.", costo: 60000, fama: 5, pericoli: [] },
+    { id: "st_comizio", storia: "politico", luogo: "marina", sblocco: 0, legale: true, nome: "Il comizio sul molo", testo: "I pescatori sono arrabbiati. Se paghi tu il palco e il rinfresco, parli tu e ti ascoltano.", costo: 50000, fama: 6, pericoli: [] },
+    { id: "st_impresario", storia: "politico", luogo: "club", sblocco: 0, nome: "Il favore all'impresario", testo: "Un impresario vuole che una pratica passi in fretta. Una tua telefonata vale una busta.", costo: 100000, guadagno: [170000, 280000], pericoli: ["fotografo"], rischioMin: 0.2, tracce: 4, gravita: "lieve" },
+    { id: "st_gioielli", storia: "ereditiera", luogo: "marina", sblocco: 0, nome: "I gioielli della nonna", testo: "Fai credere a un collezionista sul suo yacht che i gioielli di famiglia sono antichi. Sono copie.", costo: 120000, guadagno: [200000, 330000], pericoli: ["testimone"], rischioMin: 0.2, tracce: 3, gravita: "lieve" },
+    { id: "st_gala", storia: "ereditiera", luogo: "club", sblocco: 0, legale: true, nome: "Il gala di beneficenza", testo: "Il gala dell'ospedale: chi fa la donazione più grande apre le danze.", costo: 70000, fama: 6, pericoli: [] },
+    { id: "st_nft", storia: "speculatore", luogo: "club", sblocco: 0, nome: "Il collezionista di NFT", testo: "Un collezionista ubriaco compra qualunque NFT gli mostri. Ne crei uno stanotte e glielo vendi.", costo: 100000, guadagno: [160000, 300000], pericoli: ["intercettazione"], rischioMin: 0.2, tracce: 3, gravita: "lieve" },
+    { id: "st_minatore", storia: "speculatore", luogo: "marina", sblocco: 0, nome: "I computer nella stiva", testo: "Nella stiva di una nave ci sono computer per minare cripto, attaccati alla corrente del porto. Ti prendi una notte di guadagni.", costo: 130000, guadagno: [210000, 360000], pericoli: ["intercettazione"], rischioMin: 0.2, tracce: 4, gravita: "lieve" },
     { id: "st_cassa", storia: "contrabbandiere", luogo: "marina", sblocco: 0, nome: "La cassa al molo", testo: "Un pescatore ha una cassa di sigarette senza bollo. Va scaricata e rivenduta prima dell'alba. Una volta su quattro arriva la Guardia Costiera.", costo: 100000, guadagno: [180000, 300000], pericoli: ["guardia"], rischioMin: 0.25, tracce: 4, gravita: "lieve" },
     { id: "st_yacht", storia: "playboy", luogo: "marina", sblocco: 0, legale: true, nome: "La festa sullo yacht", testo: "I tuoi amici dello yacht danno una festa: se porti tu lo champagne, domani la Laguna parla di te.", costo: 60000, fama: 6, pericoli: [] },
     { id: "st_geometra", storia: "costruttore", luogo: "club", sblocco: 0, nome: "Il geometra del Comune", testo: "Il geometra del Comune beve troppo e ha in tasca i progetti di un appalto. Per una busta te li fa vedere: rivendi la dritta a un'impresa.", costo: 150000, guadagno: [250000, 400000], pericoli: ["fotografo"], rischioMin: 0.2, tracce: 5, gravita: "lieve" },
@@ -2065,7 +2099,8 @@
     let n = 1;
     for (const l of Object.keys(LUOGHI)) {
       if (!luogoAperto(s, l)) continue;
-      const pool = OCCASIONI.filter((o) => o.luogo === l && !o.mezzanotte && !o.storia && o.sblocco <= lv && (!o.soloSetta || s.sette.length > 0));
+      let pool = OCCASIONI.filter((o) => o.luogo === l && !o.mezzanotte && !o.storia && o.sblocco <= lv && (!o.soloSetta || s.sette.length > 0));
+      { const nuove = pool.filter((o) => !(s.occUltime || []).includes(o.id)); if (nuove.length) pool = nuove; } // v113: a rotazione, mai le stesse della notte prima
       // v108: al Faro, se qualcuno e' al Livello 3, c'e' sempre l'uomo del biglietto, ma solo alle 00:00
       if (l === "faro" && s.players.some((p) => (p.livello || 0) >= 3)) s.notte.occasioni.push({ n: n++, id: "mezzanotte", luogo: "faro", dalle: 2, alle: 3, preso: null, riservata: null });
       if (!pool.length) continue;
@@ -2076,12 +2111,13 @@
         s.notte.occasioni.push({ n: n++, id: o.id, luogo: l, dalle, alle, preso: null, riservata: null });
       }
     }
+    s.occUltime = s.notte.occasioni.filter((x) => !x.riservata).map((x) => x.id);
     for (const p of s.players) {
       p.affariStanotte = []; p.pulitoCiclo = true; p.luoghiNotte = {};
       s.notte.dove[p.id] = "palazzo";
       if (p.faro > 0) { s.notteFatti[p.id] = true; racconta(s, p, "Passi la notte al Faro, in cella. Fuori la Laguna si muove senza di te."); continue; }
       racconta(s, p, "Esci dal tuo palazzo. La Laguna è accesa.");
-      { const st = OCCASIONI.find((o) => o.storia && o.storia === p.pacchetto); if (st && luogoAperto(s, st.luogo, p)) s.notte.occasioni.push({ n: n++, id: st.id, luogo: st.luogo, dalle: 0, alle: 6, preso: null, riservata: p.id }); }
+      { const tutte = OCCASIONI.filter((o) => o.storia && o.storia === p.pacchetto && luogoAperto(s, o.luogo, p)), st = tutte.length ? tutte[s.ciclo % tutte.length] : null; if (st) /* v113: 3 affari per storia, a rotazione */ s.notte.occasioni.push({ n: n++, id: st.id, luogo: st.luogo, dalle: 0, alle: 6, preso: null, riservata: p.id }); }
       // una chiamata, a volte
       if (livelloSblocco(s, p) >= 1 && rng(s) < 0.45) {
         const lvp = livelloSblocco(s, p);
@@ -2664,20 +2700,28 @@
   function guardatiIntorno(s, p, dove) {
     const N2 = s.notte, x = rng(s), aperti = Object.keys(LUOGHI).filter((l) => l !== "palazzo" && l !== dove && luogoAperto(s, l, p));
     const rivali = s.players.filter((q) => q.id !== p.id && !q.fallito && !q.faro);
-    if (x < 0.4 && aperti.length) {
-      const due = aperti.sort(() => rng(s) - 0.5).slice(0, 2);
-      racconta(s, p, "Un tipo al bancone attacca bottone e ti dà una dritta: stanotte " + due.map((l) => LUOGHI[l].nome + " è " + N2.pericolo[l]).join(", ") + ".");
+    // v113: niente ripetizioni. Ogni tipo di notizia una volta sola per notte, e chi te la dà dipende dal posto
+    p.intornoNotte = p.intornoNotte && p.intornoNotte.c === s.ciclo ? p.intornoNotte : { c: s.ciclo, fatti: [], luoghi: [] };
+    const giaDetto = (k) => p.intornoNotte.fatti.includes(k), segna = (k) => p.intornoNotte.fatti.push(k);
+    const CHI = { club: "Il barista", marina: "Un marinaio sul molo", porto: "Un gruista in pausa", bisca: "Un giocatore che ha appena perso", mercato: "Un venditore ambulante", casino: "Un croupier a fine turno", redazione: "Una stagista della Gazzetta", aeroporto: "Un facchino", villa: "Un giardiniere", faro: "Il vecchio guardiano" }[dove] || "Un tipo";
+    if (x < 0.4 && aperti.length && !giaDetto("dritta")) {
+      const nuovi = aperti.filter((l) => !p.intornoNotte.luoghi.includes(l)), due = (nuovi.length >= 2 ? nuovi : aperti).sort(() => rng(s) - 0.5).slice(0, 2);
+      p.intornoNotte.luoghi.push(...due); segna("dritta");
+      racconta(s, p, CHI + " attacca bottone e ti dà una dritta: stanotte " + due.map((l) => LUOGHI[l].nome + " è " + N2.pericolo[l]).join(", ") + ".");
       return;
     }
-    if (x < 0.7 && rivali.length) {
+    if (x < 0.7 && rivali.length && !giaDetto("rivale")) {
+      segna("rivale");
       const q = rivali[Math.floor(rng(s) * rivali.length)], qd = N2.dove[q.id];
       racconta(s, p, "Senti un nome al tavolo accanto: " + q.nome + (N2.viaggio[q.id] ? " è in viaggio" : qd === "palazzo" ? " è chiuso nel suo Palazzo" : " è a " + LUOGHI[qd].nome) + (q.tracce > 25 ? ", e la polizia lo tiene d'occhio." : "."));
       return;
     }
     if (x < 0.9 && N2.ora < 5) {
       const lvp = livelloSblocco(s, p);
-      const pool = OCCASIONI.filter((o) => o.luogo === dove && !o.storia && !o.mezzanotte && !o.soloSetta && o.sblocco <= lvp);
-      if (pool.length) {
+      const fatti = new Set((p.affariStanotte || []).map((a) => a.tipo).concat(N2.occasioni.filter((o) => o.luogo === dove && !o.preso).map((o) => o.id)));
+      const pool = OCCASIONI.filter((o) => o.luogo === dove && !o.storia && !o.mezzanotte && !o.soloSetta && o.sblocco <= lvp && !fatti.has(o.id));
+      if (pool.length && !giaDetto("affare")) {
+        segna("affare");
         const O = pool[Math.floor(rng(s) * pool.length)], n = N2.occasioni.reduce((a, o) => Math.max(a, o.n), 0) + 1;
         N2.occasioni.push({ n, id: O.id, luogo: dove, dalle: N2.ora + 1, alle: Math.min(6, N2.ora + 2), preso: null, riservata: p.id });
         racconta(s, p, "Osservando bene, noti qualcosa: " + O.testo + " Se resti qui, l'ora dopo puoi provarci (" + O.nome + ").");
