@@ -848,3 +848,9 @@ body.carta-ridotta .carta .dove{font-size:18px}
 body.carta-ridotta .carta::before{content:"▲ tocca per aprire";position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:11px;color:#fff;background:rgba(0,0,0,.55);padding:2px 10px;border-radius:10px;white-space:nowrap}
 .fascia-polizia{display:flex;gap:8px;align-items:flex-start;background:rgba(200,40,50,.22);border:1px solid rgba(255,110,110,.5);border-radius:12px;padding:8px 10px;font-size:13px;line-height:1.35}
 .fascia-polizia u{cursor:pointer;color:#ffd2d2}
+.perl{display:block;font-size:11.5px;font-weight:700;color:#ffb0a0;margin-top:2px}
+.luogo .perl{position:absolute;left:50%;top:-18px;transform:translateX(-50%);white-space:nowrap;background:rgba(120,20,20,.85);color:#fff;padding:1px 7px;border-radius:9px}
+.luogo-riga.con-pericolo{border-color:rgba(255,120,100,.75)!important}
+.ticker .ticker-x{pointer-events:auto;align-self:flex-start;padding:2px 9px;font-size:12px;border-radius:10px;background:rgba(0,0,0,.45);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.ticker-apri{position:fixed;left:14px;bottom:16px;z-index:15}
+@media(max-width:900px){.ticker-apri{display:none}}

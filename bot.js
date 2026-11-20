@@ -4,16 +4,20 @@
   // quanto paga al massimo un computer per un tuo terreno (lo usa anche la finestra "Vendi un terreno" per dire subito il prezzo giusto)
   // v110: i computer fanno offerte alle persone per i terreni che servono ai loro gruppi (al massimo una al giorno ciascuno)
   function offertaBot(o, i) {
+    // v112: ogni computer ci prova una volta al giorno; alle persone arriva al massimo un'offerta al giorno in tutto.
+    // Prima i terreni che chiudono un suo gruppo, poi quelli del gruppo dove ha gia' una via, poi (piu' raro) qualunque terreno.
     const chiave = o.ciclo * 10 + o.giorno;
     if (i._offertaKey === chiave || o.fase !== "giorno") return null;
     i._offertaKey = chiave;
     if ((o.proposte || []).some((x) => x.da === i.id && x.stato === "proposta")) return null;
-    const cand = o.lotti.filter((l) => l.owner && l.owner !== i.id && l.serie && (l.tipoCasella === "lotto" || l.tipoCasella === "molo") && !l.cantiere && (() => { const q = o.players.find((x) => x.id === l.owner); return q && !q.bot && !q.fallito; })())
-      .map((l) => { const altri = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id), miei = altri.filter((x) => x.owner === i.id).length; return { l, chiude: altri.length && miei === altri.length, miei }; })
-      .filter((c) => c.miei > 0).sort((a, b) => b.chiude - a.chiude || b.miei - a.miei);
-    const c = cand[0]; if (!c || Math.random() > (c.chiude ? 0.6 : 0.2)) return null;
-    const valore = c.l.prezzo * (1 + 0.6 * (c.l.lvl || 0)), prezzo = Math.round(valore * (1.1 + 0.4 * Math.random()) / 10000) * 10000;
+    o._offerteBot = o._offerteBot && o._offerteBot.k === chiave ? o._offerteBot : { k: chiave, a: [] };
+    const cand = o.lotti.filter((l) => l.owner && l.owner !== i.id && l.serie && (l.tipoCasella === "lotto" || l.tipoCasella === "molo") && !l.cantiere && !o._offerteBot.a.includes(l.owner) && (() => { const q = o.players.find((x) => x.id === l.owner); return q && !q.bot; })())
+      .map((l) => { const altri = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id), miei = altri.filter((x) => x.owner === i.id).length; return { l, chiude: !!(altri.length && miei === altri.length), miei, p: altri.length && miei === altri.length ? 0.7 : miei ? 0.4 : 0.12 }; })
+      .sort((a, b) => b.p - a.p);
+    const c = cand[0]; if (!c || Math.random() > c.p) return null;
+    const valore = c.l.prezzo * (1 + 0.6 * (c.l.lvl || 0)), prezzo = Math.round(valore * (c.chiude ? 1.15 + 0.15 * Math.random() : 1.0 + 0.15 * Math.random()) / 10000) * 10000;
     if (i.cash - prezzo < 3e5) return null;
+    o._offerteBot.a.push(c.l.owner);
     return { tipo: "proponi_lotto", a: c.l.owner, lotto: c.l.id, prezzo, compro: !0 };
   }
   // v106: quanto conta un terreno per i gruppi: 2 = chiude un gruppo (mio) o lo toglie a un rivale che ne ha gia' tutti gli altri, 1 = ne ho gia' uno, 0 = niente
@@ -32,7 +36,7 @@
     const delGruppo = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id && x.owner === idBot).length;
     const gruppo = o.lotti.filter((x) => x.serie === l.serie).length;
     const completa = delGruppo === gruppo - 1;
-    return Math.ceil(valore * (completa ? 1.8 : delGruppo >= 1 ? 1.25 : 1.0) / 10000) * 10000;
+    return Math.ceil(valore * (completa ? 1.3 : delGruppo >= 1 ? 1.12 : 0.95) / 10000) * 10000; // v112: niente piu' soldi facili vendendo ai computer (prima fino a 1,8 volte)
   }
   function i(o, i) {
     const e = t.ATTIVITA;

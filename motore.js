@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 111;
+  const VERSIONE_REGOLE = 112;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -2877,7 +2877,7 @@
   function fattoDenuncia(s, p, q, luogo) {
     s.notte.denunce = s.notte.denunce || [];
     s.notte.denunce.push({ da: p.id, su: q.id, luogo });
-    if (rng(s) < N_DENUNCIA.tradisce) privato(s, q, "Un informatore ti chiama di nascosto: «" + p.nome + " ha fatto il tuo nome alla polizia. Stanotte ti aspettano a " + LUOGHI[luogo].nome + ".»");
+    if (rng(s) < N_DENUNCIA.tradisce) { privato(s, q, "Un informatore ti chiama di nascosto: «" + p.nome + " ha fatto il tuo nome alla polizia. Stanotte ti aspettano a " + LUOGHI[luogo].nome + ".»"); q.aspettano = { luogo, ciclo: s.ciclo, chi: p.nome }; } // v112: si vede anche sulla mappa
   }
   // ------------------------------------------------------------ v100: il sabotaggio (rivalita' diretta)
   const SABOTA = { quota: 0.12, min: 150_000, preso: 0.25, tracce: 15, fama: 3, rivale: 0.75, nome: 0.5 };
@@ -5338,22 +5338,30 @@
       const [w, l, gw, gl] = ga >= gb ? [a, b, ga, gb] : [b, a, gb, ga];
       // v110: chi era indietro e perde non paga (e perde solo 1 fama); chi vince partendo da dietro prende la posta e +2 fama in piu'
       const pw0 = w === a ? sf.pa : sf.pb, pl0 = l === a ? sf.pa : sf.pb, lAvanti = pl0 > pw0;
-      const pagata = lAvanti ? round(Math.min(Math.max(0, l.cash), clamp(l.cash * SFIDA.quota, SFIDA.min, SFIDA.max))) : 0;
+      // v112: chi vince prende sempre qualcosa: il 6% (min 250.000 €) se l'altro partiva avanti, il 3% (min 100.000 €) se partiva dietro
+      const pagata = round(Math.min(Math.max(0, l.cash), lAvanti ? clamp(l.cash * SFIDA.quota, SFIDA.min, SFIDA.max) : clamp(l.cash * SFIDA.quota / 2, 100_000, SFIDA.max / 2)));
       const famaW = SFIDA.fama + (lAvanti ? 2 : 0), famaL = lAvanti ? SFIDA.famaPerde : 1;
       l.cash -= pagata; w.cash += pagata; w.fama += famaW; l.fama = Math.max(0, l.fama - famaL);
       w.sfideVinte = (w.sfideVinte || 0) + 1; l.sfidePerse = (l.sfidePerse || 0) + 1;
       if (pagata) flusso(s, l, w, pagata, "Sfida del Ciclo", true);
       notizia(s, "Sfida del Ciclo: " + w.nome + " batte " + l.nome + " (" + segno(gw) + " contro " + segno(gl) + ")" + (pagata ? " e incassa " + euro(pagata) : "") + ".", "scandalo");
-      privato(s, w, "Hai vinto la sfida del Ciclo contro " + l.nome + ": sei cresciuto di " + segno(gw) + ", lui di " + segno(gl) + (pagata ? ". Incassi " + euro(pagata) + " e +" + famaW + " fama (partivi da dietro)." : ". Partivi avanti: niente soldi, ma +" + famaW + " fama."));
-      privato(s, l, "Hai perso la sfida del Ciclo contro " + w.nome + ": lui è cresciuto di " + segno(gw) + ", tu di " + segno(gl) + (pagata ? ". Eri avanti: gli paghi " + euro(pagata) + " e perdi " + famaL + " fama." : ". Partivi da dietro: non paghi niente, perdi solo " + famaL + " fama."));
+      privato(s, w, "Hai vinto la sfida del Ciclo contro " + l.nome + ": sei cresciuto di " + segno(gw) + ", lui di " + segno(gl) + ". Incassi " + euro(pagata) + " e +" + famaW + " fama" + (lAvanti ? " (lui partiva avanti: posta piena)." : " (partivi avanti tu: mezza posta)."));
+      privato(s, l, "Hai perso la sfida del Ciclo contro " + w.nome + ": lui è cresciuto di " + segno(gw) + ", tu di " + segno(gl) + ". Gli paghi " + euro(pagata) + " e perdi " + famaL + " fama" + (lAvanti ? " (eri avanti: posta piena)." : " (partivi da dietro: mezza posta)."));
       if (riepilogo[w.id]) riepilogo[w.id].sfida = { contro: l.id, vinta: true, soldi: pagata, mio: Math.round(gw * 100), suo: Math.round(gl * 100) };
       if (riepilogo[l.id]) riepilogo[l.id].sfida = { contro: w.id, vinta: false, soldi: -pagata, mio: Math.round(gl * 100), suo: Math.round(gw * 100) };
     }
     const vive = s.players.filter((p) => !p.uscito), liberi = new Set(vive.map((p) => p.id)), nuove = [];
     const coppia = (x, y, motivo) => { if (!liberi.has(x) || !liberi.has(y) || x === y) return; liberi.delete(x); liberi.delete(y); nuove.push({ a: x, b: y, motivo }); };
-    for (const d of s.denunceUltime || []) coppia(d.su, d.da, "vendetta");
+    // v112: mai la stessa coppia per piu' di 2 Cicli di fila (nemmeno per vendetta)
+    const kc = (x, y) => [x, y].sort().join("|"), ult = s.sfideStoria || [], vietata = (x, y) => ult.length >= 2 && ult[0].includes(kc(x, y)) && ult[1].includes(kc(x, y));
+    for (const d of s.denunceUltime || []) if (!vietata(d.su, d.da)) coppia(d.su, d.da, "vendetta");
     const ord = vive.filter((p) => liberi.has(p.id)).sort((x, y) => patrimonio(s, y, true) - patrimonio(s, x, true));
-    for (let i = 0; i + 1 < ord.length; i += 2) coppia(ord[i].id, ord[i + 1].id, "classifica");
+    for (let i = 0; i < ord.length; i++) {
+      if (!liberi.has(ord[i].id)) continue;
+      const j = ord.findIndex((q, k) => k > i && liberi.has(q.id) && !vietata(ord[i].id, q.id));
+      if (j > 0) coppia(ord[i].id, ord[j].id, "classifica");
+    }
+    s.sfideStoria = [nuove.map((sf) => kc(sf.a, sf.b))].concat(ult).slice(0, 2);
     s.sfide = nuove.map((sf) => ({ ...sf, pa: round(patrimonio(s, giocatore(s, sf.a), true)), pb: round(patrimonio(s, giocatore(s, sf.b), true)), ciclo: s.ciclo + 1 }));
     s.denunceUltime = [];
     for (const sf of s.sfide) {
