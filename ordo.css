@@ -129,3 +129,40 @@ button.notte{background:var(--avorio)!important;color:#121318!important;border:1
 button.notte:hover{background:#fff!important}
 .scena-testa .barra-ore,.scena-testa progress,.scena-testa .ore-barra{accent-color:var(--avorio)}
 .scena-barra .sv{width:16px;height:16px}
+
+/* ---------- tappa 4: Alba e finestre ---------- */
+.fin{color:var(--avorio)}
+.fin h2{color:var(--avorio);letter-spacing:.005em}
+.fin .kick{color:var(--avorio-2)!important;letter-spacing:.2em}
+.fin .kick[style*="sporco"],.fin .kick[style*="ff6b6b"],.fin .kick[style*="ff8a8a"]{color:var(--perdita)!important}
+.fin .kick .lic,.fin .kick svg{color:var(--ottone)}
+.fin .sub{color:var(--avorio-2)}
+.fin .scheda,.scheda{background:rgba(255,255,255,.025)!important;border:1px solid var(--filo)!important;border-radius:14px!important}
+.fin table.cl td,.fin table.cl th{border-color:var(--filo)!important}
+.fin details,.alba-det{background:transparent!important;border:1px solid var(--filo);border-radius:12px}
+.alba-det summary,.fin details summary{color:var(--avorio)!important;font-weight:600}
+.avviso-rischio{background:rgba(255,122,122,.06)!important;border:1px solid rgba(255,122,122,.28)!important;border-radius:12px}
+.rischio-box{background:rgba(255,255,255,.025)!important;border:1px solid var(--filo)!important;border-radius:12px!important}
+/* Alba */
+.alba-eroe,.alba-eroe.giu{background:transparent!important;border:0!important;border-bottom:1px solid var(--filo)!important;border-radius:0!important;padding:8px 0 20px!important;margin:8px 0 16px!important}
+.alba-eroe span{font-size:12px!important;letter-spacing:.2em;text-transform:uppercase;color:var(--avorio-2)!important}
+.alba-eroe b{font-size:56px!important;letter-spacing:-.01em;text-shadow:none!important;margin:6px 0 4px}
+.alba-eroe.su b{color:var(--guadagno)!important}.alba-eroe.giu b{color:var(--perdita)!important}
+.alba-eroe i{font-size:14px!important;color:var(--avorio-2)!important}
+.alba-tre{gap:10px!important}
+.alba-tre .ab{background:rgba(255,255,255,.025)!important;border:1px solid var(--filo)!important;border-top:2px solid var(--filo-2)!important;border-radius:12px!important;padding:14px!important}
+.alba-tre .ab>span{font-size:12px!important;letter-spacing:.16em;text-transform:uppercase;color:var(--avorio-2)!important}
+.alba-tre .ab b{font-size:20px!important;font-weight:600}
+.alba-tre .ab i{color:var(--avorio)!important;opacity:.82}
+.alba-tre .ab.su{border-top-color:var(--guadagno)!important}.alba-tre .ab.su b{color:var(--guadagno)!important}
+.alba-tre .ab.giu{border-top-color:var(--perdita)!important}.alba-tre .ab.giu b{color:var(--perdita)!important}
+.alba-tre .ab.att{border-top-color:var(--ottone)!important}.alba-tre .ab.att b{color:var(--ottone)!important}
+.alba-tutto>summary{background:transparent!important;border:1px solid var(--filo);color:var(--avorio)!important;font-weight:600!important}
+.alba-tutto>summary:hover{border-color:var(--filo-2)}
+.sfida-esito,.sfida-stato,.sfida-nuova{background:rgba(255,255,255,.025)!important;border:1px solid var(--filo)!important;color:var(--avorio)!important}
+.sfida-esito.su{border-left:2px solid var(--guadagno)!important}.sfida-esito.giu{border-left:2px solid var(--perdita)!important}
+/* schede del personaggio e scelte nelle finestre */
+.fin .sch{background:rgba(255,255,255,.025)!important;border:1px solid var(--filo)!important;transition:border-color .15s,background-color .15s}
+.fin .sch:hover{border-color:var(--filo-2)!important;background:rgba(255,255,255,.05)!important}
+.fin .sch p[style*="oro"]{color:var(--avorio)!important;font-weight:500!important}
+.fin .sch h3{color:var(--avorio)}
