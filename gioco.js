@@ -1132,15 +1132,45 @@ function torri() {
 
 // ------------------------------------------------------------ esplorare la mappa: zoom e spostamento
 let vista = { z: 1, x: 0, y: 0 };
+// v108b: la telecamera del tabellone. vista = dove vuoi andare, camera = cosa si vede: ci arriva morbida a ogni fotogramma (niente scatti, niente transizioni CSS)
+const camera = { x: 0, y: 0, z: 1, zMostrata: 0, raf: 0, t: 0, subito: true, inerzia: null };
 function applicaVista() {
   const m = $("#mappa"); if (!m) return;
   if (TRE3D) { m.style.transform = ""; m.style.setProperty("--z", 1); return; }
-  const w = m.offsetWidth, h = m.offsetHeight, W = innerWidth, H = innerHeight;
-  const maxX = TAB ? Math.max(0, (w * vista.z - W) / 2) + 60 : Math.max((w * vista.z) / 2, (w * vista.z - W) / 2), maxY = TAB ? Math.max(0, (h * vista.z - H) / 2) + 150 : Math.max((h * vista.z) / 2, (h * vista.z - H) / 2); // nel tabellone il mare copre sempre tutto lo schermo // ogni punto della mappa si puo' portare al centro dello schermo
+  clampVista(m.offsetWidth, m.offsetHeight);
+  if (camera.el !== m) { camera.el = m; camera.zMostrata = 0; disegnaCamera(m); } // la mappa e' stata ridisegnata: rimetti subito la visuale
+  if (camera.subito) { camera.x = vista.x; camera.y = vista.y; camera.z = vista.z; camera.subito = false; disegnaCamera(m); return; }
+  if (!camera.raf) { camera.t = 0; camera.raf = requestAnimationFrame(passoCamera); }
+}
+function disegnaCamera(m) {
+  m = m || $("#mappa"); if (!m) return;
+  m.style.transform = `translate3d(calc(-50% + ${camera.x.toFixed(2)}px), calc(-50% + ${camera.y.toFixed(2)}px), 0) scale(${camera.z.toFixed(4)})`;
+  // le caselle si ridimensionano solo quando lo zoom cambia davvero (ricalcolarle a ogni fotogramma rallenta)
+  if (Math.abs(camera.z - camera.zMostrata) / camera.z > 0.004) { camera.zMostrata = camera.z; m.style.setProperty("--z", camera.z.toFixed(4)); $("#mondo").classList.toggle("vicino", camera.z >= 1.6); }
+}
+function passoCamera(t) {
+  camera.raf = 0;
+  const m = $("#mappa"); if (!m || TRE3D) return;
+  const dt = camera.t ? Math.min(0.05, (t - camera.t) / 1000) : 1 / 60; camera.t = t;
+  const I = camera.inerzia;
+  if (I) { // dopo aver lasciato il trascinamento la mappa scivola ancora un po' e rallenta
+    vista.x += I.vx * dt * 1000; vista.y += I.vy * dt * 1000; const f = Math.exp(-dt * 6); I.vx *= f; I.vy *= f;
+    const w = m.offsetWidth, h = m.offsetHeight, px = vista.x, py = vista.y; clampVista(w, h);
+    if (px !== vista.x) I.vx = 0; if (py !== vista.y) I.vy = 0;
+    if (Math.hypot(I.vx, I.vy) < 0.02) camera.inerzia = null;
+  }
+  const k = 1 - Math.exp(-dt * (I ? 40 : 14));
+  camera.x += (vista.x - camera.x) * k; camera.y += (vista.y - camera.y) * k;
+  camera.z *= Math.pow(vista.z / camera.z, k); // lo zoom si avvicina in proporzione: da lontano e da vicino ha la stessa velocita'
+  const fermo = !camera.inerzia && Math.abs(vista.x - camera.x) < 0.3 && Math.abs(vista.y - camera.y) < 0.3 && Math.abs(vista.z / camera.z - 1) < 0.0008;
+  if (fermo) { camera.x = vista.x; camera.y = vista.y; camera.z = vista.z; camera.zMostrata = 0; }
+  disegnaCamera(m);
+  if (!fermo) camera.raf = requestAnimationFrame(passoCamera);
+}
+function clampVista(w, h) {
+  const W = innerWidth, H = innerHeight;
+  const maxX = TAB ? Math.max(0, (w * vista.z - W) / 2) + 60 : Math.max((w * vista.z) / 2, (w * vista.z - W) / 2), maxY = TAB ? Math.max(0, (h * vista.z - H) / 2) + 150 : Math.max((h * vista.z) / 2, (h * vista.z - H) / 2);
   vista.x = Math.max(-maxX, Math.min(maxX, vista.x)); vista.y = Math.max(-maxY, Math.min(maxY, vista.y));
-  m.style.transform = `translate(calc(-50% + ${vista.x}px), calc(-50% + ${vista.y}px)) scale(${vista.z})`;
-  m.style.setProperty("--z", vista.z);
-  $("#mondo").classList.toggle("vicino", vista.z >= 1.6);
 }
 // v101c: nel tabellone si puo' allontanare finche' tutta la mappa entra nello schermo
 // v102b: lo spazio libero tra i pannelli (in alto i dati, in basso la carta, a destra la Vista)
@@ -1177,29 +1207,7 @@ function tieniInVista(px, py, sempre) {
 }
 let turnoVisto = null;
 function seguiMioTurno() { if (!S || !mioTurno()) { turnoVisto = null; return; } const k = (S.giorno || 0) + "|" + S.turno; if (k === turnoVisto) return; turnoVisto = k; const me = io(); if (me) { const [x, y] = puntoMappa(disp[mioId] || me); tieniInVista(x, y, true); } }
-// muovendo il mouse verso il bordo dello schermo la mappa scorre (come nei giochi di strategia)
-const bordo = { x: 0, y: 0, attivo: false };
-function scorriAlBordo(t) {
-  requestAnimationFrame(scorriAlBordo);
-  const dt = Math.min(0.05, ((t || 0) - (bordo.ultimo || t || 0)) / 1000); bordo.ultimo = t;
-  if (!bordo.dentro || !S || (S.fase === "notte" && S.notte) || document.querySelector(".velo,#guida")) return;
-  const Z = 70, W = innerWidth, H = innerHeight;
-  // vicino al bordo scorre solo sopra la mappa; proprio sul bordo (24 px) scorre sempre, anche sopra i pannelli
-  if (!bordo.attivo && !(bordo.x < 24 || bordo.y < 24 || bordo.x > W - 24 || bordo.y > H - 24)) return;
-  const fx = bordo.x < Z ? -(Z - bordo.x) / Z : bordo.x > W - Z ? (bordo.x - (W - Z)) / Z : 0;
-  const fy = bordo.y < Z ? -(Z - bordo.y) / Z : bordo.y > H - Z ? (bordo.y - (H - Z)) / Z : 0;
-  if (!fx && !fy) return;
-  const v = 1100 * dt; // pixel al secondo, uguale su ogni computer
-  if (TRE3D) Tre.sposta(fx * v, fy * v);
-  else { vista.x -= fx * v; vista.y -= fy * v; $("#mondo").classList.add("trascino"); applicaVista(); clearTimeout(bordo.t); bordo.t = setTimeout(() => $("#mondo").classList.remove("trascino"), 150); }
-}
-addEventListener("mousemove", (e) => {
-  bordo.x = e.clientX; bordo.y = e.clientY; bordo.dentro = true;
-  // sopra i pannelli (soldi, carta, telefono, legenda...) non scorre
-  bordo.attivo = !!e.target.closest && !!e.target.closest("#mondo") && !e.target.closest(".scheda-cas");
-});
-document.addEventListener("mouseleave", () => { bordo.attivo = false; bordo.dentro = false; });
-requestAnimationFrame(scorriAlBordo);
+// v108b: niente piu' scorrimento passando col mouse vicino al bordo: la mappa si sposta solo premendo e trascinando
 let apertaVicino = false;
 function apriMappaVicino(me) {
   if (apertaVicino || !S || S.fase === "notte") return;
@@ -1215,7 +1223,7 @@ function collegaEsplora() {
     const rotella = e.deltaMode === 1 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 40 && Number.isInteger(e.deltaY));
     if (e.ctrlKey) zoomA(vista.z * Math.pow(1.012, -e.deltaY), e.clientX, e.clientY);          // pizzico sul trackpad
     else if (rotella) zoomA(vista.z * Math.pow(1.0018, -e.deltaY * (e.deltaMode === 1 ? 33 : 1)), e.clientX, e.clientY); // rotellina del mouse
-    else { vista.x -= e.deltaX; vista.y -= e.deltaY; $("#mondo").classList.add("trascino"); applicaVista(); clearTimeout(vista.t); vista.t = setTimeout(() => $("#mondo").classList.remove("trascino"), 120); } // due dita sul trackpad
+    else zoomA(vista.z * Math.pow(1.004, -e.deltaY), e.clientX, e.clientY); // v108b: due dita sul trackpad = zoom, la mappa non scorre da sola
   }, { passive: false });
   // Safari: il pizzico arriva come "gesture"
   let gz = 1;
@@ -1233,14 +1241,20 @@ function collegaEsplora() {
     if (TRE3D) return;
     if (e.target.closest("button")) return;
     tocchi.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (tocchi.size === 1) trascina = { x: e.clientX, y: e.clientY, vx: vista.x, vy: vista.y };
+    camera.inerzia = null;
+    if (tocchi.size === 1) trascina = { x: e.clientX, y: e.clientY, vx: vista.x, vy: vista.y, ux: e.clientX, uy: e.clientY, ut: performance.now(), velx: 0, vely: 0 };
     if (tocchi.size === 2) { const [a, b] = [...tocchi.values()]; trascina = { pinch: Math.hypot(a.x - b.x, a.y - b.y), z: vista.z, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 }; }
   });
   addEventListener("pointermove", (e) => {
     if (!trascina || !tocchi.has(e.pointerId)) return;
     tocchi.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (trascina.pinch && tocchi.size === 2) { const [a, b] = [...tocchi.values()]; zoomA(trascina.z * Math.hypot(a.x - b.x, a.y - b.y) / trascina.pinch, trascina.cx, trascina.cy); return; }
-    if (!trascina.pinch) { vista.x = trascina.vx + e.clientX - trascina.x; vista.y = trascina.vy + e.clientY - trascina.y; mondo.classList.add("trascino"); applicaVista(); }
+    if (!trascina.pinch) {
+      const ora = performance.now(), dtm = Math.max(1, ora - trascina.ut), a = Math.min(1, dtm / 60);
+      trascina.velx = trascina.velx * (1 - a) + ((e.clientX - trascina.ux) / dtm) * a; trascina.vely = trascina.vely * (1 - a) + ((e.clientY - trascina.uy) / dtm) * a;
+      trascina.ux = e.clientX; trascina.uy = e.clientY; trascina.ut = ora;
+      vista.x = trascina.vx + e.clientX - trascina.x; vista.y = trascina.vy + e.clientY - trascina.y; mondo.classList.add("trascino"); camera.subito = true; applicaVista();
+    }
   });
   let inizio = null;
   mondo.addEventListener("pointerdown", (e) => { inizio = { x: e.clientX, y: e.clientY }; }, true);
@@ -1249,7 +1263,13 @@ function collegaEsplora() {
     if (inizio && Math.hypot(e.clientX - inizio.x, e.clientY - inizio.y) > 6) return;
     schedaCasella(c.dataset.cas, e.clientX, e.clientY);
   });
-  const fine = (e) => { tocchi.delete(e.pointerId); if (!tocchi.size) { trascina = null; mondo.classList.remove("trascino"); } };
+  const fine = (e) => {
+    tocchi.delete(e.pointerId);
+    if (!tocchi.size) {
+      if (trascina && !trascina.pinch && !TRE3D && performance.now() - trascina.ut < 80 && Math.hypot(trascina.velx, trascina.vely) > 0.15) { camera.inerzia = { vx: trascina.velx, vy: trascina.vely }; applicaVista(); }
+      trascina = null; mondo.classList.remove("trascino");
+    }
+  };
   addEventListener("pointerup", fine); addEventListener("pointercancel", fine);
   addEventListener("resize", applicaVista);
 }

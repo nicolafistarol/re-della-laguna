@@ -808,3 +808,7 @@ body.cammino #mondo { z-index:17 }
 .gr-sotto{margin:6px 0 4px;min-height:20px}
 /* v102b: vista intera del tabellone, le caselle rimpiccioliscono un po' con la mappa per non accavallarsi */
 #mondo.tab #mappa .cas,#mondo.tab #mappa .ped,#mondo.tab #mappa .luogo,#mondo.tab #mappa .torre,#mondo.tab .isola-nome{scale:calc(1 / max(var(--z), .8))}
+/* v108b: la telecamera si muove a ogni fotogramma da JavaScript: niente transizione CSS sulla trasformazione (dava scatti e ritardi) */
+#mappa{transition:filter 1s;will-change:transform;backface-visibility:hidden}
+#mondo:not(.tre) #mappa{cursor:grab}
+#mondo.trascino #mappa{cursor:grabbing}
