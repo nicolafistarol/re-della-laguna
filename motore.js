@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 144;
+  const VERSIONE_REGOLE = 145;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -2071,7 +2071,7 @@
     faro: [["Le onde coprono ogni rumore. Qui nessuno ascolta.", "Il guardiano del Faro guarda il mare, non te."], ["Sulla scogliera c'è una seconda barca ormeggiata.", "Senti delle voci dietro la torre."], ["Il guardiano parla al telefono e ti guarda.", "Sul molo ci sono impronte fresche di scarponi."]],
   };
   const LIVELLI_PERICOLO = ["tranquillo", "agitato", "pericoloso"];
-  const P_GUAI = [0.10, 0.30, 0.55];
+  const P_GUAI = [0.15, 0.40, 0.60]; // v145: prima [0,10, 0,30, 0,55]: con la polizia agitata i guai arrivano davvero (il giudice: 6 affari riusciti su 7)
 
   // Il livello di ogni giocatore sale con i soldi: piu' sei ricco, piu' cose si aprono (non si torna indietro)
   const SOGLIE_LIVELLO = SOGLIE_BASE;
@@ -2873,7 +2873,7 @@
     o.preso = p.id;
     s.notte.fatto[p.id] = { n, oggetti, costo: O.costo || 0 };
     if (!O.legale) { p.luoghiNotte = p.luoghiNotte || {}; p.luoghiNotte[o.luogo] = true; p.abitudini = p.abitudini || {}; p.abitudini[o.luogo] = (p.abitudini[o.luogo] || 0) + 1; }
-    if (aScelte && !O.legale && O.guadagno && COLPI[O.id]) return iniziaColpo(s, p, o, O, oggetti);
+    if (aScelte && !O.legale && O.guadagno) return iniziaColpo(s, p, o, O, oggetti); // v145: tutti gli affari sporchi si giocano a bivi
     s.notte.chiuso[p.id] = true;
     racconta(s, p, O.legale ? O.nome + ": ci stai." : O.nome + ": accetti." + (oggetti.length ? " Porti con te: " + oggetti.map((x) => oggettoDef(x).nome.toLowerCase()).join(", ") + "." : ""));
     risolviOccasione(s, p, s.notte.fatto[p.id]);
@@ -3289,20 +3289,102 @@
     { l: "Tiri dritto", d: "Se il pericolo è vero ti prende in pieno. Se non lo è, il sangue freddo paga: +15%.", k: "dritto" },
   ];
   function rng2(s, p, C) { return ((C.n * 7 + s.ciclo * 13 + p.id.length) % 3) !== 0; } // 2 volte su 3 te ne accorgi (fisso: la vista non tira dadi)
+
+  // v145 (il giudice: "i bivi sono sempre gli stessi"): imprevisti che entrano a caso nel mezzo di un affare, legati al posto e agli oggetti
+  const IMPREVISTI = [
+    { k: "ragazzino", t: "Un ragazzino ti fissa e tira fuori il telefono.", o: [
+      { l: "Gli allunghi una banconota", d: "Se ne va contento, e senza foto.", gu: 0.85, ga: 1, tr: 0.9, costo: 20_000 },
+      { l: "Fai finta di niente", d: "Forse non stava riprendendo te.", gu: 1.15, ga: 1, tr: 1.1 },
+      { l: "Gli fai paura", d: "Scappa via. Ma se lo racconta a qualcuno...", gu: 0.95, ga: 1, tr: 1.3 } ] },
+    { k: "prezzo", t: "Il tuo contatto alza il prezzo all'ultimo momento.", o: [
+      { l: "Paghi e chiudi", d: "Lui è contento e ti passa anche la merce migliore.", gu: 1, ga: 1.1, tr: 1, quota: 0.15 },
+      { l: "Tratti, a voce bassa", d: "Ci vuole tempo, e il tempo qui è rischio.", gu: 1.15, ga: 0.95, tr: 1 },
+      { l: "Ti prendi solo metà", d: "Meno soldi, meno tempo, meno guai.", gu: 0.7, ga: 0.6, tr: 0.7 } ] },
+    { k: "pioggia", t: "Si mette a piovere forte. Non si vede a tre metri.", o: [
+      { l: "Approfitti della pioggia", d: "Nessuno guarda, ma la merce si bagna.", gu: 0.85, ga: 0.9, tr: 0.8 },
+      { l: "Ti sbrighi", d: "Carichi tutto prima che spiova.", gu: 1.1, ga: 1.1, tr: 1 },
+      { l: "Aspetti che smetta", d: "Più calma, più tempo in giro.", gu: 1.05, ga: 1, tr: 1.1 } ] },
+    { k: "pattuglia", t: "Passa una pattuglia a passo d'uomo, col finestrino giù.", o: [
+      { l: "Ti nascondi e aspetti", d: "Perdi tempo e un po' di carico.", gu: 0.8, ga: 0.85, tr: 1 },
+      { l: "Fai il turista che si è perso", d: "Ti guardano bene in faccia.", gu: 1, ga: 1, tr: 1.3 },
+      { l: "Accendi il disturbatore", d: "La loro radio gracchia e se ne vanno.", gu: 0.6, ga: 1, tr: 0.9, ogg: "disturbatore" } ] },
+    { k: "socio", t: "Un compratore in più vuole entrare nell'affare.", o: [
+      { l: "Lo fai entrare", d: "Più soldi, ma una bocca in più che può parlare.", gu: 1.2, ga: 1.25, tr: 1.15 },
+      { l: "Gli alzi il prezzo", d: "Se ci sta, guadagni. Se si offende, parla.", gu: 1.1, ga: 1.12, tr: 1 },
+      { l: "Lo mandi via", d: "Nessun rischio in più.", gu: 1, ga: 1, tr: 1 } ] },
+    { k: "difetto", t: "Metà della merce è rovinata.", o: [
+      { l: "La vendi tutta lo stesso", d: "Qualcuno si lamenterà, e si ricorderà di te.", gu: 1, ga: 1.1, tr: 1.25 },
+      { l: "Prendi solo la buona", d: "Meno soldi, ma nessuno ti cerca dopo.", gu: 0.9, ga: 0.8, tr: 0.85 } ] },
+    { k: "autista", t: "Il tuo autista non risponde al telefono.", o: [
+      { l: "Aspetti che richiami", d: "Resti fermo col carico in mano.", gu: 1.2, ga: 1, tr: 1 },
+      { l: "Te ne vai a piedi", d: "Porti via solo quello che entra nelle tasche.", gu: 0.9, ga: 0.8, tr: 1 },
+      { l: "Chiami un taxi abusivo", d: "Il tassista non fa domande, se paghi.", gu: 0.9, ga: 1, tr: 1, costo: 30_000 } ] },
+    { k: "giornalista", t: "Una giornalista fa domande al bar qui accanto.", o: [
+      { l: "Le offri da bere e la distrai", d: "Parla di tutto tranne che di te.", gu: 0.9, ga: 1, tr: 0.8, costo: 25_000 },
+      { l: "Cambi giro", d: "Allunghi la strada e perdi un cliente.", gu: 0.95, ga: 0.85, tr: 0.9 },
+      { l: "La ignori", d: "Magari non scrive niente.", gu: 1, ga: 1, tr: 1.4 } ] },
+    { k: "blackout", t: "Salta la luce in tutto il quartiere.", o: [
+      { l: "Approfitti del buio", d: "Ci vedi poco anche tu, ma nessuno ti vede.", gu: 0.85, ga: 1.15, tr: 0.9 },
+      { l: "Ti fermi finché torna", d: "Al buio si fanno errori.", gu: 0.75, ga: 0.8, tr: 1 } ] },
+    { k: "cane", t: "Un cane si mette ad abbaiare e non smette più.", o: [
+      { l: "Gli lanci un panino", d: "Si zittisce. Per ora.", gu: 0.95, ga: 1, tr: 1 },
+      { l: "Ti allontani col carico", d: "Lasci indietro qualcosa.", gu: 0.85, ga: 0.9, tr: 1 },
+      { l: "Tiri dritto", d: "Le finestre intorno si accendono.", gu: 1.2, ga: 1.05, tr: 1.1 } ] },
+    { k: "informatore", t: "Il tuo informatore ti scrive: «cambia strada, adesso».", o: [
+      { l: "Gli credi", d: "Allunghi il giro, prendi meno.", gu: 0.8, ga: 0.9, tr: 1 },
+      { l: "Non gli credi", d: "L'ultima volta si è sbagliato.", gu: 1.15, ga: 1.05, tr: 1 },
+      { l: "Paghi per sapere di più", d: "Ti dice dov'è il posto di blocco.", gu: 0.7, ga: 1, tr: 1, quota: 0.1 } ] },
+    { k: "marea", luoghi: ["marina", "porto", "faro", "villa"], t: "La marea sale più in fretta del previsto.", o: [
+      { l: "Carichi in fretta", d: "Tutto a bordo, con l'acqua alle ginocchia.", gu: 1.1, ga: 1.1, tr: 1 },
+      { l: "Aspetti l'onda giusta", d: "Più tempo, meno carico.", gu: 0.9, ga: 0.9, tr: 1 },
+      { l: "Molli la parte pesante", d: "Si perde in mare. Anche le prove.", gu: 0.8, ga: 0.75, tr: 0.7 } ] },
+    { k: "buttafuori", luoghi: ["casino", "bisca", "club", "prive"], t: "Un buttafuori ti riconosce e ti viene incontro.", o: [
+      { l: "Una mancia generosa", d: "Non ti ha mai visto.", gu: 0.8, ga: 1, tr: 0.9, costo: 30_000 },
+      { l: "Esci dal retro", d: "Lasci giù un cliente.", gu: 0.9, ga: 0.85, tr: 1 },
+      { l: "Ti metti la maschera", d: "Una festa in maschera: nessuno sa chi sei.", gu: 0.65, ga: 1, tr: 0.8, ogg: "maschera" },
+      { l: "Fai finta di niente", d: "Ti guarda fisso fino all'uscita.", gu: 1.25, ga: 1, tr: 1.2 } ] },
+    { k: "dogana", luoghi: ["aeroporto", "porto", "mercato"], t: "Un doganiere in borghese controlla i documenti di tutti.", o: [
+      { l: "Mostri i documenti falsi", d: "Passano. Stavolta.", gu: 0.6, ga: 1, tr: 0.9, ogg: "documenti" },
+      { l: "Aspetti che finisca il turno", d: "Un'ora persa, merce che scotta.", gu: 1.05, ga: 0.9, tr: 1 },
+      { l: "Passi lo stesso, sorridendo", d: "Sangue freddo, o follia.", gu: 1.3, ga: 1.1, tr: 1.1 } ] },
+  ];
+  const PASSO_FINALE = { t: "Il lavoro è quasi fatto. Quanto ti porti via?", o: [
+    { l: "Il giusto", d: "Quello che avevi messo in conto.", gu: 1, ga: 1, tr: 1 },
+    { l: "Tutto quello che entra", d: "Più soldi, più peso, più occhi addosso.", gu: 1.25, ga: 1.25, tr: 1.2 },
+    { l: "Poco e pulito", d: "Lasci giù la parte che scotta.", gu: 0.75, ga: 0.8, tr: 0.8 } ] };
+  // i passi di questo colpo: quelli suoi (o uno generico) con un imprevisto a caso nel mezzo, 3 volte su 4
+  function passiColpo(s, p, o, O, oggetti) {
+    const base = (COLPI[O.id] || [PASSO_FINALE]).slice();
+    if (rng(s) < 0.75) {
+      const ok = IMPREVISTI.filter((x) => (!x.luoghi || x.luoghi.includes(o.luogo)) && x.k !== p.ultimoImprevisto);
+      const I = ok[Math.floor(rng(s) * ok.length)];
+      if (I) {
+        p.ultimoImprevisto = I.k;
+        const opz = I.o.filter((x) => !x.ogg || haOggetto(p, x.ogg) || (oggetti || []).includes(x.ogg)).map((x) => { const y = { ...x }; if (y.quota) { y.costo = round(Math.max(20_000, (O.costo || 0) * y.quota) / 1000) * 1000; delete y.quota; } delete y.ogg; return y; });
+        base.splice(Math.min(1, base.length), 0, { t: I.t, o: opz });
+      }
+    }
+    return base;
+  }
+  function passiDi(C, O) { return C.passi || COLPI[O.id] || [PASSO_FINALE]; }
   function iniziaColpo(s, p, o, O, oggetti) {
     s.notte.colpi = s.notte.colpi || {};
-    s.notte.colpi[p.id] = { n: o.n, oggetti, passo: 0, gu: 1, ga: 1, tr: 1, quando: adesso(), storia: [] };
+    s.notte.colpi[p.id] = { n: o.n, oggetti, passo: 0, gu: 1, ga: 1, tr: 1, quando: adesso(), storia: [], passi: passiColpo(s, p, o, O, oggetti) };
     racconta(s, p, O.nome + ": accetti." + (oggetti.length ? " Porti con te: " + oggetti.map((x) => oggettoDef(x).nome.toLowerCase()).join(", ") + "." : "") + " Adesso tocca a te giocartela.");
   }
-  function tettoColpo(O) { return 3 * Math.max(O.costo || 0, 100_000); } // v136: prima 4 x (almeno 150.000): con 80.000 tornavi con 600.000
+  function tettoColpo(O) { return 3.3 * Math.max(O.costo || 0, 100_000); } // v145: 3,3 volte (v136: 3; prima 4 x almeno 150.000)
+  // v145 (il giudice: "lo sporco rende sempre 3 volte"): Livello, fama e setta spostano la forbice, ma solo fino a +25%
+  function kNotte(s, p) { return clamp((1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p) / 1.3, 0.8, 1.25); }
+  // v145: se torni a lavorare nello stesso posto il bottino cala (-15% a volta, fino a -45%); a ogni Alba la zona si raffredda di un passo
+  function zonaBruciata(p, luogo) { const n = (p && p.zone && luogo && p.zone[luogo]) || 0; return Math.max(0.55, 1 - 0.15 * n); }
   // v136: la forbice che il giocatore legge prima di accettare. Il guadagno vero non la supera mai.
-  function guadagnoMostrato(s, p, O) { if (!O.guadagno) return [0, 0]; const k = (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p); return O.guadagno.map((x) => round(Math.min(tettoColpo(O), x * k))); }
+  function guadagnoMostrato(s, p, O, luogo) { if (!O.guadagno) return [0, 0]; const k = kNotte(s, p) * zonaBruciata(p, luogo || O.luogo); return [round(Math.min(tettoColpo(O) * 0.6, O.guadagno[0] * 0.68 * k)), round(Math.min(tettoColpo(O), O.guadagno[1] * 0.86 * k))]; } // v145: una forbice vera, da circa 1,5 a 3 volte la puntata
   // la parte del colpo che il giocatore puo' vedere (mai il guaio gia' deciso)
   function colpoVisibile(s, p) {
     const C = s.notte && s.notte.colpi && s.notte.colpi[p.id]; if (!C) return null;
-    const o = s.notte.occasioni.find((x) => x.n === C.n), O = OCCASIONI.find((x) => x.id === o.id), passi = COLPI[O.id];
+    const o = s.notte.occasioni.find((x) => x.n === C.n), O = OCCASIONI.find((x) => x.id === o.id), passi = passiDi(C, O);
     const pg = Math.min(0.95, rischioOccasione(s, p, o, O, C.oggetti) * C.gu);
-    const g = O.guadagno.map((x) => round(Math.min(tettoColpo(O), x * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p) * C.ga)));
+    const gm = guadagnoMostrato(s, p, O, o.luogo), tetto = tettoColpo(O) * clamp(C.ga, 1, 1.2), g = gm.map((x) => round(Math.min(tetto, x * C.ga))); // v145: le scelte rischiose alzano anche il tetto, e il bottino si aggiorna
     const ultimo = C.passo >= passi.length;
     return { nome: O.nome, luogo: o.luogo, passo: C.passo, passi: passi.length + 1, rischio: Math.round(pg * 100), bottino: g, tracce: Math.round(O.tracce * 0.75 * C.tr), quando: C.quando, tempo: TEMPO_BIVIO, adesso: adesso(), storia: C.storia,
       testo: ultimo ? "Il momento della verità. " + C.segnale : passi[C.passo].t, segnale: ultimo ? C.segnaleBrutto : null,
@@ -3313,7 +3395,7 @@
     inNotte2(s, p);
     const C = s.notte.colpi && s.notte.colpi[p.id]; if (!C) err("Non sei in un colpo.");
     if (C.quando && adesso() - C.quando > (TEMPO_BIVIO + 4) * 1000) esitato = true; // troppo tardi: hai esitato
-    const o = s.notte.occasioni.find((x) => x.n === C.n), O = OCCASIONI.find((x) => x.id === o.id), passi = COLPI[O.id];
+    const o = s.notte.occasioni.find((x) => x.n === C.n), O = OCCASIONI.find((x) => x.id === o.id), passi = passiDi(C, O);
     i = Number(i) || 0;
     if (C.passo < passi.length) {
       const opz = passi[C.passo].o; if (i < 0 || i >= opz.length) err("Scelta sconosciuta.");
@@ -3371,9 +3453,11 @@
     if (o.luogo === "aeroporto" && p.corrotti.doganiere) p.corrotti.doganiere.usi = (p.corrotti.doganiere.usi || 0) + 1;
     const pg = cx ? cx.pg : rischioOccasione(s, p, o, O, usati);
     const guaio = cx ? cx.guaio : O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
-    let guadagno = O.guadagno ? (O.guadagno[0] + rng(s) * (O.guadagno[1] - O.guadagno[0])) * (1 + 0.2 * lustro(s, p)) * N.bonusIllegale * moltIllegale(s, p) : 0;
-    guadagno *= sitMult(s, "ga", { luogo: o.luogo, occ: O.id }) * strumentiMult(s, p, "ga", usati, { luogo: o.luogo, occ: O.id }) * (cx ? cx.ga : 1);
-    guadagno = Math.min(guadagno, tettoColpo(O), Math.round(guadagnoMostrato(s, p, O)[1] * (cx ? cx.ga : 1))); // v104, v136: mai piu' del massimo scritto (al massimo 3 volte la puntata)
+    const gm = guadagnoMostrato(s, p, O, o.luogo), gaX = cx ? cx.ga : 1;
+    let guadagno = O.guadagno ? gm[0] + rng(s) * (gm[1] - gm[0]) : 0; // v145: l'esito cade davvero dentro la forbice scritta
+    guadagno *= sitMult(s, "ga", { luogo: o.luogo, occ: O.id }) * strumentiMult(s, p, "ga", usati, { luogo: o.luogo, occ: O.id }) * gaX;
+    guadagno = Math.min(guadagno, tettoColpo(O) * clamp(gaX, 1, 1.2), Math.round(gm[1] * Math.max(1, gaX))); // mai piu' del massimo scritto (alzato dalle scelte rischiose)
+    p.zone = p.zone || {}; p.zone[o.luogo] = (p.zone[o.luogo] || 0) + 1; // v145: la zona si brucia
     tracce += guadagno / 250_000; // v104: piu' soldi sporchi muovi, piu' tracce lasci (1 milione = +4)
     if (denunciatoQui(s, p, o.luogo)) esitoDenuncia(s, p, o.luogo, guaio, O.nome);
     if (guaio) {
@@ -5391,6 +5475,7 @@
     perquisizioni(s);
     s.retataAnnunciata = false;
     for (const p of s.players) {
+      if (p.zone) for (const k of Object.keys(p.zone)) { p.zone[k] -= 1; if (p.zone[k] <= 0) delete p.zone[k]; } // v145: le zone si raffreddano
       const cash0 = p.cash, sporchi0 = p.sporchi || 0; // v125: i conti dell'Alba sono la differenza vera dei contanti (puliti) e degli sporchi
       const r = { rendite: 0, tasse: 0, evasa: 0, stipendioSindaco: 0, interessi: 0, corruzione: 0, veicoli: 0, palazzo: 0, decima: 0 };
       // rendite
@@ -6311,7 +6396,7 @@
     // carte e serate
     punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso),
     // polizia e pene
-    descriviPena, PREMIO_SOCIO, ROSSI, GIRI_ORA, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, guadagnoMostrato, tacche, TETTO_SCONTI, MULTA_CONDANNA,
+    descriviPena, PREMIO_SOCIO, ROSSI, GIRI_ORA, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, guadagnoMostrato, zonaBruciata, tacche, TETTO_SCONTI, MULTA_CONDANNA,
     rischioResa, rischioPerquisizione, rischioRicicla, bonusSetta, quotaRicicla, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     // setta
     livelloSetta, influenzaDi, OPERE, costoOpera,
