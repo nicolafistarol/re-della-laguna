@@ -458,8 +458,8 @@ function grandiBot(o, i, n) {
       }
       if (o.pending && "asta" === o.pending.tipo && o.pending.partecipanti.includes(i.id) && void 0 === o.pending.offerte[i.id]) {
         const t = o.lotti.find((t) => t.id === o.pending.lotto),
-          e = (o.pending.busta ? 0.55 : 0.7) + 0.5 * Math.random() + (o.pending.busta ? 0 : 0.2 * interesseGruppo(o, i, t)),
-          r = 3e5,
+          e = (o.pending.busta ? 0.6 : 0.85) + 0.3 * Math.random() + (o.pending.busta ? 0 : 0.2 * interesseGruppo(o, i, t)), // v144: i computer rilanciano davvero (85-115% del valore)
+          r = 15e4,
           valore = o.pending.busta && o.pending.lotti ? o.pending.lotti.reduce((a, id) => a + o.lotti.find((x) => x.id === id).prezzo, 0) : t.prezzo;
         { const v = Math.max(0, Math.min(i.cash - r, Math.round(valore * e))); const mn = (o.pending.minimoDi && o.pending.minimoDi[i.id]) || o.pending.minimo; return { tipo: "offerta", importo: mn && v < mn ? 0 : v }; }
       }

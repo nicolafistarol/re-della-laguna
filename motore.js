@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 143;
+  const VERSIONE_REGOLE = 144;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -50,7 +50,7 @@
     pianoRendGrow: 1.08, // di quanto cresce la RENDITA di ogni piano in piu' (gen 1: come il costo)
     lussoRend: 1, permessoBollo: 0, decimaMax: 0, terrenoInizialeMin: 150_000,
     illegaleLivello: [1, 1, 1, 1, 1], // gli affari della notte valgono di piu' salendo di Livello (solo gen 2)
-    astaBase: 0.6, // base d'asta: il 60% del prezzo del terreno. Sotto non si vende (vale per tutte le aste dei terreni)
+    astaBase: 0.75, // v144: base d'asta al 75% (prima 60%: chi rifiutava ricomprava a poco) del prezzo del terreno. Sotto non si vende (vale per tutte le aste dei terreni)
     bonusIllegale: 1.0, // v104: prima 1.4; gli affari della notte rendono il 40% in piu': tanto premio, tanto rischio
     borsaMu: 0.21, dividendoInv: 0.04, borsaSd: 0.16, criptoMu: 0.40, criptoSd: 0.50, criptoCrash: 0.12,
     caricoBase: 350_000, caricoGrow: 150_000, caricoMax: 3_000_000, caricoMagazzino: 1.5,
@@ -86,7 +86,7 @@
   // Vuoto finche' nessuno ne aggiunge: num(s, k) allora da' sempre N[k].
   const N_GEN2 = {
     // --- economia e Palazzo
-    pianoRend: 0.34,       // v95: capo Fista "girano soldi troppo facilmente": il Palazzo rendeva quanto tutti i terreni insieme (sim: 121 M a testa in 16 Cicli). Prima 0,62
+    pianoRend: 0.42,       // v144: prima 0,34 (il giudice: in 6 Cicli il Palazzo non si ripagava). v95: capo Fista "girano soldi troppo facilmente": il Palazzo rendeva quanto tutti i terreni insieme (sim: 121 M a testa in 16 Cicli). Prima 0,62
     R: 0.55,               // v136: prima 0,62 (il tester: le attivita' si ripagavano in un Ciclo). v95: le attivita' rendono un terzo in meno (prima 0,95): i soldi sono scarsi, ogni spesa e' una scelta
     pianoRendGrow: 1.04,   // ECO-01: la rendita dei piani cresce meno del loro costo. Il rapporto diceva 1,05: provato insieme agli altri ritocchi dava 800 M a 20 Cicli, con 1,04 circa 600 M
     borsaMu: 0.18,         // ECO-05: con 0,36 l'Investitore vinceva 7 partite su 10; con 0,24 ancora 4 su 10 (sim 18/11 sera); 0,18 = come le partite vecchie
@@ -110,21 +110,21 @@
 
   // Tipi di attivita': rendita (x R), affitto (x), copertura (quota prezzo x livello), attenzione
   const ATTIVITA = {
-    residenze: { nome: "Residenze", perk: "Rende poco, ma chi ci finisce sopra paga il doppio d'affitto.", perche: "Sceglila sulle caselle dove gli altri cadono spesso: l'affitto è doppio.", rischio: "Nessuno.", gruppo: "residenze", r: 0.45, a: 2.0, c: 0, att: 0, isole: null },
-    ristorante: { nome: "Ristorante", perk: "Rende bene, sempre. È l'attività normale.", perche: "Sceglilo quando vuoi solo soldi sicuri a ogni Alba.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Ambra", "Palma", "Corona"] },
-    hotel: { nome: "Hotel di lusso", perk: "Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", perche: "Sceglilo se ti serve fama: elezioni, sale riservate di notte, livello Icona.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma", "Flamingo", "Corona"], lusso: true },
-    boutique: { nome: "Boutique di lusso", perk: "Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", perche: "Sceglila se ti serve fama: elezioni, sale riservate di notte, livello Icona.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Flamingo", "Corona"], lusso: true },
-    uffici: { nome: "Uffici e hub tech", perk: "Ci lavorano le aziende tech: ogni ufficio fa salire SoleTech in Borsa.", perche: "Sceglili se hai (o vuoi) azioni SoleTech: ogni ufficio le spinge su.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Sole", "Corona"] },
-    yachtclub: { nome: "Yacht club", perk: "Il tuo porticciolo: yacht, elicottero e jet che dai a noleggio rendono il 25% in più.", perche: "Sceglilo se hai mezzi a noleggio: yacht, elicottero, jet.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, a: 1.0, c: 0.3, att: 0, isole: ["Palma"] },
-    agenzia: { nome: "Agenzia immobiliare", perk: "Conosci chi vende: all'Agenzia compri i terreni senza il 20% in più.", perche: "Sceglila se vuoi comprare tanti terreni: all'Agenzia risparmi il 20% ogni volta.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: null },
-    legale: { nome: "Studio legale", perk: "I tuoi avvocati: se ti condannano, la multa è più bassa del 30%.", perche: "Sceglilo se fai affari sporchi: se ti condannano paghi meno.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, a: 0.8, c: 0, att: 0, isole: ["Corona", "Sole"] },
-    lavanderia: { nome: "Lavanderia", perk: "Copertura: i suoi incassi in contanti nascondono i tuoi soldi sporchi. Di notte, dal tuo Palazzo, li fai passare nei suoi conti e ne perdi solo il 15%.", perche: "Sceglila se di notte fai soldi sporchi: senza coperture li ripulisci solo al Casinò (perdi il 25%) o col jet (30%).", rischio: "Se fai affari sporchi, attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Ambra", "Sole"] },
-    galleria: { nome: "Galleria d'arte", perk: "Copertura (i quadri si vendono a prezzi che nessuno controlla) e apre l'affare «Falsi d'autore».", perche: "Sceglila se vuoi un affare tutto tuo di notte: i falsi d'autore.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Flamingo", "Corona"] },
-    magazzino: { nome: "Magazzino portuale", perk: "Copertura (merce che entra ed esce senza bolle) e al Porto carichi il 50% in più: hai dove nasconderla.", perche: "Sceglilo se fai contrabbando al Porto: carichi il 50% in più.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, a: 0.8, c: 0.8, att: 1, isole: ["Sole", "Ambra"] },
-    discoteca: { nome: "Discoteca", perk: "Rende tanto, è lusso e nel retro apre la bisca clandestina (un tuo affare della notte).", perche: "Sceglila se vuoi tanto incasso e la bisca, e accetti la polizia addosso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Flamingo", "Palma"], lusso: true },
-    beachclub: { nome: "Beach club", perk: "Rende tanto, ti dà +2 fama a ogni Alba (ci vanno i famosi) e nel retro apre la bisca clandestina.", perche: "Sceglilo se vuoi incasso e fama insieme, e accetti la polizia addosso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, a: 1.0, c: 0.5, att: 2, isole: ["Palma"] },
-    casino: { nome: "Casinò", perk: "Rende più di tutte ed è la copertura più grande: le vincite al tavolo spiegano qualsiasi contante. Serve la licenza.", perche: "Sceglilo se hai la licenza e tanti soldi sporchi da ripulire.", rischio: "La polizia lo guarda moltissimo.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 4, isole: ["Flamingo", "Corona"], licenza: true, lusso: true },
-    bancaprivata: { nome: "Banca privata", perk: "Rende più di tutte ed è una grande copertura: i conti li tieni tu. Serve tutto il gruppo di vie.", perche: "Sceglila se hai tutto il gruppo di vie a Isola Corona: rende più di tutte.", rischio: "La polizia la guarda molto.", gruppo: "rischio", r: 1.6, a: 1.2, c: 1.2, att: 3, isole: ["Corona"], serie: true },
+    residenze: { nome: "Residenze", perk: "Rende la metà del Ristorante, ma chi ci finisce sopra paga il doppio d'affitto.", perche: "Sceglila sulle caselle dove gli altri cadono spesso: l'affitto è doppio.", rischio: "Nessuno.", gruppo: "residenze", r: 0.45, cap: 0.12, a: 2.0, c: 0, att: 0, isole: null },
+    ristorante: { nome: "Ristorante", perk: "Rende bene, sempre. È l'attività normale.", perche: "Sceglilo quando vuoi solo soldi sicuri a ogni Alba.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, cap: 0.24, a: 1.0, c: 0.3, att: 0, isole: ["Ambra", "Palma", "Corona"] },
+    hotel: { nome: "Hotel di lusso", perk: "Rende un po' meno del Ristorante. Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", perche: "Sceglilo se ti serve fama: elezioni, sale riservate di notte, livello Icona.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, cap: 0.21, a: 1.0, c: 0.3, att: 0, isole: ["Palma", "Flamingo", "Corona"], lusso: true },
+    boutique: { nome: "Boutique di lusso", perk: "Rende un po' meno del Ristorante. Lusso: dal livello 3 ti dà fama e fa salire il valore dell'isola.", perche: "Sceglila se ti serve fama: elezioni, sale riservate di notte, livello Icona.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, cap: 0.21, a: 1.0, c: 0.3, att: 0, isole: ["Flamingo", "Corona"], lusso: true },
+    uffici: { nome: "Uffici e hub tech", perk: "Ci lavorano le aziende tech: ogni ufficio fa salire SoleTech in Borsa.", perche: "Sceglili se hai (o vuoi) azioni SoleTech: ogni ufficio le spinge su.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, cap: 0.22, a: 1.0, c: 0.3, att: 0, isole: ["Sole", "Corona"] },
+    yachtclub: { nome: "Yacht club", perk: "Il tuo porticciolo: yacht, elicottero e jet che dai a noleggio rendono il 25% in più.", perche: "Sceglilo se hai mezzi a noleggio: yacht, elicottero, jet.", rischio: "Nessuno.", gruppo: "reddito", r: 1.0, cap: 0.22, a: 1.0, c: 0.3, att: 0, isole: ["Palma"] },
+    agenzia: { nome: "Agenzia immobiliare", perk: "Conosci chi vende: all'Agenzia compri i terreni senza il 20% in più.", perche: "Sceglila se vuoi comprare tanti terreni: all'Agenzia risparmi il 20% ogni volta.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, cap: 0.14, a: 0.8, c: 0, att: 0, isole: null },
+    legale: { nome: "Studio legale", perk: "I tuoi avvocati: se ti condannano, la multa è più bassa del 30%.", perche: "Sceglilo se fai affari sporchi: se ti condannano paghi meno.", rischio: "Rende poco.", gruppo: "servizi", r: 0.6, cap: 0.14, a: 0.8, c: 0, att: 0, isole: ["Corona", "Sole"] },
+    lavanderia: { nome: "Lavanderia", perk: "Copertura: i suoi incassi in contanti nascondono i tuoi soldi sporchi. Di notte, dal tuo Palazzo, li fai passare nei suoi conti e ne perdi solo il 15%.", perche: "Sceglila se di notte fai soldi sporchi: senza coperture li ripulisci solo al Casinò (perdi il 25%) o col jet (30%).", rischio: "Se fai affari sporchi, attira la polizia.", gruppo: "copertura", r: 0.6, cap: 0.15, a: 0.8, c: 0.8, att: 1, isole: ["Ambra", "Sole"] },
+    galleria: { nome: "Galleria d'arte", perk: "Copertura (i quadri si vendono a prezzi che nessuno controlla) e apre l'affare «Falsi d'autore».", perche: "Sceglila se vuoi un affare tutto tuo di notte: i falsi d'autore.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, cap: 0.15, a: 0.8, c: 0.8, att: 1, isole: ["Flamingo", "Corona"] },
+    magazzino: { nome: "Magazzino portuale", perk: "Copertura (merce che entra ed esce senza bolle) e al Porto carichi il 50% in più: hai dove nasconderla.", perche: "Sceglilo se fai contrabbando al Porto: carichi il 50% in più.", rischio: "Attira la polizia.", gruppo: "copertura", r: 0.6, cap: 0.15, a: 0.8, c: 0.8, att: 1, isole: ["Sole", "Ambra"] },
+    discoteca: { nome: "Discoteca", perk: "Rende un terzo più del Ristorante, è lusso e nel retro apre la bisca clandestina (un tuo affare della notte).", perche: "Sceglila se vuoi tanto incasso e la bisca, e accetti la polizia addosso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, cap: 0.32, a: 1.0, c: 0.5, att: 2, isole: ["Flamingo", "Palma"], lusso: true },
+    beachclub: { nome: "Beach club", perk: "Rende tanto, ti dà +2 fama a ogni Alba (ci vanno i famosi) e nel retro apre la bisca clandestina.", perche: "Sceglilo se vuoi incasso e fama insieme, e accetti la polizia addosso.", rischio: "Attira molto la polizia.", gruppo: "notte", r: 1.25, cap: 0.3, a: 1.0, c: 0.5, att: 2, isole: ["Palma"] },
+    casino: { nome: "Casinò", perk: "In media rende più di tutte, ma ogni Alba è diversa (da un terzo a una volta e mezza): il banco a volte perde. È la copertura più grande: le vincite al tavolo spiegano qualsiasi contante. Serve la licenza.", perche: "Sceglilo se hai la licenza e tanti soldi sporchi da ripulire.", rischio: "La polizia lo guarda moltissimo.", gruppo: "rischio", r: 1.6, cap: 0.36, a: 1.2, c: 1.2, att: 4, isole: ["Flamingo", "Corona"], licenza: true, lusso: true },
+    bancaprivata: { nome: "Banca privata", perk: "Rende più di tutte ed è una grande copertura: i conti li tieni tu. Serve tutto il gruppo di vie.", perche: "Sceglila se hai tutto il gruppo di vie a Isola Corona: rende più di tutte.", rischio: "La polizia la guarda molto.", gruppo: "rischio", r: 1.6, cap: 0.33, a: 1.2, c: 1.2, att: 3, isole: ["Corona"], serie: true },
   };
 
   const AFFARI = {
@@ -285,7 +285,7 @@
     const t = ATTIVITA[l.tipo];
     // partite nuove: l'affitto cresce di piu' con il livello, e il gruppo completo da' +50% anche alle attivita'
     // v104: l'affitto non supera mai la meta' di quanto vale il terreno con l'attivita' (60% col gruppo completo)
-    if (gen2(s)) return round(Math.min(valoreLotto(l) * (haSerie(s, owner, l.serie) ? 0.6 : 0.5) * (owner.pacchetto === "commerciante" ? 1.25 : 1), base * t.a * num(s, "affLvl")[l.lvl] * (haSerie(s, owner, l.serie) ? 1.5 : 1) * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1) * sm));
+    if (gen2(s)) return round(Math.min(valoreLotto(l) * (haSerie(s, owner, l.serie) ? 0.6 : 0.5) * Math.max(1, t.a) * (owner.pacchetto === "commerciante" ? 1.25 : 1), base * t.a * num(s, "affLvl")[l.lvl] * (haSerie(s, owner, l.serie) ? 1.5 : 1) * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1) * sm));
     return round(base * t.a * N.affLvl[l.lvl] * vmult(s, l.isola) * (owner.pacchetto === "commerciante" ? 1.25 : 1) * sm);
   }
   function rendita(s, l) {
@@ -293,7 +293,7 @@
     const t = ATTIVITA[l.tipo];
     let r = num(s, "R") * t.r * N.rendLvl[l.lvl] * l.prezzo * vmult(s, l.isola) * sitMult(s, "re", { isola: l.isola, tipo: l.tipo });
     if (gen2(s) && lussoFama(t)) r *= num(s, "lussoRend");
-    if (gen2(s)) r = Math.min(r, 0.25 * valoreLotto(l) * sitMult(s, "re", { isola: l.isola, tipo: l.tipo })); // v104: un'attivita' rende al massimo il 35% di quanto vale a Ciclo
+    if (gen2(s)) r = Math.min(r, (t.cap || 0.22) * valoreLotto(l) * sitMult(s, "re", { isola: l.isola, tipo: l.tipo })); // v144: ogni attivita' ha la sua resa (dal 12% al 36% di quanto vale, a ogni Alba): prima tutte il 25%, quindi tutte uguali
     if (l.ipoteca) r *= 0.5;
     return round(r);
   }
@@ -504,8 +504,9 @@
     if (!coda.length) return;
     coda.sort((a, b) => lotto(s, b.lotto).prezzo - lotto(s, a.lotto).prezzo);
     const q = coda[0], l = lotto(s, q.lotto), minimo = baseAsta(l), minimoDi = {};
-    const part = s.players.filter((x) => !x.fallito && x.faro === 0 && x.cash >= (x.id === q.da ? l.prezzo : minimo)).map((x) => x.id);
-    if (q.da) minimoDi[q.da] = l.prezzo;
+    const rin = q.tutti || (q.da ? [q.da] : []);
+    const part = s.players.filter((x) => !x.fallito && x.faro === 0 && x.cash >= (rin.includes(x.id) ? l.prezzo : minimo)).map((x) => x.id);
+    for (const id of rin) minimoDi[id] = l.prezzo;
     if (!part.length) return;
     s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: corrente(s).id, partecipanti: part, minimo, minimoDi, rinunciaDi: q.da || null, inizio: adesso() };
     notizia(s, "Asta di fine giornata: si vende " + l.nome + " (vale " + euro(l.prezzo) + "). Base d'asta " + euro(minimo) + ".", "affari");
@@ -880,7 +881,8 @@
       // v106: niente asta subito. Il terreno va all'Asta di fine giornata (una sola al giorno: il terreno che vale di piu').
       // Chi ha rinunciato puo' offrire, ma per lui il minimo e' il prezzo pieno (cosi' rifiutare per ricomprare a meno non conviene).
       s.pending = null;
-      s.asteRinunce = (s.asteRinunce || []).filter((q) => q.lotto !== l.id); s.asteRinunce.push({ lotto: l.id, da: p.id });
+      { const prima = (s.asteRinunce || []).find((q) => q.lotto === l.id); const tutti = [...new Set([...((prima && prima.tutti) || (prima && prima.da ? [prima.da] : [])), p.id])]; // v142: valgono TUTTI quelli che hanno rinunciato, non solo l'ultimo
+        s.asteRinunce = (s.asteRinunce || []).filter((q) => q.lotto !== l.id); s.asteRinunce.push({ lotto: l.id, da: p.id, tutti }); }
       log(s, p.nome + " rinuncia a " + l.nome + ": finisce all'Asta di fine giornata (base " + euro(baseAsta(l)) + ").", p.id);
     }
   }
@@ -2686,7 +2688,7 @@
     const sp = [];
     if (dove === "casino" && p.sporchi > 0) sp.push({ k: "ricicla", titolo: "Cambia i soldi sporchi in fiches", testo: "Compri fiches con i contanti sporchi, giochi poco e le ricambi: il cassiere non fa domande, ma se ne tiene il 25%." });
     if (dove === "palazzo" && p.sporchi > 0 && !(N2.ospite && N2.ospite[p.id]) && copertura(s, p) - (p.copUsata || 0) > 0) sp.push({ k: "copertura", titolo: "Passa i soldi nei conti dei tuoi locali", testo: "⚡ Una telefonata: non ti costa l'ora. Il tuo commercialista li fa sembrare incassi delle tue attività di copertura (lavanderia, galleria, magazzino...). Ne perdi solo il 15%, fino a " + euro(copertura(s, p) - (p.copUsata || 0)) + " in questo Ciclo." });
-    if (dove === "bisca" && s.players.some((q) => q.id !== p.id && !q.uscito && propri(s, q).some((l) => l.tipo && l.lvl >= 1 && !(l.chiuso > 0))) && !((N2.sabotaggi || []).some((x) => x.da === p.id))) sp.push({ k: "sabota", titolo: "Assolda due teppisti", testo: "Nel retro della bisca, per qualche banconota, ti sfasciano un locale di un rivale: all'Alba resta chiuso e non incassa niente. Se li beccano, fanno il tuo nome." });
+    if (dove === "bisca" && s.players.some((q) => q.id !== p.id && !q.uscito && propri(s, q).some((l) => l.tipo && l.lvl >= 1 && !(l.chiuso > 0) && rendita(s, l) >= SABOTA.minDanno)) && !((N2.sabotaggi || []).some((x) => x.da === p.id))) sp.push({ k: "sabota", titolo: "Assolda due teppisti", testo: "Nel retro della bisca, per qualche banconota, ti sfasciano un locale di un rivale: all'Alba resta chiuso e non incassa niente. Se li beccano, fanno il tuo nome." });
     if (dove === "aeroporto" && !p.corrotti.doganiere) sp.push({ k: "doganiere", titolo: "Una busta al doganiere", testo: "Il capo della dogana fa il turno di notte. Con lui i tuoi carichi rischiano la metà." });
     if (dove === "casino" && lv >= 1) sp.push({ k: "banchiere", titolo: "Un drink con il banchiere Lenz", testo: "Lenz siede sempre allo stesso tavolo. Con lui i soldi trovano strade nuove." });
     if (dove === "club" && lv >= 1) sp.push({ k: "polizia", titolo: "Parla con un agente fuori servizio", testo: "Al bancone c'è un poliziotto che beve da solo. Ha l'aria di chi cerca un extra." });
@@ -3012,16 +3014,16 @@
     if (rng(s) < N_DENUNCIA.tradisce) { privato(s, q, "Un informatore ti chiama di nascosto: «" + p.nome + " ha fatto il tuo nome alla polizia. Stanotte ti aspettano a " + LUOGHI[luogo].nome + ".»"); q.aspettano = { luogo, ciclo: s.ciclo, chi: p.nome }; s.notte.denunce[s.notte.denunce.length - 1].saputo = true; } // v112: si vede anche sulla mappa
   }
   // ------------------------------------------------------------ v100: il sabotaggio (rivalita' diretta)
-  const SABOTA = { quota: 0.12, min: 150_000, preso: 0.25, tracce: 15, fama: 3, rivale: 0.75, nome: 0.5 };
-  function costoSabotaggio(s, p, l) { return round(Math.max(SABOTA.min, l.prezzo * SABOTA.quota) * (rivaleDi(s, p) === l.owner ? SABOTA.rivale : 1)); }
-  function bersagliSabotaggio(s, p) { return s.players.filter((q) => q.id !== p.id && !q.uscito).flatMap((q) => propri(s, q).filter((l) => l.tipo && l.lvl >= 1 && !(l.chiuso > 0)).map((l) => ({ lotto: l.id, nome: l.nome, owner: q.id, rendita: rendita(s, l), costo: costoSabotaggio(s, p, l) }))); }
+  const SABOTA = { quota: 0.4, min: 60_000, preso: 0.25, tracce: 15, fama: 3, rivale: 0.75, nome: 0.5, minDanno: 120_000 }; // v144: costano il 40% di quanto il locale incassa a un'Alba (prima il 12% del terreno, spesso piu' del danno)
+  function costoSabotaggio(s, p, l) { return round(Math.max(SABOTA.min, rendita(s, l) * SABOTA.quota) * (rivaleDi(s, p) === l.owner ? SABOTA.rivale : 1)); }
+  function bersagliSabotaggio(s, p) { return s.players.filter((q) => q.id !== p.id && !q.uscito).flatMap((q) => propri(s, q).filter((l) => l.tipo && l.lvl >= 1 && !(l.chiuso > 0) && rendita(s, l) >= SABOTA.minDanno).map((l) => ({ lotto: l.id, nome: l.nome, owner: q.id, rendita: rendita(s, l), costo: costoSabotaggio(s, p, l) }))); }
   function sabota(s, p, idLotto) {
     oraLibera(s, p);
     qui(s, p, "bisca", "Assoldare i teppisti");
     const N2 = s.notte; N2.sabotaggi = N2.sabotaggi || [];
     if (N2.sabotaggi.some((x) => x.da === p.id)) err("Stanotte hai già mandato i teppisti.");
     const l = s.lotti.find((x) => x.id === idLotto);
-    if (!l || !l.owner || l.owner === p.id || !l.tipo || !(l.lvl >= 1) || l.chiuso > 0) err("Scegli un locale aperto di un rivale.");
+    if (!l || !l.owner || l.owner === p.id || !l.tipo || !(l.lvl >= 1) || l.chiuso > 0 || rendita(s, l) < SABOTA.minDanno) err("Scegli un locale aperto di un rivale che incassa qualcosa.");
     const costo = costoSabotaggio(s, p, l);
     if ((p.cash || 0) + (p.sporchi || 0) < costo) err("Non hai abbastanza soldi per i teppisti.");
     pagaMisto(s, p, costo);
@@ -5396,9 +5398,10 @@
       r.dettaglio = [];
       for (const l of propri(s, p)) {
         if (l.chiuso > 0) { l.chiuso -= 1; r.dettaglio.push({ nome: l.nome, cosa: "chiusa", importo: 0 }); continue; }
-        const rl = rendita(s, l);
+        let rl = rendita(s, l), serata = "";
+        if (l.tipo === "casino" && gen2(s) && rl > 0) { const f = 0.35 + 1.3 * rng(s); rl = round(rl * f); serata = f >= 1.25 ? " · notte d'oro al tavolo" : f < 0.7 ? " · notte storta: il banco ha perso" : ""; } // v144: il Casino' rende tanto ma ogni Alba e' diversa
         rend += rl;
-        r.dettaglio.push({ nome: l.nome, cosa: l.tipo ? ATTIVITA[l.tipo].nome + " · livello " + l.lvl : l.cantiere ? "cantiere in corso" : "terreno vuoto: non rende, costruisci!", importo: round(rl) });
+        r.dettaglio.push({ nome: l.nome, cosa: l.tipo ? ATTIVITA[l.tipo].nome + " · livello " + l.lvl + serata : l.cantiere ? "cantiere in corso" : "terreno vuoto: non rende, costruisci!", importo: round(rl) });
         if (l.tipo) { const t = ATTIVITA[l.tipo]; if (t.att && (p.affariStanotte.length || p.riciclTot)) p.tracce += t.att * 0.5 * (l.lvl / 2); }
         if (l.ipoteca && s.ciclo - l.ipotecaCiclo >= N.ipotecaCicli) { notizia(s, "La Banca si riprende " + l.nome + ": ipoteca non riscattata.", "affari"); sequestra(s, l, giocatore(s, l.owner)); }
       }
@@ -5766,7 +5769,7 @@
       quando: (s, p) => propri(s, p).some((l) => l.tipoCasella === "lotto" && l.lvl === 0 && !l.cantiere) && p.cash > 400_000, consiglio: "Hai terreni vuoti: così non rendono quasi niente. Dall'app Imprese chiedi il permesso e apri un'attività. Le rendite arrivano a ogni Alba." },
     { id: "piano", gruppo: "giorno", lv: 0, nome: "Alzare il tuo Palazzo", fatto: (a) => a.tipo === "piano", pubblico: "ha alzato un nuovo piano del suo Palazzo",
       indizio: "Il tuo Palazzo può crescere piano dopo piano.", spiega: "I piani rendono a ogni Alba (uno per mossa, ognuno costa un po' più del precedente). A 6 piani diventa un Attico, a 15 un Grattacielo: si aprono stanze speciali da comprare a parte.",
-      quando: (s, p) => p.cash > costoPiano(p) * 3, consiglio: "Hai soldi fermi. I piani del tuo Palazzo rendono a ogni Alba e si ripagano in circa tre Cicli (e il Palazzo resta tuo). Apri l'app Palazzo: vedi subito quanto costano e quanto rendono." },
+      quando: (s, p) => p.cash > costoPiano(p) * 3, consiglio: "Hai soldi fermi. I piani del tuo Palazzo rendono a ogni Alba e si ripagano in 3-4 Cicli (e il Palazzo resta tuo). Apri l'app Palazzo: vedi subito quanto costano e quanto rendono." },
     { id: "veicolo", gruppo: "giorno", lv: 0, nome: "Comprare un mezzo", fatto: (a) => a.tipo === "veicolo", pubblico: "si è comprato un mezzo di lusso",
       indizio: "Yacht, motoscafi, elicotteri: non sono solo per farsi vedere.", spiega: "I mezzi si noleggiano ai turisti e rendono a ogni Alba. Di notte ti portano più veloce.",
       quando: (s, p) => p.cash > 4_000_000 && !p.veicoli.length, consiglio: "Uno yacht non è solo lusso: lo noleggi ai turisti e rende a ogni Alba. Guarda l'app Lusso." },
