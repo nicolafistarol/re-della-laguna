@@ -252,3 +252,12 @@ body:has(.scena.albeggia) #panorama{opacity:.15;transition:opacity .6s}
 .alba-ev { font-size: 15px; line-height: 1.35; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); text-align: left; }
 .alba-ev.male { border-color: var(--perdita); background: color-mix(in srgb, var(--perdita) 14%, transparent); }
 .alba-ev.bene { border-color: var(--guadagno); background: color-mix(in srgb, var(--guadagno) 14%, transparent); }
+/* v148: il telefono mostra 6 app principali; le altre stanno in «Tutte le app» */
+.altre-app { margin-top: 8px; }
+.altre-app > summary { cursor: pointer; list-style: none; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.7); padding: 10px 8px; border-radius: 10px; background: rgba(255,255,255,.06); text-align: center; }
+.altre-app > summary::-webkit-details-marker { display: none; }
+.altre-app[open] > summary { margin-bottom: 6px; }
+/* v148: sul telefono in alto bastano iniziale e posto degli avversari (il giudice: "4° Spa..." tagliato) */
+@media (max-width: 480px) { .chips .chip.tratta .nome-chip { display: none; } .chips .chip.tratta { padding-right: 8px; } }
+/* v148: di notte, sul telefono, il tasto del telefono non copre più «Torna a casa» e «Vai altrove» */
+@media (max-width: 600px) { .scena-barra { padding-right: 76px; justify-content: flex-start; } }
