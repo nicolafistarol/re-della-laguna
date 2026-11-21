@@ -247,3 +247,8 @@ body:has(.scena.albeggia) #panorama{opacity:.15;transition:opacity .6s}
 .pt-riassunto p{margin:4px 0 0;font-size:15px;line-height:1.45}
 .velo.patto #ok:disabled{opacity:.45}
 @media(max-width:640px){.pt-due{grid-template-columns:1fr}.pt-soldi>span{min-width:100%}.segm{width:100%}.segm button{flex:1}}
+/* v142: i fatti grossi dell'Alba, uno per riga, subito sotto la cassa */
+.alba-eventi { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; }
+.alba-ev { font-size: 15px; line-height: 1.35; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); text-align: left; }
+.alba-ev.male { border-color: var(--perdita); background: color-mix(in srgb, var(--perdita) 14%, transparent); }
+.alba-ev.bene { border-color: var(--guadagno); background: color-mix(in srgb, var(--guadagno) 14%, transparent); }

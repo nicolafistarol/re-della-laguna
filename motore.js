@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 142;
+  const VERSIONE_REGOLE = 143;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -491,7 +491,7 @@
     s.pending = null;
     if (p.faro > 0) {
       p.faro -= 1;
-      log(s, p.nome + " è al Faro (ancora " + p.faro + " turni). Ha diritto a una telefonata.", p.id);
+      log(s, p.nome + " è al Faro (ancora " + p.faro + (p.faro === 1 ? " turno" : " turni") + "). Ha diritto a una telefonata.", p.id);
       p.haTirato = true; // non si muove; puo' fare 1 azione
     } else chiamataLampo(s, p);
     avviaAstaSequestro(s);
@@ -757,6 +757,7 @@
         paga(s, p, dovuto, owner);
         flusso(s, p, owner, dovuto, (c.tipoCasella === "molo" ? "Pedaggio del " : "Affitto di ") + c.nome, true);
         log(s, p.nome + " paga " + euro(dovuto) + (c.tipoCasella === "molo" ? " di pedaggio (l'affitto dei Moli) a " : " di affitto a ") + owner.nome + " (" + c.nome + ").", p.id);
+        if (!owner.bot && dovuto >= 50_000) privato(s, owner, "Incassi " + euro(dovuto) + (c.tipoCasella === "molo" ? " di pedaggio" : " d'affitto") + " da " + p.nome + " su «" + c.nome + "»."); // v142: un incasso non arriva più in silenzio
       }
       return;
     }
@@ -2942,8 +2943,8 @@
   function albaRefurtiva(s, r) {
     for (const p of s.players) {
       const x = p.refurtiva; if (!x || x.ciclo !== s.ciclo || x.fatto) continue; x.fatto = true;
-      if (rng(s) < 0.25) { p.tracce += 8; privato(s, p, "La Finanza ha trovato il camion del Ricettatore: la merce (" + euro(x.importo) + ") è persa, e +8 Tracce."); notizia(s, "Sequestrato un camion di merce rubata vicino al Mercato Nero.", "scandalo"); }
-      else { const g = round(x.importo * 1.6); p.sporchi += g; if (r[p.id]) r[p.id].refurtiva = g; privato(s, p, "Hai rivenduto la merce del Ricettatore: " + euro(g) + " sporchi."); }
+      if (rng(s) < 0.25) { p.tracce += 8; fatto(s, p, { k: "ricettatore", testo: "La Finanza ha trovato il camion del Ricettatore: la merce (" + euro(x.importo) + ") è persa. +8 Tracce.", sporchi: 0 }); privato(s, p, "La Finanza ha trovato il camion del Ricettatore: la merce (" + euro(x.importo) + ") è persa, e +8 Tracce."); notizia(s, "Sequestrato un camion di merce rubata vicino al Mercato Nero.", "scandalo"); }
+      else { const g = round(x.importo * 1.6); p.sporchi += g; if (r[p.id]) r[p.id].refurtiva = g; fatto(s, p, { k: "ricettatore", testo: "Il Ricettatore ha rivenduto la tua merce: +" + euro(g) + " sporchi (ci avevi messo " + euro(x.importo) + ").", sporchi: g }); privato(s, p, "Hai rivenduto la merce del Ricettatore: " + euro(g) + " sporchi."); }
     }
   }
   function articolo2(s, p, a) {
@@ -3071,6 +3072,7 @@
   function esitoDenuncia(s, p, luogo, guaio, nomeAffare) {
     for (const d of (s.notte.denunce || []).filter((x) => x.su === p.id && x.luogo === luogo && !x.fatto)) {
       d.fatto = true; const da = giocatore(s, d.da);
+      (da.esitiSoffiate = da.esitiSoffiate || []).push({ su: p.nome, colpita: !!guaio, luogo: nomeLuogo(luogo) });
       if (guaio) { da.prove.push({ su: p.id, ciclo: s.ciclo + 1, cosa: "la soffiata su " + nomeAffare }); privato(s, da, "La tua soffiata ha colpito: la polizia ha sorpreso " + p.nome + " durante «" + nomeAffare + "». E tu hai una Prova contro di lui."); }
       else privato(s, da, p.nome + " era davvero a " + LUOGHI[luogo].nome + ", ma è riuscito a scamparla.");
       racconta(s, p, guaio ? "Qualcuno aveva fatto il tuo nome: la polizia ti aspettava qui." : "Qualcuno aveva fatto il tuo nome e la polizia ti aspettava qui, ma sei riuscito a non farti prendere."); // v136
@@ -5118,7 +5120,7 @@
   // All'ultima Alba chi ha lasciato Tracce rischia una multa sul patrimonio (niente prigione: la partita e' finita).
   function annunciaResa(s) {
     if (s.resaAnnunciata) return;
-    s.resaAnnunciata = true;
+    s.resaAnnunciata = true; s.resaCiclo = s.cicli || N.cicli; // v142: l'annuncio arriva 2 Cicli prima
     notizia(s, "La Procura apre l'inchiesta finale: all'ultima Alba controllerà i conti di tutti. Chi ha lasciato Tracce rischia grosso.", "scandalo");
     for (const p of s.players) privato(s, p, "Vera: \"Ultima chiamata. La Procura apre l'inchiesta finale: all'ultima Alba guarda i conti di tutti. Se hai fatto affari sporchi, adesso è il momento di stare puliti, ripulire i soldi e scaricare i contatti a rischio.\"");
   }
@@ -5137,7 +5139,7 @@
     s.resa = [];
     for (const p of s.players) {
       if (p.fallito || (!p.peggiorReato && !(p.sporchi > 0))) continue;
-      if (p.ultimaSentenza && p.ultimaSentenza.ciclo === s.ciclo - 1 && !p.peggiorReato) { privato(s, p, "Resa dei conti: sei appena stato condannato all'ultima Alba. La Procura non ti processa due volte."); continue; } // ILL-23
+      if (p.ultimaSentenza && p.ultimaSentenza.ciclo >= s.ciclo - 1 && !p.peggiorReato) { privato(s, p, "Resa dei conti: sei appena stato condannato all'ultima Alba. La Procura non ti processa due volte."); continue; } // ILL-23
       if (rng(s) >= rischioResa(s, p)) { privato(s, p, "Resa dei conti: la Procura non trova niente su di te."); continue; }
       const gf = gravitaFinale(s, p, p.peggiorReato || "lieve", { senzaRecidiva: true }), gravita = gf.gravita;
       if (gf.avvocato) togliOggetto(p, "avvocato");
@@ -5332,7 +5334,11 @@
     if (gf.avvocato) togliOggetto(p, "avvocato");
     const e = effettiPena(s, p, gravita, gf.partenza), pena = PENE[gravita];
     const confiscati = e.sporchiPersi; p.sporchi = e.sporchiSalvi;
-    const multa = e.multa;
+    // v142: all'ultima Alba Faro, entrate dimezzate e locali chiusi non avrebbero tempo di pesare: diventano multa
+    const ultima = (s.modoFine || "cicli") === "cicli" && s.ciclo >= (s.cicli || N.cicli) - 1;
+    const multaFine = ultima ? round(Math.max(0, patrimonio(s, p, false)) * Math.min(0.25, (pena.faro || 0) * 0.03 + (pena.blocco ? 0.04 : 0) + e.chiusi.length * 0.01)) : 0;
+    if (ultima) { e.chiusi = []; }
+    const multa = e.multa + multaFine;
     paga(s, p, multa, null);
     for (const id of e.chiusi) lotto(s, id).chiuso = 1;
     const nomiSeq = e.sequestrati.map((id) => lotto(s, id).nome);
@@ -5345,15 +5351,15 @@
       const q = Math.min(st.tesoro, t.importo); st.tesoro -= q;
       for (const id of st.membri) privato(s, giocatore(s, id), "Il Gran Maestro della setta \"" + st.nome + "\" è stato condannato: la Procura sequestra " + euro(q) + " del Tesoro. Il Tesoro sepolto è salvo.");
     }
-    if (pena.faro > 0) mandaAlFaro(s, p, pena.faro, "condanna");
-    p.blocco = pena.blocco; p.fama = Math.max(0, p.fama - pena.fama);
+    if (pena.faro > 0 && !ultima) mandaAlFaro(s, p, pena.faro, "condanna");
+    p.blocco = ultima ? 0 : pena.blocco; p.fama = Math.max(0, p.fama - pena.fama);
     annullaRicatti(s, p);
     p.condanne += 1; p.stato = 0; p.tracce = 15; p.peggiorReato = null; p.riciclTot = 0;
     p.corrotti = {};
     fedinaCondanna(s, p);
     if (gravita === "grave" || gravita === "gravissima") { p.cerchie = []; }
     momento(s, p, "Condannato (" + gravita + "): multa " + euro(multa) + (confiscati ? ", confiscati " + euro(confiscati) + " sporchi" : "") + (pena.faro ? ", " + pena.faro + " turni al Faro" : "") + (valoreSeq ? ", terreni per " + euro(valoreSeq) : ""), false, multa + confiscati + valoreSeq);
-    p.ultimaSentenza = { gravita, multa, confiscati, faro: pena.faro, blocco: pena.blocco, motivo: motivo || "", ciclo: s.ciclo, chiusi: e.chiusi.length, sequestrati: nomiSeq, valoreSeq, piani: e.pianiPersi, contatti: e.contatti, sconti: gf.note.map((x) => x.testo),
+    p.ultimaSentenza = { gravita, multa, confiscati, faro: ultima ? 0 : pena.faro, blocco: ultima ? 0 : pena.blocco, multaFine, motivo: motivo || "", ciclo: s.ciclo, chiusi: e.chiusi.length, sequestrati: nomiSeq, valoreSeq, piani: e.pianiPersi, contatti: e.contatti, sconti: gf.note.map((x) => x.testo),
       reato, note: gf.note.map((x) => ({ k: x.k, testo: x.testo })), fama: pena.fama, salvi: e.sporchiSalvi, salviDa: e.sporchiSalvi > 0 ? salviDa : [], multaQuota: e.multaQuota, legale,
       chiusiNomi: e.chiusi.map((id) => lotto(s, id).nome), stanzePerse: e.stanzePerse.map((f) => (STANZE[f] || { nome: f }).nome), tesori: e.tesori.map((x) => ({ nome: x.nome, importo: x.importo })),
       cerchiePerse, piste, condanneTot: p.condanne, tracceDopo: p.tracce };
@@ -5368,6 +5374,9 @@
     for (const p of s.players) if (p.rosso) { if (p.cash >= 1) copriRosso(s, p, true); if (p.rosso) rossoEmergenza(s, p, true); }
     for (const p of s.players) if (p.trucchi) for (const k of Object.keys(p.trucchi)) p.trucchi[k] = Math.max(0, p.trucchi[k] - 0.5); // col tempo la polizia dimentica
     s.fase = "alba";
+    s.fattiAlba = {}; // v142
+    for (const q of s.players) if (q.esitiSoffiate) { for (const x of q.esitiSoffiate) fatto(s, q, { k: "soffiata", testo: x.colpita ? "La tua soffiata su " + x.su + " ha colpito: la polizia l'ha sorpreso a " + x.luogo + ". Hai una Prova contro di lui." : x.su + " era davvero a " + x.luogo + ", ma è scampato alla tua soffiata." }); delete q.esitiSoffiate; } // v142: i fatti grossi dell'Alba (perquisizioni, elezioni, Ricettatore...) hanno ognuno la sua riga
+    for (const d of ((s.notte && s.notte.denunce) || [])) if (!d.fatto) { d.fatto = true; const da = giocatore(s, d.da), su = giocatore(s, d.su); if (da && su) { privato(s, da, "La tua soffiata su " + su.nome + " non ha colpito: stanotte a " + nomeLuogo(d.luogo) + " non ha fatto affari."); fatto(s, da, { k: "soffiata", testo: "La tua soffiata su " + su.nome + " è andata a vuoto: a " + nomeLuogo(d.luogo) + " non ha fatto affari." }); } }
     const riepilogo = {};
     // v126: tutti i movimenti di cassa dell'Alba finiscono nel numero grande (bivi, eventi, sabotaggi...); fuori restano solo sfida e condanna, che hanno la loro scheda
     const cashA = {}, fuori = {}; for (const p of s.players) { cashA[p.id] = p.cash; fuori[p.id] = 0; } s._altroAlba = {};
@@ -5506,8 +5515,9 @@
       const altri = (s._altroAlba[p.id] || []).filter((x) => x.importo), tot = round(p.cash - cashA[p.id] - fuori[p.id]);
       const resto = tot - (r.netto || 0) - altri.reduce((a, x) => a + x.importo, 0);
       if (Math.abs(resto) >= 1) altri.push({ cosa: "Altre voci della mattina", importo: round(resto) });
+      r.eventi = (s.fattiAlba && s.fattiAlba[p.id]) || [];
       r.altri = altri; r.nettoTot = tot; r.cassaSfida = round(fuoriK.sfida[p.id] || 0); r.cassaCondanna = round(fuoriK.condanna[p.id] || 0); r.cassaVera = round(p.cash - cashA[p.id]); }
-    delete s._altroAlba;
+    delete s._altroAlba; delete s.fattiAlba;
     s.ultimaAlba = { ciclo: s.ciclo + 1, riepilogo };
     (s.storiaPat = s.storiaPat || []).push({ c: s.ciclo + 1, v: Object.fromEntries(s.players.map((q) => [q.id, round(patrimonio(s, q, true))])) });
     for (const q of s.players) if (patrimonio(s, q, true) < 0) { q.fama = Math.max(0, (q.fama || 0) - 5); if (q.sottoZero !== s.ciclo) { q.sottoZero = s.ciclo; notizia(s, q.nome + " è sull'orlo del fallimento: i creditori bussano alla porta.", "scandalo"); momento(s, q, "Patrimonio sotto zero: −5 fama, i creditori alla porta"); } }
@@ -5516,7 +5526,7 @@
     // cicli
     s.ciclo += 1;
     if (finisceQui(s)) return fine(s);
-    if ((s.modoFine || "cicli") === "cicli" && s.ciclo === (s.cicli || N.cicli) - 1) annunciaResa(s);
+    if ((s.modoFine || "cicli") === "cicli" && s.ciclo >= (s.cicli || N.cicli) - 2) annunciaResa(s); // v142: 2 Cicli prima (prima solo 1)
     s.fase = "giorno"; s.giorno = 0; s.turno = 0;
     // v103: i computer non tirano i dadi finche' ogni persona non ha visto l'Alba (o sono passati 2 minuti)
     s.attesaAlba = { quando: adesso(), chi: s.players.filter((q) => !q.bot && !q.uscito && !q.fallito).map((q) => q.id) };
@@ -5625,6 +5635,8 @@
     best.mandati = (best.mandati || 0) + 1;
     if (!rieletto) best.fama += 10;
     notizia(s, best.nome + " è il nuovo Sindaco della Laguna!", "politica");
+    fatto(s, best, { k: "sindaco", testo: rieletto ? "Sei stato rieletto Sindaco." : "Sei il nuovo Sindaco della Laguna! +10 fama. Dall'app Municipio fai una legge per Ciclo e cambi le tasse." });
+    for (const id of cand) if (id !== best.id) fatto(s, giocatore(s, id), { k: "sindaco", testo: "Elezioni perse: il nuovo Sindaco è " + best.nome + "." });
     privato(s, best, "Sei il Sindaco. Puoi fare una legge per Ciclo e cambiare le tasse dall'app Municipio. Le leggi durano fino alle prossime elezioni (Ciclo " + prossimeElezioni({ ciclo: s.ciclo + 1 }) + "), poi decadono.");
   }
   function campagna(s, p, importo) {
@@ -5731,7 +5743,7 @@
     const titoli = [];
     titoli.push({ titolo: "Primo di ORDO", a: cl[0].nome });
     const stella = [...cl].sort((a, b) => b.fama - a.fama)[0]; titoli.push({ titolo: "La Stella", a: stella.nome });
-    const pulito = cl.filter((x) => x.arresti === 0).sort((a, b) => a.tracce - b.tracce)[0]; if (pulito) titoli.push({ titolo: "Mani Pulite", a: pulito.nome });
+    const pulito = cl.filter((x) => x.arresti === 0 && !(giocatore(s, x.id) || {}).condanne).sort((a, b) => a.tracce - b.tracce)[0]; if (pulito) titoli.push({ titolo: "Mani Pulite", a: pulito.nome });
     const best = s.sette.map((st) => ({ st, v: (st.tesoroFinale || st.tesoro) + 1e6 * st.operazioni })).sort((a, b) => b.v - a.v)[0];
     if (best) titoli.push({ titolo: "Gran Burattinaio", a: giocatore(s, best.st.gm).nome + " (setta \"" + best.st.nome + "\")" });
     s.classifica = cl; s.titoli = titoli;
