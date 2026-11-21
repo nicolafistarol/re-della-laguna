@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 145;
+  const VERSIONE_REGOLE = 146;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -540,22 +540,22 @@
     // 3) il rivale della sfida
     { id: "intervista", fam: "rivale", req: "rivale", t: "Un giornalista vuole scrivere di {R}, il tuo rivale.", o: [{ t: "Gli dai materiale contro", costo: 30_000, p: 0.75, riv: { fama: -5 } }, { t: "Ti fai intervistare al posto suo", costo: 40_000, fama: 2 }] },
     { id: "socio", fam: "rivale", req: "rivale", t: "Un socio di {R} vorrebbe lavorare per te.", o: [{ t: "Lo assumi", costo: 120_000, alba: [120_000, 170_000], riv: { alba: -60_000 } }, { t: "Lo rimandi da {R}, con una buona parola", fama: 2, cash: [10_000, 30_000] }] },
-    { id: "cena", fam: "rivale", req: "rivale", t: "{R} ti invita a cena per «parlare da persone serie».", o: [{ t: "Ci vai e lo ascolti", fama: 1, cash: [30_000, 80_000] }, { t: "Gli fai sapere che non hai tempo", fama: 2, riv: { fama: -1 } }] },
+    { id: "cena", fam: "rivale", req: "rivale", t: "{R} ti invita a cena per «parlare da persone serie».", o: [{ t: "Ci vai e fate affari insieme", cash: [60_000, 120_000], riv: { fama: 1, alba: 60_000 } }, { t: "Gli fai sapere che non hai tempo", fama: 2, riv: { fama: -1 } }] },
     { id: "foto", fam: "rivale", req: "rivale", t: "Un fotografo ha una foto imbarazzante di {R}.", o: [{ t: "La compri e la pubblichi", costo: 50_000, riv: { fama: -6 }, tracce: 1 }, { t: "La compri e la tieni da parte", costo: 60_000, alba: [100_000, 140_000], p: 0.6 }] },
     { id: "banca", fam: "rivale", req: "rivale", t: "Il direttore di banca di {R} ti fa capire che i conti del tuo rivale non vanno bene.", o: [{ t: "Spargi la voce", p: 0.6, riv: { fama: -3, alba: -100_000 }, tracce: 3 }, { t: "Te lo tieni per te e investi", costo: 50_000, alba: [80_000, 110_000] }] },
     // 4) la strada
     { id: "portafoglio", fam: "strada", t: "Per strada trovi un portafoglio pieno di contanti.", o: [{ t: "Lo riporti al proprietario", fama: 3 }, { t: "Lo tieni", cash: [20_000, 60_000], tracce: 1 }] },
     { id: "auto", fam: "strada", t: "Un'auto di lusso con le chiavi inserite, il motore acceso, nessuno intorno.", o: [{ t: "Chiami la polizia", fama: 1 }, { t: "La porti al Ricettatore", liv: 1, sporchi: [120_000, 180_000], tracce: 4, p: 0.8, falli: { tracce: 5, fama: -2 } }] },
     { id: "mendicante", fam: "strada", t: "Un vecchio pescatore ti chiede aiuto: ha perso la barca nella tempesta.", o: [{ t: "Gliene compri una", costo: 40_000, fama: 4 }, { t: "Gli dai un passaggio e un consiglio", fama: 1 }] },
-    { id: "scommessa", fam: "strada", t: "Al bar dell'angolo si scommette sulla regata di domani.", o: [{ t: "Punti 50.000 € sul favorito", costo: 50_000, p: 0.55, cash: [90_000, 100_000] }, { t: "Punti 20.000 € sull'outsider", costo: 20_000, p: 0.25, cash: [100_000, 140_000] }] },
+    { id: "scommessa", fam: "strada", t: "Al bar dell'angolo si scommette sulla regata di domani.", o: [{ t: "Punti forte sul favorito", costo: 50_000, p: 0.55, cash: [90_000, 100_000] }, { t: "Punti poco sull'outsider", costo: 20_000, p: 0.25, cash: [100_000, 140_000] }] },
     { id: "dritta", fam: "strada", t: "Un tassista dice di sapere dove la polizia farà i controlli stanotte.", o: [{ t: "Paghi la dritta", costo: 25_000, p: 0.7, tracce: -6 }, { t: "Lo ignori e risparmi", cash: [0, 0] }] },
     { id: "rissa", fam: "strada", t: "Davanti a te scoppia una rissa tra due ubriachi.", o: [{ t: "Li separi", p: 0.7, fama: 3, falli: { cash: -30_000, fama: -1 } }, { t: "Filmi tutto e vendi il video", cash: [15_000, 35_000], fama: -1 }] },
     { id: "strada_cantiere", fam: "strada", t: "Un capocantiere ti offre cemento avanzato da un'opera pubblica.", o: [{ t: "Lo compri sottobanco", costo: 30_000, alba: [60_000, 90_000], tracce: 2 }, { t: "Lo denunci al Comune", fama: 2 }] },
     // 5) la citta'
     { id: "sagra", fam: "citta", t: "Il Comune cerca uno sponsor per la Festa del Redentore.", o: [{ t: "Sponsorizzi tutto", costo: 120_000, fama: 6 }, { t: "Metti solo il tuo nome sui manifesti", costo: 40_000, fama: 2 }] },
-    { id: "ospedale", fam: "citta", t: "L'ospedale della Laguna raccoglie fondi per una sala nuova.", o: [{ t: "Doni 80.000 €", costo: 80_000, fama: 5, tracce: -3 }, { t: "Doni 10.000 € con molto rumore", costo: 10_000, fama: 2 }] },
+    { id: "ospedale", fam: "citta", t: "L'ospedale della Laguna raccoglie fondi per una sala nuova.", o: [{ t: "Fai una grande donazione", costo: 80_000, fama: 5, tracce: -3 }, { t: "Doni poco, ma con molto rumore", costo: 10_000, fama: 2 }] },
     { id: "sciopero", fam: "citta", t: "Sciopero dei vaporetti: la città è bloccata.", o: [{ t: "Noleggi barche private per i clienti", costo: 50_000, alba: [70_000, 110_000] }, { t: "Offri un passaggio gratis a tutti", costo: 30_000, fama: 4 }] },
-    { id: "asta_beneficenza", fam: "citta", t: "Asta di beneficenza al Casinò: in palio una cena col Sindaco.", o: [{ t: "Offri 100.000 €", costo: 100_000, fama: 5, p: 0.8, falli: { cash: 100_000, fama: 0 } }, { t: "Fai vincere un amico e ti fai invitare", costo: 30_000, fama: 2 }] },
+    { id: "asta_beneficenza", fam: "citta", t: "Asta di beneficenza al Casinò: in palio una cena col Sindaco.", o: [{ t: "Fai l'offerta più alta", costo: 100_000, fama: 5, p: 0.8, falli: { cash: 100_000, fama: 0 } }, { t: "Fai vincere un amico e ti fai invitare", costo: 30_000, fama: 2 }] },
     { id: "acqua_alta", fam: "citta", t: "Arriva l'acqua alta: i negozi del centro chiedono sacchi e pompe.", o: [{ t: "Li fornisci a prezzo di costo", costo: 25_000, fama: 3 }, { t: "Li vendi al triplo", cash: [50_000, 90_000], fama: -3 }] },
     // v114: bivi nuovi, con forme diverse (non solo "soldi sporchi o fama")
     { id: "recensione", fam: "tua", req: "attivita", t: "Un critico famoso prenota un tavolo nel tuo locale «{L}», in incognito. Il personale l'ha riconosciuto.", o: [{ t: "Gli offri la cena e il vino migliore", costo: 15_000, fama: 3 }, { t: "Lo tratti come tutti", p: 0.5, fama: 3, falli: { fama: -3 } }] },
@@ -589,9 +589,13 @@
     const { b, altro, lotto } = scelto, sost = (t) => t.replace(/\{R\}/g, altro ? altro.nome : "").replace(/\{C\}/g, lotto ? lotto.nome : "").replace(/\{L\}/g, lotto ? lotto.nome + (ATTIVITA[lotto.tipo] ? " (" + ATTIVITA[lotto.tipo].nome + ")" : "") : "");
     s.biviUsati = (s.biviUsati || []).concat([b.id + ":" + p.id]); p.ultimaFamBivio = b.fam;
     const liv = livelloSblocco(s, p);
+    // v146 (il giudice: "poste minuscole": 20-50.000 quando le rendite sono milioni): le cifre crescono con il tuo patrimonio
+    const sc = scalaBivio(s, p), x5 = (v) => Math.round(v * sc / 5000) * 5000, rr = (r) => r && [x5(r[0]), x5(r[1])];
+    const scala = (o) => ({ ...o, costo: o.costo ? x5(o.costo) : o.costo, cash: rr(o.cash), alba: rr(o.alba), sporchi: rr(o.sporchi), riv: o.riv ? { ...o.riv, alba: o.riv.alba ? x5(o.riv.alba) : o.riv.alba } : o.riv, falli: o.falli ? { ...o.falli, cash: o.falli.cash ? x5(o.falli.cash) : o.falli.cash } : o.falli });
     return { id: b.id, fam: b.fam, altro: altro ? altro.id : null, testo: sost(b.t), ciclo: s.ciclo, giorno: s.giorno,
-      o: b.o.map((o) => ({ ...o, t: sost(o.t), chiuso: o.liv && liv < o.liv ? "serve il Livello " + o.liv : "" })).map((o) => ({ ...o, spiega: spiegaBivio(o, altro) })) };
+      o: b.o.map(scala).map((o) => ({ ...o, t: sost(o.t), chiuso: o.liv && liv < o.liv ? "serve il Livello " + o.liv : "" })).map((o) => ({ ...o, spiega: spiegaBivio(o, altro) })) };
   }
+  function scalaBivio(s, p) { return clamp(patrimonio(s, p, true) / 1_500_000, 1, 10); }
   // v138: ogni strada detta per esteso: chi paga, chi incassa, quando e per quante volte (il capo non capiva "assumi il socio")
   function spiegaBivio(o, altro) {
     const pz = [], e = (x) => euro(x), rg = (r) => r[0] === r[1] ? e(r[0]) : e(r[0]) + "–" + e(r[1]);
