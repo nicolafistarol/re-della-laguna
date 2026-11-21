@@ -740,7 +740,7 @@ function grandiBot(o, i, n) {
     // poi tornano persone con soldi e Livello alti. Serve al beta tester per provare la parte lunga della partita.
     preparaTest: function (stato, opz) {
       const da = Math.max(2, Math.min(12, Number(opz && opz.ciclo) || 6)) - 1; // Ciclo mostrato (6) -> numero interno (5)
-      if ((stato.modoFine || "cicli") === "cicli" && (stato.cicli || 8) < da + 6) stato.cicli = [10, 12, 16, 20].find((c) => c >= da + 6) || 20;
+      if ((stato.modoFine || "cicli") === "cicli" && (stato.cicli || 8) < da + 4) stato.cicli = da + 4; // v142: si rispetta la durata scelta, al massimo si aggiungono i Cicli che mancano per giocarne 4
       const ids = stato.players.filter((p) => !p.bot).map((p) => p.id);
       for (const p of stato.players) if (ids.includes(p.id)) { p.bot = true; p.strat = "Esperto"; }
       const r = n.gioca(stato, { finche: (x) => x.ciclo >= da && x.fase === "giorno", max: 60000 });

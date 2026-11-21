@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 138;
+  const VERSIONE_REGOLE = 142;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -139,7 +139,7 @@
   const PACCHETTI = [
     { id: "commerciante", nome: "Il Commerciante", perk: "Tutti i tuoi affitti rendono il 25% in più. Di notte, un affare tutto tuo a turno: il carico in saldo alla Marina, la fiera del lusso, le borse taroccate.", extra: {} },
     { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 15% in meno. Il permesso del Palazzo è gratis. Di notte, un affare tutto tuo a turno: il geometra del Comune al Club, la cena con l'ingegnere, il cemento della chiatta.", extra: {} },
-    { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo (4%; nelle partite nuove 2,5%). Di notte, un affare tutto tuo a turno: la soffiata di Borsa al Club, il tavolo dei banchieri, il broker sul molo.", extra: {} },
+    { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo (2,5%). Di notte, un affare tutto tuo a turno: la soffiata di Borsa al Club, il tavolo dei banchieri, il broker sul molo.", extra: {} },
     { id: "playboy", nome: "Il Playboy", perk: "+2 fama ogni Alba. Parti con il motoscafo (Viaggio rapido tra i Moli) e gli amici dello yacht. Di notte, un affare tutto tuo a turno: la festa sullo yacht, l'asta dei vini, la modella e il fotografo.", extra: { veicolo: "motoscafo" } },
     { id: "contrabbandiere", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta. Il Mercato Nero ti apre dal Ciclo 2. Di notte, un affare tutto tuo a turno: la cassa al molo, lo scafo veloce, il pacco al bancone.", extra: {} },
     { id: "politico", nome: "Il Politico", perk: "Parti con fama 20. Candidarti a Sindaco costa metà e la licenza del casinò è più facile (3 volte su 4 al primo colpo). Di notte, un affare tutto tuo a turno: la cena col consigliere, il favore all'impresario, il comizio sul molo.", extra: { fama: 20 } },
@@ -2190,7 +2190,9 @@
       // una chiamata, a volte
       if (livelloSblocco(s, p) >= 1 && rng(s) < 0.45) {
         const lvp = livelloSblocco(s, p);
-        const tutte = OCCASIONI.filter((o) => !o.legale && !o.soloSetta && !o.mezzanotte && !o.storia && o.sblocco <= lvp && luogoAperto(s, o.luogo, p));
+        const tutte0 = OCCASIONI.filter((o) => !o.legale && !o.soloSetta && !o.mezzanotte && !o.storia && o.sblocco <= lvp && luogoAperto(s, o.luogo, p));
+        const nuove = tutte0.filter((o) => !s.notte.occasioni.some((x) => x.id === o.id)); // v142: niente carta doppia (appuntamento + la stessa carta normale)
+        const tutte = nuove.length ? nuove : tutte0;
         // ognuno ha il suo appuntamento: se si puo', in un posto diverso da quello degli altri
         const giaUsati = new Set(s.notte.occasioni.filter((x) => x.riservata).map((x) => x.luogo));
         const libere = tutte.filter((o) => !giaUsati.has(o.luogo));
@@ -3314,7 +3316,7 @@
       let x = opz[i];
       if (x.costo && (p.cash + p.sporchi) < x.costo) err("Non hai abbastanza soldi per questa scelta.");
       if (esitato) { x = opz[0]; C.gu *= 1.15; }
-      if (x.costo) pagaMisto(s, p, x.costo);
+      if (x.costo) { pagaMisto(s, p, x.costo); C.spesi = (C.spesi || 0) + x.costo; }
       C.gu *= x.gu; C.ga *= x.ga; C.tr *= x.tr; C.passo += 1; C.quando = adesso();
       C.storia.push((esitato ? "Esiti troppo: " : "") + x.l);
       racconta(s, p, (esitato ? "Esiti troppo e perdi l'attimo. " : "") + x.l + ". " + x.d);
@@ -3339,7 +3341,7 @@
     racconta(s, p, k === "scappa" ? (fuga ? "Salti sul tuo " + fuga.nome.toLowerCase() + " e sparisci col carico che riesci a portare. " : "Molli tutto e scappi nel buio. ") + (C.guaio ? "Dietro di te arriva davvero qualcuno: l'hai scampata." : "Poi scopri che non c'era nessuno. Peccato.") : k === "aspetta" ? "Ti nascondi e trattieni il fiato. " + (C.guaio && !guaio ? "Il pericolo passa oltre." : "") : "Tiri dritto. " + (!C.guaio ? "Era solo paura: il sangue freddo paga." : ""));
     delete s.notte.colpi[p.id];
     s.notte.chiuso[p.id] = true;
-    risolviOccasione(s, p, s.notte.fatto[p.id], { pg: C.pg, guaio, ga, tr });
+    risolviOccasione(s, p, s.notte.fatto[p.id], { pg: C.pg, guaio, ga, tr, spesi: C.spesi || 0 });
     if (!muto) controllaOra(s);
   }
   // il tempo dell'ora finisce con un colpo aperto: si esita fino in fondo
@@ -3384,7 +3386,7 @@
       }
       else {
         racconta(s, p, "Mentre lavori " + G.arriva + "." + (falla ? " Contavi su: " + (oggettoDef(salvatore) ? oggettoDef(salvatore).nome.toLowerCase() : salvatore) + ", ma stavolta non basta." : ""));
-        if (G.danno === "perso") { guadagno = 0; tracce += 6; racconta(s, p, "Molli tutto e scappi. Il carico è perso, e con lui i soldi che ci avevi messo."); }
+        if (G.danno === "perso") { guadagno = 0; tracce += 6; racconta(s, p, cx ? "Ti strappano il carico e scappi a mani vuote. Perdi i soldi che ci avevi messo." : "Molli tutto e scappi. Il carico è perso, e con lui i soldi che ci avevi messo."); }
         else if (G.danno === "riconosciuto") { tracce += 15; p.stato = Math.max(p.stato, 2); racconta(s, p, "Hai l'impressione di essere stato riconosciuto. Da domani qualcuno ti terrà d'occhio."); }
         else if (G.danno === "allarme") { guadagno = 0; tracce += 18; p.stato = Math.max(p.stato, 3); racconta(s, p, "Sirene in lontananza. Scappi a mani vuote, e la polizia ha un nome: il tuo."); notizia(s, "Tentato colpo a " + NOMI_ISOLE[isola] + ". La polizia segue una pista.", "scandalo"); }
         else if (G.danno === "foto") { tracce += 8; const altri = s.players.filter((x) => x.id !== p.id); if (altri.length) { const b = altri[Math.floor(rng(s) * altri.length)]; b.prove.push({ su: p.id, ciclo: s.ciclo + 1, cosa: O.nome }); privato(s, b, "Un fotografo ti vende una foto di " + p.nome + " durante \"" + O.nome + "\". È una Prova."); } racconta(s, p, "Qualcuno ora ha una tua foto. Non sai chi."); }
@@ -3407,9 +3409,11 @@
     tracce *= num(s, "tracceAffari") || 1; // v134: gli affari della notte lasciano meno Tracce (partite nuove)
     tracce *= sitMult(s, "tr", { luogo: o.luogo, occ: O.id }) * strumentiMult(s, p, "tr", usati, { luogo: o.luogo, occ: O.id }) * (guaio ? strumentiMult(s, p, "trGuaio", usati, {}) : 1);
     p.tracce += tracce; segnaTraccia(s, p, tracce, O.nome + " (" + nomeLuogo(o.luogo) + ")");
+    const messoTot = (f.costo || 0) + ((cx && cx.spesi) || 0);
+    p.esitoAffare = { messo: messoTot, torna: round(Math.max(0, guadagno)) }; // v142: "Com'è andata" conta quello che hai messo, anche nei bivi
     if (guadagno > 0) {
       p.sporchi += round(guadagno); // il guadagno e' tutto quello che torna indietro (il costo era gia' stato pagato)
-      const messo = f.costo || 0, netto = round(guadagno) - messo;
+      const messo = messoTot, netto = round(guadagno) - messo;
       if (netto >= 1_000_000) momento(s, p, O.nome + ": +" + euro(netto) + " sporchi", true);
       racconta(s, p, "Torni con " + euro(guadagno) + " in contanti sporchi." + (messo ? " Ci avevi messo " + euro(messo) + ": " + (netto >= 0 ? "guadagno vero " + euro(netto) : "ci perdi " + euro(-netto)) + "." : ""));
     }
@@ -5403,8 +5407,10 @@
       if (gen2(s)) { const f = Math.min(3, propri(s, p).filter((l) => l.lvl >= 1 && !l.chiuso && !l.cantiere && lussoFama(ATTIVITA[l.tipo])).length); if (f) { p.fama += f; r.famaLusso = f; } } // Hotel e Boutique: +1 fama l'uno a ogni Alba (al massimo 3)
       const rendAtt = rend, bloccato = p.blocco > 0;
       rend += pal + r.veicoli;
-      if (p.faro > 0) rend *= 0.7;
-      if (p.blocco > 0) { rend *= 0.5; p.blocco -= 1; }
+      // v142: ogni entrata ha la sua riga (prima Palazzo e mezzi non si vedevano e il totale non tornava)
+      if (pal > 0) r.dettaglio.push({ nome: "Il tuo Palazzo", cosa: "piani e stanze", importo: round(pal) });
+      if (r.veicoli > 0) r.dettaglio.push({ nome: "I tuoi mezzi", cosa: "noleggio", importo: round(r.veicoli) });
+      { const r0 = rend; if (p.faro > 0) rend *= 0.7; if (p.blocco > 0) { rend *= 0.5; p.blocco -= 1; } if (rend < r0) r.dettaglio.push({ nome: "Rendite ridotte", cosa: p.faro > 0 ? "sei al Faro" : "dopo la condanna", importo: round(rend - r0) }); }
       const zona = s.leggi.includes("zona_franca") ? propri(s, p).filter((l) => l.isola === "Sole").reduce((a, l) => a + rendita(s, l), 0) : 0;
       const evasa = rend * clamp(p.evasione || 0, 0, N.evasioneMax);
       if (evasa > 0) { p.sporchi += evasa; p.tracce += 2 * (evasa > 0 ? 1 : 0); p.pulitoCiclo = false; p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "lieve"); }
@@ -5983,8 +5989,12 @@
     if (N0 && pA && s.ciclo === ciclo0 && !["pronto", "avanti", "aspetta", "vai", "msg_setta", "preferenze"].includes(a.tipo)) {
       const i = s.players.indexOf(pA), dc = Math.round(pA.cash - primaConti[i][0]), ds = Math.round(pA.sporchi - primaConti[i][1]), dtr = (pA.tracce || 0) - tr0;
       const df = Math.round((pA.fama || 0) - fa0);
-      if (dc || ds || df || dtr > 0.5 || pA.stato > st0) pA.ultimoEsito = { ciclo: s.ciclo, ora: ora0, tipo: a.tipo, dc, ds, df, dtr: Math.round(dtr), tr: dtr <= 0.5 ? 0 : dtr < 5 ? 1 : dtr < 12 ? 2 : 3, sale: (pA.stato || 0) > st0 ? pA.stato : 0 };
+      let netto = null;
+      if (pA.esitoAffare) { netto = pA.esitoAffare.torna - pA.esitoAffare.messo; delete pA.esitoAffare; }
+      if (netto !== null) pA.ultimoEsito = { ciclo: s.ciclo, ora: ora0, tipo: a.tipo, dc, ds, df, netto, dtr: Math.round(dtr), tr: dtr <= 0.5 ? 0 : dtr < 5 ? 1 : dtr < 12 ? 2 : 3, sale: (pA.stato || 0) > st0 ? pA.stato : 0 };
+      else if (dc || ds || df || dtr > 0.5 || pA.stato > st0) pA.ultimoEsito = { ciclo: s.ciclo, ora: ora0, tipo: a.tipo, dc, ds, df, dtr: Math.round(dtr), tr: dtr <= 0.5 ? 0 : dtr < 5 ? 1 : dtr < 12 ? 2 : 3, sale: (pA.stato || 0) > st0 ? pA.stato : 0 };
     }
+    if (N0) for (const q of s.players) if (q.esitoAffare) { if (s.ciclo === ciclo0) q.ultimoEsito = { ciclo: s.ciclo, ora: ora0, tipo: "colpo", dc: 0, ds: 0, df: 0, netto: q.esitoAffare.torna - q.esitoAffare.messo, dtr: 0, tr: 0, sale: 0 }; delete q.esitoAffare; }
     if (a && a.tipo && !(a.tipo === "compra" && !a.si)) { const p = s.players.find((x) => x.id === idGiocatore); if (p) primaVolta(s, p, a); }
     if (N0 && s.notte === N0 && N0.ora === ora0 && !eraChiuso && N0.chiuso[idGiocatore] && N0.daScelta[idGiocatore] === undefined) N0.daScelta[idGiocatore] = len0;
     return r;
