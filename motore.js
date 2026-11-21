@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 148;
+  const VERSIONE_REGOLE = 149;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -3004,13 +3004,19 @@
     if (s.notte.denunce.some((d) => d.da === p.id)) err("Stanotte hai già fatto una soffiata.");
     const q = s.players.find((x) => x.id === su); if (!q || q.id === p.id) err("Su chi vuoi fare la soffiata?");
     if (!LUOGHI_AFFARI.includes(luogo)) err("In quale posto pensi che lavori?");
-    const contro = rivaleDi(s, p) === q.id; // v98: contro il tuo rivale della sfida costa la meta'
+    const contro = rivaleDi(s, p) === q.id || primoInClassifica(s, p) === q.id; // v98: contro il tuo rivale della sfida costa la meta'; v149: anche contro chi e' primo (rimonta)
     pagaMisto(s, p, round(N_DENUNCIA.costo * (contro ? SFIDA.sconto : 1)));
     fattoDenuncia(s, p, q, luogo);
     if (contro) s.notte.denunce[s.notte.denunce.length - 1].rivale = true;
     // v100: una telefonata dalla cabina e' un attimo: non costa l'ora (resta una sola soffiata a notte)
     racconta(s, p, "Da una cabina telefonica chiami la polizia, voce bassa: «Stanotte " + q.nome + " lavora a " + LUOGHI[luogo].nome + ".» Adesso è nelle loro mani.");
     controllaOra(s);
+  }
+  // v149 (rimonta): chi e' primo in classifica adesso (null se sei tu, o se si e' ancora al primo Ciclo)
+  function primoInClassifica(s, p) {
+    if ((s.ciclo || 0) < 1) return null;
+    const cl = s.players.filter((x) => !x.fallito && !x.uscito).sort((a, b) => patrimonio(s, b, true) - patrimonio(s, a, true));
+    return cl[0] && (!p || cl[0].id !== p.id) ? cl[0].id : null;
   }
   function fattoDenuncia(s, p, q, luogo) {
     s.notte.denunce = s.notte.denunce || [];
@@ -5480,6 +5486,7 @@
     biviAlba(s); // v110
     perquisizioni(s);
     s.retataAnnunciata = false;
+    const rimonta = (() => { if ((s.ciclo || 0) < 2) return null; const cl = s.players.filter((x) => !x.fallito && !x.uscito).sort((a, b) => patrimonio(s, b, true) - patrimonio(s, a, true)); return cl.length >= 3 ? { primo: cl[0].id, ultimo: cl[cl.length - 1].id } : null; })();
     for (const p of s.players) {
       if (p.zone) for (const k of Object.keys(p.zone)) { p.zone[k] -= 1; if (p.zone[k] <= 0) delete p.zone[k]; } // v145: le zone si raffreddano
       const cash0 = p.cash, sporchi0 = p.sporchi || 0; // v125: i conti dell'Alba sono la differenza vera dei contanti (puliti) e degli sporchi
@@ -5508,6 +5515,11 @@
       if (haPiano(p, "ristorante_panoramico")) p.fama += 1;
       if (haPiano(p, "suite")) p.fama += 3;
       if (gen2(s)) { const f = Math.min(3, propri(s, p).filter((l) => l.lvl >= 1 && !l.chiuso && !l.cantiere && lussoFama(ATTIVITA[l.tipo])).length); if (f) { p.fama += f; r.famaLusso = f; } } // Hotel e Boutique: +1 fama l'uno a ogni Alba (al massimo 3)
+      // v149 (il giudice: "nessuna rimonta, ero primo dal Ciclo 3 e non e' cambiato niente"): il primo rende un po' meno, l'ultimo un po' di piu'
+      if (gen2(s) && rimonta && rend > 0) {
+        if (rimonta.primo === p.id) { const x = -round(rend * 0.1); rend += x; r.dettaglio.push({ nome: "Primo in classifica", cosa: "tutti ti chiedono di più: −10% sulle attività", importo: x }); }
+        else if (rimonta.ultimo === p.id) { const x = round(rend * 0.2); rend += x; r.dettaglio.push({ nome: "Ultimo in classifica", cosa: "la Laguna fa il tifo per te: +20% sulle attività", importo: x }); }
+      }
       const rendAtt = rend, bloccato = p.blocco > 0;
       rend += pal + r.veicoli;
       // v142: ogni entrata ha la sua riga (prima Palazzo e mezzi non si vedevano e il totale non tornava)
@@ -6402,7 +6414,7 @@
     // carte e serate
     punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso),
     // polizia e pene
-    descriviPena, PREMIO_SOCIO, ROSSI, GIRI_ORA, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, guadagnoMostrato, zonaBruciata, tacche, TETTO_SCONTI, MULTA_CONDANNA,
+    descriviPena, PREMIO_SOCIO, ROSSI, GIRI_ORA, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, guadagnoMostrato, zonaBruciata, primoInClassifica, tacche, TETTO_SCONTI, MULTA_CONDANNA,
     rischioResa, rischioPerquisizione, rischioRicicla, bonusSetta, quotaRicicla, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     // setta
     livelloSetta, influenzaDi, OPERE, costoOpera,
