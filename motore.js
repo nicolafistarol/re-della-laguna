@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 146;
+  const VERSIONE_REGOLE = 147;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -3848,23 +3848,23 @@
   }
   // ---- le Grandi Opere: costano tanto dal Tesoro e si fanno solo se i membri votano a favore
   const OPERE = {
-    amnistia: { nome: "L'Amnistia", costo: 12_000_000, lv: 2,
+    amnistia: { nome: "L'Amnistia", costo: 4_000_000, lv: 2, // v147: costi delle opere divisi per 3 (il giudice: nessuno ne faceva mai una)
       fa: "Tutti i membri: condanne cancellate (si riparte senza precedenti), indagini chiuse, chi è al Faro esce, il 70% delle Tracce sparisce.",
       rischio: "Tutta la Laguna ne parla: ogni membro perde 8 di fama, e per 2 Cicli la Procura vi guarda: ogni Traccia nuova pesa il 30% in più." },
-    porto: { nome: "Il Porto è nostro", costo: 10_000_000, lv: 2,
+    porto: { nome: "Il Porto è nostro", costo: 2_000_000, lv: 1, // v147: l'opera piccola, gia' al livello 1
       fa: "Per 3 Cicli, di notte al Porto Container i membri fanno affari senza nessun pericolo (niente pattuglie, niente guardie).",
       rischio: "Alla fine, 1 volta su 4 il doganiere comprato parla: ogni membro prende +15 Tracce e la polizia lo tiene d'occhio." },
-    colpo: { nome: "Il Grande Colpo", costo: 15_000_000, lv: 3, bottino: 45_000_000,
-      fa: "All'Alba la setta assalta il caveau della Banca della Laguna. Se riesce: 45 milioni sporchi divisi in parti uguali tra i membri.",
+    colpo: { nome: "Il Grande Colpo", costo: 5_000_000, lv: 3, bottino: 15_000_000,
+      fa: "All'Alba la setta assalta il caveau della Banca della Laguna. Se riesce: 15 milioni sporchi divisi in parti uguali tra i membri.",
       rischio: "Riesce 45 volte su 100 (fino a 65 con il Commissario e 4 membri). Se fallisce: il Tesoro speso è perso, ogni membro +35 Tracce e finisce Indagato. Anche se riesce: +12 Tracce a testa." },
-    giudice: { nome: "Il Giudice supremo", costo: 20_000_000, lv: 3,
+    giudice: { nome: "Il Giudice supremo", costo: 7_000_000, lv: 3,
       fa: "Per tutta la partita: ogni condanna dei membri scende di un gradino in più e metà degli sporchi si salva dalla confisca.",
       rischio: "A ogni Alba, 1 volta su 15 un giornalista lo scopre: il Giudice cade, ogni membro prende +15 Tracce e perde 10 di fama." },
-    isola: { nome: "L'Isola della setta", costo: 30_000_000, lv: 3,
-      fa: "Un'isola privata con i suoi traffici: a ogni Alba ogni membro riceve 800.000 € sporchi e il Tesoro 1,5 milioni.",
+    isola: { nome: "L'Isola della setta", costo: 10_000_000, lv: 3,
+      fa: "Un'isola privata con i suoi traffici: a ogni Alba ogni membro riceve 400.000 € sporchi e il Tesoro 700.000 €.",
       rischio: "A ogni Alba, 1 volta su 8, blitz della Finanza: niente soldi quell'Alba e +10 Tracce a ogni membro. Al secondo blitz l'isola è sequestrata." },
   };
-  function costoOpera(st, id) { return round(OPERE[id].costo * (st.membri.length <= 1 ? 1.5 : 1)); }
+  function costoOpera(st, id) { return round(OPERE[id].costo * (st.membri.length <= 1 ? 1.25 : 1)); } // v147: da soli +25% (prima +50%)
   function operaAttiva(s, p, id) {
     for (const sid of p.sette || []) { const st = s.sette.find((x) => x.id === sid); if (st && st.attive && st.attive[id] && (st.attive[id].fino == null || st.attive[id].fino >= s.ciclo)) return st; }
     return null;
@@ -3876,7 +3876,7 @@
     if (livelloSetta(s, st) < O.lv) err(O.nome + " richiede una setta di livello " + O.lv + ".");
     const costo = costoOpera(st, id); if (st.tesoro < costo) err("Il Tesoro non basta: servono " + euro(costo) + ".");
     st.opera = { id, ciclo: s.ciclo, voti: {}, costo, solo: st.membri.length <= 1 };
-    if (st.opera.solo) privato(s, p, "Sei l'unico membro: decidi da solo. " + O.nome + " parte all'Alba e costa " + euro(costo) + " (il 50% in più).");
+    if (st.opera.solo) privato(s, p, "Sei l'unico membro: decidi da solo. " + O.nome + " parte all'Alba e costa " + euro(costo) + " (il 25% in più).");
     else for (const id2 of st.membri) privato(s, giocatore(s, id2), id2 === p.id ? "Hai proposto " + O.nome + " (" + euro(costo) + " dal Tesoro). I membri votano fino all'Alba." : "Il Gran Maestro propone una Grande Opera: " + O.nome + " (" + euro(costo) + " dal Tesoro). Vota sì o no dall'app Setta entro l'Alba.");
   }
   function ritiraOpera(s, p, idSetta) { const st = settaMia(s, p, idSetta); if (!st.opera) err("Nessuna proposta."); st.opera = null; for (const id of st.membri) privato(s, giocatore(s, id), "Il Gran Maestro ha ritirato la proposta della Grande Opera."); }
@@ -3895,6 +3895,8 @@
   }
   function albaOpere(s, r) {
     for (const st of s.sette) {
+      // v147: le offerte dei fedeli: a ogni Alba 200.000 € per membro e per livello (il Tesoro restava sempre a 1-2 M e nessuno faceva mai un'opera)
+      if (gen2(s) && st.membri.length) { const off = 200_000 * st.membri.length * livelloSetta(s, st); st.tesoro += off; st.offerteUltime = off; }
       // le opere gia' attive
       const at = st.attive || {};
       const membri = st.membri.map((id) => giocatore(s, id));
@@ -3915,8 +3917,8 @@
           if (at.isola.blitz >= 2) { at.isola.sequestrata = true; at.isola.fino = s.ciclo - 1; }
           notizia(s, "Blitz della Finanza su un'isola privata della Laguna. Nessuno sa di chi sia.", "scandalo");
         } else {
-          st.tesoro += 1_500_000;
-          for (const m of membri) { m.sporchi += 800_000; m.pulitoCiclo = false; m.macchia = true; if (r[m.id]) r[m.id].isolaSetta = 800_000; }
+          st.tesoro += 700_000;
+          for (const m of membri) { m.sporchi += 400_000; m.pulitoCiclo = false; m.macchia = true; if (r[m.id]) r[m.id].isolaSetta = 400_000; }
         }
       }
       // la proposta da votare
@@ -3929,7 +3931,7 @@
       st.tesoro -= op.costo; st.opereFatte = st.opereFatte || []; st.opereFatte.push(op.id); st.opPassate = (st.opPassate || 0) + 1;
       st.attive = st.attive || {};
       const voti = op.solo ? "decisa dal Gran Maestro" : v.si + " sì, " + v.no + " no" + (v.si === v.no ? ", decide il Gran Maestro" : "");
-      guadagnaInfluenza(s, st, op.costo / 1_000_000, O.nome);
+      guadagnaInfluenza(s, st, 2.5 * op.costo / 1_000_000, O.nome); // v147: le opere costano un terzo, l'Influenza resta simile
       if (op.id === "amnistia") {
         st.attive.amnistia = { dal: s.ciclo, fino: s.ciclo + 2 };
         for (const m of membri) { m.condanne = 0; m.stato = 0; m.peggiorReato = null; m.tracce = round(m.tracce * 0.3); m.faro = 0; m.fama = Math.max(0, m.fama - 8); privato(s, m, "L'Amnistia (" + voti + "): fedina pulita, indagini chiuse, il 70% delle Tracce sparisce. Ma per 2 Cicli la Procura vi guarda: ogni Traccia nuova pesa il 30% in più."); }
@@ -3944,7 +3946,7 @@
         if (ok) {
           const parte = round(O.bottino / membri.length);
           for (const m of membri) { m.sporchi += parte; m.tracce += 12; m.pulitoCiclo = false; m.macchia = true; m.peggiorReato = peggio(m.peggiorReato, "grave"); privato(s, m, "IL GRANDE COLPO (" + voti + ") è riuscito! Il caveau della Banca della Laguna è vuoto. La tua parte: " + euro(parte) + " sporchi. +12 Tracce."); }
-          notizia(s, "SVALIGIATO IL CAVEAU DELLA BANCA DELLA LAGUNA. Spariti 45 milioni. La polizia brancola nel buio.", "scandalo");
+          notizia(s, "SVALIGIATO IL CAVEAU DELLA BANCA DELLA LAGUNA. Spariti " + euro(O.bottino) + ". La polizia brancola nel buio.", "scandalo");
         } else {
           for (const m of membri) {
             const contro = !op.solo && op.voti[m.id] === false; // chi aveva votato NO paga la meta'
@@ -4263,7 +4265,7 @@
   function recluta(s, p, idSetta, chi) {
     inNotte(s, p);
     const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro recluta.");
-    const prezzi = { commissario: 3_000_000, giudice: 3_500_000, banchiere: 2_500_000 };
+    const prezzi = { commissario: 2_000_000, giudice: 2_500_000, banchiere: 1_500_000 }; // v147: prima 3 / 3,5 / 2,5 M
     if (!prezzi[chi]) err("Personaggio sconosciuto.");
     if (st[chi]) err("È già della setta.");
     if (chi !== "banchiere" && livelloSetta(s, st) < 2) err("Il Commissario e il Giudice si reclutano dal livello 2. Il Banchiere già dal livello 1.");
@@ -4279,7 +4281,7 @@
     const st = s.sette.find((x) => x.id === idSetta); if (!st || st.gm !== p.id) err("Solo il Gran Maestro lancia le operazioni.");
     const lv = livelloSetta(s, st);
     const OPS = {
-      manipola: { lv: 2, costo: 1_000_000, nome: "Manipolare un titolo" },
+      manipola: { lv: 1, costo: 600_000, nome: "Manipolare un titolo" }, // v147: un'operazione gia' al livello 1
       blackout: { lv: 3, costo: 3_000_000, nome: "Blackout di un'isola" },
       evasione: { lv: 3, costo: 2_000_000, nome: "Evasione dal Faro" },
       fantoccio: { lv: 4, costo: 10_000_000, nome: "Sindaco fantoccio" },

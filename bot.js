@@ -166,7 +166,7 @@ function operaBot(o, i, n, L) {
   for (const k of GUSTO_OPERA[n] || ["isola", "giudice", "porto", "amnistia", "colpo"]) {
     const O = L.OPERE[k]; if ((st.opereFatte || []).includes(k) || lv < O.lv) continue;
     if (k === "amnistia" && !st.membri.some((id) => { const m = o.players.find((x) => x.id === id); return m && ((m.condanne || 0) > 0 || m.stato >= 2); })) continue;
-    if (st.tesoro >= L.costoOpera(st, k) + 1e6) return { tipo: "proponi_opera", setta: st.id, opera: k };
+    if (st.tesoro >= L.costoOpera(st, k) + 3e5) return { tipo: "proponi_opera", setta: st.id, opera: k };
   }
   return null;
 }
@@ -199,7 +199,7 @@ function settaNotteBot(o, i, e, L, s) {
   const st = (o.sette || []).find((x) => x.gm === i.id);
   if (st && i._recCiclo !== o.ciclo) {
     const lvS = L.livelloSetta(o, st);
-    const chi = !st.banchiere && st.tesoro >= 3e6 ? "banchiere" : lvS >= 2 && !st.commissario && st.tesoro >= 4.5e6 ? "commissario" : lvS >= 2 && !st.giudice && st.tesoro >= 6e6 ? "giudice" : null;
+    const chi = !st.banchiere && st.tesoro >= 2e6 ? "banchiere" : lvS >= 2 && !st.commissario && st.tesoro >= 3e6 ? "commissario" : lvS >= 2 && !st.giudice && st.tesoro >= 3.5e6 ? "giudice" : null; // v147: prezzi piu' bassi
     if (chi) { if (s !== "faro") return { tipo: "vai", luogo: "faro" }; i._recCiclo = o.ciclo; return { tipo: "recluta", setta: st.id, chi }; }
   }
   return null;
