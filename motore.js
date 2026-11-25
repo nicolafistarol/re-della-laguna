@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 150;
+  const VERSIONE_REGOLE = 151;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -5523,8 +5523,8 @@
       if (gen2(s)) { const f = Math.min(3, propri(s, p).filter((l) => l.lvl >= 1 && !l.chiuso && !l.cantiere && lussoFama(ATTIVITA[l.tipo])).length); if (f) { p.fama += f; r.famaLusso = f; } } // Hotel e Boutique: +1 fama l'uno a ogni Alba (al massimo 3)
       // v149 (il giudice: "nessuna rimonta, ero primo dal Ciclo 3 e non e' cambiato niente"): il primo rende un po' meno, l'ultimo un po' di piu'
       if (gen2(s) && rimonta && rend > 0) {
-        if (rimonta.primo === p.id) { const x = -round(rend * 0.1); rend += x; r.dettaglio.push({ nome: "Primo in classifica", cosa: "tutti ti chiedono di più: −10% sulle attività", importo: x }); }
-        else if (rimonta.ultimo === p.id) { const x = round(rend * 0.2); rend += x; r.dettaglio.push({ nome: "Ultimo in classifica", cosa: "la Laguna fa il tifo per te: +20% sulle attività", importo: x }); }
+        // v151 (il Regista): tolto il -10% al primo: per il primo basta una punizione (la sfida e la soffiata a meta' prezzo)
+        if (rimonta.ultimo === p.id) { const x = round(rend * 0.2); rend += x; r.dettaglio.push({ nome: "Ultimo in classifica", cosa: "la Laguna fa il tifo per te: +20% sulle attività", importo: x }); }
       }
       const rendAtt = rend, bloccato = p.blocco > 0;
       rend += pal + r.veicoli;
@@ -5649,28 +5649,32 @@
   // ------------------------------------------------------------ la sfida del Ciclo (v98: la rivalita' tra giocatori)
   // A ogni Alba i giocatori vengono messi a coppie: prima le vendette (chi ti ha venduto alla polizia stanotte),
   // poi chi e' vicino in classifica. Chi fa crescere di piu' il suo patrimonio entro l'Alba dopo prende la posta dall'altro.
-  const SFIDA = { quota: 0.06, min: 250_000, max: 3_000_000, fama: 5, famaPerde: 2, sconto: 0.5, rischio: 1.25 };
+  // v151 (il Regista): la posta e' una sola, nota fin dall'inizio: il 3% del patrimonio del piu' ricco dei due, al massimo 500.000 €.
+  // La crescita conta anche gli sporchi (al 70%): chi fa affari sporchi non perde la sfida per forza.
+  const SFIDA = { quota: 0.03, min: 50_000, max: 500_000, sporchi: 0.7, fama: 5, famaPerde: 2, sconto: 0.5, rischio: 1.25 };
+  function valoreSfida(s, p) { return patrimonio(s, p, false) + SFIDA.sporchi * (p.sporchi || 0); }
+  function postaDi(sf) { return round(clamp(Math.max(sf.pa || 0, sf.pb || 0) * SFIDA.quota, SFIDA.min, SFIDA.max)); }
   function rivaleDi(s, p) { const sf = (s.sfide || []).find((x) => x.a === p.id || x.b === p.id); return sf ? (sf.a === p.id ? sf.b : sf.a) : null; }
   function albaSfide(s, riepilogo) {
     const segno = (x) => (x >= 0 ? "+" : "−") + Math.round(Math.abs(x) * 100) + "%";
     for (const sf of s.sfide || []) {
       const a = giocatore(s, sf.a), b = giocatore(s, sf.b); if (!a || !b) continue;
       // conta la crescita in percentuale: cosi' anche il piu' povero dei due puo' vincere
-      const ga = (patrimonio(s, a, true) - sf.pa) / Math.max(1, sf.pa), gb = (patrimonio(s, b, true) - sf.pb) / Math.max(1, sf.pb);
+      const ga = (valoreSfida(s, a) - sf.pa) / Math.max(1, Math.abs(sf.pa)), gb = (valoreSfida(s, b) - sf.pb) / Math.max(1, Math.abs(sf.pb));
       const [w, l, gw, gl] = ga >= gb ? [a, b, ga, gb] : [b, a, gb, ga];
       // v110: chi era indietro e perde non paga (e perde solo 1 fama); chi vince partendo da dietro prende la posta e +2 fama in piu'
       const pw0 = w === a ? sf.pa : sf.pb, pl0 = l === a ? sf.pa : sf.pb, lAvanti = pl0 > pw0;
       const quanto = Math.round(Math.abs(pl0 - pw0) / Math.max(1, Math.min(pl0, pw0)) * 100) + "%"; // v114: di quanto partiva avanti (in percentuale: i patrimoni degli altri restano segreti)
-      // v112: chi vince prende sempre qualcosa: il 6% (min 250.000 €) se l'altro partiva avanti, il 3% (min 100.000 €) se partiva dietro
-      const pagata = round(Math.min(Math.max(0, l.cash), lAvanti ? clamp(l.cash * SFIDA.quota, SFIDA.min, SFIDA.max) : clamp(l.cash * SFIDA.quota / 2, 100_000, SFIDA.max / 2)));
-      const famaW = SFIDA.fama + (lAvanti ? 2 : 0), famaL = lAvanti ? SFIDA.famaPerde : 1;
+      // v151: la posta e' fissata all'inizio (sf.posta), uguale per tutti e due
+      const pagata = round(Math.min(Math.max(0, l.cash), sf.posta || postaDi(sf)));
+      const famaW = SFIDA.fama, famaL = SFIDA.famaPerde;
       l.cash -= pagata; w.cash += pagata; w.fama += famaW; l.fama = Math.max(0, l.fama - famaL);
       w.sfideVinte = (w.sfideVinte || 0) + 1; l.sfidePerse = (l.sfidePerse || 0) + 1;
       if (pagata) flusso(s, l, w, pagata, "Sfida del Ciclo", true);
       momento(s, w, "Vince la sfida contro " + l.nome + (pagata ? " (+" + euro(pagata) + ")" : "")); momento(s, l, "Perde la sfida contro " + w.nome + (pagata ? " (−" + euro(pagata) + ")" : ""));
       notizia(s, "Sfida del Ciclo: " + w.nome + " batte " + l.nome + " (" + segno(gw) + " contro " + segno(gl) + ")" + (pagata ? " e incassa " + euro(pagata) : "") + ".", "scandalo");
-      privato(s, w, "Hai vinto la sfida del Ciclo contro " + l.nome + ": sei cresciuto di " + segno(gw) + ", lui di " + segno(gl) + ". Incassi " + euro(pagata) + " e +" + famaW + " fama" + (lAvanti ? " (posta piena: all'inizio lui era più ricco di te del " + quanto + ")." : " (mezza posta: all'inizio eri tu più ricco di lui del " + quanto + ")."));
-      privato(s, l, "Hai perso la sfida del Ciclo contro " + w.nome + ": dall'Alba scorsa il suo patrimonio è cresciuto di " + segno(gw) + ", il tuo di " + segno(gl) + " (vince chi cresce di più in percentuale). " + (lAvanti ? "Partivi avanti del " + quanto + ", quindi rischiavi di più: gli paghi " + euro(pagata) + " (il 6% dei tuoi contanti, almeno 250.000 €) e perdi " + famaL + " fama." : "Partivi dietro del " + quanto + ", quindi rischiavi poco: gli paghi solo " + euro(pagata) + " (il 3% dei tuoi contanti, almeno 100.000 €) e perdi " + famaL + " fama."));
+      privato(s, w, "Hai vinto la sfida del Ciclo contro " + l.nome + ": sei cresciuto di " + segno(gw) + ", lui di " + segno(gl) + ". Incassi " + euro(pagata) + " e +" + famaW + " fama.");
+      privato(s, l, "Hai perso la sfida del Ciclo contro " + w.nome + ": dall'Alba scorsa il suo patrimonio è cresciuto di " + segno(gw) + ", il tuo di " + segno(gl) + " (vince chi cresce di più in percentuale). " + "Gli paghi la posta, " + euro(pagata) + ", e perdi " + famaL + " fama.");
       if (riepilogo[w.id]) riepilogo[w.id].sfida = { contro: l.id, vinta: true, soldi: pagata, mio: Math.round(gw * 100), suo: Math.round(gl * 100), avanti: lAvanti ? "lui" : "tu", quanto };
       if (riepilogo[l.id]) riepilogo[l.id].sfida = { contro: w.id, vinta: false, soldi: -pagata, mio: Math.round(gl * 100), suo: Math.round(gw * 100), avanti: lAvanti ? "tu" : "lui", quanto };
     }
@@ -5695,7 +5699,7 @@
       if (j > 0) coppia(ord[i].id, ord[j].id, "classifica");
     }
     s.sfideStoria = [nuove.map((sf) => kc(sf.a, sf.b))].concat(ult).slice(0, 2);
-    s.sfide = nuove.map((sf) => ({ ...sf, pa: round(patrimonio(s, giocatore(s, sf.a), true)), pb: round(patrimonio(s, giocatore(s, sf.b), true)), ciclo: s.ciclo + 1 }));
+    s.sfide = nuove.map((sf) => ({ ...sf, pa: round(valoreSfida(s, giocatore(s, sf.a))), pb: round(valoreSfida(s, giocatore(s, sf.b))), ciclo: s.ciclo + 1 })).map((sf) => ({ ...sf, posta: postaDi(sf) }));
     s.denunceUltime = [];
     for (const sf of s.sfide) {
       const a = giocatore(s, sf.a), b = giocatore(s, sf.b);
@@ -5707,11 +5711,7 @@
 
   // v116: la posta spiegata a ciascuno dei due fin dall'inizio (prima diceva "se perdi partendo da dietro non paghi niente", ma dalla v112 si paga il 3%)
   function postaSfida(sf, p) {
-    const io = p.id === sf.a ? sf.pa : sf.pb, lui = p.id === sf.a ? sf.pb : sf.pa, avanti = io > lui;
-    const quanto = Math.round(Math.abs(io - lui) / Math.max(1, Math.min(io, lui)) * 100);
-    return avanti
-      ? "Parti avanti: sei più ricco di lui del " + quanto + "%. Se vinci gli prendi il 3% dei suoi contanti (almeno 100.000 €) e +5 fama; se perdi gli paghi il 6% dei tuoi (almeno 250.000 €) e perdi 2 fama."
-      : "Parti dietro: lui è più ricco di te del " + quanto + "%. Se vinci gli prendi il 6% dei suoi contanti (almeno 250.000 €) e +7 fama; se perdi gli paghi solo il 3% dei tuoi (almeno 100.000 €) e perdi 1 fama.";
+    return "In palio " + euro(sf.posta || postaDi(sf)) + " (il 3% del patrimonio del più ricco dei due, al massimo 500.000 €): chi perde li paga all'altro, e chi vince prende anche +5 fama. I soldi sporchi contano al 70%. La sfida la vedi sempre in alto, sotto la barra.";
   }
   // il motivo della ruggine, visto da chi l'ha subita (vittima = true) o da chi l'ha causata
   function motivoAttrito(f, lui, vittima) {
@@ -6296,7 +6296,7 @@
     delete v.rngState; delete v.seed;
     delete v.denunceUltime; // chi ha fatto il nome di chi resta segreto
     // la sfida del Ciclo: si vede chi sfida chi e chi e' in vantaggio adesso, mai i patrimoni esatti degli altri
-    v.sfide = (s.sfide || []).map((sf) => { const a = s.players.find((x) => x.id === sf.a), b = s.players.find((x) => x.id === sf.b); const ga = a ? (patrimonio(s, a, true) - sf.pa) / Math.max(1, sf.pa) : 0, gb = b ? (patrimonio(s, b, true) - sf.pb) / Math.max(1, sf.pb) : 0; return { a: sf.a, b: sf.b, motivo: sf.motivo, avanti: ga >= gb ? sf.a : sf.b, ciclo: sf.ciclo }; });
+    v.sfide = (s.sfide || []).map((sf) => { const a = s.players.find((x) => x.id === sf.a), b = s.players.find((x) => x.id === sf.b); const ga = a ? (valoreSfida(s, a) - sf.pa) / Math.max(1, Math.abs(sf.pa)) : 0, gb = b ? (valoreSfida(s, b) - sf.pb) / Math.max(1, Math.abs(sf.pb)) : 0; const mia = sf.a === idGiocatore || sf.b === idGiocatore; return { a: sf.a, b: sf.b, motivo: sf.motivo, avanti: ga >= gb ? sf.a : sf.b, ciclo: sf.ciclo, ...(mia ? { ga: Math.round(ga * 1000) / 10, gb: Math.round(gb * 1000) / 10, posta: sf.posta || postaDi(sf) } : {}) }; });
     // v136: la classifica durante la partita: solo il posto di ognuno, mai le cifre degli altri
     v.posti = Object.fromEntries(s.players.filter((x) => !x.fallito).sort((a, b) => patrimonio(s, b, true) - patrimonio(s, a, true)).map((x, i) => [x.id, i + 1]));
     // v123: il racconto della partita: i tuoi momenti sempre; quelli degli altri solo se pubblici; i patrimoni degli altri solo a partita finita
@@ -6408,7 +6408,7 @@
     // tabellone e giorno
     CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, casella, corrente, haSerie, propri, haAttivita, prezzoAgenzia, destinazioniRapide,
     // soldi e valori
-    maxBotLotto, perchéNoInvito, euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, SABOTA, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
+    maxBotLotto, perchéNoInvito, euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, valoreSfida, SABOTA, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
     // Palazzo
     costoCantiere, guadagnoLivello, puoSalire, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale, tettoColpo,
     costoPiano, costoPiani, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, livelloPalazzo, lustro,
