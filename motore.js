@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 161;
+  const VERSIONE_REGOLE = 162;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -3092,6 +3092,7 @@
     if (!LUOGHI_AFFARI.includes(luogo)) err("In quale posto pensi che lavori?");
     const contro = rivaleDi(s, p) === q.id || primoInClassifica(s, p) === q.id; // v98: contro il tuo rivale della sfida costa la meta'; v149: anche contro chi e' primo (rimonta)
     pagaMisto(s, p, round(N_DENUNCIA.costo * (contro ? SFIDA.sconto : 1)));
+    tradisciSeInPatto(s, p, q.id, "ha fatto il tuo nome alla polizia"); // v162
     fattoDenuncia(s, p, q, luogo);
     if (contro) s.notte.denunce[s.notte.denunce.length - 1].rivale = true;
     // v100: una telefonata dalla cabina e' un attimo: non costa l'ora (resta una sola soffiata a notte)
@@ -3121,11 +3122,12 @@
   const FURTO_VILLA = { nome: "Furto in villa", costo: 50_000, tracce: 20, quota: 0.05, max: 1_000_000, verbo: "svaligiato la villa di", descr: "Gli togli il 5% dei contanti puliti, in contanti sporchi per te." };
   function dannoVilla(q) { return round(Math.min(FURTO_VILLA.max, Math.max(0, q.cash || 0) * FURTO_VILLA.quota)); }
   function vendettaSu(s, p, idRivale) { return !!(p.vendetta && p.vendetta.su === idRivale && p.vendetta.ciclo === s.ciclo); }
-  function costoColpo(s, p, l, az) { const C = COLPI_RIVALE[az] || COLPI_RIVALE.incendio; return round(C.costo * (vendettaSu(s, p, l.owner) ? 0.5 : 1)); }
+  function colpoGratisSu(s, p, idQ) { return !!(p.colpoGratis && p.colpoGratis.su === idQ && p.colpoGratis.ciclo === s.ciclo); } // v162: il tradito colpisce gratis
+  function costoColpo(s, p, l, az) { const C = COLPI_RIVALE[az] || COLPI_RIVALE.incendio; return colpoGratisSu(s, p, l.owner) ? 0 : round(C.costo * (vendettaSu(s, p, l.owner) ? 0.5 : 1)); }
   function costoSabotaggio(s, p, l) { return costoColpo(s, p, l, "incendio"); }
   function bersagliSabotaggio(s, p) { return s.players.filter((q) => q.id !== p.id && !q.uscito).flatMap((q) => { const ls = propri(s, q).filter((l) => l.tipo && l.lvl >= 1 && !(l.chiuso > 0) && rendita(s, l) >= SABOTA.minDanno).map((l) => ({ lotto: l.id, nome: l.nome, owner: q.id, rendita: rendita(s, l), costo: costoColpo(s, p, l, "incendio"), costi: Object.fromEntries(Object.keys(COLPI_RIVALE).map((k) => [k, costoColpo(s, p, l, k)])), vendetta: vendettaSu(s, p, q.id) }));
     if (ls.length || dannoVilla(q) < 20_000) return ls; // v161: niente locali? la sua villa
-    const cv = round(FURTO_VILLA.costo * (vendettaSu(s, p, q.id) ? 0.5 : 1));
+    const cv = colpoGratisSu(s, p, q.id) ? 0 : round(FURTO_VILLA.costo * (vendettaSu(s, p, q.id) ? 0.5 : 1));
     return [{ lotto: "villa:" + q.id, villa: true, nome: "La villa di " + q.nome, owner: q.id, rendita: dannoVilla(q), costo: cv, costi: { villa: cv }, vendetta: vendettaSu(s, p, q.id) }]; }); }
   function sabota(s, p, idLotto, azione) {
     oraLibera(s, p);
@@ -3137,6 +3139,7 @@
       const b = bersagliSabotaggio(s, p).find((x) => x.lotto === idLotto); if (!b) err("Questo rivale ha locali da colpire: scegli uno di quelli.");
       if ((p.cash || 0) + (p.sporchi || 0) < b.costo) err("Non hai abbastanza soldi: servono " + euro(b.costo) + ".");
       pagaMisto(s, p, b.costo);
+      tradisciSeInPatto(s, p, q.id, "ti ha svaligiato la villa"); // v162
       const tiro = Math.floor(rng(s) * 100) + 1;
       eseguiFurtoVilla(s, p, q, tiro, tiro <= Math.round(SABOTA.preso * 100));
       N2.chiuso[p.id] = true; controllaOra(s); return;
@@ -3147,6 +3150,7 @@
     const costo = costoColpo(s, p, l, az);
     if ((p.cash || 0) + (p.sporchi || 0) < costo) err("Non hai abbastanza soldi: servono " + euro(costo) + ".");
     pagaMisto(s, p, costo);
+    tradisciSeInPatto(s, p, l.owner, "ti ha colpito di notte"); // v162
     const tiro = Math.floor(rng(s) * 100) + 1; // v161 (il Regista): il tiro si vede
     eseguiSabotaggio(s, p, l, az !== "soffiata" && tiro <= Math.round(SABOTA.preso * 100), az, az !== "soffiata" ? tiro : null);
     N2.chiuso[p.id] = true;
@@ -3154,7 +3158,7 @@
   }
   function eseguiFurtoVilla(s, p, q, tiro, preso) {
     const C = FURTO_VILLA, N2 = s.notte; N2.sabotaggi = N2.sabotaggi || [];
-    N2.sabotaggi.push({ da: p.id, su: q.id, lotto: null, preso, az: "villa" });
+    N2.sabotaggi.push({ da: p.id, su: q.id, lotto: null, preso, az: "villa" }); if (colpoGratisSu(s, p, q.id)) delete p.colpoGratis;
     p.tracce = (p.tracce || 0) + C.tracce; segnaTraccia(s, p, C.tracce, C.nome + " contro " + q.nome); p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "media");
     q.vendetta = { su: p.id, ciclo: s.ciclo + 1 };
     const dado = "Esce " + tiro + " su 100 · serviva più di " + Math.round(SABOTA.preso * 100) + " · ";
@@ -3180,7 +3184,7 @@
     az = az || "incendio";
     const dado = tiro ? "Esce " + tiro + " su 100 · serviva più di " + Math.round(SABOTA.preso * 100) + " · " : "";
     const C = COLPI_RIVALE[az], q = giocatore(s, l.owner), N2 = s.notte; N2.sabotaggi = N2.sabotaggi || [];
-    N2.sabotaggi.push({ da: p.id, su: q.id, lotto: l.id, preso, az });
+    N2.sabotaggi.push({ da: p.id, su: q.id, lotto: l.id, preso, az }); if (colpoGratisSu(s, p, q.id)) delete p.colpoGratis;
     p.tracce = (p.tracce || 0) + C.tracce; segnaTraccia(s, p, C.tracce, C.nome + " contro " + q.nome); p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, az === "incendio" ? "media" : "lieve");
     q.vendetta = { su: p.id, ciclo: s.ciclo + 1 }; // il Ciclo dopo, contro chi l'ha colpito, ogni colpo costa la meta'
     if (preso) {
@@ -3210,8 +3214,10 @@
       if (!b.bot || b.faro || b.uscito || !["Furbo", "Spavaldo"].includes(b.strat) || rng(s) >= 0.2) continue;
       const riv = (b.vendetta && b.vendetta.ciclo === s.ciclo && b.vendetta.su) || rivaleDi(s, b); const ber = bersagliSabotaggio(s, b).filter((x) => !riv || x.owner === riv).sort((x, y) => y.rendita - x.rendita)[0];
       const az = b.strat === "Spavaldo" ? "incendio" : rng(s) < 0.5 ? "furto" : "soffiata";
+      if (ber && pattoAttivo(s, b.id, ber.owner) && b.strat !== "Spavaldo") continue; // v162
       if (!ber || (!ber.villa && b.cash + b.sporchi < ber.costi[az] * 3)) continue;
-      if (ber && ber.villa) { if (b.cash + b.sporchi < ber.costo * 3) continue; pagaMisto(s, b, ber.costo); const t = Math.floor(rng(s) * 100) + 1; eseguiFurtoVilla(s, b, giocatore(s, ber.owner), t, t <= Math.round(SABOTA.preso * 100)); continue; }
+      if (ber && ber.villa) { if (b.cash + b.sporchi < ber.costo * 3) continue; pagaMisto(s, b, ber.costo); const t = Math.floor(rng(s) * 100) + 1; tradisciSeInPatto(s, b, ber.owner, "ti ha svaligiato la villa"); eseguiFurtoVilla(s, b, giocatore(s, ber.owner), t, t <= Math.round(SABOTA.preso * 100)); continue; }
+      tradisciSeInPatto(s, b, ber.owner, "ti ha colpito di notte"); // v162
       pagaMisto(s, b, ber.costi[az]); eseguiSabotaggio(s, b, s.lotti.find((x) => x.id === ber.lotto), az !== "soffiata" && rng(s) < SABOTA.preso, az);
     }
   }
@@ -3224,6 +3230,8 @@
       const q = persone[Math.floor(rng(s) * persone.length)];
       const preferiti = Object.keys(q.abitudini || {}).filter((l) => LUOGHI_AFFARI.includes(l)); // i posti dove lavora di solito
       const luogo = preferiti.length && rng(s) < 0.7 ? preferiti[Math.floor(rng(s) * preferiti.length)] : LUOGHI_AFFARI[Math.floor(rng(s) * 5)];
+      if (pattoAttivo(s, b.id, q.id) && b.strat !== "Spavaldo") continue; // v162: il Furbo rispetta i patti, lo Spavaldo li tradisce
+      tradisciSeInPatto(s, b, q.id, "ha fatto il tuo nome alla polizia");
       fattoDenuncia(s, b, q, luogo);
     }
   }
@@ -3779,8 +3787,100 @@
     const f = s.notte.fatto[q.id], occ = f && s.notte.occasioni.find((x) => x.n === f.n), O = occ && OCCASIONI.find((x) => x.id === occ.id);
     return O ? O.nome : null;
   }
+  // v162 (il Regista): IL PATTO TRADIBILE. Nasce dal faccia a faccia: 3 proposte con termini, l'altro dice Accetto / Rifiuto / Rilancio.
+  // Ogni patto ha durata e garanzia (depositata in Banca). Chi tradisce (una volta per patto) prende la garanzia dell'altro e perde 10 fama;
+  // il tradito ha un colpo gratis contro di lui il Ciclo dopo. Un patto rispettato fino alla fine da' +5 fama a tutti e due.
+  const PATTI = [
+    { k: "tregua", nome: "Tregua", testo: "Non ci colpiamo per 2 Cicli", durata: 2, garanzia: 200_000, paga: 0 },
+    { k: "protezione", nome: "Protezione", testo: "Ti do 150.000 € e non mi colpisci per 3 Cicli", durata: 3, garanzia: 300_000, paga: 150_000 },
+    { k: "parola", nome: "Sulla parola", testo: "Non ci colpiamo fino alla prossima Alba, senza garanzia", durata: 1, garanzia: 0, paga: 0 },
+  ];
+  const PATTO = { tradisci: 10, rispetta: 5, rilancio: 1.5 };
+  function terminiPatto(k) { return k.testo + (k.garanzia ? " · garanzia " + euro(k.garanzia) + " a testa" : "") + (k.paga ? "" : ""); }
+  function pattoAttivo(s, a, b) { return (s.patti || []).find((k) => k.stato === "attivo" && ((k.da === a && k.a === b) || (k.da === b && k.a === a))); }
+  function proponiPatto(s, p, q, i) {
+    const P = PATTI[Number(i) || 0] || PATTI[0];
+    if (pattoAttivo(s, p.id, q.id)) { racconta(s, p, "Con " + q.nome + " hai già un patto in corso."); return null; }
+    { const suo = (s.patti || []).find((k) => k.stato === "proposto" && k.da === q.id && k.a === p.id); if (suo) { rispondiPatto(s, p, suo.id, "si", true); return suo; } } // ha gia' proposto lui: ci state tutti e due
+    s.patti = s.patti || [];
+    const k = { id: "pt" + s.prossimoId++, da: p.id, a: q.id, tipo: P.k, testo: P.testo, durata: P.durata, garanzia: P.garanzia, paga: P.paga, stato: "proposto", turno: q.id, ciclo: s.ciclo };
+    s.patti.push(k);
+    racconta(s, p, "Proponi a " + q.nome + ": «" + P.testo + "»" + (P.garanzia ? ", garanzia " + euro(P.garanzia) + " a testa" : "") + ". Aspetti la risposta.");
+    privato(s, q, p.nome + " ti propone un patto: «" + P.testo + "»" + (P.garanzia ? ", garanzia " + euro(P.garanzia) + " a testa" : "") + ". Accetti, rifiuti o rilanci?");
+    if (q.bot) rispostaPattoBot(s, q, k);
+    return k;
+  }
+  function rispostaPattoBot(s, b, k) {
+    const altro = giocatore(s, k.turno === k.a ? k.da : k.a), cattivo = ["Spavaldo", "Furbo"].includes(b.strat);
+    const r = rng(s), puo = b.cash >= k.garanzia + (k.da === b.id ? k.paga : 0) + 100_000;
+    rispondiPatto(s, b, k.id, !puo ? "no" : k.stato === "proposto" && cattivo && r < 0.4 ? "rilancio" : r < (cattivo ? 0.75 : 0.85) ? "si" : "no", true);
+    void altro;
+  }
+  function rispondiPatto(s, p, idP, r, muto) {
+    const k = (s.patti || []).find((x) => x.id === idP);
+    if (!k || k.turno !== p.id || !["proposto", "rilancio"].includes(k.stato)) err("Non c'è un patto che aspetta la tua risposta.");
+    const da = giocatore(s, k.da), a = giocatore(s, k.a), altro = p.id === da.id ? a : da;
+    if (r === "rilancio" && k.stato === "proposto") {
+      k.garanzia = round(k.garanzia * PATTO.rilancio / 10000) * 10000; k.paga = round(k.paga * PATTO.rilancio / 10000) * 10000; k.stato = "rilancio"; k.turno = altro.id;
+      const t = (k.paga ? "pagamento " + euro(k.paga) + ", " : "") + "garanzia " + euro(k.garanzia) + " a testa";
+      privato(s, altro, p.nome + " rilancia sul patto «" + k.testo + "»: " + t + ". Accetti o rifiuti?");
+      if (s.fase === "notte") racconta(s, altro, p.nome + " rilancia: " + t + ".");
+      if (altro.bot) rispostaPattoBot(s, altro, k);
+      return;
+    }
+    if (r !== "si") { k.stato = "rifiutato"; privato(s, altro, p.nome + " rifiuta il patto «" + k.testo + "»."); if (s.fase === "notte") { racconta(s, altro, p.nome + " rifiuta il patto."); racconta(s, p, "Rifiuti il patto di " + altro.nome + "."); } return; }
+    // accettato: si deposita la garanzia e si paga
+    for (const x of [da, a]) if (x.cash < k.garanzia + (x === da ? k.paga : 0)) { k.stato = "rifiutato"; const m = x.nome + " non ha i contanti puliti per la garanzia: il patto salta."; privato(s, da, m); privato(s, a, m); if (!muto && x === p) err("Ti servono " + euro(k.garanzia + (x === da ? k.paga : 0)) + " puliti per firmare."); return; }
+    for (const x of [da, a]) { x.cash -= k.garanzia; if (k.garanzia) flusso(s, x, null, k.garanzia, "Garanzia del patto con " + (x === da ? a : da).nome + " (in Banca)", false); }
+    if (k.paga) { da.cash -= k.paga; a.cash += k.paga; flusso(s, da, a, k.paga, "Patto: " + k.testo, false); }
+    k.stato = "attivo"; k.fine = s.ciclo + k.durata; k.turno = null;
+    for (const [x, y] of [[da, a], [a, da]]) {
+      const t = "hai stretto un patto con " + y.nome + ": " + k.testo.charAt(0).toLowerCase() + k.testo.slice(1) + (k.garanzia ? " (garanzia " + euro(k.garanzia) + ")" : "");
+      privato(s, x, "Patto fatto con " + y.nome + ": «" + k.testo + "». Scade all'Alba del Ciclo " + (k.fine + 1) + ". Tradirlo una volta si può: prendi la sua garanzia, perdi " + PATTO.tradisci + " fama.");
+      if (s.fase === "notte") { racconta(s, x, "Tu e " + y.nome + " vi stringete la mano: «" + k.testo + "»."); segnaFaccia(s, x, t); }
+    }
+  }
+  // tradire: quando lo decidi tu (o colpendo l'altro mentre il patto e' in corso)
+  function tradisciPatto(s, p, idP, come) {
+    const k = (s.patti || []).find((x) => x.id === idP && x.stato === "attivo" && (x.da === p.id || x.a === p.id)); if (!k) err("Non hai un patto da tradire.");
+    const q = giocatore(s, k.da === p.id ? k.a : k.da);
+    k.stato = "tradito"; k.traditore = p.id;
+    p.cash += k.garanzia * 2; flusso(s, null, p, k.garanzia * 2, "Garanzie del patto tradito con " + q.nome, false);
+    if (k.garanzia) costoTra(s, q, p, k.garanzia);
+    p.fama = Math.max(0, (p.fama || 0) - PATTO.tradisci);
+    q.colpoGratis = { su: p.id, ciclo: s.ciclo + (s.fase === "notte" ? 1 : 1) };
+    const testo = "🗡️ " + p.nome + " ha tradito il vostro patto" + (come ? " (" + come + ")" : "") + "." + (k.garanzia ? " Ti ha preso " + euro(k.garanzia) + "." : "") + " Il prossimo Ciclo hai un colpo gratis contro di lui.";
+    privato(s, q, testo); (q.colpiSubiti = q.colpiSubiti || []).push({ testo });
+    privato(s, p, "Hai tradito il patto con " + q.nome + ": prendi la sua garanzia (" + euro(k.garanzia) + ") e riprendi la tua. −" + PATTO.tradisci + " fama.");
+    if (s.fase === "notte") racconta(s, p, "Tradisci il patto con " + q.nome + (k.garanzia ? ": la sua garanzia è tua (" + euro(k.garanzia) + ")" : "") + ". −" + PATTO.tradisci + " fama.");
+    notizia(s, p.nome + " ha tradito il patto con " + q.nome + ".", "scandalo");
+    (s.tradimentiPatti = s.tradimentiPatti || []).push({ da: p.id, su: q.id, ciclo: s.ciclo + 1, soldi: k.garanzia, come: come || "" });
+    titolo(s, "tradimento", p.nome + " ha tradito il patto con " + q.nome + " (Ciclo " + (s.ciclo + 1) + ")" + (k.garanzia ? ": " + euro(k.garanzia) + " di garanzia" : "") + ".", Math.max(k.garanzia, 100_000));
+    attrito(s, q, p, 6, "sabotaggio");
+  }
+  // colpire chi ha un patto con te = tradirlo
+  function tradisciSeInPatto(s, p, idQ, come) { const k = pattoAttivo(s, p.id, idQ); if (k) tradisciPatto(s, p, k.id, come); }
+  // all'Alba: i patti arrivati in fondo si chiudono, garanzie restituite e +5 fama a testa
+  function albaPatti(s) {
+    for (const k of s.patti || []) { // i computer piu' cattivi a volte tradiscono (prendono la garanzia)
+      if (k.stato !== "attivo" || !k.garanzia) continue;
+      const b = [giocatore(s, k.da), giocatore(s, k.a)].find((x) => x.bot && (x.strat === "Spavaldo" ? rng(s) < 0.3 : x.strat === "Furbo" ? rng(s) < 0.15 : false));
+      if (b) tradisciPatto(s, b, k.id, "non ha mantenuto la parola");
+    }
+    for (const k of s.patti || []) {
+      if (k.stato === "proposto" || k.stato === "rilancio") { k.stato = "scaduto"; continue; }
+      if (k.stato !== "attivo" || s.ciclo + 1 < k.fine) continue;
+      k.stato = "rispettato";
+      const da = giocatore(s, k.da), a = giocatore(s, k.a);
+      for (const [x, y] of [[da, a], [a, da]]) {
+        x.cash += k.garanzia; if (k.garanzia) flusso(s, null, x, k.garanzia, "Garanzia restituita (patto con " + y.nome + ")", false);
+        x.fama = (x.fama || 0) + PATTO.rispetta;
+        fatto(s, x, { k: "patto", testo: "🤝 Il patto con " + y.nome + " è stato rispettato: +" + PATTO.rispetta + " fama" + (k.garanzia ? " e ti torna la garanzia (" + euro(k.garanzia) + ")" : "") + "." });
+      }
+    }
+  }
   function segnaFaccia(s, q, testo) { const c = s.ciclo + 1; if (!q.facciaAlba || q.facciaAlba.c !== c) q.facciaAlba = { c, righe: [] }; q.facciaAlba.righe.push(testo); }
-  function facciaAFaccia(s, p, scelta) {
+  function facciaAFaccia(s, p, scelta, proposta) {
     const N2 = s.notte, F = N2 && N2.faccia && N2.faccia[p.id];
     if (s.fase !== "notte" || !F) err("Non c'è nessuno davanti a te.");
     if (F.scelta) err("Hai già risposto.");
@@ -3798,11 +3898,8 @@
     } else if (scelta === "minaccia") {
       if (rng(s) < 0.5) { N2.bloccati = [...(N2.bloccati || []), q.id]; racconta(s, p, "Guardi " + q.nome + " negli occhi e abbassi la voce. Funziona: per un'ora non si muove."); racconta(s, q, p.nome + " ti minaccia. Meglio stare fermi: perdi la prossima ora."); segnaFaccia(s, q, p.nome + " ti ha minacciato: hai perso un'ora"); }
       else { p.fama = (p.fama || 0) - FACCIA.fama; racconta(s, p, "Provi a minacciare " + q.nome + ", che ti ride in faccia davanti a tutti. −" + FACCIA.fama + " fama."); racconta(s, q, p.nome + " prova a minacciarti. Gli ridi in faccia."); segnaFaccia(s, q, p.nome + " ha provato a minacciarti (e ci ha rimesso la faccia)"); }
-    } else if (scelta === "affare") {
-      if (G && G.scelta === "affare") {
-        for (const [x, y] of [[p, q], [q, p]]) { x.sporchi = (x.sporchi || 0) + FACCIA.affare; racconta(s, x, "Tu e " + y.nome + " vi stringete la mano: un affare a metà, " + euro(FACCIA.affare) + " sporchi a testa."); segnaFaccia(s, x, y.nome + " ha fatto un affare con te (+" + euro(FACCIA.affare) + " sporchi)"); }
-      } else if (G && G.scelta) racconta(s, p, "Proponi un affare a " + q.nome + ", ma ha già scelto un'altra strada.");
-      else racconta(s, p, "Proponi un affare a " + q.nome + ". Se ci sta anche lui, vi dividete il guadagno.");
+    } else if (scelta === "affare") { // v162: "Proponi un affare" apre un patto con termini (prima: +60.000 sporchi a testa, senza rischio)
+      proponiPatto(s, p, q, proposta);
     } else racconta(s, p, "Fai finta di non vedere " + q.nome + ".");
     F.scelta = scelta;
   }
@@ -5688,6 +5785,7 @@
     for (const p of s.players) if (p.trucchi) for (const k of Object.keys(p.trucchi)) p.trucchi[k] = Math.max(0, p.trucchi[k] - 0.5); // col tempo la polizia dimentica
     s.fase = "alba";
     s.fattiAlba = {}; // v142
+    albaPatti(s); // v162
     for (const q of s.players) if (q.colpiSubiti) { for (const x of q.colpiSubiti) fatto(s, q, { k: "colpo", testo: x.testo }); delete q.colpiSubiti; } // v156
     for (const q of s.players) if (q.esitiSoffiate) { for (const x of q.esitiSoffiate) fatto(s, q, { k: "soffiata", testo: x.colpita ? "La tua soffiata su " + x.su + " ha colpito: la polizia l'ha sorpreso a " + x.luogo + ". Hai una Prova contro di lui." : x.su + " era davvero a " + x.luogo + ", ma è scampato alla tua soffiata." }); delete q.esitiSoffiate; } // v142: i fatti grossi dell'Alba (perquisizioni, elezioni, Ricettatore...) hanno ognuno la sua riga
     for (const d of ((s.notte && s.notte.denunce) || [])) if (!d.fatto) { d.fatto = true; const da = giocatore(s, d.da), su = giocatore(s, d.su); if (da && su) { privato(s, da, "La tua soffiata su " + su.nome + " non ha colpito: stanotte a " + nomeLuogo(d.luogo) + " non ha fatto affari."); fatto(s, da, { k: "soffiata", testo: "La tua soffiata su " + su.nome + " è andata a vuoto: a " + nomeLuogo(d.luogo) + " non ha fatto affari." }); } }
@@ -6372,7 +6470,9 @@
       case "licenza_speciale": return licenzaSpeciale(s, p, a.lotto);
       case "casa_mia": return casaMia(s, p, a.scelta);
       case "asta_comune": return astaComune(s, p, a.lotto);
-      case "faccia": return facciaAFaccia(s, p, a.scelta);
+      case "faccia": return facciaAFaccia(s, p, a.scelta, a.proposta);
+      case "patto_risposta": return rispondiPatto(s, p, a.id, a.r);
+      case "patto_tradisci": return tradisciPatto(s, p, a.id, "");
       case "regalo_assessore": return regaloAssessore(s, p, a.lotto);
       case "bivio": return sceltaBivio(s, p, a.i);
       case "costruisci": return costruisci(s, p, a.lotto, a.attivita);
@@ -6544,6 +6644,8 @@
     if (!(s.ordineVargas && s.ordineVargas.da === idGiocatore)) delete v.ordineVargas;
     if (s.esposto) v.esposto = s.esposto.da === idGiocatore ? { ...s.esposto } : { ciclo: s.esposto.ciclo }; else delete v.esposto;
     v.opere = (s.opere || []).map((o) => ({ ...o }));
+    v.patti = (s.patti || []).filter((k) => k.da === idGiocatore || k.a === idGiocatore); // v162
+    v.tradimentiPatti = s.fine ? (s.tradimentiPatti || []) : (s.tradimentiPatti || []).filter((t) => t.da === idGiocatore || t.su === idGiocatore);
     v.contratti = s.contratti.filter((k) => k.da === idGiocatore || k.a === idGiocatore || (k.tipo === "notarile" && k.stato !== "proposto")).map((k) => (k.da === idGiocatore || k.a === idGiocatore) ? k : { id: k.id, da: k.da, a: k.a, tipo: k.tipo, stato: k.stato });
     if (v.pending && v.pending.tipo === "asta" && v.pending.busta) { v.pending.lotto = null; v.pending.lotti = null; } // busta chiusa: non sai quali terreni ci sono
     if (v.pending && v.pending.tipo === "asta") v.pending.offerte = Object.fromEntries(Object.keys(s.pending.offerte).map((k) => [k, k === idGiocatore ? s.pending.offerte[k] : "segreta"]));
@@ -6617,7 +6719,7 @@
     // tabellone e giorno
     CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, casella, corrente, haSerie, propri, haAttivita, prezzoAgenzia, destinazioniRapide,
     // soldi e valori
-    maxBotLotto, perchéNoInvito, euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, valoreSfida, SABOTA, COLPI_RIVALE, FURTO_VILLA, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
+    maxBotLotto, perchéNoInvito, euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, valoreSfida, SABOTA, COLPI_RIVALE, FURTO_VILLA, PATTI, PATTO, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
     // Palazzo
     costoCantiere, guadagnoLivello, puoSalire, serveLicenzaSpeciale, LICENZA_SPECIALE, motivoPolizia, GUAI_GRAVITA, GUAI_POSTO, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale, tettoColpo,
     costoPiano, costoPiani, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, livelloPalazzo, lustro,
