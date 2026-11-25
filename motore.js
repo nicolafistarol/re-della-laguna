@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 149;
+  const VERSIONE_REGOLE = 150;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -5235,10 +5235,14 @@
   }
   function resaDeiConti(s) {
     s.resa = [];
+    // v150: l'inchiesta finale raccontata giocatore per giocatore (patrimonio prima e dopo, sporchi trovati)
+    s.inchiesta = s.players.filter((p) => !p.fallito).map((p) => ({ id: p.id, nome: p.nome, sporchi0: round(p.sporchi || 0), rischio: Math.round(rischioResa(s, p) * 100), prima: round(patrimonio(s, p, true)), trovato: false, multa: 0, sporchi: 0 }));
+    const segnaInch = (p) => { const x = s.inchiesta.find((y) => y.id === p.id); if (x) x.dopo = round(patrimonio(s, p, true)); return x; };
     for (const p of s.players) {
-      if (p.fallito || (!p.peggiorReato && !(p.sporchi > 0))) continue;
-      if (p.ultimaSentenza && p.ultimaSentenza.ciclo >= s.ciclo - 1 && !p.peggiorReato) { privato(s, p, "Resa dei conti: sei appena stato condannato all'ultima Alba. La Procura non ti processa due volte."); continue; } // ILL-23
-      if (rng(s) >= rischioResa(s, p)) { privato(s, p, "Resa dei conti: la Procura non trova niente su di te."); continue; }
+      if (p.fallito) continue;
+      if (!p.peggiorReato && !(p.sporchi > 0)) { segnaInch(p); continue; }
+      if (p.ultimaSentenza && p.ultimaSentenza.ciclo >= s.ciclo - 1 && !p.peggiorReato) { privato(s, p, "Resa dei conti: sei appena stato condannato all'ultima Alba. La Procura non ti processa due volte."); const x = segnaInch(p); if (x) x.appena = true; continue; } // ILL-23
+      if (rng(s) >= rischioResa(s, p)) { privato(s, p, "Resa dei conti: la Procura non trova niente su di te."); segnaInch(p); continue; }
       const gf = gravitaFinale(s, p, p.peggiorReato || "lieve", { senzaRecidiva: true }), gravita = gf.gravita;
       if (gf.avvocato) togliOggetto(p, "avvocato");
       const multa = round(Math.min(0.6, PENE[gravita].multa * N.resaMulta) * Math.max(0, patrimonio(s, p, false)) * (haAttivita(s, p, "legale") ? 0.7 : 1));
@@ -5246,6 +5250,8 @@
       const sporchiPersi = round(p.sporchi - protetti);
       p.sporchi = protetti; paga(s, p, multa, null); p.fama = Math.max(0, p.fama - PENE[gravita].fama);
       s.resa.push({ id: p.id, nome: p.nome, gravita, multa, sporchi: sporchiPersi });
+      { const x = segnaInch(p); if (x) { x.trovato = true; x.multa = multa; x.sporchi = sporchiPersi; x.gravita = gravita; } }
+      momento(s, p, "Inchiesta finale (" + gravita + "): multa " + euro(multa) + (sporchiPersi ? ", confiscati " + euro(sporchiPersi) + " sporchi" : ""), false, multa + sporchiPersi);
       privato(s, p, "Resa dei conti (" + gravita + "): multa di " + euro(multa) + (sporchiPersi ? " e confisca di " + euro(sporchiPersi) + " sporchi" : "") + ".");
       notizia(s, "Resa dei conti: la Procura condanna " + p.nome + " (reato " + gravita + "). Multa di " + euro(multa) + ".", "scandalo");
     }
@@ -5426,7 +5432,7 @@
     if (haPiano(p, "caveau") && gravita !== "gravissima") salviDa.push("il Caveau del Palazzo (fino a 5 M)");
     if (haOggetto(p, "cassetta")) salviDa.push("la cassetta di sicurezza (1 M)");
     if (operaAttiva(s, p, "giudice")) salviDa.push("il Giudice supremo della setta (metà)");
-    const piste = (p.storiaTracce || []).slice().sort((a, b) => b.quanto - a.quanto).slice(0, 3).map((x) => ({ cosa: x.cosa, quanto: x.quanto }));
+    const piste = (p.storiaTracce || []).slice().sort((a, b) => b.quanto - a.quanto).slice(0, 3).map((x) => ({ cosa: x.cosa, quanto: x.quanto, ciclo: x.ciclo }));
     const cerchiePerse = (gravita === "grave" || gravita === "gravissima") && (p.cerchie || []).length > 0, legale = haAttivita(s, p, "legale");
     for (const x of gf.note) if (x.k !== "recidiva") privato(s, p, x.testo);
     if (gf.avvocato) togliOggetto(p, "avvocato");
