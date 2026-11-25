@@ -286,3 +286,8 @@ body:has(.scena.albeggia) #panorama{opacity:.15;transition:opacity .6s}
   .hud-alto .fase .fase-corta{display:inline}
   .hud-alto .chip .n{max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
+/* v152: il segnale dell'ultimo bivio, chiaro */
+.segnale-colpo{margin:8px 0;padding:10px 12px;border-radius:10px;text-align:left;font-size:15px}
+.segnale-colpo span{display:block;font-size:12px;opacity:.8;margin-top:2px}
+.segnale-colpo.brutto{background:rgba(220,38,38,.16);border:1px solid rgba(248,80,80,.7)}
+.segnale-colpo.buono{background:rgba(34,197,94,.12);border:1px solid rgba(74,222,128,.6)}

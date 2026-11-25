@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 151;
+  const VERSIONE_REGOLE = 152;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -528,19 +528,19 @@
     { id: "cuoco", fam: "tua", req: "attivita", t: "Il gestore del tuo locale «{L}» chiede soldi per rinnovare la sala.", o: [{ t: "Paghi il rinnovo", costo: 60_000, alba: [80_000, 110_000] }, { t: "Gli dici di arrangiarsi e intaschi la differenza", fama: -1, cash: [40_000, 70_000] }] },
     { id: "ispettore", fam: "tua", req: "attivita", t: "Un ispettore sanitario si presenta al tuo locale «{L}».", o: [{ t: "Gli offri una busta", costo: 30_000, tracce: 3, fama: 1 }, { t: "Lo lasci controllare", p: 0.6, fama: 2, falli: { cash: -90_000, fama: -2 } }] },
     { id: "influencer", fam: "tua", req: "attivita", t: "Un'influencer vuole girare un video nel tuo locale «{L}».", o: [{ t: "La ospiti gratis", costo: 20_000, fama: 3 }, { t: "Le chiedi di pagare", cash: [40_000, 70_000], fama: -1 }] },
-    { id: "chef", fam: "tua", req: "attivita", t: "Un concorrente vuole rubarti il personale migliore del locale «{L}».", o: [{ t: "Alzi gli stipendi", costo: 50_000, alba: [70_000, 90_000] }, { t: "Lasci andare i migliori e assumi gente nuova", cash: [20_000, 40_000] }] },
+    { id: "chef", fam: "tua", req: "attivita", t: "Un concorrente vuole rubarti il personale migliore del locale «{L}».", o: [{ t: "Alzi gli stipendi", costo: 50_000, alba: [70_000, 90_000] }, { t: "Lasci andare i migliori e assumi gente nuova", cash: [20_000, 40_000], fama: -2 }] },
     { id: "evento", fam: "tua", req: "attivita", t: "Un'agenzia ti propone un evento privato nel locale «{L}».", o: [{ t: "Accetti, chiudi al pubblico", alba: [50_000, 90_000], fama: -1 }, { t: "Rifiuti, resta aperto a tutti", fama: 2 }] },
     { id: "fornitore", fam: "tua", req: "attivita", t: "Un fornitore ti offre merce a metà prezzo per «{L}». Non chiede fattura.", o: [{ t: "Compri in nero", costo: 40_000, alba: [90_000, 120_000], tracce: 5 }, { t: "Resti col tuo fornitore", fama: 1 }] },
     // 2) il terreno di un altro (sei sulla sua casella)
     { id: "inquilini", fam: "altro", req: "altrui", t: "Gli inquilini di {R} qui a «{C}» si lamentano dell'affitto.", o: [{ t: "Li aizzi contro di lui", costo: 30_000, p: 0.65, riv: { alba: -150_000, fama: -2 }, tracce: 2 }, { t: "Offri a {R} di mediare", fama: 1, cash: [10_000, 20_000] }] },
     { id: "gestore", fam: "altro", req: "altrui", t: "Il gestore del locale di {R} ti dice che vuole cambiare padrone.", o: [{ t: "Paghi per i suoi segreti", costo: 30_000, p: 0.75, riv: { fama: -4 }, fama: 1 }, { t: "Avvisi {R}: ti deve un favore", fama: 1, riv: { fama: 1 } }] },
-    { id: "cliente", fam: "altro", req: "altrui", t: "Un cliente di {R} ti chiede un posto migliore dove spendere.", o: [{ t: "Lo porti nei tuoi locali", p: 0.75, alba: [40_000, 70_000], riv: { alba: -50_000 } }, { t: "Gli vendi una dritta", cash: [30_000, 60_000] }] },
+    { id: "cliente", fam: "altro", req: "altrui", t: "Un cliente di {R} ti chiede un posto migliore dove spendere.", o: [{ t: "Lo porti nei tuoi locali", p: 0.75, alba: [40_000, 70_000], riv: { alba: -50_000 } }, { t: "Gli vendi una dritta", cash: [30_000, 60_000], tracce: 3, scopre: { p: 0.3, fama: -5, affittoDoppio: true } }] },
     { id: "vetrina", fam: "altro", req: "altrui", t: "Qualcuno ha rotto la vetrina di {R} a «{C}».", o: [{ t: "Ti fai fotografare mentre aiuti", fama: 3, costo: 25_000 }, { t: "Fai girare la voce che è stato un regolamento di conti", p: 0.75, riv: { fama: -4 } }] },
     { id: "permesso", fam: "altro", req: "altrui", t: "In Comune c'è una pratica di {R} per «{C}» ferma sulla scrivania sbagliata.", o: [{ t: "Paghi perché resti ferma", costo: 50_000, p: 0.65, riv: { alba: -250_000 }, tracce: 3 }, { t: "La sblocchi tu, da amico", costo: 30_000, fama: 2, riv: { fama: 1 } }] },
     // 3) il rivale della sfida
     { id: "intervista", fam: "rivale", req: "rivale", t: "Un giornalista vuole scrivere di {R}, il tuo rivale.", o: [{ t: "Gli dai materiale contro", costo: 30_000, p: 0.75, riv: { fama: -5 } }, { t: "Ti fai intervistare al posto suo", costo: 40_000, fama: 2 }] },
     { id: "socio", fam: "rivale", req: "rivale", t: "Un socio di {R} vorrebbe lavorare per te.", o: [{ t: "Lo assumi", costo: 120_000, alba: [120_000, 170_000], riv: { alba: -60_000 } }, { t: "Lo rimandi da {R}, con una buona parola", fama: 2, cash: [10_000, 30_000] }] },
-    { id: "cena", fam: "rivale", req: "rivale", t: "{R} ti invita a cena per «parlare da persone serie».", o: [{ t: "Ci vai e fate affari insieme", cash: [60_000, 120_000], riv: { fama: 1, alba: 60_000 } }, { t: "Gli fai sapere che non hai tempo", fama: 2, riv: { fama: -1 } }] },
+    { id: "cena", fam: "rivale", req: "rivale", t: "{R} ti invita a cena per «parlare da persone serie».", o: [{ t: "Ci vai e fate affari insieme", cash: [60_000, 120_000], riv: { fama: 1, alba: 60_000 }, p: 0.75, falli: { fama: -3 } }, { t: "Gli fai sapere che non hai tempo", fama: 2, riv: { fama: -1 } }] },
     { id: "foto", fam: "rivale", req: "rivale", t: "Un fotografo ha una foto imbarazzante di {R}.", o: [{ t: "La compri e la pubblichi", costo: 50_000, riv: { fama: -6 }, tracce: 1 }, { t: "La compri e la tieni da parte", costo: 60_000, alba: [100_000, 140_000], p: 0.6 }] },
     { id: "banca", fam: "rivale", req: "rivale", t: "Il direttore di banca di {R} ti fa capire che i conti del tuo rivale non vanno bene.", o: [{ t: "Spargi la voce", p: 0.6, riv: { fama: -3, alba: -100_000 }, tracce: 3 }, { t: "Te lo tieni per te e investi", costo: 50_000, alba: [80_000, 110_000] }] },
     // 4) la strada
@@ -554,7 +554,7 @@
     // 5) la citta'
     { id: "sagra", fam: "citta", t: "Il Comune cerca uno sponsor per la Festa del Redentore.", o: [{ t: "Sponsorizzi tutto", costo: 120_000, fama: 6 }, { t: "Metti solo il tuo nome sui manifesti", costo: 40_000, fama: 2 }] },
     { id: "ospedale", fam: "citta", t: "L'ospedale della Laguna raccoglie fondi per una sala nuova.", o: [{ t: "Fai una grande donazione", costo: 80_000, fama: 5, tracce: -3 }, { t: "Doni poco, ma con molto rumore", costo: 10_000, fama: 2 }] },
-    { id: "sciopero", fam: "citta", t: "Sciopero dei vaporetti: la città è bloccata.", o: [{ t: "Noleggi barche private per i clienti", costo: 50_000, alba: [70_000, 110_000] }, { t: "Offri un passaggio gratis a tutti", costo: 30_000, fama: 4 }] },
+    { id: "sciopero", fam: "citta", t: "Sciopero dei vaporetti: la città è bloccata.", o: [{ t: "Noleggi barche private per i clienti", costo: 50_000, alba: [70_000, 110_000], p: 0.7, falli: { fama: -1 } }, { t: "Offri un passaggio gratis a tutti", costo: 30_000, fama: 4 }] },
     { id: "asta_beneficenza", fam: "citta", t: "Asta di beneficenza al Casinò: in palio una cena col Sindaco.", o: [{ t: "Fai l'offerta più alta", costo: 100_000, fama: 5, p: 0.8, falli: { cash: 100_000, fama: 0 } }, { t: "Fai vincere un amico e ti fai invitare", costo: 30_000, fama: 2 }] },
     { id: "acqua_alta", fam: "citta", t: "Arriva l'acqua alta: i negozi del centro chiedono sacchi e pompe.", o: [{ t: "Li fornisci a prezzo di costo", costo: 25_000, fama: 3 }, { t: "Li vendi al triplo", cash: [50_000, 90_000], fama: -3 }] },
     // v114: bivi nuovi, con forme diverse (non solo "soldi sporchi o fama")
@@ -562,7 +562,7 @@
     { id: "assicurazione", fam: "tua", req: "attivita", t: "Un perito ti propone di gonfiare i danni dell'ultimo temporale nel locale «{L}».", o: [{ t: "Firmi la pratica gonfiata", liv: 1, sporchi: [80_000, 140_000], tracce: 6 }, { t: "Fai la polizza giusta e dormi tranquillo", costo: 20_000, tracce: -3 }] },
     { id: "debito_altro", fam: "altro", req: "altrui", t: "Il gestore di {R} qui a «{C}» ha un debito con uno strozzino e cerca qualcuno che lo compri.", o: [{ t: "Compri il debito", costo: 60_000, alba: [90_000, 130_000], riv: { alba: -40_000 } }, { t: "Avvisi {R} prima che sia tardi", fama: 1, riv: { fama: 1 }, tracce: -2 }] },
     { id: "autista", fam: "rivale", req: "rivale", t: "L'autista di {R} ti offre gli orari del suo capo per tutta la settimana.", o: [{ t: "Li compri", costo: 40_000, p: 0.7, riv: { alba: -120_000 }, falli: { fama: -2 } }, { t: "Lo riporti da {R} e ti fai bello", fama: 2, riv: { fama: -1 } }] },
-    { id: "quadro", fam: "rivale", req: "rivale", t: "All'asta della Galleria {R} vuole a tutti i costi un quadro. Sei in sala anche tu.", o: [{ t: "Rilanci per fargli dispetto", costo: 90_000, fama: 3, riv: { fama: -2 } }, { t: "Lo lasci vincere e gli vendi la cornice antica", cash: [25_000, 45_000] }] },
+    { id: "quadro", fam: "rivale", req: "rivale", t: "All'asta della Galleria {R} vuole a tutti i costi un quadro. Sei in sala anche tu.", o: [{ t: "Rilanci per fargli dispetto", costo: 90_000, fama: 3, riv: { fama: -2 } }, { t: "Lo lasci vincere e gli vendi la cornice antica", cash: [25_000, 45_000], fama: -2 }] },
     { id: "turisti", fam: "strada", t: "Una famiglia di turisti si è persa e non parla italiano.", o: [{ t: "Li accompagni all'hotel", fama: 2 }, { t: "Li porti in taxi... facendo il giro lungo", cash: [15_000, 30_000], fama: -1 }] },
     { id: "cassa_mare", fam: "strada", t: "Un pescatore ha tirato su una cassa sigillata. Te la vende senza aprirla.", o: [{ t: "La compri e la apri", costo: 30_000, p: 0.5, sporchi: [80_000, 160_000], falli: { tracce: 4 } }, { t: "La porti alla Guardia Costiera", fama: 2, tracce: -2 }] },
     { id: "biblioteca", fam: "citta", t: "La vecchia biblioteca della Laguna sta per chiudere.", o: [{ t: "Paghi il restauro", costo: 60_000, fama: 5, tracce: -2 }, { t: "Proponi di farci appartamenti di lusso", alba: [80_000, 150_000], fama: -4 }] },
@@ -608,6 +608,7 @@
     if (o.fama) pz.push((o.fama > 0 ? "+" : "−") + Math.abs(o.fama) + " fama");
     if (o.tracce) pz.push(o.tracce > 0 ? "+" + o.tracce + " Tracce (la polizia ti guarda di più)" : "−" + Math.abs(o.tracce) + " Tracce (ti guardano meno)");
     if (o.riv && altro) { const r = []; if (o.riv.alba) r.push(o.riv.alba < 0 ? "incassa " + e(-o.riv.alba) + " in meno alla prossima Alba" : "incassa " + e(o.riv.alba) + " in più"); if (o.riv.fama) r.push((o.riv.fama > 0 ? "+" : "−") + Math.abs(o.riv.fama) + " fama"); pz.push(altro.nome + " " + r.join(" e ")); }
+    if (o.scopre) pz.push(Math.round(o.scopre.p * 100) + " su 100 " + (altro ? altro.nome : "lui") + " lo scopre: " + (o.scopre.fama ? "−" + Math.abs(o.scopre.fama) + " fama" : "") + (o.scopre.affittoDoppio ? " e per 1 Ciclo ti fa pagare l'affitto doppio" : ""));
     if (o.p && o.p < 1) {
       pz.push("riesce " + Math.round(o.p * 100) + " volte su 100");
       const f = []; if (o.costo && !(o.falli && o.falli.cash >= o.costo)) f.push("perdi quello che hai pagato"); if (o.falli) { if (o.falli.cash) f.push(o.falli.cash > 0 ? "ti ridanno " + e(o.falli.cash) : "perdi altri " + e(Math.abs(o.falli.cash))); if (o.falli.fama) f.push((o.falli.fama > 0 ? "+" : "−") + Math.abs(o.falli.fama) + " fama"); if (o.falli.tracce) f.push("+" + o.falli.tracce + " Tracce"); }
@@ -643,6 +644,11 @@
       if (f.fama) { p.fama = Math.max(0, p.fama + f.fama); fatti.push((f.fama > 0 ? "+" : "−") + Math.abs(f.fama) + " fama"); }
       if (f.tracce) { p.tracce = (p.tracce || 0) + f.tracce; fatti.push("+" + f.tracce + " Tracce"); }
       if (!fatti.length) fatti.push("niente di fatto");
+    }
+    if (riesce && o.scopre && altro && rng(s) < o.scopre.p) { // v152: la dritta venduta non e' gratis
+      if (o.scopre.fama) { p.fama = Math.max(0, p.fama + o.scopre.fama); fatti.push(altro.nome + " lo scopre: −" + Math.abs(o.scopre.fama) + " fama"); }
+      if (o.scopre.affittoDoppio) { p.affittoDoppio = { da: altro.id, ciclo: s.ciclo }; fatti.push("fino all'Alba ti fa pagare l'affitto doppio"); }
+      privato(s, altro, p.nome + " ha venduto una dritta a un tuo cliente: l'hai scoperto. Fino all'Alba ti paga l'affitto doppio.");
     }
     if (!fatti.length) fatti.push(o.riv && altro ? (o.riv.fama > 0 ? "hai dato una mano a " : "hai remato contro ") + altro.nome : o.costo ? "pagati " + euro(o.costo) : "fatto quello che dovevi"); // v136: mai piu' "Fatto: ."
     const esito = (riesce ? "Fatto: " : "Va male: ") + fatti.join(", ") + ".";
@@ -758,6 +764,7 @@
       let dovuto;
       if (c.tipoCasella === "molo") dovuto = N.moloFee[moliDi(s, owner).length];
       else dovuto = affitto(s, c);
+      if (dovuto > 0 && c.tipoCasella === "lotto" && p.affittoDoppio && p.affittoDoppio.da === owner.id && p.affittoDoppio.ciclo === s.ciclo) { dovuto *= 2; log(s, owner.nome + " fa pagare a " + p.nome + " l'affitto doppio: la dritta venduta se l'è legata al dito.", p.id); }
       if (dovuto > 0) {
         paga(s, p, dovuto, owner);
         flusso(s, p, owner, dovuto, (c.tipoCasella === "molo" ? "Pedaggio del " : "Affitto di ") + c.nome, true);
@@ -3296,7 +3303,7 @@
   const ULTIMA = [
     { l: "Molli tutto e scappi", d: "Porti via solo quello che hai in mano (un quarto). Niente guai, poche tracce.", k: "scappa" },
     { l: "Ti nascondi e aspetti", d: "Se il pericolo è vero, una volta su due passa oltre. Perdi un po' di tempo e di carico.", k: "aspetta" },
-    { l: "Tiri dritto", d: "Se il pericolo è vero ti prende in pieno. Se non lo è, il sangue freddo paga: +15%.", k: "dritto" },
+    { l: "Tiri dritto", d: "Se il pericolo è vero perdi tutto il carico e quello che hai messo, e le Tracce raddoppiano. Se non lo è, il sangue freddo paga: +15%.", k: "dritto" },
   ];
   function rng2(s, p, C) { return ((C.n * 7 + s.ciclo * 13 + p.id.length) % 3) !== 0; } // 2 volte su 3 te ne accorgi (fisso: la vista non tira dadi)
 
@@ -3364,7 +3371,7 @@
     { l: "Poco e pulito", d: "Lasci giù la parte che scotta.", gu: 0.75, ga: 0.8, tr: 0.8 } ] };
   // i passi di questo colpo: quelli suoi (o uno generico) con un imprevisto a caso nel mezzo, 3 volte su 4
   function passiColpo(s, p, o, O, oggetti) {
-    const base = (COLPI[O.id] || [PASSO_FINALE]).slice();
+    const base = (COLPI[O.id] || [PASSO_FINALE]).slice().map((P) => ({ t: P.t, o: P.o.map((x) => ({ ...x })) }));
     if (rng(s) < 0.75) {
       const ok = IMPREVISTI.filter((x) => (!x.luoghi || x.luoghi.includes(o.luogo)) && x.k !== p.ultimoImprevisto);
       const I = ok[Math.floor(rng(s) * ok.length)];
@@ -3373,6 +3380,13 @@
         const opz = I.o.filter((x) => !x.ogg || haOggetto(p, x.ogg) || (oggetti || []).includes(x.ogg)).map((x) => { const y = { ...x }; if (y.quota) { y.costo = round(Math.max(20_000, (O.costo || 0) * y.quota) / 1000) * 1000; delete y.quota; } delete y.ogg; return y; });
         base.splice(Math.min(1, base.length), 0, { t: I.t, o: opz });
       }
+    }
+    // v152 (il Regista): via le strade che non cambiano niente ("dal 20% al 20%"); chi paga spende il 10% del bottino massimo e il rischio scende al massimo di 4 punti
+    const pg0 = Math.max(0.04, rischioOccasione(s, p, o, O, oggetti || [])), bMax = guadagnoMostrato(s, p, O, o.luogo)[1];
+    for (const P of base) {
+      const vere = P.o.filter((x) => !(x.gu === 1 && x.ga === 1 && x.tr === 1 && !x.costo && !x.quota));
+      if (vere.length >= 2) P.o = vere;
+      for (const x of P.o) if (x.costo && x.gu < 1) { x.costo = Math.max(10_000, round(bMax * 0.1 / 1000) * 1000); x.gu = Math.max(x.gu, Math.round((1 - 0.04 / pg0) * 100) / 100); }
     }
     return base;
   }
@@ -3397,7 +3411,7 @@
     const gm = guadagnoMostrato(s, p, O, o.luogo), tetto = tettoColpo(O) * clamp(C.ga, 1, 1.2), g = gm.map((x) => round(Math.min(tetto, x * C.ga))); // v145: le scelte rischiose alzano anche il tetto, e il bottino si aggiorna
     const ultimo = C.passo >= passi.length;
     return { nome: O.nome, luogo: o.luogo, passo: C.passo, passi: passi.length + 1, rischio: Math.round(pg * 100), bottino: g, tracce: Math.round(O.tracce * 0.75 * C.tr), quando: C.quando, tempo: TEMPO_BIVIO, adesso: adesso(), storia: C.storia,
-      testo: ultimo ? "Il momento della verità. " + C.segnale : passi[C.passo].t, segnale: ultimo ? C.segnaleBrutto : null,
+      testo: ultimo ? "Il momento della verità. " + C.segnale : passi[C.passo].t, segnale: ultimo ? C.segnaleBrutto : null, segnaleChiaro: ultimo ? (C.segnaleBrutto ? "pattuglia" : "libera") : null,
       venduto: denunciatoQui(s, p, o.luogo) && rng2(s, p, C) ? "Stanotte qui ci sono più divise del solito. Come se aspettassero qualcuno." : null,
       opzioni: (ultimo ? ULTIMA.map((x) => { const f = x.k === "scappa" && mezzoFuga(s, p, o.luogo); return f ? { l: "Scappi col tuo " + f.nome.toLowerCase(), d: "Il tuo mezzo ti aspetta: porti via metà del carico, niente guai, poche tracce." } : x; }) : passi[C.passo].o).map((x) => ({ l: x.l, d: x.d, costo: x.costo || 0, gu: x.gu || null, ga: x.ga || null })) };
   }
@@ -3419,7 +3433,8 @@
       if (C.passo >= passi.length) { // si decide adesso se il guaio arriva, e si manda un segnale (vero 3 volte su 4)
         const pg = Math.min(0.95, rischioOccasione(s, p, o, O, C.oggetti) * C.gu);
         C.pg = pg;
-        C.guaio = O.pericoli.length && rng(s) < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
+        const tiro = rng(s); C.tiro = Math.floor(tiro * 100) + 1; C.soglia = Math.round(pg * 100); // v152: il dado si mostra
+        C.guaio = O.pericoli.length && tiro < pg ? O.pericoli[Math.floor(rng(s) * O.pericoli.length)] : null;
         const brutto = C.guaio ? rng(s) < 0.75 : rng(s) < 0.25;
         const SG = SEGNALI[o.luogo] || SEGNALI._, lista = brutto ? SG.brutto : SG.buono;
         C.segnaleBrutto = brutto; C.segnale = lista[Math.floor(rng(s) * lista.length)];
@@ -3433,6 +3448,8 @@
     if (k === "scappa") { guaio = null; ga *= fuga ? 0.5 : 0.25; tr *= fuga ? 0.4 : 0.5; }
     else if (k === "aspetta") { if (guaio && rng(s) < 0.5) guaio = null; ga *= 0.85; }
     else if (!guaio) ga *= 1.15;
+    else { ga = 0; tr *= 2; } // v152 (il Regista): tiri dritto e il pericolo era vero: perdi il carico e quello che hai messo, e le Tracce raddoppiano
+    if (C.tiro && O.pericoli.length) racconta(s, p, "Il dado della polizia: esce " + C.tiro + " su 100, serviva più di " + C.soglia + ". " + (C.guaio ? (guaio ? "Ti hanno preso." + (k === "dritto" ? " Hai tirato dritto: perdi tutto il carico e le Tracce raddoppiano." : "") : "Il pericolo era vero, ma l'hai scampata.") : "Ce l'hai fatta."));
     C.storia.push((esitato ? "Resti impietrito e " : "") + ULTIMA[i].l.toLowerCase());
     racconta(s, p, k === "scappa" ? (fuga ? "Salti sul tuo " + fuga.nome.toLowerCase() + " e sparisci col carico che riesci a portare. " : "Molli tutto e scappi nel buio. ") + (C.guaio ? "Dietro di te arriva davvero qualcuno: l'hai scampata." : "Poi scopri che non c'era nessuno. Peccato.") : k === "aspetta" ? "Ti nascondi e trattieni il fiato. " + (C.guaio && !guaio ? "Il pericolo passa oltre." : "") : "Tiri dritto. " + (!C.guaio ? "Era solo paura: il sangue freddo paga." : ""));
     delete s.notte.colpi[p.id];
