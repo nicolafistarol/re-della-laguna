@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 153;
+  const VERSIONE_REGOLE = 154;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -2117,6 +2117,7 @@
     faro: [["Le onde coprono ogni rumore. Qui nessuno ascolta.", "Il guardiano del Faro guarda il mare, non te."], ["Sulla scogliera c'è una seconda barca ormeggiata.", "Senti delle voci dietro la torre."], ["Il guardiano parla al telefono e ti guarda.", "Sul molo ci sono impronte fresche di scarponi."]],
   };
   const LIVELLI_PERICOLO = ["tranquillo", "agitato", "pericoloso"];
+  const GUAI_GRAVITA = { lieve: 0.10, media: 0.20, grave: 0.30, gravissima: 0.40 }, GUAI_POSTO = [1, 1.6, 2.2]; // v154
   const P_GUAI = [0.15, 0.40, 0.60]; // v145: prima [0,10, 0,30, 0,55]: con la polizia agitata i guai arrivano davvero (il giudice: 6 affari riusciti su 7)
 
   // Il livello di ogni giocatore sale con i soldi: piu' sei ricco, piu' cose si aprono (non si torna indietro)
@@ -3140,7 +3141,9 @@
   // la probabilita' di un guaio in un'occasione (senza toccare lo stato)
   function rischioOccasione(s, p, o, O, usati) {
     const isola = LUOGHI[o.luogo].isola;
-    let pg = P_GUAI[LIVELLI_PERICOLO.indexOf(s.notte.pericolo[o.luogo])];
+    const liv = Math.max(0, LIVELLI_PERICOLO.indexOf(s.notte.pericolo[o.luogo]));
+    // v154: i guai di partenza seguono la gravita' del reato (Lieve 10%, Media 20%, Grave 30%), poi il posto li alza
+    let pg = GUAI_GRAVITA[O.gravita] ? GUAI_GRAVITA[O.gravita] * GUAI_POSTO[liv] : P_GUAI[liv];
     if (p.corrotti["agente_" + isola]) pg *= 0.6;
     if (p.corrotti.commissario) pg *= 0.8;
     if (s.notte.rito && s.notte.rito[p.id]) pg *= 0.7; // la setta ti copre dopo il rito
@@ -6470,7 +6473,7 @@
     // soldi e valori
     maxBotLotto, perchéNoInvito, euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, valoreSfida, SABOTA, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
     // Palazzo
-    costoCantiere, guadagnoLivello, puoSalire, serveLicenzaSpeciale, LICENZA_SPECIALE, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale, tettoColpo,
+    costoCantiere, guadagnoLivello, puoSalire, serveLicenzaSpeciale, LICENZA_SPECIALE, motivoPolizia, GUAI_GRAVITA, GUAI_POSTO, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale, tettoColpo,
     costoPiano, costoPiani, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, livelloPalazzo, lustro,
     // Grandi Affari e durata della partita
     GRANDI, ORDINE_GRANDI, partitaLunga,
