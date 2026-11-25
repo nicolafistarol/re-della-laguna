@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 152;
+  const VERSIONE_REGOLE = 153;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -306,9 +306,26 @@
   function puoSalire(s, p, l) {
     const next = l.lvl + 1, g = vieGruppo(s, p, l.serie);
     if (next > 5) return { ok: false, perche: "È già al livello massimo." };
-    if (next >= 3 && g.mie < g.tutte && !(gen2(s) && next === 3 && g.mie >= Math.min(2, g.tutte))) return { ok: false, perche: gen2(s) && next === 3 ? "Per il livello 3 servono almeno 2 vie del gruppo " + l.serie + " (ne hai " + g.mie + " su " + g.tutte + ")." : "Per il livello " + next + " serve tutto il gruppo " + l.serie + " (hai " + g.mie + " vie su " + g.tutte + ")." };
+    if (next >= 3 && g.mie < g.tutte && !(gen2(s) && next === 3 && (g.mie >= Math.min(2, g.tutte) || (p.licenzeSpeciali || []).includes(l.id)))) return { ok: false, perche: gen2(s) && next === 3 ? "Per il livello 3 servono almeno 2 vie del gruppo " + l.serie + " (ne hai " + g.mie + " su " + g.tutte + ")." : "Per il livello " + next + " serve tutto il gruppo " + l.serie + " (hai " + g.mie + " vie su " + g.tutte + ")." };
     if (next === 5 && p.fama < 50) return { ok: false, perche: "Il livello Icona richiede fama 50 (ne hai " + p.fama + ")." };
     return { ok: true, perche: "" };
+  }
+  // v153: la Licenza speciale del Municipio: 300.000 € e quel terreno puo' arrivare al livello 3 anche con 1 sola via del gruppo
+  const LICENZA_SPECIALE = 300_000;
+  function serveLicenzaSpeciale(s, p, l) {
+    if (!gen2(s) || !l || l.tipoCasella !== "lotto" || l.lvl !== 2 || (p.licenzeSpeciali || []).includes(l.id)) return false;
+    const g = vieGruppo(s, p, l.serie); return g.mie < Math.min(2, g.tutte);
+  }
+  function licenzaSpeciale(s, p, idLotto) {
+    if (s.fase !== "giorno" || corrente(s).id !== p.id) err("Non è il tuo turno.");
+    if (s.pending) err("Prima finisci la scelta in corso.");
+    const l = lotto(s, idLotto);
+    if (l.owner !== p.id) err("La Licenza speciale si chiede per un tuo terreno.");
+    if (!serveLicenzaSpeciale(s, p, l)) err("Su questo terreno la Licenza speciale non serve.");
+    if (p.cash < LICENZA_SPECIALE) err("La Licenza speciale costa " + euro(LICENZA_SPECIALE) + " puliti.");
+    p.cash -= LICENZA_SPECIALE; p.licenzeSpeciali = [...(p.licenzeSpeciali || []), l.id];
+    flusso(s, p, null, LICENZA_SPECIALE, "Licenza speciale per " + l.nome, true);
+    log(s, p.nome + " compra la Licenza speciale per " + l.nome + ": può arrivare al livello 3.", p.id);
   }
   // Le soglie dei Livelli del giocatore. Partite nuove: piu' basse nelle partite corte, piu' alte in quelle lunghe (ECO-04).
   const SOGLIE_BASE = [0, 2_500_000, 7_000_000, 15_000_000, 40_000_000]; // v109: Livello 1 a 2,5 milioni (prima 3,5): arriva nella prima mezz'ora
@@ -505,7 +522,7 @@
     coda.sort((a, b) => lotto(s, b.lotto).prezzo - lotto(s, a.lotto).prezzo);
     const q = coda[0], l = lotto(s, q.lotto), minimo = baseAsta(l), minimoDi = {};
     const rin = q.tutti || (q.da ? [q.da] : []);
-    const part = s.players.filter((x) => !x.fallito && x.faro === 0 && x.cash >= (rin.includes(x.id) ? l.prezzo : minimo)).map((x) => x.id);
+    const part = s.players.filter((x) => !x.fallito && x.faro === 0 && !(x.bot && rin.includes(x.id)) && x.cash >= (rin.includes(x.id) ? l.prezzo : minimo)).map((x) => x.id); // v153: il computer che ha rifiutato non partecipa
     for (const id of rin) minimoDi[id] = l.prezzo;
     if (!part.length) return;
     s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: corrente(s).id, partecipanti: part, minimo, minimoDi, rinunciaDi: q.da || null, inizio: adesso() };
@@ -758,7 +775,11 @@
     }
     if (c.tipoCasella === "lotto" || c.tipoCasella === "molo") {
       if (c.owner == null) { s.pending = { tipo: "compra", lotto: c.id, giocatore: p.id }; return; }
-      if (c.owner === p.id) return;
+      if (c.owner === p.id) {
+        // v153: sei a casa tua: incassi meta' della rendita o investi per la fama
+        if (c.tipoCasella === "lotto" && c.tipo && c.lvl > 0 && !c.chiuso && !c.cantiere) s.pending = { tipo: "casa_mia", lotto: c.id, giocatore: p.id, incasso: round(rendita(s, c) * 0.5) };
+        return;
+      }
       const owner = giocatore(s, c.owner);
       if (passoLibero(s, p, owner.id)) { log(s, p.nome + " passa gratis da " + c.nome + ": Passo libero di " + owner.nome + "."); if (!owner.bot) privato(s, owner, p.nome + " si ferma su «" + c.nome + "» e non ti paga l'affitto: è il Passo libero che gli devi."); return; }
       let dovuto;
@@ -892,6 +913,8 @@
       // v106: niente asta subito. Il terreno va all'Asta di fine giornata (una sola al giorno: il terreno che vale di piu').
       // Chi ha rinunciato puo' offrire, ma per lui il minimo e' il prezzo pieno (cosi' rifiutare per ricomprare a meno non conviene).
       s.pending = null;
+      // v153: l'asta parte solo quando rifiuta una persona. Se rifiuta il computer, il terreno resta libero.
+      if (p.bot && !(s.asteRinunce || []).some((q) => q.lotto === l.id)) { log(s, p.nome + " lascia stare " + l.nome + ": il terreno resta libero.", p.id); return; }
       { const prima = (s.asteRinunce || []).find((q) => q.lotto === l.id); const tutti = [...new Set([...((prima && prima.tutti) || (prima && prima.da ? [prima.da] : [])), p.id])]; // v142: valgono TUTTI quelli che hanno rinunciato, non solo l'ultimo
         s.asteRinunce = (s.asteRinunce || []).filter((q) => q.lotto !== l.id); s.asteRinunce.push({ lotto: l.id, da: p.id, tutti }); }
       log(s, p.nome + " rinuncia a " + l.nome + ": finisce all'Asta di fine giornata (base " + euro(baseAsta(l)) + ").", p.id);
@@ -937,6 +960,18 @@
     const f = Math.floor(dono / 100_000);
     p.fama += Math.min(15, f);
     if (dono > 0) { log(s, p.nome + " dona " + euro(dono) + " al Gala Flamingo: +" + Math.min(15, f) + " fama.", p.id); notizia(s, p.nome + " dona " + euro(dono) + " in beneficenza al Gala Flamingo.", "fama"); }
+  }
+  function casaMia(s, p, scelta) {
+    const pd = s.pending;
+    if (!pd || pd.tipo !== "casa_mia" || pd.giocatore !== p.id) err("Non sei su un tuo terreno.");
+    const l = lotto(s, pd.lotto);
+    if (scelta === "incassa") { s.pending = null; p.cash += pd.incasso; flusso(s, null, p, pd.incasso, "Incasso al banco di " + l.nome, true); log(s, p.nome + " passa a " + l.nome + " e ritira " + euro(pd.incasso) + " dalla cassa.", p.id); return; }
+    if (scelta === "investi") {
+      if (p.cash < 100_000) err("Servono 100.000 € puliti.");
+      s.pending = null; p.cash -= 100_000; p.fama = (p.fama || 0) + 3; flusso(s, p, null, 100_000, "Rinnovo di " + l.nome, true);
+      log(s, p.nome + " rinnova " + l.nome + " (100.000 €): +3 fama.", p.id); return;
+    }
+    s.pending = null;
   }
   function casinoReale(s, p, puntata) {
     const pd = s.pending;
@@ -2785,6 +2820,11 @@
     if (s.notte.ospite) delete s.notte.ospite[p.id];
     s.notte.chiuso[p.id] = true;
     racconta(s, p, "Parti verso " + LUOGHI[luogo].nome + (ore > 1 ? ": ci vorranno 2 ore, attraverso i ponti." : "."));
+    // v153: 1 viaggio su 3 c'e' un incontro per strada: un posto di blocco sul ponte
+    if (luogo !== "palazzo" && rng(s) < 1 / 3) {
+      if ((p.stato || 0) >= 2 && rng(s) < 0.5) { p.tracce += 2; segnaTraccia(s, p, 2, "Fermato sul ponte di notte"); racconta(s, p, "Sul ponte c'è un posto di blocco. Ti riconoscono: ti fanno aprire il bagagliaio e prendono nota. +2 Tracce."); }
+      else { saputoPericolo(s, p, [luogo]); racconta(s, p, "Sul ponte c'è un posto di blocco. Ti lasciano passare, e un agente si lascia scappare che stanotte " + LUOGHI[luogo].nome + " è " + s.notte.pericolo[luogo] + "."); }
+    }
     controllaOra(s);
   }
   // v109: «Guardati intorno» fa sempre succedere qualcosa: un incontro con una dritta, una soffiata su un rival,
@@ -3636,6 +3676,7 @@
     const l = lotto(s, idLotto);
     if (l.owner !== p.id || l.tipoCasella !== "lotto") err("Il permesso si chiede per un tuo lotto.");
     if (l.cantiere) err("C'è già un cantiere aperto.");
+    if (l.chiuso > 0) err("Chiuso dal Giudice fino all'Alba del Ciclo " + (s.ciclo + 1 + l.chiuso) + ": il Municipio non dà permessi.");
     if (l.permesso) err("Il permesso ce l'hai già: puoi costruire.");
     if (l.lvl >= 5) err("Il lotto è già al massimo.");
     { const ps = puoSalire(s, p, l); if (!ps.ok) err(ps.perche + " Il permesso adesso non ti servirebbe."); } // v105: niente permessi pagati per niente
@@ -6182,6 +6223,8 @@
       case "controproposta": return controproposta(s, p, a.id, a.prezzo);
       // ---- costruire, Palazzo, lusso
       case "permesso": return chiediPermesso(s, p, a.lotto, a.timbro === true);
+      case "licenza_speciale": return licenzaSpeciale(s, p, a.lotto);
+      case "casa_mia": return casaMia(s, p, a.scelta);
       case "regalo_assessore": return regaloAssessore(s, p, a.lotto);
       case "bivio": return sceltaBivio(s, p, a.i);
       case "costruisci": return costruisci(s, p, a.lotto, a.attivita);
@@ -6427,7 +6470,7 @@
     // soldi e valori
     maxBotLotto, perchéNoInvito, euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, valoreSfida, SABOTA, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
     // Palazzo
-    costoCantiere, guadagnoLivello, puoSalire, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale, tettoColpo,
+    costoCantiere, guadagnoLivello, puoSalire, serveLicenzaSpeciale, LICENZA_SPECIALE, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale, tettoColpo,
     costoPiano, costoPiani, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, livelloPalazzo, lustro,
     // Grandi Affari e durata della partita
     GRANDI, ORDINE_GRANDI, partitaLunga,

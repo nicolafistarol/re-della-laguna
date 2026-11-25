@@ -517,6 +517,7 @@ function grandiBot(o, i, n) {
           if ("casino_reale" === r.tipo) return { tipo: "casino_reale", importo: 0 };
           if ("chiamata" === r.tipo)
             return { tipo: "chiamata", si: !["Legale", "Costruttore", "Investitore"].includes(n) && i.stato < 2, telefono: !0 };
+          if ("casa_mia" === r.tipo) return { tipo: "casa_mia", scelta: i.cash > 2e6 && i.fama < 40 ? "investi" : "incassa" }; // v153
           if ("municipio" === r.tipo)
             return { tipo: "municipio", scelta: i.fama >= 40 && i.cash > 3e6 && void 0 === o.candidati[i.id] ? "candidati" : "nulla" };
         }
