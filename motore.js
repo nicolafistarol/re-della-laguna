@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 160;
+  const VERSIONE_REGOLE = 161;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -2773,7 +2773,7 @@
     const sp = [];
     if (dove === "casino" && p.sporchi > 0) sp.push({ k: "ricicla", titolo: "Cambia i soldi sporchi in fiches", testo: "Compri fiches con i contanti sporchi, giochi poco e le ricambi: il cassiere non fa domande, ma se ne tiene il 25%." });
     if (dove === "palazzo" && p.sporchi > 0 && !(N2.ospite && N2.ospite[p.id]) && copertura(s, p) - (p.copUsata || 0) > 0) sp.push({ k: "copertura", titolo: "Passa i soldi nei conti dei tuoi locali", testo: "⚡ Una telefonata: non ti costa l'ora. Il tuo commercialista li fa sembrare incassi delle tue attività di copertura (lavanderia, galleria, magazzino...). Ne perdi solo il 15%, fino a " + euro(copertura(s, p) - (p.copUsata || 0)) + " in questo Ciclo." });
-    if (dove === "bisca" && s.players.some((q) => q.id !== p.id && !q.uscito && propri(s, q).some((l) => l.tipo && l.lvl >= 1 && !(l.chiuso > 0) && rendita(s, l) >= SABOTA.minDanno)) && !((N2.sabotaggi || []).some((x) => x.da === p.id))) sp.push({ k: "sabota", titolo: "Colpisci un rivale", testo: "Nel retro della bisca si organizza tutto: un incendio, il furto del carico o una soffiata alla polizia contro un locale di un rivale. All'Alba lui legge gli indizi." });
+    if (dove === "bisca" && bersagliSabotaggio(s, p).length && !((N2.sabotaggi || []).some((x) => x.da === p.id))) sp.push({ k: "sabota", titolo: "Colpisci un rivale", testo: "Nel retro della bisca si organizza tutto: un incendio, il furto del carico, una soffiata alla polizia o un furto in villa contro un rivale. All'Alba lui legge gli indizi." });
     if (dove === "aeroporto" && !p.corrotti.doganiere) sp.push({ k: "doganiere", titolo: "Una busta al doganiere", testo: "Il capo della dogana fa il turno di notte. Con lui i tuoi carichi rischiano la metà." });
     if (dove === "casino" && lv >= 1) sp.push({ k: "banchiere", titolo: "Un drink con il banchiere Lenz", testo: "Lenz siede sempre allo stesso tavolo. Con lui i soldi trovano strade nuove." });
     if (dove === "club" && lv >= 1) sp.push({ k: "polizia", titolo: "Parla con un agente fuori servizio", testo: "Al bancone c'è un poliziotto che beve da solo. Ha l'aria di chi cerca un extra." });
@@ -3117,34 +3117,75 @@
     furto: { nome: "Furto del carico", costo: 100_000, tracce: 15, quota: 0.3, verbo: "svuotato il magazzino di", descr: "Ti prendi il 30% di quello che il locale incassa a un'Alba, in contanti sporchi." },
     soffiata: { nome: "Soffiata alla polizia", costo: 50_000, tracce: 5, tracceLui: 20, verbo: "fatto una soffiata su", descr: "Il rivale prende +20 Tracce. Tu ne lasci 5." },
   };
+  // v161 (il Regista): se il rivale non ha locali da colpire, si colpiscono i suoi soldi
+  const FURTO_VILLA = { nome: "Furto in villa", costo: 50_000, tracce: 20, quota: 0.05, max: 1_000_000, verbo: "svaligiato la villa di", descr: "Gli togli il 5% dei contanti puliti, in contanti sporchi per te." };
+  function dannoVilla(q) { return round(Math.min(FURTO_VILLA.max, Math.max(0, q.cash || 0) * FURTO_VILLA.quota)); }
   function vendettaSu(s, p, idRivale) { return !!(p.vendetta && p.vendetta.su === idRivale && p.vendetta.ciclo === s.ciclo); }
   function costoColpo(s, p, l, az) { const C = COLPI_RIVALE[az] || COLPI_RIVALE.incendio; return round(C.costo * (vendettaSu(s, p, l.owner) ? 0.5 : 1)); }
   function costoSabotaggio(s, p, l) { return costoColpo(s, p, l, "incendio"); }
-  function bersagliSabotaggio(s, p) { return s.players.filter((q) => q.id !== p.id && !q.uscito).flatMap((q) => propri(s, q).filter((l) => l.tipo && l.lvl >= 1 && !(l.chiuso > 0) && rendita(s, l) >= SABOTA.minDanno).map((l) => ({ lotto: l.id, nome: l.nome, owner: q.id, rendita: rendita(s, l), costo: costoColpo(s, p, l, "incendio"), costi: Object.fromEntries(Object.keys(COLPI_RIVALE).map((k) => [k, costoColpo(s, p, l, k)])), vendetta: vendettaSu(s, p, q.id) }))); }
+  function bersagliSabotaggio(s, p) { return s.players.filter((q) => q.id !== p.id && !q.uscito).flatMap((q) => { const ls = propri(s, q).filter((l) => l.tipo && l.lvl >= 1 && !(l.chiuso > 0) && rendita(s, l) >= SABOTA.minDanno).map((l) => ({ lotto: l.id, nome: l.nome, owner: q.id, rendita: rendita(s, l), costo: costoColpo(s, p, l, "incendio"), costi: Object.fromEntries(Object.keys(COLPI_RIVALE).map((k) => [k, costoColpo(s, p, l, k)])), vendetta: vendettaSu(s, p, q.id) }));
+    if (ls.length || dannoVilla(q) < 20_000) return ls; // v161: niente locali? la sua villa
+    const cv = round(FURTO_VILLA.costo * (vendettaSu(s, p, q.id) ? 0.5 : 1));
+    return [{ lotto: "villa:" + q.id, villa: true, nome: "La villa di " + q.nome, owner: q.id, rendita: dannoVilla(q), costo: cv, costi: { villa: cv }, vendetta: vendettaSu(s, p, q.id) }]; }); }
   function sabota(s, p, idLotto, azione) {
     oraLibera(s, p);
     qui(s, p, "bisca", "Colpire un rivale");
     const N2 = s.notte; N2.sabotaggi = N2.sabotaggi || [];
     if (N2.sabotaggi.some((x) => x.da === p.id)) err("Stanotte hai già colpito un rivale.");
+    if (String(idLotto || "").startsWith("villa:")) { // v161: furto in villa
+      const q = giocatore(s, String(idLotto).slice(6)); if (q.id === p.id) err("Non puoi svaligiare casa tua.");
+      const b = bersagliSabotaggio(s, p).find((x) => x.lotto === idLotto); if (!b) err("Questo rivale ha locali da colpire: scegli uno di quelli.");
+      if ((p.cash || 0) + (p.sporchi || 0) < b.costo) err("Non hai abbastanza soldi: servono " + euro(b.costo) + ".");
+      pagaMisto(s, p, b.costo);
+      const tiro = Math.floor(rng(s) * 100) + 1;
+      eseguiFurtoVilla(s, p, q, tiro, tiro <= Math.round(SABOTA.preso * 100));
+      N2.chiuso[p.id] = true; controllaOra(s); return;
+    }
     const az = COLPI_RIVALE[azione] ? azione : "incendio";
     const l = s.lotti.find((x) => x.id === idLotto);
     if (!l || !l.owner || l.owner === p.id || !l.tipo || !(l.lvl >= 1) || l.chiuso > 0 || rendita(s, l) < SABOTA.minDanno) err("Scegli un locale aperto di un rivale che incassa qualcosa.");
     const costo = costoColpo(s, p, l, az);
     if ((p.cash || 0) + (p.sporchi || 0) < costo) err("Non hai abbastanza soldi: servono " + euro(costo) + ".");
     pagaMisto(s, p, costo);
-    eseguiSabotaggio(s, p, l, az !== "soffiata" && rng(s) < SABOTA.preso, az);
+    const tiro = Math.floor(rng(s) * 100) + 1; // v161 (il Regista): il tiro si vede
+    eseguiSabotaggio(s, p, l, az !== "soffiata" && tiro <= Math.round(SABOTA.preso * 100), az, az !== "soffiata" ? tiro : null);
     N2.chiuso[p.id] = true;
     controllaOra(s);
   }
-  function eseguiSabotaggio(s, p, l, preso, az) {
+  function eseguiFurtoVilla(s, p, q, tiro, preso) {
+    const C = FURTO_VILLA, N2 = s.notte; N2.sabotaggi = N2.sabotaggi || [];
+    N2.sabotaggi.push({ da: p.id, su: q.id, lotto: null, preso, az: "villa" });
+    p.tracce = (p.tracce || 0) + C.tracce; segnaTraccia(s, p, C.tracce, C.nome + " contro " + q.nome); p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, "media");
+    q.vendetta = { su: p.id, ciclo: s.ciclo + 1 };
+    const dado = "Esce " + tiro + " su 100 · serviva più di " + Math.round(SABOTA.preso * 100) + " · ";
+    if (preso) {
+      p.fama = Math.max(0, p.fama - SABOTA.fama);
+      racconta(s, p, dado + "la polizia prende i tuoi uomini davanti alla villa di " + q.nome + ". Fanno il tuo nome. +" + C.tracce + " Tracce, −" + SABOTA.fama + " fama.");
+      privato(s, q, "Stanotte la polizia ha fermato due uomini davanti alla tua villa. Li aveva mandati " + p.nome + ". Il prossimo Ciclo, contro di lui, ogni colpo ti costa la metà.");
+      (q.colpiSubiti = q.colpiSubiti || []).push({ testo: "La polizia ha fermato gli uomini di " + p.nome + " davanti alla tua villa." });
+      attrito(s, q, p, 6, "sabotaggio"); return;
+    }
+    const v = dannoVilla(q); q.cash -= v; p.sporchi = (p.sporchi || 0) + v; costoTra(s, q, p, v);
+    titolo(s, "tradimento", p.nome + " ha " + C.verbo + " " + q.nome + " (Ciclo " + (s.ciclo + 1) + "): " + euro(v) + ".", v);
+    racconta(s, p, dado + "i tuoi uomini entrano e escono. " + q.nome + " perde " + euro(v) + " puliti, a te arrivano sporchi. +" + C.tracce + " Tracce.");
+    notizia(s, "Furto nella villa di " + q.nome + ".", "scandalo");
+    const pct = clamp(20 + C.tracce * 2, 20, 90), vero = rng(s) * 100 < pct, altri = s.players.filter((x) => x.id !== q.id && x.id !== p.id && !x.uscito);
+    const sospetto = vero || !altri.length ? p : altri[Math.floor(rng(s) * altri.length)];
+    const testo = "Qualcuno ha svaligiato la tua villa: ti mancano " + euro(v) + ". Indizi: " + pct + " su 100 era " + sospetto.nome + ".";
+    privato(s, q, testo + " Il prossimo Ciclo, contro chi è stato, ogni colpo ti costa la metà.");
+    (q.colpiSubiti = q.colpiSubiti || []).push({ testo });
+    if (vero) attrito(s, q, p, 6, "sabotaggio");
+  }
+  function eseguiSabotaggio(s, p, l, preso, az, tiro) {
     az = az || "incendio";
+    const dado = tiro ? "Esce " + tiro + " su 100 · serviva più di " + Math.round(SABOTA.preso * 100) + " · " : "";
     const C = COLPI_RIVALE[az], q = giocatore(s, l.owner), N2 = s.notte; N2.sabotaggi = N2.sabotaggi || [];
     N2.sabotaggi.push({ da: p.id, su: q.id, lotto: l.id, preso, az });
     p.tracce = (p.tracce || 0) + C.tracce; segnaTraccia(s, p, C.tracce, C.nome + " contro " + q.nome); p.macchia = true; p.peggiorReato = peggio(p.peggiorReato, az === "incendio" ? "media" : "lieve");
     q.vendetta = { su: p.id, ciclo: s.ciclo + 1 }; // il Ciclo dopo, contro chi l'ha colpito, ogni colpo costa la meta'
     if (preso) {
       p.fama = Math.max(0, p.fama - SABOTA.fama);
-      racconta(s, p, "Mandi i tuoi uomini a " + l.nome + ", ma c'è una pattuglia. Li prendono, e parlano: fanno il tuo nome. +" + C.tracce + " Tracce, −" + SABOTA.fama + " fama.");
+      racconta(s, p, dado + "Mandi i tuoi uomini a " + l.nome + ", ma c'è una pattuglia. Li prendono, e parlano: fanno il tuo nome. +" + C.tracce + " Tracce, −" + SABOTA.fama + " fama.");
       privato(s, q, "Stanotte la polizia ha fermato due uomini davanti a " + l.nome + ". Li aveva mandati " + p.nome + ". Il prossimo Ciclo, contro di lui, ogni colpo ti costa la metà.");
       (q.colpiSubiti = q.colpiSubiti || []).push({ testo: "La polizia ha fermato gli uomini di " + p.nome + " davanti a " + l.nome + ". Vendetta: contro di lui il prossimo Ciclo ogni colpo costa la metà." });
       attrito(s, q, p, 6, "sabotaggio");
@@ -3152,8 +3193,8 @@
       return;
     }
     { const danno = az === "incendio" ? rendita(s, l) : az === "furto" ? round(rendita(s, l) * C.quota) : 200_000; costoTra(s, q, p, danno); titolo(s, "tradimento", p.nome + " ha " + C.verbo + " «" + l.nome + "» di " + q.nome + " (Ciclo " + (s.ciclo + 1) + ").", danno); } // v157
-    if (az === "incendio") { l.chiuso = Math.max(l.chiuso || 0, 1); racconta(s, p, "Una tanica, un fiammifero: " + l.nome + " di " + q.nome + " va a fuoco. Resta chiuso un Ciclo. +" + C.tracce + " Tracce."); notizia(s, "Incendio a " + l.nome + ": il locale di " + q.nome + " resta chiuso.", "scandalo"); }
-    else if (az === "furto") { const v = round(rendita(s, l) * C.quota), preso_ = Math.min(v, Math.max(0, q.cash)); q.cash -= preso_; p.sporchi = (p.sporchi || 0) + preso_; racconta(s, p, "I tuoi uomini svuotano il magazzino di " + l.nome + ": porti via " + euro(preso_) + " sporchi. +" + C.tracce + " Tracce."); notizia(s, "Furto nella notte a " + l.nome + ", il locale di " + q.nome + ".", "scandalo"); }
+    if (az === "incendio") { const persa = rendita(s, l); l.chiuso = Math.max(l.chiuso || 0, 1); racconta(s, p, dado + "i tuoi uomini scappano. " + l.nome + " di " + q.nome + " va a fuoco e resta chiuso un Ciclo: " + q.nome + " perde " + euro(persa) + " di rendita. +" + C.tracce + " Tracce."); notizia(s, "Incendio a " + l.nome + ": il locale di " + q.nome + " resta chiuso.", "scandalo"); }
+    else if (az === "furto") { const v = round(rendita(s, l) * C.quota), preso_ = Math.min(v, Math.max(0, q.cash)); q.cash -= preso_; p.sporchi = (p.sporchi || 0) + preso_; racconta(s, p, dado + "i tuoi uomini svuotano il magazzino di " + l.nome + ": " + q.nome + " perde " + euro(preso_) + ", a te arrivano sporchi. +" + C.tracce + " Tracce."); notizia(s, "Furto nella notte a " + l.nome + ", il locale di " + q.nome + ".", "scandalo"); }
     else { q.tracce = (q.tracce || 0) + C.tracceLui; segnaTraccia(s, q, C.tracceLui, "Una soffiata anonima"); racconta(s, p, "Una telefonata anonima alla Procura su " + q.nome + ": +" + C.tracceLui + " Tracce a lui. +" + C.tracce + " a te."); }
     // l'indizio: piu' Tracce lasci, piu' e' facile che ti riconoscano. Il nome detto e' quello giusto con quella probabilita'.
     const pct = clamp(20 + C.tracce * 2, 20, 90), vero = rng(s) * 100 < pct, altri = s.players.filter((x) => x.id !== q.id && x.id !== p.id && !x.uscito);
@@ -3169,7 +3210,8 @@
       if (!b.bot || b.faro || b.uscito || !["Furbo", "Spavaldo"].includes(b.strat) || rng(s) >= 0.2) continue;
       const riv = (b.vendetta && b.vendetta.ciclo === s.ciclo && b.vendetta.su) || rivaleDi(s, b); const ber = bersagliSabotaggio(s, b).filter((x) => !riv || x.owner === riv).sort((x, y) => y.rendita - x.rendita)[0];
       const az = b.strat === "Spavaldo" ? "incendio" : rng(s) < 0.5 ? "furto" : "soffiata";
-      if (!ber || b.cash + b.sporchi < ber.costi[az] * 3) continue;
+      if (!ber || (!ber.villa && b.cash + b.sporchi < ber.costi[az] * 3)) continue;
+      if (ber && ber.villa) { if (b.cash + b.sporchi < ber.costo * 3) continue; pagaMisto(s, b, ber.costo); const t = Math.floor(rng(s) * 100) + 1; eseguiFurtoVilla(s, b, giocatore(s, ber.owner), t, t <= Math.round(SABOTA.preso * 100)); continue; }
       pagaMisto(s, b, ber.costi[az]); eseguiSabotaggio(s, b, s.lotti.find((x) => x.id === ber.lotto), az !== "soffiata" && rng(s) < SABOTA.preso, az);
     }
   }
@@ -6575,7 +6617,7 @@
     // tabellone e giorno
     CASELLE, SEZIONE, ORDINE_ISOLE, isolaDiPos, casella, corrente, haSerie, propri, haAttivita, prezzoAgenzia, destinazioniRapide,
     // soldi e valori
-    maxBotLotto, perchéNoInvito, euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, valoreSfida, SABOTA, COLPI_RIVALE, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
+    maxBotLotto, perchéNoInvito, euro, giocatore, patrimonio, fascia, rivaleDi, SFIDA, valoreSfida, SABOTA, COLPI_RIVALE, FURTO_VILLA, bersagliSabotaggio, affitto, rendita, copertura, valoreLotto, valorePalazzo, valoreInvestimenti, tassoPrestiti,
     // Palazzo
     costoCantiere, guadagnoLivello, puoSalire, serveLicenzaSpeciale, LICENZA_SPECIALE, motivoPolizia, GUAI_GRAVITA, GUAI_POSTO, vieGruppo, infoPermesso, bolloPermesso, infoIpoteca, tassoDebito, leggiInVigore, prossimeElezioni, soglieLivello, moltIllegale, tettoColpo,
     costoPiano, costoPiani, costoStanza, renditaPalazzo, renditaPiani, condizioniPalazzo, fasciaPalazzo, FASCE_PALAZZO, STANZE, stanzePossibili, livelloPalazzo, lustro,
