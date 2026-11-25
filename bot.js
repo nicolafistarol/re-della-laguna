@@ -16,8 +16,8 @@
       .sort((a, b) => b.p - a.p);
     const c = cand[0]; if (!c || Math.random() > c.p) return null;
     // v125: il valore vero (con le attivita'); dopo un no si torna solo con almeno +20% o con la cifra che avevi chiesto, e mai oltre il massimo
-    const valore = t.valoreLotto ? t.valoreLotto(c.l) : c.l.prezzo * (1 + 0.6 * (c.l.lvl || 0)), max = t.maxBotLotto ? t.maxBotLotto(o, i.id, c.l) : valore * 1.35;
-    let prezzo = Math.round(valore * (c.chiude ? 1.15 + 0.15 * Math.random() : 1.0 + 0.15 * Math.random()) / 10000) * 10000;
+    const valore = t.valoreLotto ? t.valoreLotto(c.l) : c.l.prezzo * (1 + 0.6 * (c.l.lvl || 0)), max = t.maxBotLotto ? t.maxBotLotto(o, i.id, c.l) : valore * 1.1;
+    let prezzo = Math.round(valore * (c.chiude ? 1.1 + 0.2 * Math.random() : 0.95 + 0.15 * Math.random()) / 10000) * 10000; // v159: al massimo 1,1 (1,3 se gli chiude il gruppo)
     const no = (o.prezziNo || {})["L" + c.l.id + ">" + c.l.owner];
     if (no) { const serve = no.chiesto && no.chiesto <= max ? no.chiesto : Math.ceil(no.p * 1.2 / 10000) * 10000; if (serve > max) return null; prezzo = Math.max(prezzo, serve); }
     prezzo = Math.min(prezzo, max);
@@ -41,7 +41,7 @@
     const delGruppo = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id && x.owner === idBot).length;
     const gruppo = o.lotti.filter((x) => x.serie === l.serie).length;
     const completa = delGruppo === gruppo - 1;
-    return Math.ceil(valore * (completa ? 1.3 : delGruppo >= 1 ? 1.12 : 0.95) / 10000) * 10000; // v112: niente piu' soldi facili vendendo ai computer (prima fino a 1,8 volte)
+    return Math.ceil(valore * (completa ? 1.3 : delGruppo >= 1 ? 1.1 : 0.95) / 10000) * 10000; // v112: niente piu' soldi facili vendendo ai computer (prima fino a 1,8 volte)
   }
   function i(o, i) {
     const e = t.ATTIVITA;
