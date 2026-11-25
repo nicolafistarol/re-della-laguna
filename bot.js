@@ -435,6 +435,10 @@ function grandiBot(o, i, n) {
         return { tipo: "bivio", i: v[k] > -1e11 ? k : -1 };
       }
       const n = i.strat || "Legale";
+      if (o.fase === "notte" && o.notte && o.notte.faccia && o.notte.faccia[i.id] && !o.notte.faccia[i.id].scelta) { // v155: faccia a faccia secondo il carattere
+        const sc = { Spavaldo: Math.random() < 0.6 ? "minaccia" : "affare", Furbo: (i.cash + (i.sporchi || 0)) > 3e5 && Math.random() < 0.5 ? "corrompi" : "affare", Investitore: "affare", Esperto: Math.random() < 0.5 ? "affare" : "corrompi", Costruttore: "affare", Legale: "ignora" }[n] || "ignora";
+        return { tipo: "faccia", scelta: sc };
+      }
       if (o.fase === "notte" && o.notte && o.notte.colpi && o.notte.colpi[i.id]) return { tipo: "colpo", i: 0 }; // v83: un colpo lasciato a meta' (giocatore assente): la scelta prudente
       // Sette e mezzo: ogni carattere ha il suo coraggio
       const sm = o.manoSM && o.manoSM[i.id];

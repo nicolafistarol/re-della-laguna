@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 154;
+  const VERSIONE_REGOLE = 155;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -3603,11 +3603,17 @@
       const d = N2.dove[p.id]; if (d === "palazzo") continue;
       (gruppi[d] = gruppi[d] || []).push(p);
     }
+    const facce = {}; // v155: il faccia a faccia dell'ora dopo
     for (const [d, g] of Object.entries(gruppi)) {
       if (g.length < 2) continue;
       for (const p of g) {
         const altri = g.filter((x) => x.id !== p.id);
         racconta(s, p, "A " + LUOGHI[d].nome + " incroci " + altri.map((x) => x.nome).join(" e ") + ". Vi guardate un attimo.", true);
+      }
+      if (N2.ora + 1 < 6) for (let k = 0; k + 1 < g.length; k += 2) {
+        const a = g[k], b = g[k + 1];
+        facce[a.id] = { con: b.id, luogo: d, fatto: cosaHaFatto(s, b) };
+        facce[b.id] = { con: a.id, luogo: d, fatto: cosaHaFatto(s, a) };
       }
     }
     for (const p of s.players) {
@@ -3652,11 +3658,47 @@
     }
     s.riepOra = { n: (s.riepOra ? s.riepOra.n : 0) + 1, ciclo: s.ciclo, da: ORE[N2.ora], a: ORE[N2.ora + 1], per };
     // 5. l'ora avanza
-    N2.ora += 1; N2.chiuso = {}; N2.giri = {}; N2.fatto = {}; N2.foto = {}; N2.pronto = {}; N2.daScelta = {};
+    const bloccati = N2.bloccati || [];
+    N2.ora += 1; N2.chiuso = {}; N2.giri = {}; N2.fatto = {}; N2.foto = {}; N2.pronto = {}; N2.daScelta = {}; N2.faccia = facce; N2.facciaInizio = adesso(); N2.bloccati = [];
     for (const p of s.players) { N2.inizioRacc[p.id] = fineRacc[p.id]; if (s.notteFatti[p.id] || p.faro > 0) N2.chiuso[p.id] = true; }
+    for (const id of bloccati) { const q = giocatore(s, id); if (q && !N2.chiuso[id] && !N2.viaggio[id] && !s.notteFatti[id]) { N2.chiuso[id] = true; racconta(s, q, "Dopo la minaccia te ne stai buono per un'ora: quest'ora la perdi."); } }
     if (N2.ora >= 6) return fineNotte(s);
     apriOra(s);
     controllaOra(s);
+  }
+  // ================================================================ v155: FACCIA A FACCIA
+  // Due giocatori nello stesso posto alla stessa ora: nell'ora dopo, a tutti e due 4 scelte (20 secondi, una sola risposta).
+  const FACCIA = { tempo: 20, corrompi: 50_000, affare: 60_000, fama: 5 };
+  function cosaHaFatto(s, q) {
+    const f = s.notte.fatto[q.id], occ = f && s.notte.occasioni.find((x) => x.n === f.n), O = occ && OCCASIONI.find((x) => x.id === occ.id);
+    return O ? O.nome : null;
+  }
+  function segnaFaccia(s, q, testo) { const c = s.ciclo + 1; if (!q.facciaAlba || q.facciaAlba.c !== c) q.facciaAlba = { c, righe: [] }; q.facciaAlba.righe.push(testo); }
+  function facciaAFaccia(s, p, scelta) {
+    const N2 = s.notte, F = N2 && N2.faccia && N2.faccia[p.id];
+    if (s.fase !== "notte" || !F) err("Non c'è nessuno davanti a te.");
+    if (F.scelta) err("Hai già risposto.");
+    if (!["affare", "corrompi", "minaccia", "ignora"].includes(scelta)) err("Scelta sconosciuta.");
+    if (adesso() - (N2.facciaInizio || 0) > (FACCIA.tempo + 5) * 1000) scelta = "ignora"; // tempo scaduto
+    const q = giocatore(s, F.con), G = N2.faccia[q.id];
+    if (scelta === "corrompi") {
+      const c = FACCIA.corrompi; if ((p.sporchi || 0) + p.cash < c) err("Non hai " + euro(c) + " da allungargli.");
+      const sp = Math.min(p.sporchi || 0, c); p.sporchi -= sp; p.cash -= c - sp; q.sporchi = (q.sporchi || 0) + c;
+      const vero = rng(s) < 0.75, altro = OCCASIONI[Math.floor(rng(s) * OCCASIONI.length)].nome;
+      const detto = vero ? F.fatto : (F.fatto ? altro : (rng(s) < 0.5 ? altro : null));
+      racconta(s, p, "Allunghi " + euro(c) + " a " + q.nome + ". Ti sussurra: \"" + (detto ? "Stanotte ho fatto «" + detto + "»." : "Stanotte niente di strano, giuro.") + "\" Può anche mentire.");
+      racconta(s, q, p.nome + " ti allunga " + euro(c) + " per sapere cosa hai fatto stanotte. " + (vero ? "Gli dici la verità." : "Gli racconti una storia."));
+      segnaFaccia(s, q, p.nome + " ti ha pagato " + euro(c) + " per sapere cosa hai fatto");
+    } else if (scelta === "minaccia") {
+      if (rng(s) < 0.5) { N2.bloccati = [...(N2.bloccati || []), q.id]; racconta(s, p, "Guardi " + q.nome + " negli occhi e abbassi la voce. Funziona: per un'ora non si muove."); racconta(s, q, p.nome + " ti minaccia. Meglio stare fermi: perdi la prossima ora."); segnaFaccia(s, q, p.nome + " ti ha minacciato: hai perso un'ora"); }
+      else { p.fama = (p.fama || 0) - FACCIA.fama; racconta(s, p, "Provi a minacciare " + q.nome + ", che ti ride in faccia davanti a tutti. −" + FACCIA.fama + " fama."); racconta(s, q, p.nome + " prova a minacciarti. Gli ridi in faccia."); segnaFaccia(s, q, p.nome + " ha provato a minacciarti (e ci ha rimesso la faccia)"); }
+    } else if (scelta === "affare") {
+      if (G && G.scelta === "affare") {
+        for (const [x, y] of [[p, q], [q, p]]) { x.sporchi = (x.sporchi || 0) + FACCIA.affare; racconta(s, x, "Tu e " + y.nome + " vi stringete la mano: un affare a metà, " + euro(FACCIA.affare) + " sporchi a testa."); segnaFaccia(s, x, y.nome + " ha fatto un affare con te (+" + euro(FACCIA.affare) + " sporchi)"); }
+      } else if (G && G.scelta) racconta(s, p, "Proponi un affare a " + q.nome + ", ma ha già scelto un'altra strada.");
+      else racconta(s, p, "Proponi un affare a " + q.nome + ". Se ci sta anche lui, vi dividete il guadagno.");
+    } else racconta(s, p, "Fai finta di non vedere " + q.nome + ".");
+    F.scelta = scelta;
   }
   function fineNotte(s) {
     chiudiTutteSM(s);
@@ -6228,6 +6270,7 @@
       case "permesso": return chiediPermesso(s, p, a.lotto, a.timbro === true);
       case "licenza_speciale": return licenzaSpeciale(s, p, a.lotto);
       case "casa_mia": return casaMia(s, p, a.scelta);
+      case "faccia": return facciaAFaccia(s, p, a.scelta);
       case "regalo_assessore": return regaloAssessore(s, p, a.lotto);
       case "bivio": return sceltaBivio(s, p, a.i);
       case "costruisci": return costruisci(s, p, a.lotto, a.attivita);
@@ -6413,6 +6456,7 @@
         colpo: me ? colpoVisibile(s, me) : null,
         puoTradire: me ? !((s.notte.denunce || []).some((d) => d.da === me.id)) : false,
         chiuso: { [idGiocatore]: !!s.notte.chiuso[idGiocatore] }, racconto: s.notte.racconto[idGiocatore] || [],
+        faccia: s.notte.faccia && s.notte.faccia[idGiocatore] ? { con: s.notte.faccia[idGiocatore].con, luogo: s.notte.faccia[idGiocatore].luogo, scelta: s.notte.faccia[idGiocatore].scelta || null, inizio: s.notte.facciaInizio || 0, tempo: FACCIA.tempo } : null,
         pronto: { [idGiocatore]: !!(s.notte.pronto && s.notte.pronto[idGiocatore]) }, inizio: s.notte.inizio, tempo: TEMPO_ORA, adesso: adesso(),
         daScelta: s.notte.daScelta[idGiocatore], inizioRacc: s.notte.inizioRacc[idGiocatore] || 0,
         scelte: me ? scelteNotte(s, me) : [],
