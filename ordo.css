@@ -298,3 +298,7 @@ body:has(.scena.albeggia) #panorama{opacity:.15;transition:opacity .6s}
 .ff-scelte button .sub{font-size:12px;font-weight:400}
 .alba-faccia{margin:8px 0;padding:8px 10px;border-radius:10px;background:rgba(255,95,162,.08);border:1px solid rgba(255,95,162,.35);font-size:14px;display:flex;flex-direction:column;gap:4px}
 .titoli-resa{display:flex;flex-direction:column;gap:8px;margin:10px 0;padding:10px;border-radius:12px;background:rgba(201,162,74,.07);border:1px solid rgba(201,162,74,.35);font-size:14px}
+/* v158: carta chiara (es. Incendio): il testo resta leggibile anche toccata */
+.ff-scelte button.notte .sub,button.notte .sub{color:#3a3d46!important}
+.ff-scelte button.notte:hover,.ff-scelte button.notte:focus,.ff-scelte button.notte:active{background:#fff!important;color:#121318!important}
+.hud-alto .saldo .tot{white-space:nowrap}

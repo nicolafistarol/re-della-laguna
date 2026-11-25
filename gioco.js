@@ -106,8 +106,17 @@ function testoDurata(s) {
 
 let tickerNascosto = (() => { try { return !!localStorage.getItem("laguna_ticker"); } catch (e) { return false; } })();
 function toast(t) { let box = $("#toasts"); if (!box) { box = document.createElement("div"); box.id = "toasts"; document.body.appendChild(box); } const d = document.createElement("div"); d.className = "toast"; d.textContent = t; box.appendChild(d); Suono.avviso(); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => d.remove(), 4500); }
+// v158 (il Regista): chiusa una partita non resta niente di lei sullo schermo (avvisi, toast, timer)
+function pulisciPartita() {
+  if (canale) { try { sb.removeChannel(canale); } catch (e) { } canale = null; }
+  clearInterval(timerVista); clearInterval(timerPresenza); clearInterval(timerColpo);
+  codaAvvisi.length = 0; avvisoAttivo = false; avvisoAttende = false; avvisiPronti = false; avvisiFatti.clear();
+  ["#avvisi", "#toasts"].forEach((q) => { const x = $(q); if (x) x.remove(); });
+  document.querySelectorAll(".velo, .delta, .dadi-scena").forEach((x) => x.remove());
+}
 function esciDallaPartita(msg) {
   try { localStorage.removeItem("laguna_online"); } catch (e) { }
+  pulisciPartita();
   if (canale) { sb.removeChannel(canale); canale = null; }
   clearInterval(timerVista); clearInterval(timerPresenza); presenze = {}; S = null; partita = null; mioId = null; telAperto = false; app = null;
   document.querySelectorAll(".velo").forEach((x) => x.remove());
@@ -338,6 +347,7 @@ async function inviaAzione(azione) {
 }
 async function caricaVista() {
   if (LOCALE) { const v = Loc.vista(); if (v) riceviVista(JSON.parse(JSON.stringify(v))); return; }
+  if (!partita || !mioId) return; // v158: niente piu' "uuid null" dopo aver chiuso una partita
   const { data, error } = await db.from("viste").select("vista,versione").eq("partita_id", partita).eq("player_id", mioId).maybeSingle();
   if (error) { toast("Non riesco a leggere la partita: " + error.message); return; }
   if (data) riceviVista(data.vista);
@@ -533,7 +543,7 @@ async function sala() {
     collegaTastoGuida(); if (creatore) collegaTest();
     $("#copia").onclick = () => { navigator.clipboard?.writeText(p.codice).then(() => toast("Codice copiato."), () => { }); };
     $("#copiaLink").onclick = () => { const link = location.origin + location.pathname + "?codice=" + p.codice; navigator.clipboard?.writeText(link).then(() => toast("Link copiato: incollalo in WhatsApp."), () => prompt("Copia questo link:", link)); };
-    $("#esci").onclick = () => { clearInterval(timerSala); clearInterval(timerPresenza); chiama({ comando: "esci", partita }).catch(() => { }); try { localStorage.removeItem("laguna_online"); } catch (e) { } partita = null; schermataCasa(); };
+    $("#esci").onclick = () => { clearInterval(timerSala); clearInterval(timerPresenza); chiama({ comando: "esci", partita }).catch(() => { }); try { localStorage.removeItem("laguna_online"); } catch (e) { } pulisciPartita(); partita = null; schermataCasa(); };
     document.querySelectorAll("[data-computer]").forEach((b) => b.onclick = async () => { b.disabled = true; const r = await chiama({ comando: "computer", partita, player: b.dataset.computer }); if (r && r.errore) toast(r.errore); disegnaSala(); });
     if ($("#inizia")) $("#inizia").onclick = async () => {
       clearInterval(timerSala);
@@ -872,19 +882,21 @@ function passaggio(k) {
 }
 // v119: i soldi in alto contano fino al nuovo valore, con un tintinnio leggero
 let cassaMostrata = null, cassaAnim = 0;
+// v158 (il Regista): sotto i 430 px i soldi in alto in forma corta (10,6 M €), mai su due righe
+function euroSu(n) { return typeof innerWidth !== "undefined" && innerWidth < 430 && Math.abs(n) >= 1e6 ? (n < 0 ? "−" : "") + (Math.abs(n) / 1e6).toFixed(1).replace(".", ",") + " M €" : euro(n); }
 function contaSoldi(me) {
   const el = document.querySelector(".saldo-su .tot"); if (!el || saldoNascosto) { cassaMostrata = me.cash; return; }
   const da = cassaMostrata, a = me.cash;
   if (da == null || da === a || da <= 0 || VELOCE) { cassaMostrata = a; return; } // v122: da 0 (dopo un buco coperto) si mostra subito il valore vero
-  el.textContent = euro(Math.round(da)); el.classList.remove("conta-su", "conta-giu"); void el.offsetWidth; el.classList.add(a > da ? "conta-su" : "conta-giu");
+  el.textContent = euroSu(Math.round(da)); el.classList.remove("conta-su", "conta-giu"); void el.offsetWidth; el.classList.add(a > da ? "conta-su" : "conta-giu");
   if (Math.abs(a - da) >= 1000) Suono.conta(a > da);
   const t0 = performance.now(), dur = 700, mio = ++cassaAnim;
   const passo = (t) => {
     if (mio !== cassaAnim) return;
     const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
     cassaMostrata = da + (a - da) * e;
-    const x = document.querySelector(".saldo-su .tot"); if (x) x.textContent = euro(Math.round(cassaMostrata));
-    if (k < 1) requestAnimationFrame(passo); else { cassaMostrata = a; if (x) x.textContent = euro(a); }
+    const x = document.querySelector(".saldo-su .tot"); if (x) x.textContent = euroSu(Math.round(cassaMostrata));
+    if (k < 1) requestAnimationFrame(passo); else { cassaMostrata = a; if (x) x.textContent = euroSu(a); }
   };
   requestAnimationFrame(passo);
 }
@@ -983,8 +995,8 @@ function disegna() {
     <div class="chips">${S.players.map((p) => `<div class="chip vetro ${turno && turno.id === p.id ? "turno" : ""} ${p.id !== mioId && rivaleMio() === p.id ? "rivale" : ""} ${p.id !== mioId ? "tratta" : ""}" data-gioc="${p.id}" ${p.id !== mioId ? `title="Tocca per fare un affare con ${esc(p.nome)}"` : ""}><div class="pall" style="background:${p.colore}">${esc(p.nome[0])}</div><div><div class="n">${S.posti && S.posti[p.id] ? `<b class="posto-chip" title="Posto in classifica adesso" style="color:var(--ottone,#c9a961);margin-right:4px">${S.posti[p.id]}°</b>` : ""}<span class="nome-chip">${esc(p.nome)}${p.id === mioId && p.nome !== "Tu" ? " (tu)" : ""}</span></div><div class="s">${p.id === mioId ? esc(L.fascia(S, me)) : esc(p.fascia || "")}${p.faro ? " · al Faro" : ""}${statoCollegamento(p) ? `<span class="non-coll"> · ${statoCollegamento(p)}</span>` : puoSostituire(p) ? `<span class="non-coll"> · non risponde</span>` : ""}${notte && p.id === mioId ? (S.notteFatti[p.id] ? " · a casa" : S.notte.chiuso[p.id] ? " · hai deciso" : " · decidi…") : ""}</div><div class="s liv-chip">Liv. ${p.livello ?? 0} · fama ${p.fama ?? 0}</div>${p.id !== mioId && rivaleMio() === p.id ? `<div class="s riv-chip" title="La sfida del Ciclo: tocca per i dettagli">⚔️ rivale · ${sfidaMia().avanti === mioId ? "sei avanti" : "è avanti"}</div>` : ""}${p.id === mioId && (p.fedina || 0) >= 2 ? `<div class="s fed-chip" title="Fedina pulita: ${p.fedina} Cicli senza atti sporchi">⚖️ Fedina ${p.fedina}</div>` : ""}</div></div>`).join("")}</div>
     <div class="fase vetro"><span class="fase-lunga">${faseTesto}</span>${S.fase === "giorno" && !S.fine && turno ? `<span class="fase-corta">C${S.ciclo + 1}/${S.cicli || L.N.cicli} · G${S.giorno + 1}/${L.N.giorni} · ${turno.id === mioId ? '<span style="color:var(--oro)">Tocca a te</span>' : esc(turno.nome)}</span>` : ""}${!S.fine && !notte ? rigaSfida() : ""}</div>
     <div class="saldo vetro" title="${esc(segn)}">
-      <div class="saldo-su"><span class="serif tot">${saldoNascosto ? "••••••" : euro(me.cash)}</span><button class="occhio" id="occhio" aria-label="${saldoNascosto ? "Mostra i soldi" : "Nascondi i soldi"}" title="${saldoNascosto ? "Mostra i soldi" : "Nascondi i soldi"}">${saldoNascosto ? SV.occhioNo : SV.occhio}</button></div>
-      <div class="ri">${S.sblocco >= 1 || me.sporchi ? `<span class="sp">Sporchi ${saldoNascosto ? "•••" : euro(me.sporchi)}</span>` : ""}<span class="fa">Fama ${Math.round(me.fama)}</span><span id="scalaPolizia" class="pol ${(me.stato || 0) >= 2 ? "alta" : ""}" title="${esc(segn)} Tocca: come e quando arriva una condanna">${SV.sirena} <b>${[1, 2, 3, 4].map((i) => (me.stato || 0) >= i ? "●" : "○").join("")}</b></span></div>
+      <div class="saldo-su"><span class="serif tot">${saldoNascosto ? "••••••" : euroSu(me.cash)}</span><button class="occhio" id="occhio" aria-label="${saldoNascosto ? "Mostra i soldi" : "Nascondi i soldi"}" title="${saldoNascosto ? "Mostra i soldi" : "Nascondi i soldi"}">${saldoNascosto ? SV.occhioNo : SV.occhio}</button></div>
+      <div class="ri">${S.sblocco >= 1 || me.sporchi ? `<span class="sp">Sporchi ${saldoNascosto ? "•••" : euroSu(me.sporchi)}</span>` : ""}<span class="fa">Fama ${Math.round(me.fama)}</span><span id="scalaPolizia" class="pol ${(me.stato || 0) >= 2 ? "alta" : ""}" title="${esc(segn)} Tocca: come e quando arriva una condanna">${SV.sirena} <b>${[1, 2, 3, 4].map((i) => (me.stato || 0) >= i ? "●" : "○").join("")}</b></span></div>
     </div>
   </div>
   ${notte ? scenaNotte(me)
@@ -1785,7 +1797,7 @@ function collegaScena(me) {
   const scelte = S.notte.scelte || [];
   document.querySelectorAll(".scena [data-scelta]").forEach((b) => b.onclick = () => {
     const c = scelte[+b.dataset.scelta]; if (!c) return;
-    const diretta = ["mia_serata", "occ", "ricicla", "paradiso", "banchiere", "polizia", "doganiere", "rito", "scava", "jet"].includes(c.k);
+    const diretta = ["mia_serata", "occ", "sabota", "ricicla", "paradiso", "banchiere", "polizia", "doganiere", "rito", "scava", "jet"].includes(c.k);
     if (!diretta && !b.classList.contains("aperta")) { document.querySelectorAll(".scena .scelta.aperta").forEach((x) => x.classList.remove("aperta")); b.classList.add("aperta"); return; }
     if (c.k === "occ") return finestraOccasione(me, c.n);
     if (c.k === "ricicla") return finestraRicicla(me, false);
@@ -2139,7 +2151,7 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 157: ["<b>La resa dei conti.</b> A fine partita, prima della classifica, l'inchiesta giocatore per giocatore e tre titoli: il colpo più grande della partita, il tradimento della partita e chi ti è costato di più (affitti, sfide e colpi messi insieme)."],
+const NOVITA = { 158: ["<b>Il colpo dice la verità.</b> Se tiri dritto e ti prendono, non succede nient'altro: perdi tutto il carico e le Tracce sono esattamente quelle del bivio per due. Il racconto va in ordine: la tua scelta, il dado, la conseguenza.", "<b>Nuova partita pulita.</b> Chiusa una partita spariscono i suoi avvisi e l'errore «uuid null».", "<b>Colpisci un rivale con un tocco</b>, e la carta Incendio resta leggibile quando la tocchi.", "<b>Inchiesta finale chiara.</b> Accanto al rischio di ognuno ci sono le sue Tracce: «rischio 46% · 38 Tracce».", "<b>Schermo stretto.</b> Sotto i 430 px i soldi in alto sono in forma corta (10,6 M €). Un consiglio sui rivali si legge una volta sola."], 157: ["<b>La resa dei conti.</b> A fine partita, prima della classifica, l'inchiesta giocatore per giocatore e tre titoli: il colpo più grande della partita, il tradimento della partita e chi ti è costato di più (affitti, sfide e colpi messi insieme)."],
   156: ["<b>Il colpo contro un rivale.</b> Dal retro della Bisca scegli un locale di un rivale e il colpo: incendio (200.000 €, resta chiuso un Ciclo, 25 Tracce), furto del carico (100.000 €, ti prendi il 30% di quello che incassa, 15 Tracce) o soffiata alla polizia (50.000 €, a lui +20 Tracce, a te 5). All'Alba la vittima legge gli indizi, per esempio «60 su 100 era Furbo»: più Tracce lasci, più è facile che ti riconosca. Il Ciclo dopo, contro chi l'ha colpito, ogni colpo costa la metà."],
   155: ["<b>Faccia a faccia.</b> Di notte, se incroci un altro giocatore nello stesso posto, nell'ora dopo avete 20 secondi e una sola risposta: proponi un affare (se ci sta anche lui, 60.000 € sporchi a testa), lo corrompi con 50.000 € per sapere cosa ha fatto (può mentire), lo minacci (50 su 100 perde un'ora, se va male −5 fama) o lo ignori. All'Alba leggi cosa ti hanno fatto."],
   154: ["<b>La polizia non cambia più di nascosto.</b> A ogni cambio di livello arriva un avviso con il perché.", "<b>Guai chiari.</b> Un affare parte con il 10% di guai se il reato è lieve, il 20% se è medio e il 30% se è grave. Poi la polizia del posto li alza. La finestra del rischio ora sta in 3 righe: guai, cosa perdi se va male, Tracce. Le Tracce sono lo stesso numero dappertutto.", "<b>Meno da leggere.</b> All'Alba la Gazzetta mostra 5 notizie (prima quelle su di te), le altre sono sotto «Tutte le altre». Il consiglio sui rivali non si ripete due turni di fila. Quando sali di livello vedi subito cosa si sblocca.", "<b>Setta.</b> Nelle Grandi Opere vedi solo la prossima che puoi raggiungere.", "<b>Modalità test.</b> La durata scelta non cambia più: si parte in modo che restino 3 Cicli da giocare."],
@@ -2363,12 +2375,13 @@ function rivalita() {
       if (sue === vie.length - 1) { const manca = vie.find((l) => l.owner !== p.id); avvisi.push(`${esc(p.nome)} ha ${sue} vie su ${vie.length} del gruppo ${esc(se)}: ${manca.owner === mioId ? "l'ultima è tua, puoi fargliela pagare cara" : manca.owner ? "l'ultima è di " + esc(nomeDi(manca.owner)) : "se compri " + esc(manca.nome) + " lo blocchi"}.`); }
     }
   }
-  // v154: lo stesso consiglio non torna due turni di fila
+  // v158 (il Regista): un consiglio si legge una volta sola (torna solo se la situazione cambia)
   const kt = S.ciclo + "-" + S.giorno + "-" + S.turno;
-  if (rivVisto.k !== kt) { const nuovo = avvisi.find((a) => a !== rivVisto.t) || ""; rivVisto = { k: kt, t: nuovo, prima: rivVisto.t }; }
+  if (rivVisto.k !== kt) { const nuovo = avvisi.find((a) => !rivDetti.has(a)) || ""; if (nuovo) rivDetti.add(nuovo); rivVisto = { k: kt, t: nuovo }; }
   const scelto = rivVisto.t;
   return scelto ? `<div class="riepilogo-giro"><span class="kick" style="color:var(--rosa)">Rivali</span><div>${scelto}</div></div>` : "";
 }
+const rivDetti = new Set();
 let rivVisto = { k: "", t: "" };
 function agenziaDisponibile(me) {
   if (me.agenziaUsata || me.faro) return false;
@@ -4237,7 +4250,7 @@ function scenaInchiesta() {
   const inc = S.inchiesta || [];
   if (!S.fine && (!inc.length || !S.resaAnnunciata)) return false; // v157: a fine partita la resa dei conti c'e' sempre (almeno i tre titoli)
   const mio = inc.find((x) => x.id === mioId);
-  const riga = (x) => { const d = x.dopo != null ? x.dopo : x.prima; const nome = x.id === mioId ? "Tu" : esc(x.nome); return `<div class="inch-riga ${x.trovato ? "preso" : ""}"><div><b>${nome}</b><div class="sub">${x.trovato ? `Trovati ${euro(x.sporchi0)} sporchi${x.sporchi ? `, confiscati ${x.sporchi >= x.sporchi0 - 1 ? "tutti" : euro(x.sporchi)}` : ""} · multa ${euro(x.multa)} (reato ${esc(x.gravita || "")})` : x.appena ? "Appena condannato: non lo processano due volte." : x.sporchi0 > 0 ? `Aveva ${euro(x.sporchi0)} sporchi: la Procura non ha trovato niente (rischio ${x.rischio}%).` : "Conti puliti: niente da trovare."}</div></div><div style="text-align:right;white-space:nowrap" class="sub">${x.trovato ? `${mil2(x.prima)} → <b>${mil2(d)}</b>` : mil2(d)}</div></div>`; };
+  const riga = (x) => { const d = x.dopo != null ? x.dopo : x.prima; const nome = x.id === mioId ? "Tu" : esc(x.nome); return `<div class="inch-riga ${x.trovato ? "preso" : ""}"><div><b>${nome}</b><div class="sub">${x.trovato ? `Trovati ${euro(x.sporchi0)} sporchi${x.sporchi ? `, confiscati ${x.sporchi >= x.sporchi0 - 1 ? "tutti" : euro(x.sporchi)}` : ""} · multa ${euro(x.multa)} (reato ${esc(x.gravita || "")}${x.rischio != null ? " · rischio " + x.rischio + "%" : ""}${x.tracce != null ? " · " + x.tracce + " Tracce" : ""})` : x.appena ? "Appena condannato: non lo processano due volte." : x.sporchi0 > 0 ? `Aveva ${euro(x.sporchi0)} sporchi: la Procura non ha trovato niente (rischio ${x.rischio}%${x.tracce != null ? " · " + x.tracce + " Tracce" : ""}).` : "Conti puliti: niente da trovare."}</div></div><div style="text-align:right;white-space:nowrap" class="sub">${x.trovato ? `${mil2(x.prima)} → <b>${mil2(d)}</b>` : mil2(d)}</div></div>`; };
   const mil2 = (n) => (Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(1).replace(".", ",") + " M" : euro(n));
   finestra(`<span class="kick" style="color:var(--sporco)">⚖️ L'inchiesta finale</span><h2>${mio && mio.trovato ? "La Procura ti ha trovato" : "La Procura apre i conti"}</h2>
     ${mio && mio.trovato ? `<div class="alba-peggio"><b>⚖️ TROVATI ${euro(mio.sporchi0)} SPORCHI</b><span>${mio.sporchi ? (mio.sporchi >= mio.sporchi0 - 1 ? "Confiscati tutti" : "Confiscati " + euro(mio.sporchi)) + ". " : ""}Multa ${euro(mio.multa)}. Patrimonio: ${mil2(mio.prima)} → ${mil2(mio.dopo != null ? mio.dopo : mio.prima)}.</span></div>` : ""}
@@ -4271,7 +4284,7 @@ function fine() {
     ${S.resa && S.resa.length ? `<p class="kick" style="color:var(--sporco);margin-top:14px">La Resa dei conti</p>${S.resa.map((r) => `<p><b>${esc(r.nome)}</b>: reato ${esc(r.gravita)}, multa ${euro(r.multa)}${r.sporchi ? `, confiscati ${euro(r.sporchi)} sporchi` : ""}</p>`).join("")}` : S.resaAnnunciata ? `<p class="kick" style="color:var(--muted);margin-top:14px">La Resa dei conti</p><p>Nell'inchiesta finale la Procura non ha multato nessuno (le condanne durante la partita restano).</p>` : ""}
     <p class="kick" style="color:var(--muted);margin-top:14px">Le sette</p>${S.rivelazione.length ? S.rivelazione.map((r) => `<p><b style="color:var(--setta)">${esc(r.setta)}</b> — Gran Maestro ${esc(r.gm)}, membri: ${r.membri.map(esc).join(", ")}, tesoro ${euro(r.tesoro)}</p>`).join("") : "<p>Nessuna setta è nata in questa partita.</p>"}
     </details>
-    <div class="pulsanti"><button class="oro" id="nuova">Nuova partita</button></div></div>`, (d, c) => d.querySelector("#nuova").onclick = () => { c(); inchiestaVista = false; if (LOCALE) { try { localStorage.removeItem("laguna_locale"); } catch (e) { } location.href = location.pathname + "?locale&nuova"; return; } try { localStorage.removeItem("laguna_online"); } catch (e) { } S = null; partita = null; schermataCasa(); });
+    <div class="pulsanti"><button class="oro" id="nuova">Nuova partita</button></div></div>`, (d, c) => d.querySelector("#nuova").onclick = () => { c(); inchiestaVista = false; if (LOCALE) { try { localStorage.removeItem("laguna_locale"); } catch (e) { } location.href = location.pathname + "?locale&nuova"; return; } try { localStorage.removeItem("laguna_online"); } catch (e) { } pulisciPartita(); S = null; partita = null; mioId = null; schermataCasa(); });
 }
 
 for (const f of ["laguna", "marina", "mappa", ...Object.values(SCENE).map((x) => x.slice(4, -4))]) { const i = new Image(); i.src = "img/" + f + ".jpg"; }

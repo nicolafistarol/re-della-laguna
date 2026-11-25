@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 157;
+  const VERSIONE_REGOLE = 158;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -3516,12 +3516,15 @@
     else if (k === "aspetta") { if (guaio && rng(s) < 0.5) guaio = null; ga *= 0.85; }
     else if (!guaio) ga *= 1.15;
     else { ga = 0; tr *= 2; } // v152 (il Regista): tiri dritto e il pericolo era vero: perdi il carico e quello che hai messo, e le Tracce raddoppiano
-    if (C.tiro && O.pericoli.length) racconta(s, p, "Il dado della polizia: esce " + C.tiro + " su 100, serviva più di " + C.soglia + ". " + (C.guaio ? (guaio ? "Ti hanno preso." + (k === "dritto" ? " Hai tirato dritto: perdi tutto il carico e le Tracce raddoppiano." : "") : "Il pericolo era vero, ma l'hai scampata.") : "Ce l'hai fatta."));
+    const preso = k === "dritto" && !!guaio, trBivio = Math.round(O.tracce * 0.75 * C.tr); // v158 (il Regista): preso = niente altro, Tracce = quelle del bivio x 2
     C.storia.push((esitato ? "Resti impietrito e " : "") + ULTIMA[i].l.toLowerCase());
-    racconta(s, p, k === "scappa" ? (fuga ? "Salti sul tuo " + fuga.nome.toLowerCase() + " e sparisci col carico che riesci a portare. " : "Molli tutto e scappi nel buio. ") + (C.guaio ? "Dietro di te arriva davvero qualcuno: l'hai scampata." : "Poi scopri che non c'era nessuno. Peccato.") : k === "aspetta" ? "Ti nascondi e trattieni il fiato. " + (C.guaio && !guaio ? "Il pericolo passa oltre." : "") : "Tiri dritto. " + (!C.guaio ? "Era solo paura: il sangue freddo paga." : ""));
+    // v158: il racconto va in ordine: la scelta, il dado, la conseguenza
+    racconta(s, p, k === "scappa" ? (fuga ? "Salti sul tuo " + fuga.nome.toLowerCase() + " e sparisci col carico che riesci a portare." : "Molli tutto e scappi nel buio.") : k === "aspetta" ? "Ti nascondi e trattieni il fiato." : (esitato ? "Resti impietrito: tiri dritto senza volerlo." : "Tiri dritto."));
+    if (C.tiro && O.pericoli.length) racconta(s, p, "Il dado della polizia: esce " + C.tiro + " su 100, serviva più di " + C.soglia + ". " + (C.guaio ? "Il pericolo era vero." : "Nessun pericolo vero."));
+    racconta(s, p, preso ? "Ti hanno preso. Perdi tutto il carico" + (C.spesi ? " e i " + euro(C.spesi) + " messi nei bivi" : "") + ", e lasci " + trBivio * 2 + " Tracce (le " + trBivio + " del bivio raddoppiate)." : k === "scappa" ? (C.guaio ? "Dietro di te arriva davvero qualcuno: l'hai scampata." : "Poi scopri che non c'era nessuno. Peccato.") : k === "aspetta" ? (C.guaio && !guaio ? "Il pericolo passa oltre." : C.guaio ? "Non basta: il pericolo arriva lo stesso." : "Non arriva nessuno.") : "Era solo paura: il sangue freddo paga.");
     delete s.notte.colpi[p.id];
     s.notte.chiuso[p.id] = true;
-    risolviOccasione(s, p, s.notte.fatto[p.id], { pg: C.pg, guaio, ga, tr, spesi: C.spesi || 0 });
+    risolviOccasione(s, p, s.notte.fatto[p.id], { pg: C.pg, guaio, ga, tr, spesi: C.spesi || 0, preso, tracceFisse: preso ? trBivio * 2 : null });
     if (!muto) controllaOra(s);
   }
   // il tempo dell'ora finisce con un colpo aperto: si esita fino in fondo
@@ -3554,7 +3557,8 @@
     p.zone = p.zone || {}; p.zone[o.luogo] = (p.zone[o.luogo] || 0) + 1; // v145: la zona si brucia
     tracce += guadagno / 250_000; // v104: piu' soldi sporchi muovi, piu' tracce lasci (1 milione = +4)
     if (denunciatoQui(s, p, o.luogo)) esitoDenuncia(s, p, o.luogo, guaio, O.nome);
-    if (guaio) {
+    if (guaio && cx && cx.preso) guadagno = 0; // v158: preso tirando dritto: il racconto l'ha gia' detto, nessun altro evento
+    else if (guaio) {
       const G = PERICOLI[guaio];
       const extra = sitSalvaExtra(s, guaio);
       const salvatore = usati.find((id) => !sitInutile(s, id) && ((oggettoDef(id).salva || []).includes(guaio) || extra.includes(id))) || (p.valigetta || []).map((x) => x.id).find((id) => (oggettoDef(id) || {}).notti && !sitInutile(s, id) && (oggettoDef(id).salva || []).includes(guaio)) || (guaio === "guardia" && haOggetto(p, "motoscafo") ? "motoscafo" : null) || (guaio === "pattuglia" && haOggetto(p, "furgone") ? "furgone" : null);
@@ -3590,6 +3594,7 @@
     if (s.leggi.includes("polizia_doppia_" + isola)) tracce *= 1.5;
     tracce *= num(s, "tracceAffari") || 1; // v134: gli affari della notte lasciano meno Tracce (partite nuove)
     tracce *= sitMult(s, "tr", { luogo: o.luogo, occ: O.id }) * strumentiMult(s, p, "tr", usati, { luogo: o.luogo, occ: O.id }) * (guaio ? strumentiMult(s, p, "trGuaio", usati, {}) : 1);
+    if (cx && cx.tracceFisse != null) tracce = cx.tracceFisse; // v158: le Tracce mostrate x 2, esatte
     p.tracce += tracce; segnaTraccia(s, p, tracce, O.nome + " (" + nomeLuogo(o.luogo) + ")");
     const messoTot = (f.costo || 0) + ((cx && cx.spesi) || 0);
     p.esitoAffare = { messo: messoTot, torna: round(Math.max(0, guadagno)) }; // v142: "Com'è andata" conta quello che hai messo, anche nei bivi
@@ -5364,7 +5369,7 @@
   function resaDeiConti(s) {
     s.resa = [];
     // v150: l'inchiesta finale raccontata giocatore per giocatore (patrimonio prima e dopo, sporchi trovati)
-    s.inchiesta = s.players.filter((p) => !p.fallito).map((p) => ({ id: p.id, nome: p.nome, sporchi0: round(p.sporchi || 0), rischio: Math.round(rischioResa(s, p) * 100), prima: round(patrimonio(s, p, true)), trovato: false, multa: 0, sporchi: 0 }));
+    s.inchiesta = s.players.filter((p) => !p.fallito).map((p) => ({ id: p.id, nome: p.nome, sporchi0: round(p.sporchi || 0), rischio: Math.round(rischioResa(s, p) * 100), tracce: Math.round(p.tracce || 0), prima: round(patrimonio(s, p, true)), trovato: false, multa: 0, sporchi: 0 }));
     const segnaInch = (p) => { const x = s.inchiesta.find((y) => y.id === p.id); if (x) x.dopo = round(patrimonio(s, p, true)); return x; };
     for (const p of s.players) {
       if (p.fallito) continue;
