@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 162;
+  const VERSIONE_REGOLE = 163;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -2964,6 +2964,7 @@
     s.notte.fatto[p.id] = { n, oggetti, costo: O.costo || 0 };
     if (!O.legale) { p.luoghiNotte = p.luoghiNotte || {}; p.luoghiNotte[o.luogo] = true; p.abitudini = p.abitudini || {}; p.abitudini[o.luogo] = (p.abitudini[o.luogo] || 0) + 1; }
     if (aScelte && !O.legale && O.guadagno) return iniziaColpo(s, p, o, O, oggetti); // v145: tutti gli affari sporchi si giocano a bivi
+    if (aScelte && O.legale) return iniziaLegale(s, p, o, O, oggetti); // v163: anche la notte pulita si gioca a bivi
     s.notte.chiuso[p.id] = true;
     racconta(s, p, O.legale ? O.nome + ": ci stai." : O.nome + ": accetti." + (oggetti.length ? " Porti con te: " + oggetti.map((x) => oggettoDef(x).nome.toLowerCase()).join(", ") + "." : ""));
     risolviOccasione(s, p, s.notte.fatto[p.id]);
@@ -3520,26 +3521,118 @@
     { l: "Il giusto", d: "Quello che avevi messo in conto.", gu: 1, ga: 1, tr: 1 },
     { l: "Tutto quello che entra", d: "Più soldi, più peso, più occhi addosso.", gu: 1.25, ga: 1.25, tr: 1.2 },
     { l: "Poco e pulito", d: "Lasci giù la parte che scotta.", gu: 0.75, ga: 0.8, tr: 0.8 } ] };
-  // i passi di questo colpo: quelli suoi (o uno generico) con un imprevisto a caso nel mezzo, 3 volte su 4
+  // v163 (il Regista): 3 bivi per affare. 1) la leva rischio/soldi; 2) sempre una persona legata a un altro giocatore; 3) il segnale.
+  // Se in valigetta hai l'oggetto giusto, al bivio 2 compare una scelta gratis in piu'.
+  const PERSONE = [
+    { t: "Il compratore lavora per {Q}.", dentro: "Lo fai entrare", caccia: "Lo cacci" },
+    { t: "Il palo che ti hanno mandato è un uomo di {Q}.", dentro: "Lo tieni con te", caccia: "Lo rimandi a casa" },
+    { t: "Al bancone c'è l'autista di {Q}: ti ha visto arrivare.", dentro: "Gli offri una parte", caccia: "Lo fai buttare fuori" },
+    { t: "Il tuo contatto vuole far entrare un socio: è il cugino di {Q}.", dentro: "Lo fai entrare", caccia: "Gli dici di no" },
+    { t: "Una ragazza ti chiede un passaggio: lavora nei locali di {Q}.", dentro: "La porti con te", caccia: "La lasci lì" },
+  ];
+  function personaColpo(s, p, o, O, oggetti) {
+    const altri = s.players.filter((q) => q.id !== p.id && !q.uscito); if (!altri.length) return null;
+    const riv = typeof rivaleDi === "function" ? rivaleDi(s, p) : null;
+    const q = altri.find((x) => x.id === riv) && rng(s) < 0.6 ? altri.find((x) => x.id === riv) : altri[Math.floor(rng(s) * altri.length)];
+    const ok = PERSONE.filter((x) => x.t !== p.ultimaPersona), P = ok[Math.floor(rng(s) * ok.length)]; p.ultimaPersona = P.t;
+    const opz = [
+      { l: P.caccia, d: "−10% bottino, e " + q.nome + " ti mette nel mirino: il prossimo Ciclo i suoi colpi contro di te costano la metà.", gu: 0.9, ga: 0.9, tr: 1, eff: "mirino", su: q.id },
+      { l: P.dentro, d: "+25% bottino, ma all'Alba " + q.nome + " sa che eri qui.", gu: 1.05, ga: 1.25, tr: 1, eff: "sa", su: q.id },
+      { l: "Gli paghi il silenzio", d: "Non dirà niente a " + q.nome + ".", gu: 0.9, ga: 1, tr: 0.9, costo: 20_000 },
+    ];
+    const ha = (k) => haOggetto(p, k) || (oggetti || []).includes(k);
+    if (ha("macchina")) opz.push({ l: "📷 Usa la macchina fotografica", d: "Gratis: ottieni una Prova su " + q.nome + ".", gu: 1, ga: 1, tr: 1, eff: "prova", su: q.id, gratis: true });
+    else if (ha("maschera")) opz.push({ l: "🎭 Ti metti la maschera", d: "Gratis: entra, ma non sa chi sei. +25% bottino.", gu: 1.05, ga: 1.25, tr: 1, gratis: true });
+    return { t: P.t.replace("{Q}", q.nome), o: opz, persona: q.id };
+  }
   function passiColpo(s, p, o, O, oggetti) {
-    const base = (COLPI[O.id] || [PASSO_FINALE]).slice().map((P) => ({ t: P.t, o: P.o.map((x) => ({ ...x })) }));
-    if (rng(s) < 0.75) {
-      const ok = IMPREVISTI.filter((x) => (!x.luoghi || x.luoghi.includes(o.luogo)) && x.k !== p.ultimoImprevisto);
+    const tutti = (COLPI[O.id] || [PASSO_FINALE]).map((P) => ({ t: P.t, o: P.o.map((x) => ({ ...x })) }));
+    const base = [tutti[tutti.length > 1 && rng(s) < 0.5 ? 1 : 0]]; // v163: un solo bivio di leva (a caso tra i due dell'affare)
+    const per = personaColpo(s, p, o, O, oggetti);
+    if (per) base.push(per);
+    else { // nessun altro giocatore: un imprevisto, come prima
+      const ok = IMPREVISTI.filter((x) => (!x.luoghi || x.luoghi.includes(o.luogo)) && x.k !== p.ultimoImprevisto && !x.o.some((y) => y.ogg));
       const I = ok[Math.floor(rng(s) * ok.length)];
-      if (I) {
-        p.ultimoImprevisto = I.k;
-        const opz = I.o.filter((x) => !x.ogg || haOggetto(p, x.ogg) || (oggetti || []).includes(x.ogg)).map((x) => { const y = { ...x }; if (y.quota) { y.costo = round(Math.max(20_000, (O.costo || 0) * y.quota) / 1000) * 1000; delete y.quota; } delete y.ogg; return y; });
-        base.splice(Math.min(1, base.length), 0, { t: I.t, o: opz });
-      }
+      if (I) { p.ultimoImprevisto = I.k; base.push({ t: I.t, o: I.o.map((x) => { const y = { ...x }; if (y.quota) { y.costo = round(Math.max(20_000, (O.costo || 0) * y.quota) / 1000) * 1000; delete y.quota; } return y; }) }); }
     }
     // v152 (il Regista): via le strade che non cambiano niente ("dal 20% al 20%"); chi paga spende il 10% del bottino massimo e il rischio scende al massimo di 4 punti
     const pg0 = Math.max(0.04, rischioOccasione(s, p, o, O, oggetti || [])), bMax = guadagnoMostrato(s, p, O, o.luogo)[1];
     for (const P of base) {
-      const vere = P.o.filter((x) => !(x.gu === 1 && x.ga === 1 && x.tr === 1 && !x.costo && !x.quota));
+      const vere = P.o.filter((x) => x.eff || x.gratis || !(x.gu === 1 && x.ga === 1 && x.tr === 1 && !x.costo && !x.quota));
       if (vere.length >= 2) P.o = vere;
       for (const x of P.o) if (x.costo && x.gu < 1) { x.costo = Math.max(10_000, round(bMax * 0.1 / 1000) * 1000); x.gu = Math.max(x.gu, Math.round((1 - 0.04 / pg0) * 100) / 100); }
     }
     return base;
+  }
+  // v163: cosa succede all'altro giocatore per la scelta del bivio con la persona
+  function effettoPersona(s, p, x, o, O) {
+    const q = x.su && giocatore(s, x.su); if (!q) return;
+    if (x.eff === "sa") { q.saputi = q.saputi || []; q.saputi.push({ su: p.id, luogo: o.luogo, ciclo: s.ciclo }); privato(s, q, "Un tuo uomo ti racconta: stanotte " + p.nome + " era a " + nomeLuogo(o.luogo) + " per «" + O.nome + "»."); }
+    else if (x.eff === "mirino") { q.vendetta = { su: p.id, ciclo: s.ciclo + 1 }; privato(s, q, p.nome + " ha cacciato un tuo uomo stanotte. Il prossimo Ciclo i tuoi colpi contro di lui costano la metà."); }
+    else if (x.eff === "prova") { p.prove.push({ su: q.id, ciclo: s.ciclo + 1, cosa: "una foto rubata durante «" + O.nome + "»" }); racconta(s, p, "Click. Ora hai una Prova su " + q.nome + "."); }
+  }
+  // v163 (il Regista): la notte pulita ha 2 bivi, con rischio di fama o di soldi (non di polizia), e l'esito e' scritto prima
+  const LEGALE = { male: 0.35, premio: 2, famaX: 1.5, famaPersa: 2 };
+  function esitoLegale(s, p, O, luogo, k) {
+    k = k || { gu: 1, ga: 1, fa: 1 };
+    const male = clamp(LEGALE.male * k.gu, 0.05, 0.85);
+    const fama = Math.max(1, Math.round((O.fama + lustro(s, p)) * LEGALE.famaX * sitMult(s, "fa") * (k.fa || 1)));
+    const premio = round((O.costo || 0) * LEGALE.premio * (k.ga || 1) / 1000) * 1000;
+    return { riesce: Math.round((1 - male) * 100), fama, premio, perdi: O.costo || 0, famaPersa: LEGALE.famaPersa };
+  }
+  const BIVI_LEGALI = [
+    { t: "Arriva un fotografo della Gazzetta.", o: [
+      { l: "Posi per la foto", d: "Se va bene, molta più fama. Se va male, lo sanno tutti.", gu: 1.15, ga: 1, fa: 1.5 },
+      { l: "Lo tieni lontano", d: "Meno fama, ma meno occhi se va storto.", gu: 0.8, ga: 1, fa: 0.8 } ] },
+    { t: "Un altro ospite vuole entrare a metà con te.", o: [
+      { l: "Dividete", d: "Metà premio, ma è molto più difficile che vada male.", gu: 0.6, ga: 0.5, fa: 1 },
+      { l: "Fai da solo", d: "Tutto tuo, nel bene e nel male.", gu: 1.1, ga: 1.25, fa: 1 } ] },
+    { t: "Puoi alzare la posta.", o: [
+      { l: "Raddoppi", d: "Metti altrettanto: il premio raddoppia.", gu: 1.15, ga: 2, fa: 1, costoX: 1 },
+      { l: "Resti così", d: "Nessun azzardo in più.", gu: 0.9, ga: 1, fa: 1 } ] },
+    { t: "L'ospite più importante della serata è di cattivo umore.", o: [
+      { l: "Gli fai la corte", d: "Se lo conquisti, la fama vola.", gu: 1.2, ga: 1, fa: 1.6 },
+      { l: "Lo lasci stare", d: "Una serata tranquilla, senza sorprese.", gu: 0.8, ga: 0.9, fa: 0.9 } ] },
+    { t: "Si alza il vento.", o: [
+      { l: "Si va avanti", d: "Lo spettacolo continua: se regge, più premio.", gu: 1.2, ga: 1.3, fa: 1.1 },
+      { l: "Rimandi di un'ora", d: "Meno gente, meno rischi.", gu: 0.8, ga: 0.8, fa: 0.9 } ] },
+  ];
+  function iniziaLegale(s, p, o, O, oggetti) {
+    const pool = BIVI_LEGALI.slice(), passi = [];
+    while (passi.length < 2 && pool.length) passi.push(pool.splice(Math.floor(rng(s) * pool.length), 1)[0]);
+    s.notte.colpi = s.notte.colpi || {};
+    s.notte.colpi[p.id] = { n: o.n, oggetti, legale: true, passo: 0, gu: 1, ga: 1, fa: 1, tr: 1, quando: adesso(), storia: [],
+      passi: passi.map((P) => ({ t: P.t, o: P.o.map((x) => { const y = { ...x }; if (y.costoX) { y.costo = round((O.costo || 0) * y.costoX / 1000) * 1000; delete y.costoX; } return y; }) })) };
+    racconta(s, p, O.nome + ": ci stai. Adesso tocca a te giocartela.");
+  }
+  function sceltaLegale(s, p, C, o, O, i, esitato, muto) {
+    const opz = C.passi[C.passo].o; if (i < 0 || i >= opz.length) err("Scelta sconosciuta.");
+    let x = opz[i];
+    if (x.costo && (p.cash + p.sporchi) < x.costo) err("Non hai abbastanza soldi per questa scelta.");
+    if (esitato) { x = opz.reduce((m, y) => (y.gu < m.gu && !y.costo ? y : m), opz.find((y) => !y.costo) || opz[0]); C.gu *= 1.15; } // la scelta piu' prudente
+    if (x.costo) { pagaMisto(s, p, x.costo); C.spesi = (C.spesi || 0) + x.costo; }
+    C.gu *= x.gu; C.ga *= x.ga; C.fa *= x.fa || 1; C.passo += 1; C.quando = adesso();
+    C.storia.push((esitato ? "Esiti troppo: " : "") + x.l);
+    racconta(s, p, (esitato ? "Esiti troppo. " : "") + x.l + ". " + x.d);
+    if (C.passo < C.passi.length) return;
+    delete s.notte.colpi[p.id];
+    s.notte.chiuso[p.id] = true;
+    const f = s.notte.fatto[p.id]; f.spesi = C.spesi || 0;
+    risolviOccasione(s, p, f, { gu: C.gu, ga: C.ga, fa: C.fa, spesi: C.spesi || 0 });
+    if (!muto) controllaOra(s);
+  }
+  function chiudiLegale(s, p, o, O, usati, k) {
+    const E = esitoLegale(s, p, O, o.luogo, k);
+    const tiro = Math.floor(rng(s) * 100) + 1, soglia = 100 - E.riesce, ok = tiro > soglia;
+    racconta(s, p, "Il dado: esce " + tiro + " su 100, serviva più di " + soglia + ".");
+    if (ok) {
+      const fama = Math.round(E.fama * strumentiMult(s, p, "fa", usati, { luogo: o.luogo, occ: O.id }));
+      p.fama += fama; if (E.premio > 0) p.cash += E.premio;
+      racconta(s, p, O.nome + ": va bene. +" + fama + " fama" + (E.premio > 0 ? " e " + euro(E.premio) + " puliti" : "") + ". Domani tutti parleranno di te.");
+    } else {
+      p.fama = Math.max(0, p.fama - E.famaPersa);
+      racconta(s, p, O.nome + ": va male. Perdi " + euro(E.perdi + ((k && k.spesi) || 0)) + " e " + E.famaPersa + " di fama.");
+    }
   }
   function passiDi(C, O) { return C.passi || COLPI[O.id] || [PASSO_FINALE]; }
   function iniziaColpo(s, p, o, O, oggetti) {
@@ -3558,6 +3651,12 @@
   function colpoVisibile(s, p) {
     const C = s.notte && s.notte.colpi && s.notte.colpi[p.id]; if (!C) return null;
     const o = s.notte.occasioni.find((x) => x.n === C.n), O = OCCASIONI.find((x) => x.id === o.id), passi = passiDi(C, O);
+    if (C.legale) { // v163: la notte pulita, a bivi
+      const E = esitoLegale(s, p, O, o.luogo, C);
+      return { legale: true, nome: O.nome, luogo: o.luogo, passo: C.passo, passi: C.passi.length, rischio: 100 - E.riesce, bottino: [E.premio, E.premio], fama: E.fama, perdi: E.perdi + (C.spesi || 0), famaPersa: E.famaPersa, tracce: 0, quando: C.quando, tempo: TEMPO_BIVIO, adesso: adesso(), storia: C.storia,
+        testo: C.passi[C.passo].t, segnale: null, segnaleChiaro: null, venduto: null,
+        opzioni: C.passi[C.passo].o.map((x) => ({ l: x.l, d: x.d, costo: x.costo || 0, gu: x.gu || null, ga: x.ga || null, fa: x.fa || null })) };
+    }
     const pg = Math.min(0.95, rischioOccasione(s, p, o, O, C.oggetti) * C.gu);
     const gm = guadagnoMostrato(s, p, O, o.luogo), tetto = tettoColpo(O) * clamp(C.ga, 1, 1.2), g = gm.map((x) => round(Math.min(tetto, x * C.ga))); // v145: le scelte rischiose alzano anche il tetto, e il bottino si aggiorna
     const ultimo = C.passo >= passi.length;
@@ -3572,6 +3671,7 @@
     if (C.quando && adesso() - C.quando > (TEMPO_BIVIO + 4) * 1000) esitato = true; // troppo tardi: hai esitato
     const o = s.notte.occasioni.find((x) => x.n === C.n), O = OCCASIONI.find((x) => x.id === o.id), passi = passiDi(C, O);
     i = Number(i) || 0;
+    if (C.legale) return sceltaLegale(s, p, C, o, O, i, esitato, muto);
     if (C.passo < passi.length) {
       const opz = passi[C.passo].o; if (i < 0 || i >= opz.length) err("Scelta sconosciuta.");
       let x = opz[i];
@@ -3581,6 +3681,7 @@
       C.gu *= x.gu; C.ga *= x.ga; C.tr *= x.tr; C.passo += 1; C.quando = adesso();
       C.storia.push((esitato ? "Esiti troppo: " : "") + x.l);
       racconta(s, p, (esitato ? "Esiti troppo e perdi l'attimo. " : "") + x.l + ". " + x.d);
+      if (x.eff) effettoPersona(s, p, x, o, O); // v163: dopo il racconto della scelta
       if (C.passo >= passi.length) { // si decide adesso se il guaio arriva, e si manda un segnale (vero 3 volte su 4)
         const pg = Math.min(0.95, rischioOccasione(s, p, o, O, C.oggetti) * C.gu);
         C.pg = pg;
@@ -3620,11 +3721,7 @@
     const O = OCCASIONI.find((x) => x.id === o.id);
     const usati = f.oggetti || [];
     for (const id of usati) if (oggettoDef(id).consuma) togliOggetto(p, id);
-    if (O.legale) {
-      p.fama += Math.round((O.fama + lustro(s, p)) * sitMult(s, "fa") * strumentiMult(s, p, "fa", usati, { luogo: o.luogo, occ: O.id }));
-      racconta(s, p, O.id === "festa" ? "Alla festa stringi le mani giuste. La tua fama cresce." : O.id === "giro_barca" ? "Champagne, stelle e armatori. Domani tutti parleranno di te." : O.nome + ": stringi le mani giuste. Domani tutti parleranno di te.");
-      return;
-    }
+    if (O.legale) { chiudiLegale(s, p, o, O, usati, cx || { gu: 1, ga: 1, fa: 1 }); return; }
     p.affariStanotte.push({ tipo: O.id }); p.pulitoCiclo = false; p.macchia = true; p.affariOk += 1; p.reputazione += 2;
     p.peggiorReato = peggio(p.peggiorReato, O.gravita);
     let tracce = O.tracce * 0.75 * (0.7 + 0.6 * rng(s));
@@ -6731,7 +6828,7 @@
     // carte e serate
     punteggio, apriSerataProva: (s, id, ingresso) => apriSerataSenzaOra(s, giocatore(s, id), ingresso),
     // polizia e pene
-    descriviPena, PREMIO_SOCIO, ROSSI, GIRI_ORA, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, guadagnoMostrato, zonaBruciata, primoInClassifica, tacche, TETTO_SCONTI, MULTA_CONDANNA,
+    descriviPena, PREMIO_SOCIO, ROSSI, GIRI_ORA, rischioPostoDiBlocco, rischioControllo: (s, p) => rischioControllo(s, p).su, guadagnoMostrato, zonaBruciata, esitoLegale: (s, p, o) => esitoLegale(s, p, OCCASIONI.find((x) => x.id === o.id) || o, o.luogo), primoInClassifica, tacche, TETTO_SCONTI, MULTA_CONDANNA,
     rischioResa, rischioPerquisizione, rischioRicicla, bonusSetta, quotaRicicla, piste: (s, p) => piste(s, p).filter((x) => x.k !== "rivali"),
     // setta
     livelloSetta, influenzaDi, OPERE, costoOpera,
