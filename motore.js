@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 164;
+  const VERSIONE_REGOLE = 165;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -1522,6 +1522,47 @@
     s.prezziNo = s.prezziNo || {}; const k = "L" + pr.lotto + ">" + pr.a, prima = s.prezziNo[k] || {};
     s.prezziNo[k] = { p: Math.max(prima.p || 0, pr.prezzo || 0), chiesto: pr.chiesto || prima.chiesto || 0, g: oggi };
     for (const k of Object.keys(s.noOfferte)) if (oggi - s.noOfferte[k] > 40) delete s.noOfferte[k];
+  }
+  // v165 (il Regista): l'accusa all'Alba. Chi subisce un colpo o una soffiata vede gli indizi e puo' accusare in Gazzetta,
+  // solo con una Prova sull'accusato o con indizi da 50 su 100 in su. Ragione: il colpevole -15 fama e +15 Tracce. Torto: chi accusa -10 fama.
+  const ACCUSA = { colpevoleFama: 15, colpevoleTracce: 15, tortoFama: 10, minimo: 50 };
+  function nuovaAccusa(s, q, colpevole, sospetto, pct, testo) {
+    if (!q || !colpevole || !sospetto) return;
+    (q.accuse = q.accuse || []).push({ id: "ac" + s.prossimoId++, ciclo: s.ciclo, colpevole: colpevole.id, sospetto: sospetto.id, pct, testo, stato: "aperta" });
+    if (q.accuse.length > 12) q.accuse = q.accuse.slice(-12);
+  }
+  function accusaValida(s, q, e) { return e && e.stato === "aperta" && s.ciclo <= e.ciclo + 1; }
+  function puoAccusare(q, e, su) { return (su === e.sospetto && e.pct >= ACCUSA.minimo) || (q.prove || []).some((x) => x.su === su); }
+  function accusa(s, q, idAccusa, su) {
+    const e = (q.accuse || []).find((x) => x.id === idAccusa); if (!accusaValida(s, q, e)) err("Questa accusa non si può più fare.");
+    const b = giocatore(s, su); if (!b || b.id === q.id) err("Chi vuoi accusare?");
+    if (!puoAccusare(q, e, su)) err("Ti serve una Prova su " + b.nome + " o indizi da " + ACCUSA.minimo + " su 100 in su.");
+    e.stato = "fatta"; e.accusato = su;
+    const ragione = su === e.colpevole;
+    (s.accuseFatte = s.accuseFatte || []).push({ da: q.id, su, ragione, ciclo: s.ciclo });
+    if (ragione) {
+      b.fama = Math.max(0, (b.fama || 0) - ACCUSA.colpevoleFama); b.tracce = (b.tracce || 0) + ACCUSA.colpevoleTracce; segnaTraccia(s, b, ACCUSA.colpevoleTracce, "L'accusa di " + q.nome + " in Gazzetta");
+      notizia(s, "📰 " + q.nome + " accusa " + b.nome + " in prima pagina, e le prove reggono. " + b.nome + " −" + ACCUSA.colpevoleFama + " fama, la Procura apre un fascicolo.", "scandalo");
+      privato(s, q, "Avevi ragione: era " + b.nome + ". Perde " + ACCUSA.colpevoleFama + " di fama e prende " + ACCUSA.colpevoleTracce + " Tracce.");
+      privato(s, b, q.nome + " ti accusa in Gazzetta, e ha ragione. −" + ACCUSA.colpevoleFama + " fama, +" + ACCUSA.colpevoleTracce + " Tracce.");
+      momento(s, q, "Accusa " + b.nome + " in Gazzetta, e ha ragione");
+      attrito(s, b, q, 4, "accusa");
+    } else {
+      q.fama = Math.max(0, (q.fama || 0) - ACCUSA.tortoFama);
+      notizia(s, "📰 " + q.nome + " accusa " + b.nome + " in prima pagina, ma le prove non reggono. Figuraccia: " + q.nome + " −" + ACCUSA.tortoFama + " fama.", "scandalo");
+      privato(s, q, "Hai accusato " + b.nome + ", ma non era lui. −" + ACCUSA.tortoFama + " fama.");
+      privato(s, b, q.nome + " ti ha accusato in Gazzetta, a torto. Lui perde " + ACCUSA.tortoFama + " di fama.");
+      attrito(s, b, q, 6, "accusa");
+    }
+  }
+  function lasciaAccusa(s, q, idAccusa) { const e = (q.accuse || []).find((x) => x.id === idAccusa); if (e && e.stato === "aperta") e.stato = "lasciata"; }
+  // i computer accusano da soli quando possono, 2 volte su 3
+  function accuseBot(s) {
+    for (const q of s.players.filter((x) => x.bot && !x.uscito)) for (const e of (q.accuse || []).filter((x) => accusaValida(s, q, x))) {
+      const conProva = s.players.find((b) => b.id !== q.id && (q.prove || []).some((x) => x.su === b.id) && b.id === e.sospetto);
+      const su = conProva ? conProva.id : e.pct >= ACCUSA.minimo ? e.sospetto : null;
+      if (su && rng(s) < 0.67) { try { accusa(s, q, e.id, su); } catch (er) { if (!er.gioco) throw er; } } else e.stato = "lasciata";
+    }
   }
   // v164 (il Regista): la gara d'appalto del Comune, il giorno 2 di ogni Ciclo (tranne l'ultimo).
   // Offerta segreta in soldi puliti; la fama vale 20.000 € a punto; chi ha piu' di 20 Tracce non partecipa.
@@ -3158,7 +3199,7 @@
   function fattoDenuncia(s, p, q, luogo) {
     s.notte.denunce = s.notte.denunce || [];
     s.notte.denunce.push({ da: p.id, su: q.id, luogo });
-    if (rng(s) < N_DENUNCIA.tradisce) { privato(s, q, "Un informatore ti chiama di nascosto: «" + p.nome + " ha fatto il tuo nome alla polizia. Stanotte ti aspettano a " + LUOGHI[luogo].nome + ".»"); q.aspettano = { luogo, ciclo: s.ciclo, chi: p.nome }; s.notte.denunce[s.notte.denunce.length - 1].saputo = true; } // v112: si vede anche sulla mappa
+    if (rng(s) < N_DENUNCIA.tradisce) { privato(s, q, "Un informatore ti chiama di nascosto: «" + p.nome + " ha fatto il tuo nome alla polizia. Stanotte ti aspettano a " + LUOGHI[luogo].nome + ".»"); q.aspettano = { luogo, ciclo: s.ciclo, chi: p.nome }; nuovaAccusa(s, q, p, p, 80, p.nome + " ha fatto il tuo nome alla polizia (te l'ha detto un informatore)."); s.notte.denunce[s.notte.denunce.length - 1].saputo = true; } // v112: si vede anche sulla mappa
   }
   // ------------------------------------------------------------ v100: il sabotaggio (rivalita' diretta)
   const SABOTA = { quota: 0.4, min: 60_000, preso: 0.25, tracce: 15, fama: 3, rivale: 0.75, nome: 0.5, minDanno: 120_000 }; // v144: costano il 40% di quanto il locale incassa a un'Alba (prima il 12% del terreno, spesso piu' del danno)
@@ -3228,6 +3269,7 @@
     const testo = "Qualcuno ha svaligiato la tua villa: ti mancano " + euro(v) + ". Indizi: " + pct + " su 100 era " + sospetto.nome + ".";
     privato(s, q, testo + " Il prossimo Ciclo, contro chi è stato, ogni colpo ti costa la metà.");
     (q.colpiSubiti = q.colpiSubiti || []).push({ testo });
+    nuovaAccusa(s, q, p, sospetto, pct, testo); // v165
     if (vero) attrito(s, q, p, 6, "sabotaggio");
   }
   function eseguiSabotaggio(s, p, l, preso, az, tiro) {
@@ -3256,6 +3298,7 @@
     const testo = "Qualcuno ha " + C.verbo + " il tuo " + l.nome + (az === "incendio" ? ": resta chiuso un Ciclo" : az === "furto" ? "" : ": la polizia ti guarda di più") + ". Indizi: " + pct + " su 100 era " + sospetto.nome + ".";
     privato(s, q, testo + " Il prossimo Ciclo, contro chi è stato, ogni colpo ti costa la metà.");
     (q.colpiSubiti = q.colpiSubiti || []).push({ testo });
+    nuovaAccusa(s, q, p, sospetto, pct, testo); // v165
     if (vero) attrito(s, q, p, 6, "sabotaggio");
   }
   // i computer piu' cattivi a volte colpiscono il loro rivale (o chi e' primo)
@@ -5932,6 +5975,7 @@
     s.fase = "alba";
     s.fattiAlba = {}; // v142
     albaPatti(s); // v162
+    accuseBot(s); // v165: le accuse della notte prima, dei computer
     for (const q of s.players) if (q.colpiSubiti) { for (const x of q.colpiSubiti) fatto(s, q, { k: "colpo", testo: x.testo }); delete q.colpiSubiti; } // v156
     for (const q of s.players) if (q.esitiSoffiate) { for (const x of q.esitiSoffiate) fatto(s, q, { k: "soffiata", testo: x.colpita ? "La tua soffiata su " + x.su + " ha colpito: la polizia l'ha sorpreso a " + x.luogo + ". Hai una Prova contro di lui." : x.su + " era davvero a " + x.luogo + ", ma è scampato alla tua soffiata." }); delete q.esitiSoffiate; } // v142: i fatti grossi dell'Alba (perquisizioni, elezioni, Ricettatore...) hanno ognuno la sua riga
     for (const d of ((s.notte && s.notte.denunce) || [])) if (!d.fatto) { d.fatto = true; const da = giocatore(s, d.da), su = giocatore(s, d.su); if (da && su) { privato(s, da, "La tua soffiata su " + su.nome + " non ha colpito: stanotte a " + nomeLuogo(d.luogo) + " non ha fatto affari."); fatto(s, da, { k: "soffiata", testo: "La tua soffiata su " + su.nome + " è andata a vuoto: a " + nomeLuogo(d.luogo) + " non ha fatto affari." }); } }
@@ -6621,6 +6665,8 @@
       case "patto_risposta": return rispondiPatto(s, p, a.id, a.r);
       case "patto_tradisci": return tradisciPatto(s, p, a.id, "");
       case "appalto": return offriAppalto(s, p, a.importo); // v164
+      case "accusa": return accusa(s, p, a.id, a.su); // v165
+      case "accusa_no": return lasciaAccusa(s, p, a.id);
       case "regalo_assessore": return regaloAssessore(s, p, a.lotto);
       case "bivio": return sceltaBivio(s, p, a.i);
       case "costruisci": return costruisci(s, p, a.lotto, a.attivita);
@@ -6761,7 +6807,7 @@
     delete v.manoSM; // le mani di Sette e mezzo (con il mazzo!): la tua, senza mazzo, sta in v.notte.manoSM
     v.versioneMotore = VERSIONE; v.versioneRegole = VERSIONE_REGOLE; v.gen = s.gen || 1; // con che motore e' stata calcolata questa vista, e di che generazione e' la partita
     v.players = v.players.map((p) => {
-      if (p.id === idGiocatore) { delete p.tracce; return p; } // le proprie Tracce non si vedono come numero
+      if (p.id === idGiocatore) { delete p.tracce; if (p.accuse) p.accuse = p.accuse.map((e) => { const x = { ...e }; delete x.colpevole; x.valida = accusaValida(s, p, e); x.puo = s.players.filter((b) => b.id !== p.id && !b.uscito && puoAccusare(p, e, b.id)).map((b) => b.id); return x; }); return p; } // le proprie Tracce non si vedono come numero; v165: il colpevole vero delle accuse resta segreto
       const q = {};
       for (const k of CAMPI_PUBBLICI) if (p[k] !== undefined) q[k] = p[k];
       if (Array.isArray(q.funzioniPiani)) q.funzioniPiani = q.funzioniPiani.map((f) => PIANI_SEGRETI.includes(f) ? "riservato" : f);
