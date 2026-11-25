@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 163;
+  const VERSIONE_REGOLE = 164;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -1523,6 +1523,53 @@
     s.prezziNo[k] = { p: Math.max(prima.p || 0, pr.prezzo || 0), chiesto: pr.chiesto || prima.chiesto || 0, g: oggi };
     for (const k of Object.keys(s.noOfferte)) if (oggi - s.noOfferte[k] > 40) delete s.noOfferte[k];
   }
+  // v164 (il Regista): la gara d'appalto del Comune, il giorno 2 di ogni Ciclo (tranne l'ultimo).
+  // Offerta segreta in soldi puliti; la fama vale 20.000 € a punto; chi ha piu' di 20 Tracce non partecipa.
+  // Chi vince paga e l'opera gli rende 300.000 € a ogni Alba fino a fine partita.
+  const APPALTO = { rendita: 300_000, famaVale: 20_000, maxTracce: 20, minimo: 200_000 };
+  const OPERE_APPALTO = ["Nuovo Porto Turistico", "Ponte delle Isole", "Nuovo Ospedale", "Stazione dei vaporetti", "Lungomare nuovo", "Teatro dell'Opera", "Mercato coperto", "Darsena dei pescatori", "Faro nuovo", "Piazza sull'acqua"];
+  function albeRestanti(s) { return s.cicli ? Math.max(0, s.cicli - s.ciclo) : 4; }
+  function puoAppalto(s, p) { return !p.fallito && !p.uscito && !(p.faro > 0) && (p.tracce || 0) <= APPALTO.maxTracce; }
+  function apriAppalto(s) {
+    const n = albeRestanti(s); if (n < 2) return;
+    const usate = new Set((s.appalti || []).map((x) => x.opera)), lib = OPERE_APPALTO.filter((x) => !usate.has(x));
+    const opera = (lib.length ? lib : OPERE_APPALTO)[Math.floor(rng(s) * (lib.length || OPERE_APPALTO.length))];
+    s.appalto = { id: "ap" + s.ciclo, ciclo: s.ciclo, opera, rendita: APPALTO.rendita, albe: n, offerte: {} };
+    notizia(s, "🏛️ Gara d'appalto del Comune: «" + opera + "». Rende " + euro(APPALTO.rendita) + " a ogni Alba fino a fine partita. Offerte segrete entro stasera.", "evento");
+    const valore = APPALTO.rendita * n;
+    for (const b of s.players.filter((x) => x.bot && puoAppalto(s, x))) {
+      const voglia = ["Legale", "Costruttore", "Investitore"].includes(b.strat) ? 0.45 + 0.25 * rng(s) : 0.3 + 0.2 * rng(s);
+      const off = round(Math.min(valore * voglia, b.cash * 0.55) / 10_000) * 10_000;
+      if (off >= APPALTO.minimo && rng(s) < 0.8) s.appalto.offerte[b.id] = off;
+    }
+  }
+  function offriAppalto(s, p, importo) {
+    const A = s.appalto; if (!A || s.fase !== "giorno") err("Oggi non c'è nessuna gara d'appalto.");
+    if (!puoAppalto(s, p)) err("Hai più di " + APPALTO.maxTracce + " Tracce: il Comune non ti fa partecipare.");
+    importo = round(Number(importo) || 0);
+    if (!importo) { delete A.offerte[p.id]; A.no = A.no || {}; A.no[p.id] = true; return; }
+    if (importo < APPALTO.minimo) err("L'offerta minima è " + euro(APPALTO.minimo) + ".");
+    if (importo > p.cash) err("Non hai " + euro(importo) + " puliti.");
+    A.offerte[p.id] = importo; if (A.no) delete A.no[p.id];
+    privato(s, p, "Hai offerto " + euro(importo) + " per «" + A.opera + "». Con la tua fama vale " + euro(importo + Math.max(0, p.fama || 0) * APPALTO.famaVale) + ".");
+  }
+  function punteggioAppalto(p, off) { return off + Math.max(0, p.fama || 0) * APPALTO.famaVale; }
+  function chiudiAppalto(s) {
+    const A = s.appalto; if (!A) return; delete s.appalto;
+    const cand = Object.entries(A.offerte).map(([id, off]) => ({ p: giocatore(s, id), off })).filter((x) => x.p && puoAppalto(s, x.p) && x.p.cash >= x.off).sort((a, b) => punteggioAppalto(b.p, b.off) - punteggioAppalto(a.p, a.off));
+    const v = cand[0];
+    (s.appalti = s.appalti || []).push({ opera: A.opera, ciclo: A.ciclo, vince: v ? v.p.id : null, offerta: v ? v.off : 0 });
+    if (!v) { notizia(s, "🏛️ La gara per «" + A.opera + "» va deserta: nessuna offerta valida.", "evento"); return; }
+    v.p.cash -= v.off;
+    (v.p.appaltati = v.p.appaltati || []).push({ nome: A.opera, rendita: A.rendita, dal: s.ciclo });
+    notizia(s, "🏛️ " + v.p.nome + " vince la gara per «" + A.opera + "» con " + euro(v.off) + " e " + Math.max(0, v.p.fama || 0) + " di fama" + (cand.length > 1 ? " (secondo: " + cand[1].p.nome + ")" : "") + ".", "evento");
+    momento(s, v.p, "Vince l'appalto «" + A.opera + "»");
+    for (const x of cand.slice(1)) if (!x.p.bot) privato(s, x.p, "Hai perso la gara per «" + A.opera + "»: " + v.p.nome + " valeva " + euro(punteggioAppalto(v.p, v.off)) + ", tu " + euro(punteggioAppalto(x.p, x.off)) + ".");
+    if (!v.p.bot) privato(s, v.p, "Hai vinto la gara: «" + A.opera + "» ti rende " + euro(A.rendita) + " a ogni Alba fino a fine partita.");
+  }
+  function opereAlba(s) {
+    for (const p of s.players) for (const o of p.appaltati || []) { p.cash += o.rendita; altroAlba(s, p, "L'opera «" + o.nome + "»", o.rendita); }
+  }
   function fineGiorno(s) {
     // controllo della polizia: un tiro per giocatore alla fine di ogni Giorno
     for (const p of s.players) tiroIndagine(s, p);
@@ -1538,6 +1585,8 @@
       }
       if (s.proposte && s.proposte.length > 60) s.proposte = s.proposte.filter((x) => x.stato === "proposta").concat(s.proposte.filter((x) => x.stato !== "proposta").slice(-40)); }
     s.giorno += 1;
+    if (s.giorno === 1 && s.gen !== 1) apriAppalto(s); // v164
+    if (s.giorno === 2 && s.appalto) chiudiAppalto(s);
     if (s.giorno >= N.giorni) {
       s.giorno = 0;
       if (s.principianti && s.ciclo === 0) notizia(s, "Prima notte nella Laguna: stasera si fa festa. Gli affari loschi arriveranno presto.", "evento");
@@ -5895,6 +5944,7 @@
     esitoEsposto(s); // prima che aggiornaPiste() svuoti luoghiNotte
     chiudiCantieri(s);
     biviAlba(s); // v110
+    opereAlba(s); // v164
     perquisizioni(s);
     s.retataAnnunciata = false;
     const rimonta = (() => { if ((s.ciclo || 0) < 2) return null; const cl = s.players.filter((x) => !x.fallito && !x.uscito).sort((a, b) => patrimonio(s, b, true) - patrimonio(s, a, true)); return cl.length >= 3 ? { primo: cl[0].id, ultimo: cl[cl.length - 1].id } : null; })();
@@ -6570,6 +6620,7 @@
       case "faccia": return facciaAFaccia(s, p, a.scelta, a.proposta);
       case "patto_risposta": return rispondiPatto(s, p, a.id, a.r);
       case "patto_tradisci": return tradisciPatto(s, p, a.id, "");
+      case "appalto": return offriAppalto(s, p, a.importo); // v164
       case "regalo_assessore": return regaloAssessore(s, p, a.lotto);
       case "bivio": return sceltaBivio(s, p, a.i);
       case "costruisci": return costruisci(s, p, a.lotto, a.attivita);
@@ -6687,7 +6738,7 @@
     "id", "nome", "bot", "colore", "assente", "uscito",                   // chi e' (assente/uscito: al suo posto gioca il computer)
     "pos", "inner", "ipos", "dadi", "doppi", "haTirato", "azioneGiornoFatta", // tabellone e turno
     "faro", "fallito", "arresti", "condanne",                             // fatti pubblici: prigione, fallimento, condanne
-    "fama", "pacchetto", "veicoli",                                       // quello che tutti vedono
+    "fama", "pacchetto", "veicoli", "appaltati",                            // quello che tutti vedono (v164: le opere vinte all'appalto)
     "piani", "funzioniPiani", "stanze",                                   // il Palazzo (le stanze segrete vengono coperte)
     "senzaParola", "operaFatta",                                          // Favori: gia' usciti sulla Gazzetta (la Fedina degli altri e' segreta dalla v81)
   ];
@@ -6742,6 +6793,7 @@
     if (s.esposto) v.esposto = s.esposto.da === idGiocatore ? { ...s.esposto } : { ciclo: s.esposto.ciclo }; else delete v.esposto;
     v.opere = (s.opere || []).map((o) => ({ ...o }));
     v.patti = (s.patti || []).filter((k) => k.da === idGiocatore || k.a === idGiocatore); // v162
+    if (s.appalto) { const A = s.appalto, me = s.players.find((x) => x.id === idGiocatore); v.appalto = { id: A.id, opera: A.opera, rendita: A.rendita, albe: A.albe, mia: A.offerte[idGiocatore] || 0, no: !!(A.no && A.no[idGiocatore]), offerenti: Object.keys(A.offerte).length, escluso: me ? !puoAppalto(s, me) : true, famaVale: APPALTO.famaVale, minimo: APPALTO.minimo, maxTracce: APPALTO.maxTracce }; } // v164: le offerte degli altri restano segrete
     v.tradimentiPatti = s.fine ? (s.tradimentiPatti || []) : (s.tradimentiPatti || []).filter((t) => t.da === idGiocatore || t.su === idGiocatore);
     v.contratti = s.contratti.filter((k) => k.da === idGiocatore || k.a === idGiocatore || (k.tipo === "notarile" && k.stato !== "proposto")).map((k) => (k.da === idGiocatore || k.a === idGiocatore) ? k : { id: k.id, da: k.da, a: k.a, tipo: k.tipo, stato: k.stato });
     if (v.pending && v.pending.tipo === "asta" && v.pending.busta) { v.pending.lotto = null; v.pending.lotti = null; } // busta chiusa: non sai quali terreni ci sono
