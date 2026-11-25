@@ -7,7 +7,7 @@
     // v112: ogni computer ci prova una volta al giorno; alle persone arriva al massimo un'offerta al giorno in tutto.
     // Prima i terreni che chiudono un suo gruppo, poi quelli del gruppo dove ha gia' una via, poi (piu' raro) qualunque terreno.
     const chiave = o.ciclo * 10 + o.giorno;
-    if (i._offertaKey === chiave || o.fase !== "giorno") return null;
+    if (i._offertaKey === chiave || o.fase !== "giorno" || !o.ciclo) return null; // v160: al Ciclo 1 i computer non chiedono terreni (inizio calmo)
     i._offertaKey = chiave;
     if ((o.proposte || []).some((x) => x.da === i.id && x.stato === "proposta")) return null;
     o._offerteBot = o._offerteBot && o._offerteBot.k === chiave ? o._offerteBot : { k: chiave, a: [] };
@@ -521,6 +521,10 @@ function grandiBot(o, i, n) {
           if ("casino_reale" === r.tipo) return { tipo: "casino_reale", importo: 0 };
           if ("chiamata" === r.tipo)
             return { tipo: "chiamata", si: !["Legale", "Costruttore", "Investitore"].includes(n) && i.stato < 2, telefono: !0 };
+          if ("asta_comune" === r.tipo) { // v160: mette all'asta il terreno che gli serve di piu' per un gruppo, se puo' pagarlo
+            const ls = r.lotti.map((id) => o.lotti.find((x) => x.id === id)).filter((x) => x && i.cash - x.prezzo > 3e5).map((x) => ({ x, g: interesseGruppo(o, i, x) })).sort((a, b) => b.g - a.g || a.x.prezzo - b.x.prezzo);
+            return { tipo: "asta_comune", lotto: ls.length && (ls[0].g > 0 || Math.random() < 0.5) ? ls[0].x.id : null };
+          }
           if ("casa_mia" === r.tipo) return { tipo: "casa_mia", scelta: i.cash > 2e6 && i.fama < 40 ? "investi" : "incassa" }; // v153
           if ("municipio" === r.tipo)
             return { tipo: "municipio", scelta: i.fama >= 40 && i.cash > 3e6 && void 0 === o.candidati[i.id] ? "candidati" : "nulla" };

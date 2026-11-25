@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 159;
+  const VERSIONE_REGOLE = 160;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -137,14 +137,14 @@
 
   // Le classi: tutti partono con gli stessi soldi e un terreno a sorte; ogni classe ha un vantaggio suo.
   const PACCHETTI = [
-    { id: "commerciante", nome: "Il Commerciante", perk: "Tutti i tuoi affitti rendono il 25% in più. Di notte, un affare tutto tuo a turno: il carico in saldo alla Marina, la fiera del lusso, le borse taroccate.", extra: {} },
-    { id: "costruttore", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 15% in meno. Il permesso del Palazzo è gratis. Di notte, un affare tutto tuo a turno: il geometra del Comune al Club, la cena con l'ingegnere, il cemento della chiatta.", extra: {} },
-    { id: "investitore", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo (2,5%). Di notte, un affare tutto tuo a turno: la soffiata di Borsa al Club, il tavolo dei banchieri, il broker sul molo.", extra: {} },
-    { id: "playboy", nome: "Il Playboy", perk: "+2 fama ogni Alba. Parti con il motoscafo (Viaggio rapido tra i Moli) e gli amici dello yacht. Di notte, un affare tutto tuo a turno: la festa sullo yacht, l'asta dei vini, la modella e il fotografo.", extra: { veicolo: "motoscafo" } },
-    { id: "contrabbandiere", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta. Il Mercato Nero ti apre dal Ciclo 2. Di notte, un affare tutto tuo a turno: la cassa al molo, lo scafo veloce, il pacco al bancone.", extra: {} },
-    { id: "politico", nome: "Il Politico", perk: "Parti con fama 20. Candidarti a Sindaco costa metà e la licenza del casinò è più facile (3 volte su 4 al primo colpo). Di notte, un affare tutto tuo a turno: la cena col consigliere, il favore all'impresario, il comizio sul molo.", extra: { fama: 20 } },
-    { id: "ereditiera", nome: "L'Ereditiera", perk: "La banca ti presta il doppio e senza interessi. Di notte, un affare tutto tuo a turno: il ballo della contessa, il gala di beneficenza, i gioielli della nonna.", extra: {} },
-    { id: "speculatore", nome: "Lo Speculatore", perk: "Ogni Alba le tue cripto crescono del 5% in più. Di notte, un affare tutto tuo a turno: il wallet del marinaio alla Marina, i computer nella stiva, il collezionista di NFT.", extra: {} },
+    { id: "commerciante", breve: "affitti +25%", nome: "Il Commerciante", perk: "Tutti i tuoi affitti rendono il 25% in più. Di notte, un affare tutto tuo a turno: il carico in saldo alla Marina, la fiera del lusso, le borse taroccate.", extra: {} },
+    { id: "costruttore", breve: "cantieri e Palazzo −15%", nome: "Il Costruttore", perk: "Cantieri e piani del Palazzo costano il 15% in meno. Il permesso del Palazzo è gratis. Di notte, un affare tutto tuo a turno: il geometra del Comune al Club, la cena con l'ingegnere, il cemento della chiatta.", extra: {} },
+    { id: "investitore", breve: "dividendo del 2,5% sulle azioni", nome: "L'Investitore", perk: "Ogni Alba le tue azioni ti pagano un dividendo (2,5%). Di notte, un affare tutto tuo a turno: la soffiata di Borsa al Club, il tavolo dei banchieri, il broker sul molo.", extra: {} },
+    { id: "playboy", breve: "+2 fama a ogni Alba e un motoscafo", nome: "Il Playboy", perk: "+2 fama ogni Alba. Parti con il motoscafo (Viaggio rapido tra i Moli) e gli amici dello yacht. Di notte, un affare tutto tuo a turno: la festa sullo yacht, l'asta dei vini, la modella e il fotografo.", extra: { veicolo: "motoscafo" } },
+    { id: "contrabbandiere", breve: "Tracce −30% negli affari della notte", nome: "Il Contrabbandiere", perk: "Gli affari della notte lasciano il 30% di Tracce in meno. Un posto in più in valigetta. Il Mercato Nero ti apre dal Ciclo 2. Di notte, un affare tutto tuo a turno: la cassa al molo, lo scafo veloce, il pacco al bancone.", extra: {} },
+    { id: "politico", breve: "parti con fama 20", nome: "Il Politico", perk: "Parti con fama 20. Candidarti a Sindaco costa metà e la licenza del casinò è più facile (3 volte su 4 al primo colpo). Di notte, un affare tutto tuo a turno: la cena col consigliere, il favore all'impresario, il comizio sul molo.", extra: { fama: 20 } },
+    { id: "ereditiera", breve: "prestiti doppi e senza interessi", nome: "L'Ereditiera", perk: "La banca ti presta il doppio e senza interessi. Di notte, un affare tutto tuo a turno: il ballo della contessa, il gala di beneficenza, i gioielli della nonna.", extra: {} },
+    { id: "speculatore", breve: "cripto +5% a ogni Alba", nome: "Lo Speculatore", perk: "Ogni Alba le tue cripto crescono del 5% in più. Di notte, un affare tutto tuo a turno: il wallet del marinaio alla Marina, i computer nella stiva, il collezionista di NFT.", extra: {} },
   ];
 
 
@@ -461,14 +461,29 @@
   // ogni giocatore riceve un terreno a sorte; chi ne riceve uno più economico ha la differenza in contanti
   function terreniIniziali(s) {
     const TETTO = 600_000;
+    if (gen2(s)) { // v160 (il Regista): si parte con 2 attivita' gia' aperte al livello 1 (in gruppi diversi); i contanti pareggiano il valore
+      const pool = s.lotti.filter((l) => l.tipoCasella === "lotto" && !l.owner && l.prezzo >= 200_000 && l.prezzo <= 450_000);
+      for (const p of s.players) {
+        const presi = [];
+        for (let k = 0; k < 2; k++) {
+          const ok = pool.filter((l) => !presi.some((x) => x.serie === l.serie)); if (!ok.length) break;
+          const l = ok[Math.floor(rng(s) * ok.length)]; pool.splice(pool.indexOf(l), 1);
+          const tipo = ["ristorante", "hotel", "uffici", "boutique"].find((t) => ATTIVITA[t].isole.includes(l.isola)) || "ristorante";
+          l.owner = p.id; l.lvl = 1; l.tipo = tipo; presi.push(l);
+          log(s, p.nome + " riceve " + l.nome + ".", p.id);
+        }
+        const valore = presi.reduce((a, l) => a + valoreLotto(l), 0);
+        p.cash += TETTO - valore; // tutti partono con lo stesso patrimonio (contanti + attivita')
+        privato(s, p, "Parti con due attività già aperte: " + presi.map((l) => ATTIVITA[l.tipo].nome.toLowerCase() + " in " + l.nome + " (" + NOMI_ISOLE[l.isola] + ", rende " + euro(rendita(s, l)) + " a ogni Alba)").join(" e ") + ".");
+      }
+      return;
+    }
     const pool = s.lotti.filter((l) => l.tipoCasella === "lotto" && !l.owner && l.prezzo >= num(s, "terrenoInizialeMin") && l.prezzo <= TETTO);
     for (const p of s.players) {
       const i = Math.floor(rng(s) * pool.length); const l = pool.splice(i, 1)[0]; if (!l) continue;
       const tipo = ["ristorante", "hotel", "uffici", "boutique"].find((k) => ATTIVITA[k].isole.includes(l.isola));
-      // v104: nelle partite nuove il terreno di partenza e' vuoto: l'attivita' la scegli e la paghi tu (prima un hotel aperto decideva la partita)
-      const vuoto = gen2(s);
-      l.owner = p.id; l.lvl = vuoto ? 0 : 1; l.tipo = vuoto ? null : tipo; p.cash += TETTO - l.prezzo;
-      privato(s, p, "Ti tocca in sorte " + l.nome + " (" + NOMI_ISOLE[l.isola] + ")" + (vuoto ? ", ancora vuoto: decidi tu cosa costruirci" : ", con un " + ATTIVITA[tipo].nome.toLowerCase() + " già aperto") + (TETTO - l.prezzo > 0 ? ", più " + euro(TETTO - l.prezzo) + " per pareggiare il valore" : "") + ".");
+      l.owner = p.id; l.lvl = 1; l.tipo = tipo; p.cash += TETTO - l.prezzo;
+      privato(s, p, "Ti tocca in sorte " + l.nome + " (" + NOMI_ISOLE[l.isola] + "), con un " + ATTIVITA[tipo].nome.toLowerCase() + " già aperto" + (TETTO - l.prezzo > 0 ? ", più " + euro(TETTO - l.prezzo) + " per pareggiare il valore." : "."));
       log(s, p.nome + " riceve " + l.nome + ".", p.id);
     }
   }
@@ -810,6 +825,9 @@
     if (c.tipoCasella === "asta") {
       p.agenziaSconto = true;
       if ((s.sequestrati || []).length) avvisoCasella(s, p, "All'Asta del Comune c'è un terreno sequestrato in vendita: l'asta parte all'inizio del prossimo turno. Base d'asta: il " + Math.round(N.astaBase * 100) + "% del prezzo.");
+      // v160 (il Regista): chi si ferma qui mette all'asta un terreno libero a sua scelta (prima non succedeva niente)
+      const liberi = s.lotti.filter((l) => l.tipoCasella === "lotto" && !l.owner && l.prezzo).sort((a, b) => a.prezzo - b.prezzo);
+      if (gen2(s) && liberi.length && !(s.sequestrati || []).length) { s.pending = { tipo: "asta_comune", giocatore: p.id, lotti: liberi.map((l) => l.id) }; log(s, p.nome + " è all'Asta del Comune: sceglie un terreno da mettere all'asta.", p.id); return; }
       avvisoCasella(s, p, "Ufficio aste del Comune: in questo turno puoi comprare un terreno libero di " + NOMI_ISOLE[isolaDiPos(p.pos)] + " a prezzo pieno, senza il 20% in più. Apri l'app Agenzia. (Le aste vere sono per i terreni sequestrati: partono a inizio turno.)");
       log(s, p.nome + " passa dall'Asta del Comune.", p.id);
       return;
@@ -848,7 +866,6 @@
     }],
     ["Il tuo quartiere va di moda: +0,5 Valore all'isola dove sei.", (s, p) => { const i = casella(s, p).isola || isolaDiPos(p.pos); s.valore[i] = clamp(s.valore[i] + 0.5, 1, 10); return NOMI_ISOLE[i] + " vale di più: affitti e rendite lì salgono un po'."; }],
     ["Avanzi fino al Ponte Sud e incassi lo Stipendio.", (s, p) => { p.pos = 0; if (!p.blocco) { p.cash += N.stipendio; return "+" + euro(N.stipendio) + "."; } return "Lo Stipendio però è bloccato dal Giudice: non incassi niente."; }],
-    ["Uno scandalo minore ti tocca di striscio: -3 fama.", (s, p) => { p.fama = Math.max(0, p.fama - 3); }],
     ["Dividendo straordinario: +10% sulle tue azioni.", (s, p) => { let ha = false; for (const a of AZIENDE) if (p.azioni[a]) { p.azioni[a] *= 1.1; ha = true; } return ha ? "Le tue azioni valgono il 10% in più." : "Non hai azioni: stavolta niente."; }],
   ];
   // v110: una carta che non ti riguarda non esce (niente multa dello yacht senza yacht, niente dividendo senza azioni)
@@ -977,6 +994,19 @@
       log(s, p.nome + " rinnova " + l.nome + " (100.000 €): +3 fama.", p.id); return;
     }
     s.pending = null;
+  }
+  // v160: l'Asta del Comune: scegli un terreno libero, parte subito l'asta (base al 75% del prezzo, offre chiunque)
+  function astaComune(s, p, idLotto) {
+    const pd = s.pending;
+    if (!pd || pd.tipo !== "asta_comune" || pd.giocatore !== p.id) err("Non sei all'Asta del Comune.");
+    if (idLotto == null || idLotto === "") { s.pending = null; log(s, p.nome + " non mette niente all'asta.", p.id); return; }
+    const l = lotto(s, String(idLotto)); if (!pd.lotti.includes(l.id) || l.owner) err("Questo terreno non si può mettere all'asta.");
+    const minimo = baseAsta(l);
+    const part = s.players.filter((x) => !x.fallito && !x.uscito && x.faro === 0 && x.cash >= minimo).map((x) => x.id);
+    s.pending = null;
+    if (!part.length) { log(s, "All'asta di " + l.nome + " non c'è nessuno con abbastanza soldi.", p.id); return; }
+    s.pending = { tipo: "asta", lotto: l.id, offerte: {}, giocatore: p.id, partecipanti: part, minimo, scelta: p.id, inizio: adesso() };
+    notizia(s, p.nome + " mette all'asta " + l.nome + " (vale " + euro(l.prezzo) + "). Base d'asta " + euro(minimo) + ".", "affari");
   }
   function casinoReale(s, p, puntata) {
     const pd = s.pending;
@@ -6299,6 +6329,7 @@
       case "permesso": return chiediPermesso(s, p, a.lotto, a.timbro === true);
       case "licenza_speciale": return licenzaSpeciale(s, p, a.lotto);
       case "casa_mia": return casaMia(s, p, a.scelta);
+      case "asta_comune": return astaComune(s, p, a.lotto);
       case "faccia": return facciaAFaccia(s, p, a.scelta);
       case "regalo_assessore": return regaloAssessore(s, p, a.lotto);
       case "bivio": return sceltaBivio(s, p, a.i);

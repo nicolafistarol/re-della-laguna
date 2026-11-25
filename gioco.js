@@ -2151,7 +2151,7 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 159: ["<b>La strada pulita paga.</b> La rendita di un'attività cresce di 1,5 volte a ogni livello e raddoppia se hai tutto il gruppo di vie: una via completa al livello 3 rende da 250.000 € in su a ogni Alba.", "<b>Niente soldi facili dai computer.</b> Per un tuo terreno offrono al massimo 1,1 volte il valore (1,3 se gli chiude un gruppo).", "<b>Sfida tra vicini, in euro.</b> Si sfidano il 1° con il 2° e il 3° con il 4°. Vince chi guadagna più euro, non più chi cresce in percentuale. In palio il 3% del patrimonio del più povero, al massimo 300.000 €. In alto leggi: «tu +120.000 € · lui +340.000 € · ti servono +220.000 € entro l'Alba»."], 158: ["<b>Il colpo dice la verità.</b> Se tiri dritto e ti prendono, non succede nient'altro: perdi tutto il carico e le Tracce sono esattamente quelle del bivio per due. Il racconto va in ordine: la tua scelta, il dado, la conseguenza.", "<b>Nuova partita pulita.</b> Chiusa una partita spariscono i suoi avvisi e l'errore «uuid null».", "<b>Colpisci un rivale con un tocco</b>, e la carta Incendio resta leggibile quando la tocchi.", "<b>Inchiesta finale chiara.</b> Accanto al rischio di ognuno ci sono le sue Tracce: «rischio 46% · 38 Tracce».", "<b>Schermo stretto.</b> Sotto i 430 px i soldi in alto sono in forma corta (10,6 M €). Un consiglio sui rivali si legge una volta sola."], 157: ["<b>La resa dei conti.</b> A fine partita, prima della classifica, l'inchiesta giocatore per giocatore e tre titoli: il colpo più grande della partita, il tradimento della partita e chi ti è costato di più (affitti, sfide e colpi messi insieme)."],
+const NOVITA = { 160: ["<b>Si parte subito.</b> Tre storie da una riga tra cui scegliere, e ognuno parte con due attività già aperte al livello 1 (i contanti pareggiano il valore).", "<b>Una finestra sola all'inizio:</b> l'obiettivo. La Guida completa resta nel menu. Il Livello 1 arriva senza finestra.", "<b>L'Asta del Comune serve.</b> Chi ci si ferma sceglie un terreno libero e lo mette all'asta: base al 75% del prezzo, offrono tutti.", "<b>La Gazzetta non toglie più fama a caso.</b>"], 159: ["<b>La strada pulita paga.</b> La rendita di un'attività cresce di 1,5 volte a ogni livello e raddoppia se hai tutto il gruppo di vie: una via completa al livello 3 rende da 250.000 € in su a ogni Alba.", "<b>Niente soldi facili dai computer.</b> Per un tuo terreno offrono al massimo 1,1 volte il valore (1,3 se gli chiude un gruppo).", "<b>Sfida tra vicini, in euro.</b> Si sfidano il 1° con il 2° e il 3° con il 4°. Vince chi guadagna più euro, non più chi cresce in percentuale. In palio il 3% del patrimonio del più povero, al massimo 300.000 €. In alto leggi: «tu +120.000 € · lui +340.000 € · ti servono +220.000 € entro l'Alba»."], 158: ["<b>Il colpo dice la verità.</b> Se tiri dritto e ti prendono, non succede nient'altro: perdi tutto il carico e le Tracce sono esattamente quelle del bivio per due. Il racconto va in ordine: la tua scelta, il dado, la conseguenza.", "<b>Nuova partita pulita.</b> Chiusa una partita spariscono i suoi avvisi e l'errore «uuid null».", "<b>Colpisci un rivale con un tocco</b>, e la carta Incendio resta leggibile quando la tocchi.", "<b>Inchiesta finale chiara.</b> Accanto al rischio di ognuno ci sono le sue Tracce: «rischio 46% · 38 Tracce».", "<b>Schermo stretto.</b> Sotto i 430 px i soldi in alto sono in forma corta (10,6 M €). Un consiglio sui rivali si legge una volta sola."], 157: ["<b>La resa dei conti.</b> A fine partita, prima della classifica, l'inchiesta giocatore per giocatore e tre titoli: il colpo più grande della partita, il tradimento della partita e chi ti è costato di più (affitti, sfide e colpi messi insieme)."],
   156: ["<b>Il colpo contro un rivale.</b> Dal retro della Bisca scegli un locale di un rivale e il colpo: incendio (200.000 €, resta chiuso un Ciclo, 25 Tracce), furto del carico (100.000 €, ti prendi il 30% di quello che incassa, 15 Tracce) o soffiata alla polizia (50.000 €, a lui +20 Tracce, a te 5). All'Alba la vittima legge gli indizi, per esempio «60 su 100 era Furbo»: più Tracce lasci, più è facile che ti riconosca. Il Ciclo dopo, contro chi l'ha colpito, ogni colpo costa la metà."],
   155: ["<b>Faccia a faccia.</b> Di notte, se incroci un altro giocatore nello stesso posto, nell'ora dopo avete 20 secondi e una sola risposta: proponi un affare (se ci sta anche lui, 60.000 € sporchi a testa), lo corrompi con 50.000 € per sapere cosa ha fatto (può mentire), lo minacci (50 su 100 perde un'ora, se va male −5 fama) o lo ignori. All'Alba leggi cosa ti hanno fatto."],
   154: ["<b>La polizia non cambia più di nascosto.</b> A ogni cambio di livello arriva un avviso con il perché.", "<b>Guai chiari.</b> Un affare parte con il 10% di guai se il reato è lieve, il 20% se è medio e il 30% se è grave. Poi la polizia del posto li alza. La finestra del rischio ora sta in 3 righe: guai, cosa perdi se va male, Tracce. Le Tracce sono lo stesso numero dappertutto.", "<b>Meno da leggere.</b> All'Alba la Gazzetta mostra 5 notizie (prima quelle su di te), le altre sono sotto «Tutte le altre». Il consiglio sui rivali non si ripete due turni di fila. Quando sali di livello vedi subito cosa si sblocca.", "<b>Setta.</b> Nelle Grandi Opere vedi solo la prossima che puoi raggiungere.", "<b>Modalità test.</b> La durata scelta non cambia più: si parte in modo che restino 3 Cicli da giocare."],
@@ -3418,7 +3418,7 @@ function avvisiImportanti(me) {
   if (!avvisiPronti) { avvisiPronti = true; livelloVisto = me.livello || 0; msg.concat(gaz).forEach((m) => avvisiFatti.add(firma(m))); return; }
   if ((me.livello || 0) > livelloVisto) {
     const lv = me.livello; livelloVisto = lv;
-    avviso(`${ico("stella")} <b>Sei salito al Livello ${lv}!</b> Si aprono posti e affari nuovi: guarda i messaggi di Vera nel telefono.`, 9000);
+    if (lv > 1) avviso(`${ico("stella")} <b>Sei salito al Livello ${lv}!</b> Si aprono posti e affari nuovi: guarda i messaggi di Vera nel telefono.`, 9000);
   }
   let n = 0;
   for (const m of msg.concat(gaz)) {
@@ -3479,7 +3479,10 @@ function finestreAutomatiche(me) {
   if (camminaAttivo) return; // mentre cammini niente finestre che coprono il mondo
   if (S.fase === "notte" && S.notte && tavoloSM(me)) return;
   if (document.querySelector(".velo")) return;
-  if (guidaMaiVista() && !document.querySelector("#guida")) { apriGuida(0, true); return; }
+  if (guidaMaiVista() && !document.querySelector("#guida") && S.fase !== "pacchetti") { // v160 (il Regista): una finestra sola, l'obiettivo (la Guida completa resta nel menu)
+    try { localStorage.setItem("laguna_guida_vista", "1"); } catch (e) { }
+    return finestra(`<span class="kick" style="color:var(--oro)">${ico("stella")} Obiettivo</span><h2>Essere il più ricco ${S.cicli ? "dopo " + S.cicli + " Cicli" : "della Laguna"}</h2><p>Di giorno compri e costruisci, di notte rischi.</p><div class="pulsanti"><button class="oro" id="ok">Tira i dadi</button></div>`, (d, c) => d.querySelector("#ok").onclick = () => { c(); finestreAutomatiche(io()); });
+  }
   // v111-112, v125: prima la condanna, poi i conti in rosso, poi l'Alba, poi tutto il resto (livello, asta, proposte)
   { const us = sentenzaNuova(me); if (us) { if (S.ultimaAlba && us.ciclo + 1 === S.ultimaAlba.ciclo) visti.delete("alba" + S.ultimaAlba.ciclo); return finestraSentenza(me, us); } } // v136: anche se la sentenza arriva tardi (Faro), dopo viene l'Alba
   if (me.rosso && !telAperto) { const k = "rosso" + me.rosso.n + "_" + me.rosso.resto; if (!visti.has(k)) { visti.add(k); return finestraRosso(me); } }
@@ -3493,6 +3496,7 @@ function finestreAutomatiche(me) {
   const livVisto = (() => { try { return +(localStorage.getItem("laguna_liv_" + partita) || 0); } catch (e) { return 0; } })();
   if ((S.sblocco || 0) > livVisto) {
     try { localStorage.setItem("laguna_liv_" + partita, String(S.sblocco)); } catch (e) { }
+    if ((S.sblocco || 0) <= 1) return finestreAutomatiche(me); // v160 (il Regista): il livello 1 si da' senza finestra
     const nuove = APPS.filter((a) => appVisibile(me, a) && a.lv === S.sblocco);
     const vera = (me.messaggi || []).filter((m) => m.liv === S.sblocco).slice(-1)[0]; // v125: solo il messaggio di quel livello (prima poteva uscire "sei sotto indagine")
     const [tit, cosa] = SBLOCCHI[S.sblocco] || ["", ""];
@@ -3595,8 +3599,13 @@ function extraTesto(e) {
 function finestraPacchetti() {
   document.querySelectorAll(".velo [data-pk]").forEach((el) => el.closest(".velo") && el.closest(".velo").remove()); // mai due finestre uguali
   if (S.fase !== "pacchetti") return;
-  finestra(`<span class="kick" style="color:var(--oro)">La tua storia</span><h2>Chi sei, quando arrivi nella Laguna?</h2><p>Partite tutti uguali: <b>${euro(L.N.cashStart)}</b> e <b>un terreno a sorte</b> (se ti tocca uno più economico, la differenza ti arriva in contanti). Ogni storia ti dà un vantaggio diverso: scegli quello che va col tuo modo di giocare.</p>
-    <div class="griglia">${L.PACCHETTI.filter((k) => S.pacchettiDisponibili.includes(k.id) || (S.pacchettiPresi || {})[k.id]).map((k) => { const id = k.id, presa = !S.pacchettiDisponibili.includes(id); const chi = presa ? S.players.find((x) => x.id === (S.pacchettiPresi || {})[id]) : null; return presa ? `<button class="sch" disabled style="opacity:.45"><h3 class="serif" style="font-weight:400;font-size:20px">${esc(k.nome)}</h3><p style="margin-top:6px">Già presa${chi ? " da " + esc(chi.nome) : ""}</p></button>` : `<button class="sch" data-pk="${id}"><h3 class="serif" style="font-weight:400;font-size:20px">${esc(k.nome)}</h3><p style="margin-top:6px;color:var(--oro);font-weight:700">${esc(k.perk)}</p></button>`; }).join("")}</div>`,
+  // v160 (il Regista): 3 storie a caso, una riga ciascuna (prima 8 storie da 50 parole)
+  const disp = L.PACCHETTI.filter((k) => S.pacchettiDisponibili.includes(k.id));
+  finestraPacchetti.tre = (finestraPacchetti.tre || []).filter((id) => S.pacchettiDisponibili.includes(id));
+  if (finestraPacchetti.tre.length < Math.min(3, disp.length)) finestraPacchetti.tre = disp.map((k) => [k.id, Math.random()]).sort((a, b) => a[1] - b[1]).slice(0, 3).map((x) => x[0]);
+  const tre = finestraPacchetti.tre.map((id) => disp.find((k) => k.id === id)).filter(Boolean);
+  finestra(`<span class="kick" style="color:var(--oro)">La tua storia</span><h2>Chi sei?</h2><p class="sub">Partite tutti uguali: contanti e due attività già aperte. Scegli un vantaggio.</p>
+    <div class="ff-scelte">${tre.map((k) => `<button data-pk="${k.id}"><b>${esc(k.nome)} · ${esc(k.breve || "")}</b></button>`).join("")}</div>`,
     (d, chiudi) => d.querySelectorAll("[data-pk]").forEach((el) => el.onclick = () => { chiudi(); agisci({ tipo: "pacchetto", id: el.dataset.pk }); }));
 }
 function finestraAsta(me) {
@@ -3648,6 +3657,15 @@ function finestraPending(me) {
     const pt = [50_000, 100_000, 250_000].filter((x) => x <= me.cash);
     return finestra(`<span class="kick" style="color:var(--oro)">Isola Corona · casella del Casinò</span><h2>Una puntata al Casinò Reale?</h2><p>Una sola puntata sul rosso: quasi metà delle volte raddoppi. Non sei obbligato: «Non gioco» e il turno va avanti.</p><div class="pulsanti" style="flex-wrap:wrap">${pt.map((x) => `<button class="oro" data-pt="${x}">Punto ${euro(x)}</button>`).join("")}</div><div class="pulsanti"><button id="no">Non gioco</button></div>`,
       (d, c) => { d.querySelector("#no").onclick = () => { c(); agisci({ tipo: "casino_reale", importo: 0 }); }; d.querySelectorAll("[data-pt]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "casino_reale", importo: +b.dataset.pt }); }); });
+  }
+  if (pd.tipo === "asta_comune") { // v160: scegli tu il terreno libero da mettere all'asta
+    const ls = (pd.lotti || []).map((id) => S.lotti.find((x) => x.id === id)).filter(Boolean);
+    const gr = (l) => { const v = S.lotti.filter((x) => x.serie === l.serie), mie = v.filter((x) => x.owner === mioId).length; return mie ? " · hai " + mie + " vie su " + v.length + " del gruppo" : ""; };
+    const ord = ls.slice().sort((a, b) => (gr(b) ? 1 : 0) - (gr(a) ? 1 : 0) || a.prezzo - b.prezzo);
+    return finestra(`<span class="kick" style="color:var(--rosa)">${ico("martello")} Asta del Comune</span><h2>Che terreno metti all'asta?</h2><p class="sub">Scegli un terreno libero: parte subito l'asta, base al ${Math.round((L.N.astaBase || 0.75) * 100)}% del prezzo. Offrono tutti, anche tu. Hai ${euro(me.cash)}.</p>
+      <div class="ff-scelte" style="max-height:46vh;overflow:auto">${ord.map((l) => `<button data-lt="${l.id}"><b>${esc(l.nome)} · ${euro(l.prezzo)}</b><span class="sub">${esc(l.serie || "")} · ${esc(L.NOMI_ISOLE[l.isola] || "")}${gr(l)}</span></button>`).join("")}</div>
+      <div class="pulsanti"><button id="no">Niente asta</button></div>`,
+      (d, c) => { d.querySelector("#no").onclick = () => { c(); agisci({ tipo: "asta_comune", lotto: null }); }; d.querySelectorAll("[data-lt]").forEach((b) => b.onclick = () => { c(); agisci({ tipo: "asta_comune", lotto: b.dataset.lt }); }); });
   }
   if (pd.tipo === "casa_mia") { const l = S.lotti.find((x) => x.id === pd.lotto); // v153: sei su un tuo terreno
     return finestra(`<span class="kick" style="color:var(--oro)">${esc(l ? l.nome : "")} · è tuo</span><h2>Sei a casa tua</h2><p>Il gestore ti aspetta alla cassa. Cosa fai?</p><div class="pulsanti" style="flex-wrap:wrap"><button class="oro" id="inc">Incassi metà della rendita · +${euro(pd.incasso)}</button><button id="inv" ${me.cash < 100000 ? "disabled" : ""}>Investi 100.000 € nel locale · +3 fama</button><button id="no">Lascia stare</button></div>`,
@@ -4298,7 +4316,7 @@ avvio();
 // ------------------------------------------------------------ COME SI GIOCA: 6 slide, prima di giocare e durante
 function datiGuida() { return [
   { img: "img/laguna.jpg", kick: "1 di 7 · Lo scopo", tit: "Vinci ORDO: diventa il più ricco della Laguna", righe: [
-    "Partite tutti uguali: <b>1.500.000 €</b> e <b>un terreno a sorte</b>. Scegli una <b>storia</b>: ognuna ha un vantaggio.",
+    "Partite tutti uguali: contanti e <b>due attività già aperte</b>. Scegli una <b>storia</b>: ognuna ha un vantaggio.",
     "Un <b>Ciclo</b> = 4 giorni coi dadi, poi <b>la notte</b>, poi <b>l'Alba</b>: all'Alba incassi tutte le rendite.",
     "Vince chi ha il <b>patrimonio</b> più alto: soldi, terreni, Palazzo, mezzi, azioni. I soldi sporchi valgono solo un quarto.",
     "Come finisce lo scegliete voi: dopo 6–20 Cicli, a un obiettivo (50, 100 o 200 milioni) o partita libera.",
@@ -4363,7 +4381,7 @@ function datiGuida() { return [
 // v110: la prima volta 3 slide brevi; il resto si spiega quando ti capita (Guida completa dal tasto 📖)
 function guidaRapida() { return [
   { img: "img/laguna.jpg", kick: "1 di 3 · Lo scopo", tit: "Diventa il più ricco della Laguna", righe: [
-    "Partite tutti con <b>1.500.000 €</b> e un terreno. Vince chi ha il <b>patrimonio</b> più alto alla fine.",
+    "Partite tutti con contanti e due attività aperte. Vince chi ha il <b>patrimonio</b> più alto alla fine.",
     "Un <b>Ciclo</b> = 4 giorni coi dadi, poi <b>la notte</b>, poi <b>l'Alba</b>, quando incassi le rendite.",
     "Più sei ricco, più cose si aprono: <b>Livello 1 a 2,5 milioni</b>.",
   ], tag: ["Patrimonio", "Ciclo", "Livelli"] },
