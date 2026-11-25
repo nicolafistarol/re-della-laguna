@@ -2139,7 +2139,8 @@ function situazioniHtml() {
     ${S.sitProssime ? `<p class="sub" style="padding:6px 10px;font-size:12px">Si dice che al prossimo Ciclo succederà qualcosa: leggi "Si dice che…" qui sotto e preparati.</p>` : ""}</div>`;
 }
 // ogni aggiornamento delle regole si annuncia una volta, al primo ingresso dopo l'aggiornamento
-const NOVITA = { 156: ["<b>Il colpo contro un rivale.</b> Dal retro della Bisca scegli un locale di un rivale e il colpo: incendio (200.000 €, resta chiuso un Ciclo, 25 Tracce), furto del carico (100.000 €, ti prendi il 30% di quello che incassa, 15 Tracce) o soffiata alla polizia (50.000 €, a lui +20 Tracce, a te 5). All'Alba la vittima legge gli indizi, per esempio «60 su 100 era Furbo»: più Tracce lasci, più è facile che ti riconosca. Il Ciclo dopo, contro chi l'ha colpito, ogni colpo costa la metà."],
+const NOVITA = { 157: ["<b>La resa dei conti.</b> A fine partita, prima della classifica, l'inchiesta giocatore per giocatore e tre titoli: il colpo più grande della partita, il tradimento della partita e chi ti è costato di più (affitti, sfide e colpi messi insieme)."],
+  156: ["<b>Il colpo contro un rivale.</b> Dal retro della Bisca scegli un locale di un rivale e il colpo: incendio (200.000 €, resta chiuso un Ciclo, 25 Tracce), furto del carico (100.000 €, ti prendi il 30% di quello che incassa, 15 Tracce) o soffiata alla polizia (50.000 €, a lui +20 Tracce, a te 5). All'Alba la vittima legge gli indizi, per esempio «60 su 100 era Furbo»: più Tracce lasci, più è facile che ti riconosca. Il Ciclo dopo, contro chi l'ha colpito, ogni colpo costa la metà."],
   155: ["<b>Faccia a faccia.</b> Di notte, se incroci un altro giocatore nello stesso posto, nell'ora dopo avete 20 secondi e una sola risposta: proponi un affare (se ci sta anche lui, 60.000 € sporchi a testa), lo corrompi con 50.000 € per sapere cosa ha fatto (può mentire), lo minacci (50 su 100 perde un'ora, se va male −5 fama) o lo ignori. All'Alba leggi cosa ti hanno fatto."],
   154: ["<b>La polizia non cambia più di nascosto.</b> A ogni cambio di livello arriva un avviso con il perché.", "<b>Guai chiari.</b> Un affare parte con il 10% di guai se il reato è lieve, il 20% se è medio e il 30% se è grave. Poi la polizia del posto li alza. La finestra del rischio ora sta in 3 righe: guai, cosa perdi se va male, Tracce. Le Tracce sono lo stesso numero dappertutto.", "<b>Meno da leggere.</b> All'Alba la Gazzetta mostra 5 notizie (prima quelle su di te), le altre sono sotto «Tutte le altre». Il consiglio sui rivali non si ripete due turni di fila. Quando sali di livello vedi subito cosa si sblocca.", "<b>Setta.</b> Nelle Grandi Opere vedi solo la prossima che puoi raggiungere.", "<b>Modalità test.</b> La durata scelta non cambia più: si parte in modo che restino 3 Cicli da giocare."],
   153: ["<b>Aste solo quando serve.</b> Se un computer non compra un terreno, il terreno resta libero: l'asta parte solo quando rinuncia una persona. Un'asta senza offerte ora è un avviso di pochi secondi.", "<b>Viaggi di notte senza attese.</b> Mentre viaggi il gioco va avanti da solo. Una volta su tre trovi un posto di blocco sul ponte. Se il rito della setta è troppo vicino, «Vado» è spento e ti dice quante ore servono.", "<b>A casa tua.</b> Se ti fermi su un tuo locale scegli: incassi metà della rendita oppure investi 100.000 € per +3 fama.", "<b>Locali chiusi chiari.</b> Un'attività chiusa dal Giudice mostra fino a quale Alba resta chiusa, e i pulsanti sono spenti. Il permesso non si può più chiedere (né pagare) su un locale chiuso.", "<b>Licenza speciale.</b> Con una sola via del gruppo puoi arrivare al livello 3 pagando 300.000 € al Municipio."],
@@ -4234,16 +4235,26 @@ function raccontoPartita(mioPosto) {
 let inchiestaVista = false;
 function scenaInchiesta() {
   const inc = S.inchiesta || [];
-  if (!inc.length || !S.resaAnnunciata) return false;
+  if (!S.fine && (!inc.length || !S.resaAnnunciata)) return false; // v157: a fine partita la resa dei conti c'e' sempre (almeno i tre titoli)
   const mio = inc.find((x) => x.id === mioId);
   const riga = (x) => { const d = x.dopo != null ? x.dopo : x.prima; const nome = x.id === mioId ? "Tu" : esc(x.nome); return `<div class="inch-riga ${x.trovato ? "preso" : ""}"><div><b>${nome}</b><div class="sub">${x.trovato ? `Trovati ${euro(x.sporchi0)} sporchi${x.sporchi ? `, confiscati ${x.sporchi >= x.sporchi0 - 1 ? "tutti" : euro(x.sporchi)}` : ""} · multa ${euro(x.multa)} (reato ${esc(x.gravita || "")})` : x.appena ? "Appena condannato: non lo processano due volte." : x.sporchi0 > 0 ? `Aveva ${euro(x.sporchi0)} sporchi: la Procura non ha trovato niente (rischio ${x.rischio}%).` : "Conti puliti: niente da trovare."}</div></div><div style="text-align:right;white-space:nowrap" class="sub">${x.trovato ? `${mil2(x.prima)} → <b>${mil2(d)}</b>` : mil2(d)}</div></div>`; };
   const mil2 = (n) => (Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(1).replace(".", ",") + " M" : euro(n));
   finestra(`<span class="kick" style="color:var(--sporco)">⚖️ L'inchiesta finale</span><h2>${mio && mio.trovato ? "La Procura ti ha trovato" : "La Procura apre i conti"}</h2>
     ${mio && mio.trovato ? `<div class="alba-peggio"><b>⚖️ TROVATI ${euro(mio.sporchi0)} SPORCHI</b><span>${mio.sporchi ? (mio.sporchi >= mio.sporchi0 - 1 ? "Confiscati tutti" : "Confiscati " + euro(mio.sporchi)) + ". " : ""}Multa ${euro(mio.multa)}. Patrimonio: ${mil2(mio.prima)} → ${mil2(mio.dopo != null ? mio.dopo : mio.prima)}.</span></div>` : ""}
-    <div style="margin:8px 0 4px">${inc.map(riga).join("")}</div>
+    ${inc.length ? `<div style="margin:8px 0 4px">${inc.map(riga).join("")}</div>` : ""}
+    ${titoliPartita()}
     <p class="sub">Solo adesso si chiude la classifica.</p>
     <div class="pulsanti"><button class="oro" id="ok">Vedi la classifica</button></div>`, (d, c) => d.querySelector("#ok").onclick = () => { c(); inchiestaVista = true; setTimeout(fine, 200); });
   return true;
+}
+// v157: la resa dei conti in tre titoli, una riga ciascuno
+function titoliPartita() {
+  const T = S.resaTitoli || {}, righe = [];
+  righe.push(["💰", "Il colpo più grande", T.colpo ? T.colpo.testo : "Nessuno ha fatto un colpo vero: una partita di gente prudente."]);
+  righe.push(["🗡️", "Il tradimento della partita", T.tradimento ? T.tradimento.testo : "Nessun tradimento: in Laguna, stavolta, si sono rispettati tutti."]);
+  const mie = Object.entries(S.costiTra || {}).filter(([k]) => k.startsWith(mioId + ">")).map(([k, v]) => [k.split(">")[1], v]).sort((a, b) => b[1] - a[1])[0];
+  righe.push(["💸", "Chi ti è costato di più", mie ? `${esc(nomeDi(mie[0]))}: tra affitti, sfide e colpi ti ha portato via ${euro(mie[1])}.` : "Nessuno: non hai pagato niente a nessuno."]);
+  return `<div class="titoli-resa">${righe.map(([i, t, x]) => `<div><span class="kick" style="color:var(--oro)">${i} ${t}</span><div>${t === "Chi ti è costato di più" ? x : esc(x)}</div></div>`).join("")}</div>`;
 }
 function fine() {
   if (document.querySelector(".velo")) return;

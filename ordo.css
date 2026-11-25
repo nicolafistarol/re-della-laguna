@@ -297,3 +297,4 @@ body:has(.scena.albeggia) #panorama{opacity:.15;transition:opacity .6s}
 .ff-scelte button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px}
 .ff-scelte button .sub{font-size:12px;font-weight:400}
 .alba-faccia{margin:8px 0;padding:8px 10px;border-radius:10px;background:rgba(255,95,162,.08);border:1px solid rgba(255,95,162,.35);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.titoli-resa{display:flex;flex-direction:column;gap:8px;margin:10px 0;padding:10px;border-radius:12px;background:rgba(201,162,74,.07);border:1px solid rgba(201,162,74,.35);font-size:14px}

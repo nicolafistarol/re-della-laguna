@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 156;
+  const VERSIONE_REGOLE = 157;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -364,6 +364,7 @@
   function flusso(s, da, a, importo, motivo, pubblico) {
     importo = round(importo); if (!importo) return;
     if (da && a && /^(Affitto|Pedaggio)/.test(motivo || "")) attrito(s, da, a, importo / 100_000, "affitto", importo);
+    if (da && a && importo > 0) costoTra(s, da, a, importo); // v157
     s.flussi = s.flussi || [];
     s.flussi.push({ n: (s.nFlussi = (s.nFlussi || 0) + 1), c: s.ciclo + 1, g: s.giorno + 1, da: da ? da.id : null, a: a ? a.id : null, importo, motivo, pubblico: !!pubblico });
     if (s.flussi.length > 160) s.flussi.shift();
@@ -2177,6 +2178,9 @@
   // I fatti che il giocatore deve leggere per primi all'Alba (NOT-04): sequestri, perquisizioni, sentenze, contatti persi...
   // Si raccolgono durante alba() e finiscono in ultimaAlba.riepilogo[id].fatti (che ognuno vede solo per se').
   // f = { k: tipo, testo, soldi?: puliti persi(-)/presi(+), sporchi?: idem, tracce?: Tracce in piu' }
+  // v157: i tre titoli della resa dei conti (colpo piu' grande, tradimento della partita, chi ti e' costato di piu')
+  function titolo(s, k, testo, peso) { s.resaTitoli = s.resaTitoli || {}; if (!s.resaTitoli[k] || peso > s.resaTitoli[k].peso) s.resaTitoli[k] = { testo, peso: round(peso), ciclo: s.ciclo + 1 }; }
+  function costoTra(s, da, a, quanto) { if (!da || !a || da.id === a.id || !(quanto > 0)) return; s.costiTra = s.costiTra || {}; const k = da.id + ">" + a.id; s.costiTra[k] = round((s.costiTra[k] || 0) + quanto); }
   function fatto(s, p, f) { if (!s.fattiAlba) return; (s.fattiAlba[p.id] = s.fattiAlba[p.id] || []).push(f); }
   function indizio(s, l) { const lv = LIVELLI_PERICOLO.indexOf(s.notte.pericolo[l]); const arr = INDIZI[l] && INDIZI[l][lv]; return arr ? arr[Math.floor(rng(s) * arr.length)] : ""; }
   function pagaMisto(s, p, costo) { // prima gli sporchi, poi i puliti
@@ -3113,6 +3117,7 @@
       notizia(s, "Fermati due uomini davanti a " + l.nome + ": lavoravano per " + p.nome + ".", "scandalo");
       return;
     }
+    { const danno = az === "incendio" ? rendita(s, l) : az === "furto" ? round(rendita(s, l) * C.quota) : 200_000; costoTra(s, q, p, danno); titolo(s, "tradimento", p.nome + " ha " + C.verbo + " «" + l.nome + "» di " + q.nome + " (Ciclo " + (s.ciclo + 1) + ").", danno); } // v157
     if (az === "incendio") { l.chiuso = Math.max(l.chiuso || 0, 1); racconta(s, p, "Una tanica, un fiammifero: " + l.nome + " di " + q.nome + " va a fuoco. Resta chiuso un Ciclo. +" + C.tracce + " Tracce."); notizia(s, "Incendio a " + l.nome + ": il locale di " + q.nome + " resta chiuso.", "scandalo"); }
     else if (az === "furto") { const v = round(rendita(s, l) * C.quota), preso_ = Math.min(v, Math.max(0, q.cash)); q.cash -= preso_; p.sporchi = (p.sporchi || 0) + preso_; racconta(s, p, "I tuoi uomini svuotano il magazzino di " + l.nome + ": porti via " + euro(preso_) + " sporchi. +" + C.tracce + " Tracce."); notizia(s, "Furto nella notte a " + l.nome + ", il locale di " + q.nome + ".", "scandalo"); }
     else { q.tracce = (q.tracce || 0) + C.tracceLui; segnaTraccia(s, q, C.tracceLui, "Una soffiata anonima"); racconta(s, p, "Una telefonata anonima alla Procura su " + q.nome + ": +" + C.tracceLui + " Tracce a lui. +" + C.tracce + " a te."); }
@@ -3151,6 +3156,7 @@
     for (const d of (s.notte.denunce || []).filter((x) => x.su === p.id && x.luogo === luogo && !x.fatto)) {
       d.fatto = true; const da = giocatore(s, d.da);
       (da.esitiSoffiate = da.esitiSoffiate || []).push({ su: p.nome, colpita: !!guaio, luogo: nomeLuogo(luogo) });
+      if (guaio) titolo(s, "tradimento", da.nome + " ha venduto " + p.nome + " alla polizia (Ciclo " + (s.ciclo + 1) + "): l'hanno preso durante «" + nomeAffare + "».", 800_000); // v157
       if (guaio) { da.prove.push({ su: p.id, ciclo: s.ciclo + 1, cosa: "la soffiata su " + nomeAffare }); privato(s, da, "La tua soffiata ha colpito: la polizia ha sorpreso " + p.nome + " durante «" + nomeAffare + "». E tu hai una Prova contro di lui."); }
       else privato(s, da, p.nome + " era davvero a " + LUOGHI[luogo].nome + ", ma è riuscito a scamparla.");
       racconta(s, p, guaio ? "Qualcuno aveva fatto il tuo nome: la polizia ti aspettava qui." : "Qualcuno aveva fatto il tuo nome e la polizia ti aspettava qui, ma sei riuscito a non farti prendere."); // v136
@@ -3591,6 +3597,7 @@
       p.sporchi += round(guadagno); // il guadagno e' tutto quello che torna indietro (il costo era gia' stato pagato)
       const messo = messoTot, netto = round(guadagno) - messo;
       if (netto >= 1_000_000) momento(s, p, O.nome + ": +" + euro(netto) + " sporchi", true);
+      if (netto > 0) titolo(s, "colpo", p.nome + " con «" + O.nome + "» (Ciclo " + (s.ciclo + 1) + "): +" + euro(netto) + " sporchi in una notte.", netto); // v157
       racconta(s, p, "Torni con " + euro(guadagno) + " in contanti sporchi." + (messo ? " Ci avevi messo " + euro(messo) + ": " + (netto >= 0 ? "guadagno vero " + euro(netto) : "ci perdi " + euro(-netto)) + "." : ""));
     }
     if (p.offertaBoss && o.luogo === "porto") { p.sporchi += round(guadagno); p.tracce += tracce; p.offertaBoss = false; racconta(s, p, "Il boss straniero mantiene la parola: il carico vale il doppio."); }
