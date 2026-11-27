@@ -35,8 +35,43 @@
     if (altri.length && Object.values(rivali).some((c) => c === altri.length)) return 2;
     return miei ? 1 : 0;
   }
+  // v166 (Luca): quanto vuole un computer per cedere un suo terreno. Stessa regola in Affari e in Contratti.
+  // Fino a 1,5 volte il valore vero se non chiude il gruppo a chi compra; 2,5 se glielo chiude; 3 se e' del suo gruppo completo.
+  const arrotB = (v) => Math.ceil(v / 10000) * 10000, euroB = (v) => Math.round(v).toLocaleString("it-IT") + " €";
+  function valoreB(l) { return t && t.valoreLotto ? t.valoreLotto(l) : l.prezzo * (1 + 0.6 * (l.lvl || 0)); }
+  function sogliaVendita(o, i, l, idChi) {
+    const valore = valoreB(l), altri = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id), delGruppo = altri.filter((x) => x.owner === i.id).length;
+    if (l.serie !== "Moli" && t && t.haSerie && t.haSerie(o, i, l.serie)) return { soglia: arrotB(valore * 3), perche: "è del mio gruppo completo" };
+    if (idChi && altri.length && altri.every((x) => x.owner === idChi)) return { soglia: arrotB(valore * 2.5), perche: "ti chiuderebbe il gruppo" };
+    let f = Math.min(1.5, (delGruppo >= 1 ? 1.5 : 1.2) * ({ Spavaldo: 1.1, Costruttore: 1.15, Investitore: 0.95 }[i.strat] || 1));
+    if (i.cash < 3e5) f *= 0.85;
+    return { soglia: arrotB(valore * f), perche: delGruppo >= 1 ? "mi serve per il gruppo" : "" };
+  }
+  // come sembra il computer davanti a un terreno (al posto del "ti paga fino a")
+  function umoreB(o, idBot, l) { const r = quantoPaga(o, idBot, l.id) / Math.max(1, valoreB(l)); return r >= 1.25 ? "ci tiene molto" : r >= 1.05 ? "interessato" : "freddo"; }
+  // v166 (Luca): un contratto senza Favore. Il computer fa i conti (i pagamenti "sulla parola" valgono il 75%, col notaio il 100%):
+  // se gli conviene firma, se no dice perche' e quanto servirebbe.
+  function rispostaContrattoBot(o, i, k) {
+    const no = (m) => ({ tipo: "rispondi_contratto", id: k.id, si: !1, motivo: m || null });
+    const da = o.players.find((x) => x.id === k.da); if (!da) return no();
+    const odio = ((i.rancore || {})[da.id] || 0) > o.ciclo;
+    const fid = k.tipo === "notarile" ? 1 : odio ? 0.3 : 0.75;
+    let riceve = (k.chiPagaOra === "da" ? k.pagoOra : 0) + (k.chiPagaDopo === "da" ? k.pagoDopo * fid : 0);
+    let paga = (k.chiPagaOra === "a" ? k.pagoOra : 0) + (k.chiPagaDopo === "a" ? k.pagoDopo : 0), cede = null, sv = null;
+    if (k.lottoCeduto) { const l = o.lotti.find((x) => x.id === k.lottoCeduto); if (!l) return no(); if (l.owner === i.id) { cede = l; sv = sogliaVendita(o, i, l, da.id); paga += sv.soglia; } else riceve += quantoPaga(o, i.id, l.id); }
+    const meta = k.tipo === "notarile" ? Math.round(0.02 * (k.pagoOra + k.pagoDopo) / 2) : 0;
+    if (i.cash < (k.chiPagaOra === "a" ? k.pagoOra : 0) + meta + 1e5) return no("«Adesso non ho i contanti per firmare.»");
+    if (k.favore) return null;
+    if (riceve > 0 && riceve >= paga) return { tipo: "rispondi_contratto", id: k.id, si: !0 };
+    if (!riceve && !paga) return no("«Qui non c'è niente per me.»");
+    if (odio && k.tipo !== "notarile") return no("«Sulla parola, con te? Dopo quello che mi hai fatto, solo dal notaio.»");
+    const extra = arrotB(paga - riceve);
+    if (cede) { const subito = (k.chiPagaOra === "da" ? k.pagoOra : 0) + extra; return no("«" + cede.nome + (sv.perche ? ": " + sv.perche : " vale di più") + ". Con " + euroB(subito) + " subito è tua.»"); }
+    return no("«Così ci perdo. Aggiungi " + euroB(extra) + " subito e firmo.»");
+  }
   function quantoPaga(o, idBot, idLotto) {
     const l = o.lotti.find((x) => x.id === idLotto); if (!l) return 0;
+    if (t && t.maxBotLotto) return t.maxBotLotto(o, idBot, l); // v166: un solo valore e una sola regola ovunque (terreno + attivita')
     const valore = l.prezzo * (1 + 0.6 * (l.lvl || 0));
     const delGruppo = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id && x.owner === idBot).length;
     const gruppo = o.lotti.filter((x) => x.serie === l.serie).length;
@@ -471,22 +506,15 @@ function grandiBot(o, i, n) {
       if (prop) {
         // trattare i terreni: il bot ragiona sul valore e su quante vie del gruppo ha, e dice il suo prezzo
         const l = o.lotti.find((x) => x.id === prop.lotto);
-        const valore = l.prezzo * (1 + 0.6 * (l.lvl || 0));
-        const arrot = (v) => Math.ceil(v / 10000) * 10000;
-        const delGruppo = o.lotti.filter((x) => x.serie === l.serie && x.id !== l.id && x.owner === i.id).length;
-        const gruppo = o.lotti.filter((x) => x.serie === l.serie).length;
         if (prop.compro) {
-          // un altro vuole comprare un terreno del bot
-          if (t.haSerie(o, i, l.serie) && l.serie !== "Moli") { const s3 = arrot(valore * 3); return prop.prezzo >= s3 ? { tipo: "rispondi_proposta", id: prop.id, si: !0 } : { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Ha tutto il gruppo di vie: lo venderebbe solo per almeno " + s3.toLocaleString("it-IT") + " €." }; }
-          let soglia = valore * (delGruppo >= 1 ? 1.5 : 1.2) * ({ Spavaldo: 1.1, Costruttore: 1.15, Investitore: 0.95 }[n] || 1);
-          if (i.cash < 3e5) soglia *= 0.85; // se e' a corto di soldi vende piu' volentieri
-          soglia = arrot(soglia);
-          return prop.prezzo >= soglia ? { tipo: "rispondi_proposta", id: prop.id, si: !0 } : { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Lo venderebbe per almeno " + soglia.toLocaleString("it-IT") + " €." };
+          // un altro vuole comprare un terreno del bot (v166: stessa regola dei Contratti, e il no ha motivo e controproposta)
+          const sv = sogliaVendita(o, i, l, prop.da);
+          return prop.prezzo >= sv.soglia ? { tipo: "rispondi_proposta", id: prop.id, si: !0 } : { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "«" + l.nome + (sv.perche ? ": " + sv.perche : " vale di più") + ". Con " + euroB(sv.soglia) + " è tua.»" };
         }
         // un altro vuole vendere un suo terreno al bot
         const massimo = quantoPaga(o, i.id, l.id);
-        if (i.cash - prop.prezzo < 3e5) return { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Adesso non ha abbastanza soldi." };
-        return prop.prezzo <= massimo ? { tipo: "rispondi_proposta", id: prop.id, si: !0 } : { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "Al massimo pagherebbe " + massimo.toLocaleString("it-IT") + " €." };
+        if (i.cash - prop.prezzo < 3e5) return { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "«Adesso non ho abbastanza soldi.»" };
+        return prop.prezzo <= massimo ? { tipo: "rispondi_proposta", id: prop.id, si: !0 } : { tipo: "rispondi_proposta", id: prop.id, si: !1, motivo: "«Più di " + euroB(massimo) + " non lo pago.»" };
       }
       const a = o.inviti.find((o) => o.a === i.id);
       if (a) return rispostaInvito(o, i, n, a);
@@ -494,7 +522,7 @@ function grandiBot(o, i, n) {
       const LF = globalThis.Laguna || (typeof require !== "undefined" ? require("./motore.js") : null);
       { const rc = (o.ricatti || []).find((x) => x.a === i.id && x.stato === "attesa"); if (rc && LF && LF.FAVORI) return rispostaRicattoBot(o, i, n, rc, LF); }
       const s = o.contratti.find((o) => o.a === i.id && "proposto" === o.stato);
-      if (s) return s.favore ? rispostaPattoBot(o, i, n, s, LF) : { tipo: "rispondi_contratto", id: s.id, si: !1 };
+      if (s) return s.favore ? rispostaPattoBot(o, i, n, s, LF) : rispostaContrattoBot(o, i, s);
       // patto sulla parola scaduto: il bot paga sempre, se ha i soldi (v76)
       if (LF && LF.restoPatto && o.fase !== "pacchetti" && !o.fine) {
         const k = (o.contratti || []).find((x) => x.stato === "scaduto" && x.tipo !== "notarile" && (x.chiPagaDopo === "da" ? x.da : x.a) === i.id && LF.restoPatto(x) > 0 && i.cash >= LF.restoPatto(x));
@@ -770,6 +798,7 @@ function grandiBot(o, i, n) {
       return r;
     },
     quantoPaga: (o, idBot, idLotto) => quantoPaga(o, idBot, idLotto),
+    umore: (o, idBot, l) => umoreB(o, idBot, l),
     STRATEGIE: ["Legale", "Costruttore", "Investitore", "Furbo", "Spavaldo", "Esperto"],
   };
   "undefined" != typeof module && module.exports ? (module.exports = n) : (o.LagunaBot = n);

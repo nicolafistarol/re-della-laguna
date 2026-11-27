@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 165;
+  const VERSIONE_REGOLE = 166;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -364,6 +364,7 @@
     s.attriti = s.attriti && s.attriti.ciclo === s.ciclo ? s.attriti : { ciclo: s.ciclo, c: {} };
     const k = chi.id + ">" + contro.id, x = s.attriti.c[k] = s.attriti.c[k] || { p: 0, fatti: {} };
     x.p += punti; const f = x.fatti[cosa] = x.fatti[cosa] || { n: 0, soldi: 0 }; f.n++; f.soldi += importo || 0;
+    if (punti >= 6) { chi.rancore = chi.rancore || {}; chi.rancore[contro.id] = Math.max(chi.rancore[contro.id] || 0, s.ciclo + 3); } // v166: un torto grosso si ricorda per 3 Cicli
   }
   function flusso(s, da, a, importo, motivo, pubblico) {
     importo = round(importo); if (!importo) return;
@@ -3304,9 +3305,11 @@
   // i computer piu' cattivi a volte colpiscono il loro rivale (o chi e' primo)
   function sabotaggiBot(s) {
     for (const b of s.players) {
-      if (!b.bot || b.faro || b.uscito || !["Furbo", "Spavaldo"].includes(b.strat) || rng(s) >= 0.2) continue;
+      const ven = !!(b.bot && b.vendetta && b.vendetta.ciclo === s.ciclo && b.vendetta.decisa && !b.faro && !b.uscito); // v166: la vendetta dopo un tradimento
+      if (!ven && (!b.bot || b.faro || b.uscito || !["Furbo", "Spavaldo"].includes(b.strat) || rng(s) >= 0.2)) continue;
       const riv = (b.vendetta && b.vendetta.ciclo === s.ciclo && b.vendetta.su) || rivaleDi(s, b); const ber = bersagliSabotaggio(s, b).filter((x) => !riv || x.owner === riv).sort((x, y) => y.rendita - x.rendita)[0];
-      const az = b.strat === "Spavaldo" ? "incendio" : rng(s) < 0.5 ? "furto" : "soffiata";
+      const az = ven ? (b.strat === "Legale" ? "soffiata" : "incendio") : b.strat === "Spavaldo" ? "incendio" : rng(s) < 0.5 ? "furto" : "soffiata";
+      if (ven && ber) { b.vendetta.decisa = false; const vt = giocatore(s, ber.owner); notizia(s, "Vendetta! " + b.nome + " si vendica di " + vt.nome + ".", "scandalo"); privato(s, vt, b.nome + " si vendica: «Te l'avevo detto.»"); }
       if (ber && pattoAttivo(s, b.id, ber.owner) && b.strat !== "Spavaldo") continue; // v162
       if (!ber || (!ber.villa && b.cash + b.sporchi < ber.costi[az] * 3)) continue;
       if (ber && ber.villa) { if (b.cash + b.sporchi < ber.costo * 3) continue; pagaMisto(s, b, ber.costo); const t = Math.floor(rng(s) * 100) + 1; tradisciSeInPatto(s, b, ber.owner, "ti ha svaligiato la villa"); eseguiFurtoVilla(s, b, giocatore(s, ber.owner), t, t <= Math.round(SABOTA.preso * 100)); continue; }
@@ -3999,12 +4002,25 @@
     if (q.bot) rispostaPattoBot(s, q, k);
     return k;
   }
+  // v166 (Luca): il computer risponde con un motivo. Non si fida di chi e' primo, non firma con chi gli ha fatto un torto.
   function rispostaPattoBot(s, b, k) {
     const altro = giocatore(s, k.turno === k.a ? k.da : k.a), cattivo = ["Spavaldo", "Furbo"].includes(b.strat);
-    const r = rng(s), puo = b.cash >= k.garanzia + (k.da === b.id ? k.paga : 0) + 100_000;
-    rispondiPatto(s, b, k.id, !puo ? "no" : k.stato === "proposto" && cattivo && r < 0.4 ? "rilancio" : r < (cattivo ? 0.75 : 0.85) ? "si" : "no", true);
-    void altro;
+    const r = rng(s), r2 = rng(s), puo = b.cash >= k.garanzia + (k.da === b.id ? k.paga : 0) + 100_000;
+    const vivi = s.players.filter((q) => !q.uscito && !q.fallito), primo = vivi.slice().sort((x, y) => patrimonio(s, y, false) - patrimonio(s, x, false))[0];
+    const odio = haRancore(s, b, altro.id), paga = k.da === altro.id && k.paga > 0;
+    let risp, motivo;
+    if (!puo) { risp = "no"; motivo = "Non ho i contanti per la garanzia."; }
+    else if (odio) { risp = "no"; motivo = "Dopo quello che mi hai fatto? Scordatelo."; }
+    else if (primo && primo.id === altro.id && b.strat !== "Legale" && !paga && r < 0.5) { risp = k.stato === "proposto" ? "rilancio" : "no"; motivo = k.stato === "proposto" ? "Sei primo: se vuoi la pace, la paghi di più." : "Non mi fido di chi è primo."; }
+    else if (k.stato === "proposto" && cattivo && r2 < 0.3) { risp = "rilancio"; motivo = "Vale di più. Alziamo la posta."; }
+    else if (r2 < (cattivo ? 0.8 : 0.9)) { risp = "si"; motivo = paga ? "Con questi soldi, ci sto." : "Affare fatto. Non tradirmi."; }
+    else { risp = "no"; motivo = "Stanotte lavoro da solo."; }
+    k.motivo = motivo; k.daChi = b.id;
+    rispondiPatto(s, b, k.id, risp, true);
   }
+  // v166: il rancore dura (fino al Ciclo scritto): chi tradisce o colpisce si fa un nemico
+  function haRancore(s, p, idAltro) { return ((p.rancore || {})[idAltro] || 0) > s.ciclo; }
+  function segnaRancore(s, p, idAltro, cicli) { p.rancore = p.rancore || {}; p.rancore[idAltro] = Math.max(p.rancore[idAltro] || 0, s.ciclo + (cicli || 3)); }
   function rispondiPatto(s, p, idP, r, muto) {
     const k = (s.patti || []).find((x) => x.id === idP);
     if (!k || k.turno !== p.id || !["proposto", "rilancio"].includes(k.stato)) err("Non c'è un patto che aspetta la tua risposta.");
@@ -4012,17 +4028,20 @@
     if (r === "rilancio" && k.stato === "proposto") {
       k.garanzia = round(k.garanzia * PATTO.rilancio / 10000) * 10000; k.paga = round(k.paga * PATTO.rilancio / 10000) * 10000; k.stato = "rilancio"; k.turno = altro.id;
       const t = (k.paga ? "pagamento " + euro(k.paga) + ", " : "") + "garanzia " + euro(k.garanzia) + " a testa";
-      privato(s, altro, p.nome + " rilancia sul patto «" + k.testo + "»: " + t + ". Accetti o rifiuti?");
-      if (s.fase === "notte") racconta(s, altro, p.nome + " rilancia: " + t + ".");
+      const mv = p.bot && k.motivo ? " «" + k.motivo + "»" : "";
+      privato(s, altro, p.nome + " rilancia sul patto «" + k.testo + "»: " + t + "." + mv + " Accetti o rifiuti?");
+      if (s.fase === "notte") racconta(s, altro, p.nome + " rilancia: " + t + "." + mv);
       if (altro.bot) rispostaPattoBot(s, altro, k);
       return;
     }
-    if (r !== "si") { k.stato = "rifiutato"; privato(s, altro, p.nome + " rifiuta il patto «" + k.testo + "»."); if (s.fase === "notte") { racconta(s, altro, p.nome + " rifiuta il patto."); racconta(s, p, "Rifiuti il patto di " + altro.nome + "."); } return; }
+    k.risposto = p.id;
+    if (r !== "si") { const mv = p.bot && k.motivo ? " «" + k.motivo + "»" : ""; k.stato = "rifiutato"; privato(s, altro, p.nome + " rifiuta il patto «" + k.testo + "»." + mv); if (s.fase === "notte") { racconta(s, altro, p.nome + " rifiuta il patto." + mv); racconta(s, p, "Rifiuti il patto di " + altro.nome + "."); } return; }
     // accettato: si deposita la garanzia e si paga
     for (const x of [da, a]) if (x.cash < k.garanzia + (x === da ? k.paga : 0)) { k.stato = "rifiutato"; const m = x.nome + " non ha i contanti puliti per la garanzia: il patto salta."; privato(s, da, m); privato(s, a, m); if (!muto && x === p) err("Ti servono " + euro(k.garanzia + (x === da ? k.paga : 0)) + " puliti per firmare."); return; }
     for (const x of [da, a]) { x.cash -= k.garanzia; if (k.garanzia) flusso(s, x, null, k.garanzia, "Garanzia del patto con " + (x === da ? a : da).nome + " (in Banca)", false); }
     if (k.paga) { da.cash -= k.paga; a.cash += k.paga; flusso(s, da, a, k.paga, "Patto: " + k.testo, false); }
-    k.stato = "attivo"; k.fine = s.ciclo + k.durata; k.turno = null;
+    k.stato = "attivo"; k.fine = s.ciclo + k.durata; k.turno = null; k.risposto = p.id;
+    for (const x of s.patti || []) if (x !== k && ["proposto", "rilancio"].includes(x.stato) && ((x.da === da.id && x.a === a.id) || (x.da === a.id && x.a === da.id))) { x.stato = "superato"; x.turno = null; } // v166: un patto alla volta tra due
     for (const [x, y] of [[da, a], [a, da]]) {
       const t = "hai stretto un patto con " + y.nome + ": " + k.testo.charAt(0).toLowerCase() + k.testo.slice(1) + (k.garanzia ? " (garanzia " + euro(k.garanzia) + ")" : "");
       privato(s, x, "Patto fatto con " + y.nome + ": «" + k.testo + "». Scade all'Alba del Ciclo " + (k.fine + 1) + ". Tradirlo una volta si può: prendi la sua garanzia, perdi " + PATTO.tradisci + " fama.");
@@ -4042,10 +4061,21 @@
     privato(s, q, testo); (q.colpiSubiti = q.colpiSubiti || []).push({ testo });
     privato(s, p, "Hai tradito il patto con " + q.nome + ": prendi la sua garanzia (" + euro(k.garanzia) + ") e riprendi la tua. −" + PATTO.tradisci + " fama.");
     if (s.fase === "notte") racconta(s, p, "Tradisci il patto con " + q.nome + (k.garanzia ? ": la sua garanzia è tua (" + euro(k.garanzia) + ")" : "") + ". −" + PATTO.tradisci + " fama.");
-    notizia(s, p.nome + " ha tradito il patto con " + q.nome + ".", "scandalo");
+    notizia(s, "Tradimento! " + p.nome + " rompe il patto con " + q.nome + (k.garanzia ? " e si prende " + euro(k.garanzia) + " di garanzia" : "") + ".", "scandalo");
+    scenaTradimento(s, p, q, "il patto");
     (s.tradimentiPatti = s.tradimentiPatti || []).push({ da: p.id, su: q.id, ciclo: s.ciclo + 1, soldi: k.garanzia, come: come || "" });
     titolo(s, "tradimento", p.nome + " ha tradito il patto con " + q.nome + " (Ciclo " + (s.ciclo + 1) + ")" + (k.garanzia ? ": " + euro(k.garanzia) + " di garanzia" : "") + ".", Math.max(k.garanzia, 100_000));
     attrito(s, q, p, 6, "sabotaggio");
+  }
+  // v166 (Luca): il tradimento e' una scena. La vittima scrive al traditore, se lo ricorda per 4 Cicli,
+  // e se e' un computer nel Ciclo dopo, una volta su due, si vendica (il colpo gli costa la meta').
+  function scenaTradimento(s, p, q, cosa) {
+    segnaRancore(s, q, p.id, 4);
+    q.vendetta = { su: p.id, ciclo: s.ciclo + 1, decisa: q.bot ? rng(s) < 0.5 : false };
+    const frasi = ["Te ne pentirai.", "Questa me la paghi.", "Hai appena fatto il più grosso errore della tua vita.", "Dormi con un occhio aperto."];
+    const frase = frasi[Math.floor(rng(s) * frasi.length)];
+    privato(s, p, q.nome + ": «" + frase + "» (per " + cosa + ")");
+    if (!p.bot) (p.minacce = p.minacce || []).push({ da: q.id, ciclo: s.ciclo, cosa, frase });
   }
   // colpire chi ha un patto con te = tradirlo
   function tradisciSeInPatto(s, p, idQ, come) { const k = pattoAttivo(s, p.id, idQ); if (k) tradisciPatto(s, p, k.id, come); }
@@ -4572,6 +4602,8 @@
     privato(s, m, "Sei stato cacciato dalla setta \"" + st.nome + "\". Perdi tutti i suoi privilegi.");
     sciogliPatto(s, st, m, true);
     privato(s, p, m.nome + " non fa più parte della setta.");
+    notizia(s, "Cacciato! " + p.nome + " butta fuori " + m.nome + " dalla setta \"" + st.nome + "\".", "scandalo"); // v166 (Luca): non succede piu' "niente"
+    scenaTradimento(s, p, m, "la cacciata dalla setta");
     for (const id of st.membri) if (id !== p.id) privato(s, giocatore(s, id), m.nome + " è stato cacciato dalla setta.");
   }
   function lasciaSetta(s, p, idSetta) {
@@ -4901,9 +4933,9 @@
     privato(s, a, p.nome + " ti propone un contratto. Guardalo nell'app Contratti.");
     return k.id;
   }
-  function rispondiContratto(s, p, idC, si) {
+  function rispondiContratto(s, p, idC, si, motivo) {
     const k = s.contratti.find((x) => x.id === idC); if (!k || k.a !== p.id || k.stato !== "proposto") err("Contratto non trovato.");
-    if (!si) { k.stato = "rifiutato"; privato(s, giocatore(s, k.da), p.nome + " ha rifiutato il tuo contratto."); return; }
+    if (!si) { k.stato = "rifiutato"; k.motivo = motivo ? String(motivo).slice(0, 200) : null; privato(s, giocatore(s, k.da), p.nome + " ha rifiutato il tuo contratto." + (k.motivo ? " " + k.motivo : "")); return; } // v166: il no ha un motivo
     const da = giocatore(s, k.da), a = p;
     const pagatore = k.chiPagaOra === "da" ? da : a, ricevente = k.chiPagaOra === "da" ? a : da;
     const dopo = k.chiPagaDopo === "da" ? da : a;
@@ -6696,7 +6728,7 @@
       // ---- tra giocatori: Gazzetta, contratti, regali, denunce
       case "articolo": return s.fase === "notte" ? articolo2(s, p, a) : articolo(s, p, a.bersaglio, a.tono, a.importo, a.testo, !!a.sporchi);
       case "contratto": return proponiContratto(s, p, a.contratto);
-      case "rispondi_contratto": return rispondiContratto(s, p, a.id, !!a.si);
+      case "rispondi_contratto": return rispondiContratto(s, p, a.id, !!a.si, p.bot ? a.motivo : null);
       case "regala": return regala(s, p, a.a, a.importo, !!a.sporchi);
       case "paga_patto": return pagaPatto(s, p, a.id);
       case "denuncia": return denuncia(s, p, a.prova);
@@ -6839,6 +6871,7 @@
     if (s.esposto) v.esposto = s.esposto.da === idGiocatore ? { ...s.esposto } : { ciclo: s.esposto.ciclo }; else delete v.esposto;
     v.opere = (s.opere || []).map((o) => ({ ...o }));
     v.patti = (s.patti || []).filter((k) => k.da === idGiocatore || k.a === idGiocatore); // v162
+    v.tiOdiano = s.players.filter((q) => q.id !== idGiocatore && haRancore(s, q, idGiocatore)).map((q) => ({ id: q.id, fino: q.rancore[idGiocatore] })); // v166: chi ce l'ha con te
     if (s.appalto) { const A = s.appalto, me = s.players.find((x) => x.id === idGiocatore); v.appalto = { id: A.id, opera: A.opera, rendita: A.rendita, albe: A.albe, mia: A.offerte[idGiocatore] || 0, no: !!(A.no && A.no[idGiocatore]), offerenti: Object.keys(A.offerte).length, escluso: me ? !puoAppalto(s, me) : true, famaVale: APPALTO.famaVale, minimo: APPALTO.minimo, maxTracce: APPALTO.maxTracce }; } // v164: le offerte degli altri restano segrete
     v.tradimentiPatti = s.fine ? (s.tradimentiPatti || []) : (s.tradimentiPatti || []).filter((t) => t.da === idGiocatore || t.su === idGiocatore);
     v.contratti = s.contratti.filter((k) => k.da === idGiocatore || k.a === idGiocatore || (k.tipo === "notarile" && k.stato !== "proposto")).map((k) => (k.da === idGiocatore || k.a === idGiocatore) ? k : { id: k.id, da: k.da, a: k.a, tipo: k.tipo, stato: k.stato });
