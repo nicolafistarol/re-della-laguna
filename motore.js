@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 166;
+  const VERSIONE_REGOLE = 167;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -3612,6 +3612,8 @@
       { l: "Aspetti che finisca il turno", d: "Un'ora persa, merce che scotta.", gu: 1.05, ga: 0.9, tr: 1 },
       { l: "Passi lo stesso, sorridendo", d: "Sangue freddo, o follia.", gu: 1.3, ga: 1.1, tr: 1.1 } ] },
   ];
+  // v166 (Luca): il bivio di leva ha 6 titoli diversi, mai lo stesso due volte nella stessa partita (finche' ce ne sono)
+  const TITOLI_FINALE = ["Il lavoro è quasi fatto. Quanto ti porti via?", "Il furgone è pieno a metà. Ne carichi ancora?", "Hai dieci minuti prima che arrivi la ronda. Quanto prendi?", "Le casse sono più di quelle che ti avevano detto.", "Il tuo uomo ti guarda: «Capo, ne prendiamo ancora?»", "Dal porto si sente una sirena lontana. Quanto rischi?"].map((t) => ({ t }));
   const PASSO_FINALE = { t: "Il lavoro è quasi fatto. Quanto ti porti via?", o: [
     { l: "Il giusto", d: "Quello che avevi messo in conto.", gu: 1, ga: 1, tr: 1 },
     { l: "Tutto quello che entra", d: "Più soldi, più peso, più occhi addosso.", gu: 1.25, ga: 1.25, tr: 1.2 },
@@ -3624,12 +3626,24 @@
     { t: "Al bancone c'è l'autista di {Q}: ti ha visto arrivare.", dentro: "Gli offri una parte", caccia: "Lo fai buttare fuori" },
     { t: "Il tuo contatto vuole far entrare un socio: è il cugino di {Q}.", dentro: "Lo fai entrare", caccia: "Gli dici di no" },
     { t: "Una ragazza ti chiede un passaggio: lavora nei locali di {Q}.", dentro: "La porti con te", caccia: "La lasci lì" },
+    // v166 (Luca): piu' persone, mai la stessa due volte nella stessa partita (finche' ce ne sono)
+    { t: "Il barista ti versa da bere e sussurra: «Mi manda {Q}».", dentro: "Lo ascolti", caccia: "Lo ignori" },
+    { t: "Sul molo ti aspetta un vecchio pescatore: per anni ha lavorato per {Q}.", dentro: "Lo prendi a bordo", caccia: "Lo mandi via" },
+    { t: "Il fotografo che gira tra i tavoli vende foto anche a {Q}.", dentro: "Lo lasci scattare", caccia: "Gli prendi il rullino" },
+    { t: "Tra i facchini c'è il nipote di {Q}: lavora sodo e parla troppo.", dentro: "Lo tieni", caccia: "Lo paghi e lo mandi a casa" },
+    { t: "Il tuo autista ha cambiato telefono: il nuovo glielo ha regalato {Q}.", dentro: "Fai finta di niente", caccia: "Lo lasci a piedi" },
+    { t: "Un avvocato elegante si siede vicino a te: difende {Q} in tribunale.", dentro: "Gli offri un sigaro", caccia: "Cambi tavolo" },
+    { t: "La cuoca del locale cucina anche alle feste di {Q}.", dentro: "Le lasci la cucina", caccia: "La mandi via" },
   ];
+  function scegliNuovo(s, p, campo, lista) { // un elemento non ancora visto in questa partita (poi si ricomincia)
+    const visti = p[campo] = p[campo] || []; let ok = lista.filter((x) => !visti.includes(x.t)); if (!ok.length) { visti.length = 0; ok = lista.slice(); }
+    const x = ok[Math.floor(rng(s) * ok.length)]; visti.push(x.t); return x;
+  }
   function personaColpo(s, p, o, O, oggetti) {
     const altri = s.players.filter((q) => q.id !== p.id && !q.uscito); if (!altri.length) return null;
     const riv = typeof rivaleDi === "function" ? rivaleDi(s, p) : null;
     const q = altri.find((x) => x.id === riv) && rng(s) < 0.6 ? altri.find((x) => x.id === riv) : altri[Math.floor(rng(s) * altri.length)];
-    const ok = PERSONE.filter((x) => x.t !== p.ultimaPersona), P = ok[Math.floor(rng(s) * ok.length)]; p.ultimaPersona = P.t;
+    const P = scegliNuovo(s, p, "personeViste", PERSONE); p.ultimaPersona = P.t;
     const opz = [
       { l: P.caccia, d: "−10% bottino, e " + q.nome + " ti mette nel mirino: il prossimo Ciclo i suoi colpi contro di te costano la metà.", gu: 0.9, ga: 0.9, tr: 1, eff: "mirino", su: q.id },
       { l: P.dentro, d: "+25% bottino, ma all'Alba " + q.nome + " sa che eri qui.", gu: 1.05, ga: 1.25, tr: 1, eff: "sa", su: q.id },
@@ -3643,6 +3657,7 @@
   function passiColpo(s, p, o, O, oggetti) {
     const tutti = (COLPI[O.id] || [PASSO_FINALE]).map((P) => ({ t: P.t, o: P.o.map((x) => ({ ...x })) }));
     const base = [tutti[tutti.length > 1 && rng(s) < 0.5 ? 1 : 0]]; // v163: un solo bivio di leva (a caso tra i due dell'affare)
+    if (!COLPI[O.id]) base[0].t = scegliNuovo(s, p, "titoliVisti", TITOLI_FINALE).t; // v166: titoli che non si ripetono
     const per = personaColpo(s, p, o, O, oggetti);
     if (per) base.push(per);
     else { // nessun altro giocatore: un imprevisto, come prima
@@ -6009,8 +6024,8 @@
     albaPatti(s); // v162
     accuseBot(s); // v165: le accuse della notte prima, dei computer
     for (const q of s.players) if (q.colpiSubiti) { for (const x of q.colpiSubiti) fatto(s, q, { k: "colpo", testo: x.testo }); delete q.colpiSubiti; } // v156
-    for (const q of s.players) if (q.esitiSoffiate) { for (const x of q.esitiSoffiate) fatto(s, q, { k: "soffiata", testo: x.colpita ? "La tua soffiata su " + x.su + " ha colpito: la polizia l'ha sorpreso a " + x.luogo + ". Hai una Prova contro di lui." : x.su + " era davvero a " + x.luogo + ", ma è scampato alla tua soffiata." }); delete q.esitiSoffiate; } // v142: i fatti grossi dell'Alba (perquisizioni, elezioni, Ricettatore...) hanno ognuno la sua riga
-    for (const d of ((s.notte && s.notte.denunce) || [])) if (!d.fatto) { d.fatto = true; const da = giocatore(s, d.da), su = giocatore(s, d.su); if (da && su) { privato(s, da, "La tua soffiata su " + su.nome + " non ha colpito: stanotte a " + nomeLuogo(d.luogo) + " non ha fatto affari."); fatto(s, da, { k: "soffiata", testo: "La tua soffiata su " + su.nome + " è andata a vuoto: a " + nomeLuogo(d.luogo) + " non ha fatto affari." }); } }
+    for (const q of s.players) if (q.esitiSoffiate) { for (const x of q.esitiSoffiate) fatto(s, q, { k: "soffiata", testo: x.colpita ? "Soffiata riuscita: la polizia ha sorpreso " + x.su + " a " + x.luogo + ". Ha preso Tracce e tu hai una Prova contro di lui." : "Soffiata quasi riuscita: " + x.su + " era davvero a " + x.luogo + ", ma è scappato." }); delete q.esitiSoffiate; } // v142: i fatti grossi dell'Alba (perquisizioni, elezioni, Ricettatore...) hanno ognuno la sua riga
+    for (const d of ((s.notte && s.notte.denunce) || [])) if (!d.fatto) { d.fatto = true; const da = giocatore(s, d.da), su = giocatore(s, d.su); if (da && su) { privato(s, da, "La tua soffiata su " + su.nome + " non ha colpito: stanotte a " + nomeLuogo(d.luogo) + " non ha fatto affari."); fatto(s, da, { k: "soffiata", testo: "Soffiata a vuoto: " + su.nome + " non era a " + nomeLuogo(d.luogo) + ". I soldi della telefonata sono persi." }); } }
     const riepilogo = {};
     // v126: tutti i movimenti di cassa dell'Alba finiscono nel numero grande (bivi, eventi, sabotaggi...); fuori restano solo sfida e condanna, che hanno la loro scheda
     const cashA = {}, fuori = {}; for (const p of s.players) { cashA[p.id] = p.cash; fuori[p.id] = 0; } s._altroAlba = {};
@@ -6183,7 +6198,9 @@
   // v151 (il Regista): la posta e' una sola, nota fin dall'inizio: il 3% del patrimonio del piu' ricco dei due, al massimo 500.000 €.
   // La crescita conta anche gli sporchi (al 70%): chi fa affari sporchi non perde la sfida per forza.
   const SFIDA = { quota: 0.03, min: 50_000, max: 300_000, sporchi: 0.7, fama: 5, famaPerde: 2, sconto: 0.5, rischio: 1.25 };
-  function valoreSfida(s, p) { return patrimonio(s, p, false) + SFIDA.sporchi * (p.sporchi || 0); }
+  // v166 (Luca): costruire non e' perdere. Un cantiere pagato oggi conta gia' per quello che varra' all'Alba (come lo conta l'Alba).
+  function valoreCantieri(s, p) { let v = 0; for (const l of s.lotti) if (l.owner === p.id && l.cantiere) v += valoreLotto({ ...l, lvl: l.cantiere.lvl }) - valoreLotto(l); return v; }
+  function valoreSfida(s, p) { return patrimonio(s, p, false) + valoreCantieri(s, p) + SFIDA.sporchi * (p.sporchi || 0); }
   function postaDi(sf) { return round(clamp(Math.min(sf.pa || 0, sf.pb || 0) * SFIDA.quota, SFIDA.min, SFIDA.max)); } // v159 (il Regista): 3% del piu' povero dei due, al massimo 300.000 €
   function rivaleDi(s, p) { const sf = (s.sfide || []).find((x) => x.a === p.id || x.b === p.id); return sf ? (sf.a === p.id ? sf.b : sf.a) : null; }
   function albaSfide(s, riepilogo) {
@@ -6629,6 +6646,8 @@
     const len0 = N0 ? (N0.racconto[idGiocatore] || []).length : 0;
     const primaConti = s.players.map((p) => [p.cash || 0, p.sporchi || 0]), ciclo0 = s.ciclo;
     const pA = s.players.find((x) => x.id === idGiocatore), tr0 = pA ? pA.tracce || 0 : 0, st0 = pA ? pA.stato || 0 : 0, fa0 = pA ? pA.fama || 0 : 0;
+    // v166 (Luca): la telefonata non blocca il gioco. Se fai altro, il telefono smette di squillare.
+    if (s.pending && s.pending.tipo === "chiamata" && s.pending.giocatore === idGiocatore && a && a.tipo !== "chiamata" && pA && !pA.bot) { s.pending = null; privato(s, pA, "Non rispondi al numero sconosciuto: smette di squillare."); }
     const r = applica0(s, idGiocatore, a);
     controllaNumeri(s, a);
     try { aggiornaLivelli(s); } catch (e) { /* mai bloccare una mossa per il livello */ }

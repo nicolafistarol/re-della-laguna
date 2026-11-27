@@ -302,3 +302,12 @@ body:has(.scena.albeggia) #panorama{opacity:.15;transition:opacity .6s}
 .ff-scelte button.notte .sub,button.notte .sub{color:#3a3d46!important}
 .ff-scelte button.notte:hover,.ff-scelte button.notte:focus,.ff-scelte button.notte:active{background:#fff!important;color:#121318!important}
 .hud-alto .saldo .tot{white-space:nowrap}
+
+/* v166 (Luca): da telefono. L'ULTIM'ORA e' piu' piccola (due righe), al massimo 2 avvisi, i pulsanti delle finestre sempre visibili */
+@media (max-width:420px){
+  .ultimora{padding:6px 10px 6px 6px;gap:8px;max-width:94vw}
+  .ultimora .uo-testo{font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .ultimora .uo-t{font-size:9px;padding:3px 6px}
+  .velo .fin{max-height:calc(100dvh - 24px);overflow:auto}
+  .velo .fin>.pulsanti:last-child{position:sticky;bottom:-1px;z-index:2;background:linear-gradient(to top,var(--fondo,#0b1120) 70%,transparent);padding-top:12px;margin-bottom:-4px}
+}
