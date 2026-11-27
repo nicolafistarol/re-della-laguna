@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 168;
+  const VERSIONE_REGOLE = 169;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -5735,7 +5735,7 @@
     if (cash0 < importo && importo > 0) {
       const resto = round(importo - pagato), tasso = Math.round(tassoDebito(s, p) * 100);
       p.avvisoDebito = { n: (s.nAvvisi = (s.nAvvisi || 0) + 1), ciclo: s.ciclo + 1, giorno: s.giorno + 1, dovuto: round(importo), contanti: round(Math.max(0, cash0)), venduto, debito: resto, debitoTotale: round(p.debito), tasso, a: a ? a.id : null };
-      privato(s, p, "Non avevi abbastanza contanti per pagare " + euro(importo) + (a ? " a " + a.nome : "") + "." + (venduto > 0 ? " La Banca ha venduto " + euro(venduto) + " delle tue azioni e cripto." : "") + (resto > 0 ? " Il resto (" + euro(resto) + ") è diventato un DEBITO D'EMERGENZA: costa il " + tasso + "% a ogni Alba su tutto il tuo debito (ora " + euro(p.debito) + "), e a ogni Alba la Banca si prende metà dei tuoi contanti finché non è pagato. Restituiscilo dall'app Banca appena puoi." : ""));
+      privato(s, p, "Non avevi abbastanza contanti per pagare " + euro(importo) + (a ? " a " + a.nome : "") + "." + (venduto > 0 ? " La Banca ha venduto " + euro(venduto) + " delle tue azioni e cripto." : "") + (resto > 0 ? (p.rosso ? " Ti mancano " + euro(resto) + ": la Banca li ha anticipati. Non è ancora un debito d'emergenza: copri il buco con i contanti, vendendo, ipotecando o con un prestito normale al " + Math.round(tassoPrestiti(s, p) * 100) + "%. Se scegli il prestito d'emergenza, o se all'Alba il buco è ancora aperto, tutto il tuo debito costa il " + Math.round(N.emergenzaInt * 100) + "% a ogni Alba e la Banca si prende metà dei tuoi contanti." : " Il resto (" + euro(resto) + ") è diventato un DEBITO D'EMERGENZA: costa il " + tasso + "% a ogni Alba su tutto il tuo debito (ora " + euro(p.debito) + "), e a ogni Alba la Banca si prende metà dei tuoi contanti finché non è pagato. Restituiscilo dall'app Banca appena puoi.") : ""));
     }
   }
   function valoreTitoli(s, p) { let v = 0; for (const a of AZIENDE) v += (p.azioni[a] || 0) * s.borsa[a]; for (const m of MONETE) v += (p.cripto[m] || 0) * s.cripto[m]; return v; }
