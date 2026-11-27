@@ -25,7 +25,7 @@
   const GEN = 2;
   // VERSIONE_REGOLE: il numero delle regole (lo stesso di ?v= nella pagina e della finestra "Novita'"). Sta anche nella vista
   // (versioneRegole): se la pagina e' piu' vecchia del motore che ha fatto la vista, chiede di aggiornare.
-  const VERSIONE_REGOLE = 167;
+  const VERSIONE_REGOLE = 168;
   function gen2(s) { return ((s && s.gen) || 1) >= 2; }
 
   // ------------------------------------------------------------ numeri del gioco
@@ -6391,7 +6391,9 @@
       for (const id of altri) { const m = s.players.find((x) => x.id === id); if (m) m.cash += qM; }
       st.tesoroFinale = t0; st.tesoro = 0; if (st.sepolto) st.sepolto = 0;
     }
-    const cl = s.players.map((p) => ({ id: p.id, nome: p.nome, patrimonio: round(patrimonio(s, p, true)), fama: p.fama, arresti: p.arresti, tracce: round(p.tracce), piani: p.piani, riciclTot: p.riciclTot }))
+    // v166 (Luca): accanto al patrimonio, di cosa e' fatto (contanti, immobili, investimenti, debiti, sporchi al 35%, Tesoro della setta)
+    const partiDi = (p) => { const tes = s.sette.reduce((a, st) => a + (spartito[st.id] ? (st.gm === p.id ? spartito[st.id].gm : st.membri.includes(p.id) ? spartito[st.id].membro : 0) : 0), 0); let imm = valorePalazzo(p); for (const l of s.lotti) if (l.owner === p.id) imm += valoreLotto(l) - (l.ipoteca || 0); return { contanti: round(p.cash), setta: round(tes), immobili: round(imm), investimenti: round(valoreInvestimenti(s, p)), debito: round(p.debito || 0), sporchi: round(N.valoreSporchi * (p.sporchi || 0)), sporchiTot: round(p.sporchi || 0) }; };
+    const cl = s.players.map((p) => ({ id: p.id, nome: p.nome, patrimonio: round(patrimonio(s, p, true)), fama: p.fama, arresti: p.arresti, tracce: round(p.tracce), piani: p.piani, riciclTot: p.riciclTot, parti: partiDi(p) }))
       .sort((a, b) => b.patrimonio - a.patrimonio);
     s.motivoFine = s.modoFine === "obiettivo" ? (arrivato ? arrivato.nome : cl[0].nome) + " ha superato i " + euro(s.obiettivo) + "." + (arrivato && arrivato.id !== cl[0].id ? " Ma dopo la Resa dei conti il più ricco è " + cl[0].nome + "." : "") : s.modoFine === "libera" ? "La partita è stata chiusa dopo " + s.ciclo + " Cicli." : "Sono finiti i " + (s.cicli || N.cicli) + " Cicli.";
     const titoli = [];
